@@ -16,6 +16,12 @@ mod imp {
     pub fn read(p: &Path) -> Option<Vec<u8>> {
         std::fs::read(p).ok()
     }
+    pub fn read_head(p: &Path, n: usize) -> Option<Vec<u8>> {
+        use std::io::Read;
+        let mut v = Vec::new();
+        std::fs::File::open(p).ok()?.take(n as u64).read_to_end(&mut v).ok()?;
+        Some(v)
+    }
     pub fn write(p: &Path, data: &[u8]) -> bool {
         if let Some(d) = p.parent().filter(|d| !d.as_os_str().is_empty()) {
             let _ = std::fs::create_dir_all(d);
@@ -101,6 +107,20 @@ mod imp {
 pub fn read_file(path: impl AsRef<Path>) -> Option<Vec<u8>> {
     let p = path.as_ref();
     crate::vfs::read_override(p).or_else(|| imp::read(p))
+}
+
+/// The first `n` bytes of a file (all of it when shorter), through the content packs as [`read_file`]. Natively only those
+/// bytes are read; in a browser the page hands over the whole file, which is in memory there anyway.
+pub fn read_head(path: impl AsRef<Path>, n: usize) -> Option<Vec<u8>> {
+    let p = path.as_ref();
+    #[cfg(not(target_arch = "wasm32"))]
+    let d = crate::vfs::read_override(p).or_else(|| imp::read_head(p, n));
+    #[cfg(target_arch = "wasm32")]
+    let d = read_file(p);
+    d.map(|mut d| {
+        d.truncate(n);
+        d
+    })
 }
 
 /// Reads a file as it is on disk (or in the browser's store), never through the content packs.

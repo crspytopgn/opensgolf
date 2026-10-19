@@ -1207,6 +1207,8 @@ impl Stage {
         // a copy without sounds (empty Sounds and SimsFX folders, as some downloaded copies have) is said as such, not as
         // sounds that "could not be played" (the port's own check, Mixer::shortfall)
         let shortfall = mixer.shortfall().filter(|_| content::has_original(&app.game_dir));
+        // and one whose files are in a coding the port cannot play, as how many and which (Mixer::unplayable)
+        let unplayable = mixer.unplayable().filter(|_| content::has_original(&app.game_dir));
         // (mutable for the no-device note below, which the browser build leaves out)
         #[cfg_attr(target_arch = "wasm32", allow(unused_mut))]
         let mut sound_note = match &shortfall {
@@ -1214,6 +1216,15 @@ impl Stage {
             Some(Shortfall::NoSoundsFolder { voices }) => Some(sg_core::lang::trf("STR_SOUND_ONLY_VOICES", &[("N", &voices.to_string())])),
             _ => None,
         }
+        .or_else(|| {
+            unplayable.as_ref().map(|u| {
+                audio::log(&format!(
+                    "sound: {} of {} of your sound files cannot be played (e.g. {}: {}); the free set's stand in for them",
+                    u.bad, u.of, u.file, u.example
+                ));
+                sg_core::lang::trf("STR_SOUND_UNPLAYABLE", &[("N", &u.bad.to_string()), ("CODEC", &u.example)])
+            })
+        })
         .or_else(|| {
             mixer.check().err().filter(|_| content::has_original(&app.game_dir)).map(|e| {
                 audio::log(&format!("sound: the game's own sounds cannot be played ({e}); playing the free set's sounds"));
@@ -1244,6 +1255,12 @@ impl Stage {
         });
         if let Some(n) = &sound_note {
             audio::log(&format!("sound: {n}"));
+        }
+        // test hook: every clip decoded at start, with the counts and the sound report (sound.txt) at once
+        if std::env::var_os("SG_SOUND_LOAD_ALL").is_some() {
+            let (mine, free) = mixer.load_all();
+            audio::log(&format!("sound: decoded all {} clips: {mine} from your files, {free} the free set's", mine + free));
+            audio::write_report(Some(&mixer), app.mute);
         }
         if mixer.is_empty() {
             eprintln!("sound: {}", mixer.last_error());

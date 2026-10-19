@@ -797,7 +797,9 @@ async function sgUse(entries, skipped = [], stat = {}) {
     }
     // the sound files the player's files held anywhere, used or not
     const found = entries.filter(([p]) => sgIsSound(p)).length + skipped.filter(([n]) => sgIsSound(n)).length;
-    const sum = sgFilesSummary(keep.map(([p]) => p), skipped, found);
+    const bad = sgSoundCodings(keep);
+    if (bad.n) console.warn("files: " + bad.n + " sound files in a coding the game cannot play (e.g. " + bad.example + ")");
+    const sum = sgFilesSummary(keep.map(([p]) => p), skipped, found, bad);
     const how = stat.methods ? Object.entries(stat.methods).map(([m, n]) => n + " " + m).join(", ") : "";
     console.log("files: " + sum.text + (how ? " (zip: " + how + (stat.fallback ? "; " + stat.fallback + " deflated by the page" : "") +
         (stat.crc ? "; " + stat.crc + " with a bad checksum" : "") + ")" : ""));
@@ -1386,7 +1388,7 @@ async function sgInit() {
         document.getElementById("playstored").onclick = () => {
             sgStatus("Starting...");
             for (const [path, bytes] of stored) sgAddFile(path, bytes);
-            const sum = sgFilesSummary(stored.map(([p]) => p));
+            const sum = sgFilesSummary(stored.map(([p]) => p), [], null, sgSoundCodings(stored));
             console.log("files: " + sum.text);
             sgSummary(sum, false);
             sgStart();

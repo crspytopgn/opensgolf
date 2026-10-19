@@ -2323,6 +2323,7 @@ STR_SOUND_CANNOT_PLAY                   :The sounds of your SimGolf copy could n
 STR_SOUND_NONE_IN_COPY                  :Your SimGolf files have no sounds (their Sounds and SimsFX folders are empty: some downloaded copies leave them out). The free OpenSGolf sounds play instead; a full installed copy of the game or the CD has the original's.
 STR_SOUND_ONLY_VOICES                   :Your SimGolf files have no Sounds folder (only the {N} voice clips in SimsFX): the free OpenSGolf sounds play for the rest. A full copy of the game or the CD has the original's.
 STR_SOUND_MISSING                       :{N} of the game's {OF} sounds are not in your SimGolf files (some downloaded copies leave sounds out): the free OpenSGolf sounds play for those.
+STR_SOUND_UNPLAYABLE                    :{N} of your sounds use a format OpenSGolf can't play yet (e.g. {CODEC}): the free OpenSGolf sounds play for those. A copy of the game with its original sounds (the CD, or a full installed copy) plays them all.
 
 # Preferences > Keyboard controls (the port's own screen, keys_ui.rs). STR_KEYS_HEAD_* are the group headings,
 # STR_KEYS_K_* the keys as printed (keep them short: they share a column of about 110 pixels) and the others what the

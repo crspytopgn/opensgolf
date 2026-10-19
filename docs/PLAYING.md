@@ -48,8 +48,11 @@ files are the desktop import's byte for byte. A .dmg gets the message on making 
 with a message (unpack them on a computer first).
 
 **Sounds the copy lacks.** The original's own sound plays wherever the player's copy has the clip; a clip it lacks or
-cannot decode (WAV in PCM, float, A-law, mu-law, MS or IMA ADPCM or MP3, or an .ogg or .mp3 file in its place) is the
-free set's, clip by clip. When the copy has no sounds at all (empty `Sounds` and `SimsFX` folders: some downloaded
+cannot decode (WAV in PCM, float, A-law, mu-law, MS or IMA ADPCM, GSM 6.10, MP2 or MP3, AIFF, or an .ogg, .mp3 or .mp2
+file in its place or under the .wav name) is the free set's, clip by clip; when some of the copy's files are in a coding
+OpenSGolf cannot play (TrueSpeech, WMA...), a box at start and the browser's summary say "N of your sounds use a format
+OpenSGolf can't play yet (e.g. ...)". Test hook: `SG_SOUND_LOAD_ALL=1` decodes every clip at start, logs
+"sound: decoded all N clips: N from your files, N the free set's" and writes the sound report (sound.txt) at once. When the copy has no sounds at all (empty `Sounds` and `SimsFX` folders: some downloaded
 copies leave them out), only the Sims' voices in `SimsFX`, or lacks more than a quarter of the game's sounds, a box says so once
 when the game starts and the ticker on every start (sg_core::mixer `shortfall`; the console or log has a `sound:` line
 with the counts). The browser page also sums up what it found after loading the files, in large type on the start page
