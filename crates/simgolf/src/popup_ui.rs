@@ -165,7 +165,23 @@ pub struct ChoiceBox {
     /// The widest line to size the box for at least (the Enhanced graphics box keeps one size on all its pages; 0 for the
     /// exe's boxes, sized by their own lines).
     pub min_w: f32,
+    /// The port's own box (not one of the exe's): its headings take a dark edge all round (`OWN_EDGE`) instead of the
+    /// exe's one-pixel dark red shadow, which leaves pale yellow or white over the lavender hard to read.
+    pub own: bool,
 }
+
+/// The dark ink of the port's own boxes' parts (the Extras and Enhanced graphics boxes' page shown and banner, the
+/// descriptions at the Extras box's foot): a deep navy of the original's 15-bit palette, in the family of the list box's
+/// dark blue headings (0x46de70), about 6 to 1 against the lavender 0x4e79 and 8 to 1 against the paler blue 0x5ade.
+pub const OWN_INK: u32 = 0x0010;
+/// The port's own hints and notes (the Extras box's foot, the note under Preferences' bug fixes): the options' teal 0x0210
+/// darkened until it reads on the lavender (about 5 to 1; the exe's teal is under 2 to 1).
+pub const OWN_TEAL: u32 = 0x00c6;
+/// The edge round the port's own boxes' headings and the shadow under their other light labels (a near-black navy).
+pub const OWN_EDGE: u32 = 0x0004;
+/// The Extras and Enhanced graphics boxes' pages not shown: a darker shade of their old 0x3dd4, so white labels read
+/// on them (about 7 to 1).
+const TAB_OFF: u32 = 0x2d50;
 
 /// The popup's font: the default font object 0x519928, Manual SSi Bold 20 (0x46d6e0 selects it first).
 pub const CHOICE_FONT: crate::ui::Fnt = crate::ui::F_MANUAL20;
@@ -196,7 +212,7 @@ fn note_font(f: crate::ui::Fnt) -> crate::ui::Fnt {
 
 impl ChoiceBox {
     pub fn new(lines: Vec<String>, cx: f32, top: f32) -> ChoiceBox {
-        ChoiceBox { lines, cx, top, checks: None, disabled: 0, plain: 0, min_w: 0.0 }
+        ChoiceBox { lines, cx, top, checks: None, disabled: 0, plain: 0, min_w: 0.0, own: false }
     }
 
     /// The indexes of the option lines.
@@ -328,12 +344,16 @@ impl App {
             let y = tops[i];
             let Some(k) = opts.iter().position(|&o| o == i) else {
                 if is_note(l) {
-                    // the port's note, in the teal of the Extras box's hints
-                    s.put(g, note_font(f), r.x + 36.0 + f.width(" "), y + tk.round(), &l[1..], c15(0x0210));
+                    // the port's note, in the dark teal of the Extras box's hints
+                    s.put(g, note_font(f), r.x + 36.0 + f.width(" "), y + tk.round(), &l[1..], c15(OWN_TEAL));
                     continue;
                 }
                 let c = if b.checks.is_some() { c15(0x7ff0) } else { white };
-                s.put_shadowed(g, f, cx, y, l, c, true);
+                if b.own {
+                    put_edged(g, s, f, cx, y, l, c);
+                } else {
+                    s.put_shadowed(g, f, cx, y, l, c, true);
+                }
                 continue;
             };
             let x = r.x + 36.0;
@@ -614,6 +634,10 @@ impl Popup {
                 PopupKind::Search => crate::prefs_search::LINE_W,
                 _ => 0.0,
             },
+            own: !matches!(
+                self.kind,
+                PopupKind::Info | PopupKind::System | PopupKind::Prefs | PopupKind::LandOffer | PopupKind::CareerOver | PopupKind::Retire
+            ),
         }
     }
 
@@ -978,7 +1002,7 @@ impl App {
                 let c = c15(fill);
                 crate::glass_ui::capsule(g, s, x, y, pw, h + 2.0, [c[0] * 1.1, c[1] * 1.1, c[2] * 1.1, 1.0]);
                 let lit = p.sel == Some(k);
-                s.put_shadowed(g, pf, x + pw * 0.5, y + 1.0, tr(t.key()), c15(if lit { 0x7fff } else { 0x7bde }), true);
+                put_dark_shadow(g, s, pf, x + pw * 0.5, y + 1.0, tr(t.key()), c15(if lit { 0x7fff } else { 0x7bde }), true);
                 continue;
             }
             s.fill(g, x, y, pw, h, c15(edge));
@@ -989,7 +1013,7 @@ impl App {
             }
             let label = tr(t.key());
             let lit = p.sel == Some(k);
-            s.put_shadowed(g, pf, x + pw * 0.5, y + 1.0, label, c15(if lit { 0x7fff } else { 0x7bde }), true);
+            put_dark_shadow(g, s, pf, x + pw * 0.5, y + 1.0, label, c15(if lit { 0x7fff } else { 0x7bde }), true);
         }
         // the foot: a rule over it, then the text in up to two lines, left of the OK tick
         let n = b.lines.len();
@@ -1007,17 +1031,19 @@ impl App {
             .unwrap_or_else(|| (FOOT_FONTS[1], crate::extras::wrap(FOOT_FONTS[1], text, w)));
         for (i, l) in lines.iter().take(2).enumerate() {
             let y = y0 + 5.0 + i as f32 * f.line();
-            if desc {
-                s.put_shadowed(g, f, r.x + 20.0, y, l, c15(0x7ff0), false);
-            } else {
-                let ink = if self.on_free_set() { crate::glass_ui::INK } else { c15(0x0210) };
-                s.put(g, f, r.x + 20.0, y, l, ink);
-            }
+            // dark ink on the lavender (the port's own: pale yellow and teal read poorly there)
+            let ink = match (self.on_free_set(), desc) {
+                (true, _) => crate::glass_ui::INK,
+                (false, true) => c15(OWN_INK),
+                (false, false) => c15(OWN_TEAL),
+            };
+            s.put(g, f, r.x + 20.0, y, l, ink);
         }
     }
 
-    /// The Enhanced graphics and Extras boxes' tabs (the port's own): the page shown lit white on the box's paler blue, the
-    /// others teal on a darker blue; a tab under the pointer is outlined.
+    /// The Enhanced graphics and Extras boxes' tabs (the port's own): the page shown in dark ink on the box's paler blue,
+    /// the others white over a dark shadow on a darker blue (pale yellow under the pointer); a tab under the pointer is
+    /// outlined.
     fn draw_page_tabs(&self, g: &mut Gfx, s: &Ui, p: &Popup) {
         use crate::info_ui::c15;
         let k = p.choice_box().k();
@@ -1038,7 +1064,7 @@ impl App {
                 if on {
                     s.put(g, f, x, r.y + y5, label, crate::glass_ui::INK);
                 } else {
-                    s.put_shadowed(g, f, x, r.y + y5, label, c15(0x7fff), false);
+                    put_dark_shadow(g, s, f, x, r.y + y5, label, c15(0x7fff), false);
                 }
             }
             return;
@@ -1048,13 +1074,13 @@ impl App {
             let hover = p.tab_hover == Some(page);
             let edge = if on || hover { c15(0x7fff) } else { c15(0x2d6b) };
             s.fill(g, r.x - 1.0, r.y - 1.0, r.w + 2.0, r.h + 2.0, edge);
-            s.fill(g, r.x, r.y, r.w, r.h, if on { c15(0x5ade) } else { c15(0x3dd4) });
+            s.fill(g, r.x, r.y, r.w, r.h, if on { c15(0x5ade) } else { c15(TAB_OFF) });
             let label = p.page_name(page);
             let x = r.x + (r.w - f.width(label)) * 0.5;
             if on {
-                s.put_shadowed(g, f, x, r.y + y5, label, c15(0x7fff), false);
+                s.put(g, f, x, r.y + y5, label, c15(OWN_INK));
             } else {
-                s.put(g, f, x, r.y + y6, label, c15(if hover { 0x7fff } else { 0x0210 }));
+                put_dark_shadow(g, s, f, x, r.y + y6, label, c15(if hover { 0x7ff0 } else { 0x7fff }), false);
             }
         }
     }
@@ -1261,7 +1287,7 @@ impl App {
 }
 
 /// The banner of the Enhanced graphics and Extras boxes (the port's own): a band under the tabs in the shown tab's paler
-/// blue and white edge, as if the page hung from it, with the page's meaning centred in white over the original's shadow.
+/// blue and white edge, as if the page hung from it, with the page's meaning centred in the shown tab's dark ink.
 fn draw_banner(g: &mut Gfx, s: &Ui, b: &ChoiceBox, text: &str, free: bool, head: usize) {
     use crate::info_ui::c15;
     let r = b.rect();
@@ -1272,13 +1298,35 @@ fn draw_banner(g: &mut Gfx, s: &Ui, b: &ChoiceBox, text: &str, free: bool, head:
     let (f, h, ty) = (crate::textsize::fit(BANNER_FONT, k, text, x1 - x0 - 8.0), (26.0 * k).round(), (3.0 * k).round());
     if free {
         // a ribbon across the box
-        crate::glass_ui::capsule(g, s, x0, y - 1.0, x1 - x0, h + 2.0, [0.2, 0.62, 0.42, 1.0]);
-        s.put_shadowed(g, f, (x0 + x1) * 0.5, y + ty, text, c15(0x7fff), true);
+        crate::glass_ui::capsule(g, s, x0, y - 1.0, x1 - x0, h + 2.0, [0.12, 0.46, 0.3, 1.0]);
+        put_dark_shadow(g, s, f, (x0 + x1) * 0.5, y + ty, text, c15(0x7fff), true);
         return;
     }
     s.fill(g, x0 - 1.0, y - 1.0, x1 - x0 + 2.0, h + 2.0, c15(0x7fff));
     s.fill(g, x0, y, x1 - x0, h, c15(0x5ade));
-    s.put_shadowed(g, f, (x0 + x1) * 0.5, y + ty, text, c15(0x7fff), true);
+    s.put_centered(g, f, (x0 + x1) * 0.5, y + ty, text, c15(OWN_INK));
+}
+
+/// A light label of the port's own over a dark shadow one pixel below and right (`OWN_EDGE`; the exe's shadowed calls use
+/// a dark red one pixel below, too faint to carry pale text on the port's mid-tone tabs and pills).
+#[allow(clippy::too_many_arguments)]
+fn put_dark_shadow(g: &mut Gfx, s: &Ui, f: crate::ui::Fnt, x: f32, y: f32, t: &str, c: [f32; 4], centred: bool) {
+    let x = if centred { x - (f.width(t) / 2.0).floor() } else { x };
+    let e = crate::info_ui::c15(OWN_EDGE);
+    s.put(g, f, x + 1.0, y + 1.0, t, e);
+    s.put(g, f, x, y + 1.0, t, e);
+    s.put(g, f, x, y, t, c);
+}
+
+/// A heading of the port's own boxes, centred on x: the exe's colour inside a dark edge one pixel all round (`OWN_EDGE`),
+/// so pale yellow and white read on the lavender.
+fn put_edged(g: &mut Gfx, s: &Ui, f: crate::ui::Fnt, cx: f32, y: f32, t: &str, c: [f32; 4]) {
+    let x = cx - (f.width(t) / 2.0).floor();
+    let e = crate::info_ui::c15(OWN_EDGE);
+    for (dx, dy) in [(-1.0, -1.0), (0.0, -1.0), (1.0, -1.0), (-1.0, 0.0), (1.0, 0.0), (-1.0, 1.0), (0.0, 1.0), (1.0, 1.0), (0.0, 2.0)] {
+        s.put(g, f, x + dx, y + dy, t, e);
+    }
+    s.put(g, f, x, y, t, c);
 }
 
 impl App {
@@ -1392,6 +1440,38 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// WCAG contrast ratio of two 15-bit colours as the port shows them (`info_ui::c15`).
+    fn contrast(a: u32, b: u32) -> f32 {
+        let lum = |v: u32| {
+            let c = crate::info_ui::c15(v);
+            let lin = |x: f32| if x <= 0.03928 { x / 12.92 } else { ((x + 0.055) / 1.055).powf(2.4) };
+            0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2])
+        };
+        let (x, y) = (lum(a), lum(b));
+        (x.max(y) + 0.05) / (x.min(y) + 0.05)
+    }
+
+    #[test]
+    fn the_ports_own_labels_read_on_their_grounds() {
+        // dark ink on the lavender fill and on the page shown and banner
+        assert!(contrast(OWN_INK, 0x4e79) >= 4.5);
+        assert!(contrast(OWN_INK, 0x5ade) >= 4.5);
+        assert!(contrast(OWN_TEAL, 0x4e79) >= 4.5);
+        // white labels on the other tabs and on the tag pills
+        assert!(contrast(0x7fff, TAB_OFF) >= 4.5);
+        assert!(contrast(0x7ff0, TAB_OFF) >= 4.5);
+        for t in [
+            crate::extras_ui::Tag::Light,
+            crate::extras_ui::Tag::Noticeable,
+            crate::extras_ui::Tag::Big,
+            crate::extras_ui::Tag::Experimental,
+        ] {
+            assert!(contrast(0x7bde, t.colours().0) >= 4.5, "{t:?}");
+        }
+        // what was there before: the exe's teal on the old tab and the white banner on the paler blue
+        assert!(contrast(0x0210, 0x3dd4) < 2.0 && contrast(0x7fff, 0x5ade) < 2.5);
+    }
 
     #[test]
     fn bigger_text_grows_the_box_and_keeps_it_on_the_screen() {
