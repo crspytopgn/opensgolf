@@ -179,6 +179,10 @@ struct Options {
     save_scenario: Option<String>,
 }
 
+/// Drawable pixels (at a dpi scale of 1) the pointer must go from where the right button went down before the Right-drag
+/// panning extra takes it for a drag (the port's own).
+const RIGHT_DRAG_SLOP: f32 = 5.0;
+
 const USAGE: &str = "usage: opensgolf [--game DIR] [--theme T] [--seed N] [--size WxH] [--zoom Z] [--rot DEG] [--center TX,TY] [--png FILE] \
 [--time S] [--follow] [--golfer NAME] [--sandbox] [--course-size N] [--cash N] [--difficulty 0-3] [--screen menu|property|play|report] [--course FILE] [--save FILE] \
 [--edit SPEC] [--panel N] [--mute] [--sound-log] [--clock MS] [--property N|NAME] [--hd | --classic] [--hd-pack DIR] \
@@ -372,6 +376,9 @@ struct Stage {
     alt: bool,
     /// The mouse button held down was a Ctrl+click, taken as a right-click (its release is a right one too).
     ctrl_click: bool,
+    /// The right button is down on the course with the Right-drag panning extra on (OpenSGolf extras): where it went down
+    /// and whether the pointer has since moved far enough to make it a drag.
+    right_down: Option<(f32, f32, bool)>,
     /// A key just opened a name box (Shift+S the Save dialog): the character that key types comes next and is not the
     /// name's (it put an "S" in front of every typed save name).
     swallow_char: bool,
@@ -453,6 +460,14 @@ fn open_screen(app: &mut App, screen: Option<&str>) {
         }
         Some("report") if app.ui_ok => app.screen = Screen::Report,
         Some("pair") if app.ui_ok => app.screen = Screen::Pair,
+        // the title's new-game chooser after a game has been played (#66: nothing played before is locked there)
+        Some("property") if app.ui_ok => {
+            app.world_move = false;
+            app.deal_offer(app.sandbox_choice);
+            app.screen = Screen::Property;
+        }
+        // F6's world map, moving the club (the properties bought in this game show "Already purchased")
+        Some("world") if app.ui_ok => app.open_world_map(),
         // the great-shot SimFoto (0x407e00) of the player's pro, or of the first golfer on screen with the partner
         Some("greatshot") => app.test_great_shot = true,
         Some("board") if app.ui_ok => {
@@ -848,8 +863,12 @@ fn apply_edit_spec(app: &mut App, spec: &str) {
                 app.dirty = true;
             }
             b't' if item.len() > 2 && v.len() >= 3 => {
-                // paint one tile through the hole tool (type 0 tee, 1 green)
+                // paint one tile through the hole tool (type 0 tee, 1 green); t:x,y,type,V with the brush's variant V
+                // (the times Tab was pressed: an odd V is the tricky green)
                 app.paint_idx = PAINT.iter().position(|p| p.ty == at(2)).unwrap_or(app.paint_idx);
+                if v.len() >= 4 {
+                    app.paint_variant = Some((app.paint_idx, at(3)));
+                }
                 let r = std::mem::replace(&mut app.brush, 0);
                 app.sync_course();
                 app.edit_paint(at(0), at(1));
@@ -1207,6 +1226,8 @@ impl Stage {
         // a copy without sounds (empty Sounds and SimsFX folders, as some downloaded copies have) is said as such, not as
         // sounds that "could not be played" (the port's own check, Mixer::shortfall)
         let shortfall = mixer.shortfall().filter(|_| content::has_original(&app.game_dir));
+        // and one whose files are in a coding the port cannot play, as how many and which (Mixer::unplayable)
+        let unplayable = mixer.unplayable().filter(|_| content::has_original(&app.game_dir));
         // (mutable for the no-device note below, which the browser build leaves out)
         #[cfg_attr(target_arch = "wasm32", allow(unused_mut))]
         let mut sound_note = match &shortfall {
@@ -1214,6 +1235,15 @@ impl Stage {
             Some(Shortfall::NoSoundsFolder { voices }) => Some(sg_core::lang::trf("STR_SOUND_ONLY_VOICES", &[("N", &voices.to_string())])),
             _ => None,
         }
+        .or_else(|| {
+            unplayable.as_ref().map(|u| {
+                audio::log(&format!(
+                    "sound: {} of {} of your sound files cannot be played (e.g. {}: {}); the free set's stand in for them",
+                    u.bad, u.of, u.file, u.example
+                ));
+                sg_core::lang::trf("STR_SOUND_UNPLAYABLE", &[("N", &u.bad.to_string()), ("CODEC", &u.example)])
+            })
+        })
         .or_else(|| {
             mixer.check().err().filter(|_| content::has_original(&app.game_dir)).map(|e| {
                 audio::log(&format!("sound: the game's own sounds cannot be played ({e}); playing the free set's sounds"));
@@ -1244,6 +1274,12 @@ impl Stage {
         });
         if let Some(n) = &sound_note {
             audio::log(&format!("sound: {n}"));
+        }
+        // test hook: every clip decoded at start, with the counts and the sound report (sound.txt) at once
+        if std::env::var_os("SG_SOUND_LOAD_ALL").is_some() {
+            let (mine, free) = mixer.load_all();
+            audio::log(&format!("sound: decoded all {} clips: {mine} from your files, {free} the free set's", mine + free));
+            audio::write_report(Some(&mixer), app.mute);
         }
         if mixer.is_empty() {
             eprintln!("sound: {}", mixer.last_error());
@@ -1540,6 +1576,7 @@ impl Stage {
             frames: 0,
             editing: false,
             dragging: false,
+            right_down: None,
             touch: Default::default(),
             paused_total: 0.0,
             pause_start: 0.0,
@@ -1798,6 +1835,42 @@ impl Stage {
         self.app.report_course(true);
         if self.app.ui_ok && self.app.report_art.tex.is_some() {
             self.app.screen = Screen::Report;
+        }
+    }
+
+    /// A right click on the course (drawable pixels), as the exe's main frame takes it (0x41e4be..0x41f29d, read from the
+    /// machine code): with an elevation tool it is the - key (0x2d, lowering the ground) or with Analyze Golf Shot the /
+    /// key (0x2f); with a building or amenity tool (0x4c2854, the port's path and building tools), a message showing
+    /// (0x569498), a golfer chosen (0x53df54, the golfer card) or an employee being moved (0x4c2e10) it only puts those
+    /// away; otherwise it is the undo's: the first right click on a tile names what an undo there would do, the second
+    /// undoes it (App::right_click_undo). A terrain brush and the Undo button's undo mode stay in hand.
+    fn right_click(&mut self, x: f32, y: f32) {
+        let hit = self.app.pick_ground(x, y);
+        let app = &mut self.app;
+        if app.edit && app.tool == 1 {
+            if app.pstate.elev_tool == 3 {
+                app.start_analysis(None, true);
+            } else if let Some((hx, hz)) = hit {
+                let (a, b) = app.terrain.corner_of(hx, hz);
+                app.undo_press();
+                app.edit_elevation(a, b, -1);
+                app.undo_release();
+            }
+            return;
+        }
+        let building = app.edit && matches!(app.tool, 2 | 4);
+        if building || app.ticker.showing || app.card.is_some() || app.moving_employee.is_some() {
+            if building {
+                app.edit = false;
+            }
+            app.ticker.showing = false;
+            app.card = None;
+            app.moving_employee = None;
+            return;
+        }
+        if let Some((hx, hz)) = hit {
+            let (a, b) = app.terrain.tile_of(hx, hz);
+            app.right_click_undo(a, b);
         }
     }
 
@@ -2971,6 +3044,20 @@ impl EventHandler for Stage {
             }
             self.app.apply_tool(self.shift, true);
         } else if self.dragging {
+            // the Right-drag panning extra: the course moves once the pointer has gone a few pixels from where the right
+            // button went down (a right click that stays put is the original's, on release)
+            let (mut dx, mut dy) = (dx, dy);
+            if let Some((px, py, moved)) = self.right_down.as_mut() {
+                if !*moved {
+                    if (x - *px).hypot(y - *py) < RIGHT_DRAG_SLOP * self.app.dpi.max(1.0) {
+                        return;
+                    }
+                    *moved = true;
+                    (dx, dy) = (x - *px, y - *py);
+                    // a drag of the view ends People > Follow
+                    self.app.xs.follow = None;
+                }
+            }
             let k = self.app.upp; // drawable pixels -> world units
             let sin_p = (pitch_for(self.app.draw_w, self.app.draw_h).to_radians()).sin() as f32;
             self.app.drag_pan(-dx * k, dy * k / sin_p, now());
@@ -3226,6 +3313,19 @@ impl EventHandler for Stage {
             self.app.aim_click();
             return;
         }
+        // a right click on the course is the original's (right_click); with the Right-drag panning extra (OpenSGolf
+        // extras) a drag with the right button moves the course instead, and a right click that stays put is the
+        // original's when the button comes up. Up to 0.4.7 every right press here panned and nothing else (issue #67).
+        if button == MouseButton::Right {
+            if extras::right_drag() {
+                self.right_down = Some((x, y, false));
+                self.dragging = true;
+                self.app.drag_state(true, now());
+            } else {
+                self.right_click(x, y);
+            }
+            return;
+        }
         // the port's own undo: the game as it is before a click on the course (undo.rs)
         if button == MouseButton::Left && self.app.screen == Screen::Play && self.app.edit {
             self.app.undo_press();
@@ -3265,6 +3365,17 @@ impl EventHandler for Stage {
         if self.app.photo.is_some() {
             self.photo_button(false, button, x, y);
             return;
+        }
+        // the Right-drag panning extra: a right button that did not drag is the original's right click
+        if button == MouseButton::Right {
+            if let Some((px, py, moved)) = self.right_down.take() {
+                self.app.drag_state(false, now());
+                self.dragging = false;
+                if !moved {
+                    self.right_click(px, py);
+                }
+                return;
+            }
         }
         // a rectangle or row under way ends with the left button only; it is painted or placed before the undo step is kept
         if button != MouseButton::Left && (self.app.bt.rect_from.is_some() || self.app.bt.row_from.is_some()) {

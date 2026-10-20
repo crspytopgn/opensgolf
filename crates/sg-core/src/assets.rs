@@ -391,16 +391,56 @@ pub fn decode_wav(d: &[u8]) -> Result<Wav, String> {
     crate::wav::decode(d)
 }
 
-/// A sound: a PCM WAV, or an OGG Vorbis file (a content pack's replacement for a WAV) decoded to 16-bit PCM.
+/// A bare MPEG audio stream (an ID3 tag, or an MPEG frame's sync bits): an .mp3 or .mp2, or a .wav that is one.
+fn is_mpeg(d: &[u8]) -> bool {
+    d.len() >= 4 && (&d[0..3] == b"ID3" || (d[0] == 0xff && d[1] & 0xe0 == 0xe0))
+}
+
+/// A sound: a WAV of any common coding (crate::wav), an OGG Vorbis file (a content pack's replacement for a WAV) or a
+/// bare MP3 or MP2, told apart by their bytes, whatever the file is called (copies repacked to save space), decoded to
+/// 8- or 16-bit PCM.
 pub fn decode_sound(d: &[u8]) -> Result<Wav, String> {
     if d.len() >= 4 && &d[0..4] == b"OggS" {
         return decode_ogg(d);
     }
-    // a bare MP3 (an ID3 tag, or an MPEG frame's sync bits), whatever the file is called: copies repacked to save space
-    if d.len() >= 4 && (&d[0..3] == b"ID3" || (d[0] == 0xff && d[1] & 0xe0 == 0xe0)) {
+    if is_mpeg(d) {
         return crate::wav::mp3(d);
     }
     decode_wav(d)
+}
+
+/// Whether [`decode_sound`] plays a sound, from the first few kilobytes of its file (headers only): Err names its
+/// coding when it does not ("GSM 6.10", "DSP Group TrueSpeech", "Opus"...).
+pub fn probe_sound(d: &[u8]) -> Result<(), String> {
+    if d.len() >= 4 && &d[0..4] == b"OggS" {
+        // the first page holds the codec's identification header
+        let head = &d[..d.len().min(256)];
+        let has = |m: &[u8]| head.windows(m.len()).any(|w| w == m);
+        return if has(b"\x01vorbis") {
+            Ok(())
+        } else if has(b"OpusHead") {
+            Err("Opus".into())
+        } else if has(b"Speex") {
+            Err("Speex".into())
+        } else if has(b"FLAC") {
+            Err("FLAC".into())
+        } else {
+            Err("an OGG file that is not Vorbis".into())
+        };
+    }
+    if is_mpeg(d) {
+        return Ok(());
+    }
+    if d.len() >= 4 && &d[0..4] == b"fLaC" {
+        return Err("FLAC".into());
+    }
+    if d.len() >= 12 && &d[4..8] == b"ftyp" {
+        return Err("AAC/M4A".into());
+    }
+    if d.len() >= 4 && matches!(&d[0..4], b"RIFF" | b"RIFX" | b"RF64" | b"FORM") {
+        return crate::wav::probe(d);
+    }
+    Err("not a WAV, AIFF, MP3 or OGG file".into())
 }
 
 /// An OGG Vorbis file decoded to interleaved 16-bit PCM (mono or stereo).

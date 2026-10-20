@@ -117,8 +117,9 @@ const PAGE_LINES: [&[ExtrasLine]; 5] = {
         // People, history, name tags, report tabs, path help, landing map, comments by hole, graphs, live scorecards, the
         // year in numbers, home-site details
         &[U(0), U(1), U(2), U(3), U(4), U(10), U(11), U(13), U(16), U(18), U(19)],
-        // autosave, save pictures, sharing, the two pauses, update check, zoom towards the pointer, drag to place, ticker
-        &[U(5), U(6), U(7), U(8), U(9), U(12), U(14), U(15), U(17)],
+        // autosave, save pictures, sharing, the two pauses, update check, zoom towards the pointer, drag to place, ticker,
+        // right-drag panning, random trees
+        &[U(5), U(6), U(7), U(8), U(9), U(12), U(14), U(15), U(17), U(20), U(21)],
     ]
 };
 
@@ -184,6 +185,8 @@ const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_TICKER_JUMP",
     "STR_EXTRAS_DESC_YEAR_SUMMARY",
     "STR_EXTRAS_DESC_HOME_DETAILS",
+    "STR_EXTRAS_DESC_RIGHT_DRAG",
+    "STR_EXTRAS_DESC_RANDOM_TREES",
 ];
 
 /// A line's description (what ticking it changes).

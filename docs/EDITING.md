@@ -6,7 +6,8 @@ Press Tab in the game to toggle edit mode (the active tool is shown under the cl
 |---|---|
 | Left click / drag | apply the tool |
 | Shift + left | lower terrain (Raise tool) |
-| Right drag | pan |
+| Right click | the original's: put a building tool or message away, else name the undo of the tile; again on it undoes |
+| Middle drag | pan (right drag with the Right-drag panning extra) |
 | Z / X | zoom in / out (the original's keys; + and - and the wheel also zoom outside edit mode) |
 | F, G, R, S, W, P | edit mode, the original's terrain hotkeys: fairway, green (press again for tee), rough, sandtrap, water, pathway |
 | = and - | edit mode: raise / lower terrain (the original's keys; shift flips) |

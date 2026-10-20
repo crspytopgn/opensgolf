@@ -460,7 +460,12 @@ fn paint(kind: Kind, th: &Theme, x: f32, y: f32, seed: u32, set: u32, var: u32) 
             let d1 = ((x + y) / N as f32 * 4.0 * std::f32::consts::PI).sin();
             let d2 = ((x - y) / N as f32 * 4.0 * std::f32::consts::PI).sin();
             let (c, h) = turf(x, y, shade(th.green, -0.02 - set as f32 * 0.02), 0, 0.0, seed);
-            (shade(c, (smooth(-0.3, 0.3, d1) + smooth(-0.3, 0.3, d2) - 1.0) * 0.045), h * 0.3 + 0.35)
+            // and rolls in the putting surface, lit from one side, as the original's TrickyGreen pictures show its
+            // undulations (so a tricky green reads as one from a plain green at a glance)
+            let roll = |x: f32, y: f32| fbm(x, y, 3, 2, seed ^ 0x7c1);
+            let slope = roll(x + 3.0, y + 3.0) - roll(x - 3.0, y - 3.0);
+            let lit = (slope * 2.2).clamp(-1.0, 1.0) * 0.11 + roll(x, y) * 0.03;
+            (shade(c, (smooth(-0.3, 0.3, d1) + smooth(-0.3, 0.3, d2) - 1.0) * 0.03 + lit), h * 0.3 + 0.35 + roll(x, y) * 0.1)
         }
         Kind::Tee => {
             // tees use their number as a look: stripes one way or the other, slightly lighter or darker

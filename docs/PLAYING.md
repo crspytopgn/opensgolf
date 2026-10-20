@@ -48,13 +48,16 @@ files are the desktop import's byte for byte. A .dmg gets the message on making 
 with a message (unpack them on a computer first).
 
 **Sounds the copy lacks.** The original's own sound plays wherever the player's copy has the clip; a clip it lacks or
-cannot decode (WAV in PCM, float, A-law, mu-law, MS or IMA ADPCM or MP3, or an .ogg or .mp3 file in its place) is the
-free set's, clip by clip. When the copy has no sounds at all (empty `Sounds` and `SimsFX` folders: some downloaded
+cannot decode (WAV in PCM, float, A-law, mu-law, MS or IMA ADPCM, GSM 6.10, MP2 or MP3, AIFF, or an .ogg, .mp3 or .mp2
+file in its place or under the .wav name) is the free set's, clip by clip; when some of the copy's files are in a coding
+OpenSGolf cannot play (TrueSpeech, WMA...), a box at start and the browser's summary say "N of your sounds use a format
+OpenSGolf can't play yet (e.g. ...)". Test hook: `SG_SOUND_LOAD_ALL=1` decodes every clip at start, logs
+"sound: decoded all N clips: N from your files, N the free set's" and writes the sound report (sound.txt) at once. When the copy has no sounds at all (empty `Sounds` and `SimsFX` folders: some downloaded
 copies leave them out), only the Sims' voices in `SimsFX`, or lacks more than a quarter of the game's sounds, a box says so once
 when the game starts and the ticker on every start (sg_core::mixer `shortfall`; the console or log has a `sound:` line
 with the counts). The browser page also sums up what it found after loading the files, in large type on the start page
 (and again there on the next visit, as "Last time: ...") and over the game once (20 seconds, or until tapped when
-something is missing): "OpenSGolf 0.4.7. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
+something is missing): "OpenSGolf 0.4.8. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
 big). Art ✓, music: N, Sims' voices: N." The console's `files:` line adds the compression methods the zip used.
 Deflate64 (Windows' own zipper, for big files such as the sounds), BZip2, LZMA and PPMd (7-Zip's, Keka's and The
 Unarchiver's stronger settings), which iPad's Files app cannot unpack (it shows such folders empty), are read by the
@@ -93,19 +96,34 @@ GitHub for OpenSGolf's newest release and says whether you have it. When a newer
   the box then says why and offers the download page. Anything else that goes wrong (no internet, a folder the game may
   not write to such as `/Applications` for a standard user, a copy not installed from a release package) leaves your
   version as it was and offers the download page too.
+  **Only what changed** (the port's own, GitHub issue #65): on Windows and with the Linux `.tar.gz` the game first
+  compares its `packs` folder with the new release's signed list of pack files (`opensgolf-packs.sha256`), then
+  downloads the release's program-only package (`opensgolf-windows-bin.zip`, `opensgolf-linux-x86_64-bin.tar.gz`, ...:
+  the programs, `lang` and the documents, without `packs`) and only the pack files that differ, each checked against
+  the signed list. When nothing in `packs` changed, `packs` is not touched at all. When more than a quarter of the pack
+  files changed, or the release has no such files, or any of it fails, the whole package is downloaded as before. The
+  AppImage, the Mac's `OpenSGolf.app` (a signed app is replaced whole) and Android always take the whole package. Your
+  saves, settings and SimGolf files are never touched: they are not in the game's folder.
 - **Open the download page**: the release page (https://github.com/crspytopgn/opensgolf/releases/latest) in the system's
   browser, to download and install it as the first time.
 - **Not now**.
 
 Privacy: only GitHub is contacted, and only when you click the button (or with the *Check for updates when the game
 starts* extra ticked, once at start): one request to `api.github.com` for the newest release, and with Update now the
-downloads of `SHA256SUMS`, its signature and the package from GitHub's release files. GitHub sees your IP address and
+downloads of `SHA256SUMS`, its signature and the package from GitHub's release files (for an update of only what
+changed, also the pack file list and the changed pack files from `raw.githubusercontent.com`). When the game's own HTTPS
+client cannot connect (an antivirus that scans HTTPS or a company proxy, whose certificate only the system knows), it
+tries once more with the system's `curl` (in Windows 10 and later, macOS and Linux); without curl the first error stands.
+No internet or GitHub's limit of 60 requests an hour is one line in the log for the check at start, and a short message
+for a click on the button. GitHub sees your IP address and
 `OpenSGolf/<version>` as the program asking, as for any web page; nothing about you or your games is sent. The browser
 version is always the newest, so it has no such button, nor has a build without the `net` feature. Test hooks:
 `SG_UPDATE_URL=file:///path/latest.json` checks at start against a saved answer (`{"tag_name":"v0.4.0"}`, with an
 `assets` list of `name` and `browser_download_url` for Update now; `file://` and local `http://` addresses work) instead
 of GitHub; `SG_UPDATE_KEY=HEX` checks signatures against that public key instead of the built-in one; `SG_UPDATE_NOW=1`
-chooses Update now as soon as a newer version is found.
+chooses Update now as soon as a newer version is found; `SG_UPDATE_RAW=file:///dir` fetches the changed pack files of
+an update of only what changed from `dir/packs/...` instead of the release's tag on GitHub (with a saved answer listing
+local `-bin` packages, `opensgolf-packs.sha256`, `SHA256SUMS` and a signature made with `sgtool update-sign`).
 
 For scripted runs (any of `--png`, `--course`, `--edit`, `--golfer`, `--sandbox`, `--follow`) the game skips the menu and opens on the demo course; `--screen menu|property|play` forces a screen. Add `--theme Desert` for another look there. `--property NAME` (or 0..15) starts a new game on that property straight away, and `--clock MS` fixes the value the exe's random generator is seeded from, so the same land comes back every run.
 
@@ -117,7 +135,7 @@ For scripted runs (any of `--png`, `--course`, `--edit`, `--golfer`, `--sandbox`
 
 - **Course Report:** press F1 on the course. It uses the disc's report art and lists every hole: yards, par, average strokes, time, fun, the +Len/+Acc/+Img scores (measured by simulating golfers with and without each skill, as the original's Shot Analysis suggests), type, average fee, revenue and profit. Yards, minutes and the profit split are placeholder scales. Esc, F1 or a click closes it. `--screen report` opens it directly.
 
-Saving: Shift+S (or System Functions, Save the current game) opens the Save dialog ("SAVE GAME, edit name then press Enter"): Enter saves the whole game (land, golfers, holes, staff, money, calendar, theme pack and the random generator, so it continues exactly) to `Saved Games/<name>.sgs` in the save folder and shows "Game Saved"; Esc cancels. Shift+L (or Load a previous game) opens Load Previous Game over the game, whose arrow goes back to it. Test hooks: `--screen load|save|themes|credits|champ|pickapro` opens these screens (with `--property` the load and save screens open over a game), `SG_HOVER=n` lights button n (0 OK, 1 back, 2 up, 3 down, 4 delete) with its tooltip, `SG_SELECT=r` selects row r and `SG_CONFIRM=1` opens the delete box. Test hooks: `--save-game F` saves after the `--time` simulation, `--load-game F` starts from a saved game. `--cash N` sets the starting cash, `--time S` simulates S seconds before taking `--png`, `--edit "t:x,y,type;o"` paints one tile through the hole tool (type 0 tee, 1 green) and opens the hole being built, `--edit "e:x,y,n,r"` raises (or with a negative n lowers) every vertex of the square of side 2r + 1 round vertex x,y by n steps (stills of steps and retaining walls).
+Saving: Shift+S (or System Functions, Save the current game) opens the Save dialog ("SAVE GAME, edit name then press Enter"): Enter saves the whole game (land, golfers, holes, staff, money, calendar, theme pack and the random generator, so it continues exactly) to `Saved Games/<name>.sgs` in the save folder and shows "Game Saved"; Esc cancels. Shift+L (or Load a previous game) opens Load Previous Game over the game, whose arrow goes back to it. Test hooks: `--screen load|save|themes|credits|champ|pickapro` opens these screens (with `--property` the load and save screens open over a game), `SG_HOVER=n` lights button n (0 OK, 1 back, 2 up, 3 down, 4 delete) with its tooltip, `SG_SELECT=r` selects row r and `SG_CONFIRM=1` opens the delete box. Test hooks: `--save-game F` saves after the `--time` simulation, `--load-game F` starts from a saved game. `--cash N` sets the starting cash, `--time S` simulates S seconds before taking `--png`, `--edit "t:x,y,type[,V];o"` paints one tile through the hole tool (type 0 tee, 1 green; V the brush's variant, the times Tab was pressed, so `t:x,y,1,1` lays a tricky green) and opens the hole being built, `--edit "e:x,y,n,r"` raises (or with a negative n lowers) every vertex of the square of side 2r + 1 round vertex x,y by n steps (stills of steps and retaining walls).
 
 ## Saved games: where they are, backups and imports
 
@@ -758,6 +776,15 @@ The port's own camera helpers (crates/simgolf/src/views.rs); nothing changes unt
   camera it coasts on when let go).
 - **Zoom towards the pointer**: an OpenSGolf extra (Preferences, *OpenSGolf extras...*, Helpers page), off by default:
   see *OpenSGolf extras* above.
+- **The right button** is the original's: on the course a right click with a building, path or amenity tool in hand,
+  a message showing, a golfer's card open or an employee being moved only puts that away; with an elevation tool it
+  lowers the ground (the - key; with Analyze Golf Shot it is the / key); otherwise the first right click on a tile names
+  in green over it what an undo there would do ("Reset to rough", "Remove Path", "Demolish Snack Bar") and a second right
+  click on the same tile undoes it, money back as the Undo button's tool gives it (a terrain brush and the Undo tool stay
+  in hand). OpenSGolf up to 0.4.7 dragged the course with the right button instead and had no right-click undo (issue
+  #67); that drag is now the **Right-drag panning** extra (Helpers page, off by default, and off for settings saved by
+  0.4.7): with it on, a drag with the right button moves the course and a right click that does not move (less than 5
+  pixels) does the original's on release. The middle button and the arrow keys always move the course.
 
 **Ctrl+Z** (Cmd+Z on a Mac) undoes the last click or drag with a building or terrain tool that changed the course:
 terrain, paths, holes, buildings and garden items. The whole game goes back to just before it, money included, as if that moment had been saved and loaded.
@@ -790,6 +817,22 @@ greens), tiles already of that type are free, and when the money runs out the re
 Test hooks: `SG_TAPE="x0,y0,x1,y1"` (tiles, fractions allowed) sets a tape down; `SG_AREA="r,x,y"` holds a rectangle from
 tile x,y to the pointer (`SG_CURSOR_TILE`) and `SG_AREA=f` holds Alt (with `SG_PAINT=type`, for stills of the previews);
 `--edit "B:x0,y0,x1,y1,type"` paints a rectangle and `--edit "L:x,y,type"` fills, printing the tiles, the cost and the cash.
+
+### Random trees
+
+An OpenSGolf extra (Preferences, *OpenSGolf extras...*, Helpers page), off by default and left out of the one-click
+extras; ticks saved before it read as off. In the original a tree brush keeps one look while it is in hand (picked at
+random when you pick the brush, Tab steps it) and the scenic tree tool one of its seven trees until you choose another.
+With **Random trees** on, every tree the woods, pine and palm brushes plant, by a click, a painted stroke, a rectangle or
+a fill, takes a random look of its kind (the small, medium or large tree, and for pines either species), and every scenic
+tree placed a random one of the seven (plum, dogwood, elm, Japanese maple, cypress, scenic tree, peach), so a stand of
+trees no longer looks planted in rows. The see-through tree under the pointer, and for scenic trees the lit picture in
+the strip, show the look the next one will take; Tab and the strip still choose it by hand. Only the tile's own variant
+byte changes, which the original already keeps and saves for every planted tree, so saves are as before and the trees
+look the same in the original. The facing cannot be chosen: the original turns each tree by the place of its tile, and
+nothing kept for a tile holds a facing. With the extra off the brushes plant exactly as the original's. Test hook: with
+it ticked, `--edit "B:x0,y0,x1,y1,14"` plants a rectangle of pines (13 broadleaf trees, 15 palms) and
+`--edit "W:x0,y0,x1,y1,16"` a row of scenic trees.
 
 On Windows, macOS and Linux, **F11** or **Alt+Enter** switches between a window and full screen (in the browser, use the
 browser's own full screen, F11).
@@ -842,9 +885,9 @@ changed every key does what it did before.
   shot and the draw.
 * **Original and Modern controls** (two buttons under the list on Change keys; nothing changes until one is clicked, and
   the one in use is lit yellow). *Original controls* puts every key back to the original's and turns the WASD camera,
-  *Zoom towards the pointer*, *Drag to place* and Enhanced graphics' *Smooth camera* tick off. *Modern controls* puts
-  every key back to its default with the WASD camera on, and turns *Zoom towards the pointer* and *Drag to place* (both
-  OpenSGolf extras, Helpers page) and the *Smooth camera* tick (which counts only while Enhanced graphics is on: the
+  *Zoom towards the pointer*, *Drag to place*, *Right-drag panning* and Enhanced graphics' *Smooth camera* tick off. *Modern controls* puts
+  every key back to its default with the WASD camera on, and turns *Zoom towards the pointer*, *Drag to place* and
+  *Right-drag panning* (OpenSGolf extras, Helpers page) and the *Smooth camera* tick (which counts only while Enhanced graphics is on: the
   preset never switches Enhanced graphics itself) on. They only set those existing options, which stay changeable one by
   one; click the other preset to undo one (keys you moved yourself are not kept by either).
 * **Middle-button drag** (always on) drags the course whatever tool is held, as a left drag does with no tool.
@@ -1021,3 +1064,22 @@ The game is in English unless a translation is installed (docs/TRANSLATING.md): 
 `Language:` line that switches to the next language and remembers it (`"language"` in `settings.json`). Test hooks:
 `--lang CODE` uses a language for one run, `--lang-file FILE` lays a translation file over the English, and the
 environment variable `SG_TEXTLOG=FILE` writes every text drawn or posted to the message window to FILE, each once.
+
+**New game after a game (issue #66).** As in the original, the property chooser of Start New Game offers every property
+the starting funds cover, whatever you played before: a new game deals a fresh list with nothing purchased. "Already
+purchased" (and the year bought) shows only on F6's world map, for the properties bought in the game in play. On a larger
+course size the chooser shows and compares the grown starting funds (the four cheapest slots fit, as on the original's
+map). Test hooks: `--load-game F --screen property` opens Start New Game's chooser after that game, `--screen world` F6's.
+
+**Tricky greens.** With the Green tool in hand, Tab turns the brush into the tricky green ("Tricky Green" shows beside
+the pointer; Tab again for a plain green). Painting it lays a green drawn with the theme's TrickyGreen textures; painted
+over an existing green it turns that green tricky (or back to plain) at no cost, as in the original (0x420561). A hole
+whose cup tile is tricky is harder to putt: golfers' putting accuracy drops by 10 (0x424120). The original also has a
+sideways kick for a ball bouncing on a tricky green (0x4289e0), but its test can never pass, so neither game does it.
+
+Golfers name what they look at in their scenery comments as the original does: the tile's stored location splits as
+`loc % 50, loc / 50` (0x469b00), and a landmark is called by its short name (0x4074a0 with 0), so the eyesore water
+tower, radio antenna and oil pump the land generator puts down are "an ugly water tower" and so on. That they are ugly is
+the original's: landmark types 16 to 18 raise the ugly-object comment (event 20, mood -1) when a walking golfer glances
+at them or a shot's scan sees them; trees, hazard trees included, are never looked at. Test hook: `SG_THOUGHTS=1` prints
+every golfer thought as it is raised, with the golfer's mood.

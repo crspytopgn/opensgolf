@@ -81,6 +81,13 @@ fn is_tree(t: u8) -> bool {
     crate::data::row(t).class == 13
 }
 
+/// The name of the scenery at a comment's stored location `a + n * b` (events 0xb, 0x14, 0x1c): the builder 0x469b00 splits
+/// it as `loc % n, loc / n` before calling 0x407700.
+pub fn feature_at(c: &Course, loc: i32, theme: u8) -> String {
+    let n = crate::course::n();
+    feature(c, loc % n, loc / n, theme)
+}
+
 /// The name of the scenery on a tile (0x407700, simplified to what this port tracks): landmarks, flower beds, scenic trees,
 /// fountains, bridges and the like.
 pub fn feature(c: &Course, a: i32, b: i32, theme: u8) -> String {
@@ -97,6 +104,11 @@ pub fn feature(c: &Course, a: i32, b: i32, theme: u8) -> String {
         let o = c.object_at(a, b);
         if let Some(obj) = (o >= 0).then(|| c.objects.get(o as usize)).flatten() {
             if obj.kind == 4 {
+                // the short name, as typed (0x4074a0 with its second argument 0): "water tower", "Civil War cannon"
+                if obj.sub < 19 {
+                    return crate::vips::landmark_short_name(obj.sub).into();
+                }
+                // the port's own extra landmark types keep their lower-case long name
                 return crate::vips::landmark_name(obj.sub).to_lowercase();
             }
             if obj.kind == 2 {
@@ -327,7 +339,7 @@ impl Club {
             }
             0x0b => {
                 tone = Tone::Good;
-                let what = feature(c, arg / crate::course::n(), arg % crate::course::n(), theme);
+                let what = feature_at(c, arg, theme);
                 let adj = if arg & 0x100 != 0 { tr("STR_THOUGHT_0B_NICE") } else { tr("STR_THOUGHT_0B_BEAUTIFUL") };
                 if rel == 1 {
                     trf("STR_THOUGHT_0B_LOOK_AT_THIS", &[("ADJ", &adj), ("WHAT", &what), ("PET", &Self::pet(p))])
@@ -420,7 +432,7 @@ impl Club {
             }
             0x14 => {
                 tone = Tone::Bad;
-                trf("STR_THOUGHT_14_UGLY", &[("WHAT", &feature(c, arg / crate::course::n(), arg % crate::course::n(), theme))])
+                trf("STR_THOUGHT_14_UGLY", &[("WHAT", &feature_at(c, arg, theme))])
             }
             0x15 => {
                 tone = Tone::Bad;
@@ -460,7 +472,7 @@ impl Club {
             }
             0x1c => {
                 tone = Tone::Good;
-                let what = feature(c, arg / crate::course::n(), arg % crate::course::n(), theme);
+                let what = feature_at(c, arg, theme);
                 match rel {
                     1 => trf("STR_THOUGHT_1C_LOVELY_PET", &[("WHAT", &what), ("PET", &Self::pet(p))]),
                     3 | 5 => trf("STR_THOUGHT_1C_LOVELY_PARTNER", &[("WHAT", &what), ("PARTNER", &partner)]),
@@ -737,5 +749,23 @@ mod tests {
         let l = cl.thought(&c, 0x02, 13, 2);
         assert!(l.partner && l.text.contains("under the tree"));
         assert_eq!(cl.thought(&c, 0x36, 0, 2).text, "I'll use my Driver for this shot.");
+    }
+
+    /// Issue #70: the stored location of a scenery comment is `a + n * b` (0x469b00 splits it as loc % n, loc / n), so
+    /// an eyesore water tower at (10, 30) is named as such, not as the tree at the transposed tile (30, 10).
+    #[test]
+    fn scenery_comment_names_the_tile_looked_at() {
+        let cl = Club::default();
+        let mut c = Course::default();
+        let (a, b) = (10, 30);
+        c.ty[crate::course::idx(a, b)] = crate::course::t::BUILDING;
+        c.objects.push(crate::land::Object { kind: 4, a, b, sub: 16, ..Default::default() });
+        c.ty[crate::course::idx(b, a)] = 13;
+        let loc = a + crate::course::n() * b;
+        assert_eq!(feature_at(&c, loc, 0), "water tower");
+        assert_eq!(cl.thought(&c, 0x14, loc, 2).text, "Gee, what an ugly water tower.");
+        assert_eq!(feature_at(&c, b + crate::course::n() * a, 0), "scenic tree");
+        c.objects[0].sub = 2;
+        assert_eq!(feature_at(&c, loc, 0), "Civil War cannon");
     }
 }

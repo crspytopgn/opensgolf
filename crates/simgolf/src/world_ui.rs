@@ -46,7 +46,9 @@ impl App {
         if self.world_move {
             self.econ.cash
         } else {
-            sg_core::data::economy().start_funds as f64
+            // a new game's starting funds, grown with a larger course size's edge as its prices are (start_game; #66: the
+            // chooser compared the grown prices with the original's funds, so nothing was affordable on a larger map)
+            sg_core::mapsize::scale_money_at(self.course_size, sg_core::data::economy().start_funds as i64) as f64
         }
     }
 
@@ -75,8 +77,11 @@ impl App {
         }
     }
 
+    /// Whether a property is "Already purchased": only when the club moves (F6 in play). A new game deals a fresh list whose
+    /// purchase markers are all 0xff (0x46f2b0), so every property the money covers is on offer whatever earlier games were
+    /// played (#66: the port kept the last game's purchases and locked them on the next new game).
     fn world_owned(&self, prop: usize) -> bool {
-        self.bought_year(prop).is_some()
+        self.world_move && self.bought_year(prop).is_some()
     }
 
     /// Whether a property's price is within the starting funds (or the club's cash when it moves).
@@ -252,7 +257,7 @@ impl App {
                 s.text_centered(g, cx + 104.0, cy + 57.0, &trf("STR_WORLD_FOR_ONLY", &[("PRICE", &money(price as i64))]), 10.0, navy);
             } else if !self.world_unlimited() {
                 // a bought property shows the year it was bought and the year it was left (never kept: "????")
-                let t = match self.bought_year(p) {
+                let t = match self.bought_year(p).filter(|_| owned) {
                     Some(y) => format!("{} - ????", 2001 + y),
                     None => trf("STR_WORLD_ACRES_PRICE", &[("ACRES", &acres), ("PRICE", &money(price as i64))]),
                 };

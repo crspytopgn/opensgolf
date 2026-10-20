@@ -214,6 +214,21 @@ test("the summary counts the sounds found, used and skipped, and why", () => {
     assert.ok(!fine.problem && /found 3, used 3, skipped 0\./.test(fine.text), fine.text);
 });
 
+test("sounds in a coding the game cannot play are counted and named", () => {
+    const gsm = fs.readFileSync(data + "tone_gsm.wav"), mp2 = fs.readFileSync(data + "tone_mp2.wav");
+    const ts = Buffer.from(gsm);
+    ts[20] = 0x22;
+    assert.strictEqual(f.sgSoundCoding(gsm), null);
+    assert.strictEqual(f.sgSoundCoding(mp2), null);
+    assert.strictEqual(f.sgSoundCoding(fs.readFileSync(data + "tone.ogg")), null);
+    assert.strictEqual(f.sgSoundCoding(ts), "DSP Group TrueSpeech");
+    assert.strictEqual(f.sgSoundCoding(Buffer.from("fLaC....")), "FLAC");
+    const bad = f.sgSoundCodings([["game/Sounds/a.wav", gsm], ["game/Sounds/b.wav", ts], ["game/SimsFX/c.wav", ts], ["game/Data/d.wav", ts]]);
+    assert.deepStrictEqual(bad, { n: 2, example: "DSP Group TrueSpeech" });
+    const s = f.sgFilesSummary(["game/Flics/a.fli", "game/Sounds/a.wav", "game/Sounds/b.wav"], [], 2, bad);
+    assert.ok(s.problem && /2 of your sounds use a format OpenSGolf can't play yet \(e\.g\. DSP Group TrueSpeech\)/.test(s.text), s.text);
+});
+
 (async () => {
     for (const [name, fn] of tests) {
         try {

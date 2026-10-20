@@ -70,6 +70,19 @@ struct State {
     stand_ins: usize,
     /// Clips of the player's copy that could not be decoded, with the reason (for the sound report).
     unreadable: Vec<(String, String)>,
+    /// The start's check of the codings of all the player's files ([`Mixer::unplayable`]), for the sound report.
+    codings: Option<Unplayable>,
+}
+
+/// The player's sound files in a coding OpenSGolf cannot play ([`Mixer::unplayable`]); the free set's sounds stand in.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Unplayable {
+    /// How many of the player's files cannot be played, of how many.
+    pub bad: usize,
+    pub of: usize,
+    /// The coding (or fault) of the first of them ("GSM 6.10", "DSP Group TrueSpeech"), and its file.
+    pub example: String,
+    pub file: String,
 }
 
 /// What the player's copy lacks of the game's sounds ([`Mixer::shortfall`]); the free set's sounds stand in.
@@ -109,9 +122,14 @@ fn sound_key(rel: &Path) -> Option<(String, bool)> {
     if key.ends_with(".wav") {
         Some((key, true))
     } else {
-        // (an .mp3 likewise: copies repacked to save space; assets::decode_sound tells the codings apart by their bytes)
-        key.strip_suffix(".ogg").or_else(|| key.strip_suffix(".mp3")).map(|stem| (format!("{stem}.wav"), false))
+        // (an .mp3 or .mp2 likewise: copies repacked to save space; assets::decode_sound tells the codings apart by their bytes)
+        ["ogg", "mp3", "mp2"].iter().find_map(|e| key.strip_suffix(&format!(".{e}"))).map(|stem| (format!("{stem}.wav"), false))
     }
+}
+
+/// [`crate::assets::probe_sound`] over a whole file, for a WAV whose fmt or data chunk is not in its first 64 KiB.
+fn probe_whole(path: &Path) -> Result<(), String> {
+    crate::fsutil::read_file(path).ok_or_else(|| "cannot read".to_string()).and_then(|d| crate::assets::probe_sound(&d))
 }
 
 /// Converts PCM (8-bit unsigned or 16-bit signed, mono or stereo, any rate) to 44.1 kHz interleaved stereo i16, with linear
@@ -169,6 +187,7 @@ impl Mixer {
                 aliased: Vec::new(),
                 stand_ins: 0,
                 unreadable: Vec::new(),
+                codings: None,
             }),
         };
         m.add_dir("", sounds_dir);
@@ -252,6 +271,10 @@ impl Mixer {
         for (a, b) in &s.aliased {
             r += &format!("found elsewhere: {a} -> {b}\n");
         }
+        if let Some(u) = &s.codings {
+            r += &format!("codings: {} of {} files cannot be played", u.bad, u.of);
+            r += &if u.bad > 0 { format!(" (e.g. {}: {})\n", u.file, u.example) } else { "\n".into() };
+        }
         for (a, e) in &s.unreadable {
             r += &format!("cannot be read: {a} ({e})\n");
         }
@@ -295,6 +318,35 @@ impl Mixer {
         (missing * 4 > wanted.len()).then_some(Shortfall::Missing { missing, of: wanted.len() })
     }
 
+    /// Checks the coding of every one of the player's sound files from its first few kilobytes (headers only: a tenth
+    /// of a second for the whole game), once at start: None when they all play, else how many do not and an example of
+    /// their coding. A copy whose sounds were shrunk to a coding the port does not decode (a "rip" re-encoding its WAVs)
+    /// played the free set's sounds with the original's art and only "N sounds from your SimGolf files" said (the port's
+    /// own check).
+    pub fn unplayable(&self) -> Option<Unplayable> {
+        if self.all_free || self.index.is_empty() {
+            return None;
+        }
+        let mut u = Unplayable { bad: 0, of: self.index.len(), example: String::new(), file: String::new() };
+        for (k, path) in &self.index {
+            // a WAV's fmt chunk comes in its first bytes, after a LIST chunk at most
+            let res = crate::fsutil::read_head(path, 64 * 1024)
+                .ok_or_else(|| "cannot read".to_string())
+                .and_then(|d| crate::assets::probe_sound(&d).or_else(|e| if d.len() < 64 * 1024 { Err(e) } else { probe_whole(path) }));
+            if let Err(e) = res {
+                if u.bad == 0 {
+                    u.example = e;
+                    u.file = k.clone();
+                }
+                u.bad += 1;
+            }
+        }
+        if let Ok(mut s) = self.state.lock() {
+            s.codings = Some(u.clone());
+        }
+        (u.bad > 0).then_some(u)
+    }
+
     /// Decodes a few of the game's most used clips and says whether the player's own sounds play: Err names what failed.
     /// Used once at start to tell the player when their copy's sounds cannot be played (an unreadable coding, no files).
     pub fn check(&self) -> Result<(), String> {
@@ -319,6 +371,19 @@ impl Mixer {
             }
         }
         Err(err)
+    }
+
+    /// Decodes every clip now, as the game does when it first asks for one (the test hook `SG_SOUND_LOAD_ALL`): (clips
+    /// from the player's files, clips the free set stood in for).
+    pub fn load_all(&self) -> (usize, usize) {
+        let keys: Vec<String> = self.keys().cloned().collect();
+        let stand_ins = || self.state.lock().map(|s| s.stand_ins).unwrap_or(0);
+        let before = stand_ins();
+        for k in &keys {
+            self.load(k);
+        }
+        let free = if self.all_free { keys.len() } else { stand_ins() - before };
+        (keys.len() - free, free)
     }
 
     /// The player's own file of a clip, decoded to 44.1 kHz stereo.
@@ -716,6 +781,34 @@ mod tests {
             std::fs::write(p, tone_wav(10)).unwrap();
         }
         assert_eq!(mixer().shortfall(), None);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn a_copy_in_a_coding_the_port_cannot_play_says_how_many_and_which() {
+        let d = std::env::temp_dir().join(format!("sg_mixer_coding_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(d.join("Sounds")).unwrap();
+        let mixer = || {
+            let mut m = Mixer::new(&d.join("Sounds"));
+            m.with_fallback();
+            m
+        };
+        std::fs::write(d.join("Sounds/Applause.wav"), tone_wav(100)).unwrap();
+        // an .mp2, and a GSM 6.10 WAV (crate::gsm): both play
+        std::fs::write(d.join("Sounds/Putt.mp2"), [0xff, 0xfd, 0x90, 0]).unwrap();
+        std::fs::write(d.join("Sounds/Splash.wav"), include_bytes!("../tests/data/tone_gsm.wav")).unwrap();
+        assert_eq!(mixer().unplayable(), None);
+        assert!(mixer().known("putt.wav"));
+        // TrueSpeech (format 0x22) does not: named, counted and in the report
+        let mut ts = tone_wav(100);
+        ts[20] = 0x22;
+        std::fs::write(d.join("Sounds/Hole.wav"), &ts).unwrap();
+        std::fs::write(d.join("Sounds/Wind.wav"), &ts).unwrap();
+        let m = mixer();
+        let u = m.unplayable().unwrap();
+        assert_eq!((u.bad, u.of, u.example.as_str(), u.file.as_str()), (2, 5, "DSP Group TrueSpeech", "hole.wav"));
+        assert!(m.report().contains("codings: 2 of 5 files cannot be played (e.g. hole.wav: DSP Group TrueSpeech)"), "{}", m.report());
         let _ = std::fs::remove_dir_all(&d);
     }
 
