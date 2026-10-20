@@ -92,8 +92,8 @@ an older one there is a copy the browser kept; reload the page.
   asks you to confirm; it installs over the old app only when both are signed with the same key). Your saves and
   settings are elsewhere and stay as they are. Where it cannot update itself (a build from the sources, a folder it may
   not write to, a release without a valid signature) it says why and opens the download page instead: download the new
-  package and install it as the first time. The *Check for updates when the game starts* extra (Preferences →
-  OpenSGolf extras → Helpers, off by default) asks once at each start.
+  package and install it as the first time. The *Check for updates when the game starts* tick (Preferences,
+  off by default) asks once at each start.
 * **No sound?** The game writes what it found and what it plays on to `sound.txt` in the same save folder (20 seconds after
   it starts, then every two minutes; in the browser the same lines go to the console, F12). Please attach it to a report.
 * **Browser**: nothing to install, see [Play in your browser](https://crspytopgn.github.io/opensgolf/); `opensgolf-web.zip` is the

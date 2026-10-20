@@ -90,18 +90,21 @@ With its default settings OpenSGolf plays like the original, apart from these:
 - **Building tools:** a measuring tape in yards (the ' key) and, with a terrain brush, Shift+drag for a rectangle and
   Alt+click to fill a region, with the cost shown before you commit.
 
-Optional, and off by default (Start New Game has a one-click switch between *the original* and *OpenSGolf extras*):
+Optional, and off by default. Start New Game has a one-click choice of preset: *Original*, *Original + helpers* (screens,
+helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a few light gameplay extras) or your own
+*Custom* mix; each option says whether it changes the looks, helps, or changes the gameplay:
 
 - **Enhanced graphics** for 4K and widescreen: sharp scaling, water (depth, waves with the wind, shorelines, rain rings,
   reeds, ducks, swans, jumping fish, frozen ponds), light, weather by each place's climate, seasons, late-winter snow,
   desert heat waves, birds of prey, butterflies and falling leaves, grass tufts, tournament crowds and a photo mode
   ([docs/ENHANCED.md](docs/ENHANCED.md)).
 - **Bigger courses:** Large, Huge and Giant, up to 128 × 128 tiles.
-- **OpenSGolf extras:** a Hardcore economy, turning buildings, cut content restored as landmarks, animals to buy, higher
-  staff limits, setting a hole's par, left-handed golfers (and a left-handed pro), weather that matters (rain, snow,
-  heat waves and thunderstorms change how balls roll and who comes out to play), path styles and lamp posts, more
-  visitors (touring pros and invented celebrities, moddable through data/visitors.toml), slower seasons (the calendar at
-  1/2x or 1/4x), sandbox switches (pause the calendar, freeze golfer happiness, unlock everything), a search over every
+- **OpenSGolf extras:** gameplay extras (a Hardcore economy, animals to buy, higher staff limits, setting a hole's par,
+  left-handed golfers (and a left-handed pro), weather that matters (rain, snow, heat waves and thunderstorms change how
+  balls roll and who comes out to play), more visitors (touring pros and invented celebrities, moddable through
+  data/visitors.toml), the calendar at half or quarter speed or stopped, sandbox switches (freeze golfer happiness, unlock
+  everything), and, experimental, cut content restored as decorative landmarks), looks (turning buildings, path styles
+  and lamp posts, random trees), a search over every
   Preferences option with a reset to the original, and interface extras such as a People screen, message history,
   autosave (the last three kept), a map of each saved course, pausing in the background or on big news, and course
   sharing: copy a course code, a friend pastes it and tries to beat your course record.
@@ -126,7 +129,7 @@ Optional, and off by default (Start New Game has a one-click switch between *the
   tree a random one of the seven.
 - **Updates from the title menu:** *Check for updates*, then *Update now* downloads the new version, checks its signature
   and installs it in place (Windows, macOS, Linux, Android); on Windows and with the Linux .tar.gz it downloads only the
-  programs and the pack files that changed. An interface extra checks once at each start. Only GitHub is contacted, and
+  programs and the pack files that changed. A Preferences tick checks once at each start. Only GitHub is contacted, and
   only then.
 - **Content packs and game scripts** that change prices, buildings, terrain, golfers, text, art and sounds, add scenarios,
   and can be downloaded from inside the game ([docs/MODDING.md](docs/MODDING.md)).

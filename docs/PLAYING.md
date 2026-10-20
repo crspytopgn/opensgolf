@@ -108,8 +108,8 @@ GitHub for OpenSGolf's newest release and says whether you have it. When a newer
   browser, to download and install it as the first time.
 - **Not now**.
 
-Privacy: only GitHub is contacted, and only when you click the button (or with the *Check for updates when the game
-starts* extra ticked, once at start): one request to `api.github.com` for the newest release, and with Update now the
+Privacy: only GitHub is contacted, and only when you click the button (or with the Preferences' *Check for updates when
+the game starts* ticked, once at start): one request to `api.github.com` for the newest release, and with Update now the
 downloads of `SHA256SUMS`, its signature and the package from GitHub's release files (for an update of only what
 changed, also the pack file list and the changed pack files from `raw.githubusercontent.com`). When the game's own HTTPS
 client cannot connect (an antivirus that scans HTTPS or a company proxy, whose certificate only the system knows), it
@@ -299,56 +299,75 @@ On the Add Buildings panel (or b for benches, Shift+B for a home site; Tab turns
 
 ## Original game or OpenSGolf extras
 
-Select Difficulty has a **Game** box next to Course size. One click switches between:
+Everything OpenSGolf adds is optional, and every option belongs to one of three kinds:
 
-- **The original**: every OpenSGolf extra off and Classic graphics; the game exactly as it was (fixes for the original's
-  own bugs stay on). A new player starts here.
-- **OpenSGolf extras**: the interface extras (People screen, message history, name tags, report tabs, path help, autosave,
-  save pictures, course sharing, landing map, comments by hole, history graphs; not the two pauses, the update check or
-  zooming towards the pointer, which you tick yourself) and the
-  gameplay extras that do not change the game's balance (turning buildings, animals, more staff, path styles and lamps
-  with the original's paths until you pick another style).
+- **Looks**: changes only how the game looks (path styles and lamps, Tab turning a building's picture, random trees,
+  Enhanced graphics). Play is exactly the original's.
+- **Helpers**: shows you more or saves you effort (the People screen, extra reports, message history, autosave, the
+  pauses, the mouse helpers). Play is exactly the original's.
+- **Gameplay**: changes how the game plays (animals to buy, more staff, set par, weather, visitors, hardcore, the
+  calendar and the sandbox switches). Each carries a tag saying how much: *Light touch*, *Noticeable*, *Big change*, or
+  *Experimental*.
 
-If you ticked your own choice in Preferences, the box says "your own mix"; a click goes back to the original. The choice
-is saved and is what new games start with.
+Select Difficulty has a **Game** box next to Course size. A click steps through four **presets**:
+
+- **Original**: every OpenSGolf extra off and Classic graphics; the game exactly as it was. A new player starts here.
+- **Original + helpers**: every helper and every look on, nothing that changes how the game plays.
+- **OpenSGolf**: the helpers and looks, plus the light gameplay extras that do not change the game's balance: higher
+  staff limits and buyable animals (not weather, more visitors, hardcore, left-handed golfers, set par, the cut content,
+  the calendar or the sandbox switches, which you tick yourself).
+- **Custom**: your own mix, as you ticked it in Preferences. Once you have a mix of your own, Custom brings it back after
+  you tried a preset; until then the Game box skips it.
+
+Every preset leaves alone what is yours to choose: the two pauses, the update check, the three controls ticks (zoom
+towards the pointer, drag to place, right-drag panning: the *Original* and *Modern controls* presets of Change keys set
+those) and *Fix the original game's bugs*. Only *Original* also turns Enhanced graphics off; the others leave your
+graphics as they are. The box says **Custom** whenever your ticks are no preset (also with every extra off but Enhanced
+graphics on). The choice is saved and is what new games start with. The same choice is the first line of the extras box
+(below), so you can change it later, also during a game.
 
 ## OpenSGolf extras (optional, not in the original)
 
 Preferences (System Functions, Preferences) has an **OpenSGolf extras...** line. It opens a box of optional changes,
-all off unless you tick them, sorted by what they change on five pages (tabs along its top; a click on a tab, Left and
-Right or Tab turn them). A banner under the tabs says what the page's ticks do:
+all off unless you tick them. Its first line is **Preset: Original / Original + helpers / OpenSGolf / Custom** (a click
+steps to the next, as the Game box does; it says Custom whenever the ticks are no preset, and the foot of the box
+describes the preset in use while the pointer is on it). Below it the options are sorted by kind on five pages (tabs
+along its top; a click on a tab, Left and Right or Tab turn them). A banner under the tabs says what the page's ticks do:
 
-- **Gameplay**: "Changes how the game plays." (below)
-- **Sandbox**: "Bends the rules for relaxed play." (the calendar's speed and the sandbox switches, below)
-- **Looks**: "Changes how it looks. Play is unchanged." (path styles and lamps, below)
-- **Info**: "Shows more about your club. Play is unchanged." (the interface extras that show something: People, message
-  history, name tags, report tabs, path help, landing map, comments by hole, history graphs, live scorecards, the year in
-  numbers, home-site details; see *OpenSGolf extras* further down)
-- **Helpers**: "Saves you effort. Play is unchanged." (autosave, save pictures, course sharing, the two pauses, the update
-  check, zoom towards the pointer, drag to place, the clickable ticker; also further down)
+- **Gameplay** (gameplay): "Changes how the game plays." (below)
+- **Sandbox** (gameplay): "Bends the rules for relaxed play." (the calendar and the sandbox switches, below)
+- **Looks** (looks): "Changes how it looks. Play is unchanged." (path styles and lamps, Tab turns buildings, random
+  trees, below)
+- **Info** (helpers): "Shows more about your club. Play is unchanged." Five lines, each ticking a group of the helpers
+  described under *OpenSGolf extras* further down: **People screen, name tags and live scorecards**; **Extra reports**
+  (landing map, comments by hole, history graphs, the year in numbers, tabs over the reports); **Message history and
+  clickable ticker**; **Path help**; **Home-site details**. A grouped line ticks or unticks its members together; if only
+  some of them are on (ticks saved by an older version, or Shift+H's tags), it says *(some on)* and a click turns them all
+  on. Each member keeps its own tick in settings.json, so older versions read them as before.
+- **Helpers** (helpers): "Saves you effort. Play is unchanged." (autosave, save pictures, course sharing, the two pauses,
+  and under the *Controls:* name the three ticks the Change keys' *Original* and *Modern controls* presets set: drag to
+  place, zoom towards the pointer, right-drag panning; also further down)
+
+*Check for updates when the game starts* and *Fix the original game's bugs* are plain Preferences lines, not in this box
+(see *The title menu* and docs/FIXES.md).
 
 Each line on the Gameplay and Sandbox pages carries a coloured tag at its right end saying how much it changes the game:
-green **Light touch** (Tab turns buildings, buyable animals, left-handed golfers), amber **Noticeable** (higher staff
-limits, set par, cut content, weather that matters, more visitors, slower seasons) or red **Big change** (hardcore economy
-and the three sandbox switches). The foot of the box describes the line under the pointer in a sentence (on a touch screen
-the line last tapped); with none, it says how to read the box. Preferences > Search lists every option with its page and
-tag ("Gameplay · Noticeable: Weather that matters..."), and typing a tag's words (*big change*) finds the options so
-tagged. With every extra off the game plays exactly as the original. What you tick on the Gameplay, Sandbox and Looks
-pages applies to the game you are playing, is saved with that game (a save made with everything off is unchanged), and is
-what new games start with (kept in settings.json under `extras`). Which page a line is on changes nothing of the ticks,
-saves or settings.
+green **Light touch** (buyable animals, left-handed golfers), amber **Noticeable** (higher staff limits, set par, weather
+that matters, more visitors, the calendar), red **Big change** (hardcore economy, freeze golfer happiness, unlock all) or
+slate **Experimental** (the cut content). The foot of the box describes the line under the pointer in a sentence (on a
+touch screen the line last tapped); with none, it says how to read the box. Preferences > Search lists every option with
+its page and tag ("Gameplay · Noticeable: Weather that matters..."), and typing a tag's words (*big change*) finds the
+options so tagged. With every extra off the game plays exactly as the original. What you tick on the Gameplay, Sandbox
+and Looks pages applies to the game you are playing, is saved with that game (a save made with everything off is
+unchanged), and is what new games start with (kept in settings.json under `extras`). Which page a line is on changes
+nothing of the ticks, saves or settings.
 
 On the **Gameplay** page:
 
-- **Tab turns placed buildings and the clubhouse.** *(Light touch)* With no building tool in hand, Tab turns the building under the
-  pointer a quarter: the clubhouse, putting greens, the other amenities and landmarks (the driving range and home sites
-  keep their way; the range is drawn tile by tile). Only the picture turns: footprints are square, so paths, golfer
-  routes, putting, the clubhouse door and the ratings do not change. With a garden item or the landmark tool in hand, Tab
-  steps through its designs (benches, flower beds, scenic trees, bridges, landmarks) as the strip of pictures over the
-  panel shows them. The original already turns a putting green or building you are about to place with Tab, and picks a
-  random design when you pick a flower bed, scenic tree or bridge (and the first bench); you then choose from the strip.
-- **Cut content: unused landmarks.** *(Noticeable)* Fourteen pieces of art that are in the game files but that the original never loads
-  (docs/CUT_CONTENT.md) can be placed as landmarks: press the Landmark button on the Amenities panel, and press it again
+- **Cut content: unused landmarks (decoration only).** *(Experimental)* Only listed when you play with your own SimGolf
+  files (the art is theirs; on the free base set the line is hidden, and a game that has it on keeps it, harmlessly).
+  Fourteen pieces of art that are in the game files but that the original never loads (docs/CUT_CONTENT.md) can be
+  placed as landmarks: press the Landmark button on the Amenities panel, and press it again
   to switch between your own landmarks, the cut ones and (with the next extra) the animals. Each costs $6,000 (the port's
   price), golfers enjoy the sight as they enjoy a landmark's (and the course planner treats them as features), but they
   have none of the four landmark powers. They stay for good, as landmarks do.
@@ -383,7 +402,7 @@ On the **Gameplay** page:
   his draw). Switching the extra off puts everyone back to right-handed; switching it on again brings the left-handers
   back.
 - **Weather that matters (rain, snow, heat, storms).** *(Noticeable)* The weather Enhanced graphics draws is played too (it changes the
-  balance a little, so it is not part of the *OpenSGolf extras* preset). Which days rain follows the property's climate
+  balance a little, so it is not part of the *OpenSGolf* preset). Which days rain follows the property's climate
   (often in Ireland, Scotland and Wales, rarely in the desert), the same days whenever the game is loaded, and a day lasts
   three game months (Enhanced graphics' day of light at its normal length; with the extra on its rain, snow and heat
   keep to these days whatever the *Day length*). Each morning the ticker says what the day brings ("Rain today", "Snow
@@ -427,11 +446,12 @@ On the **Gameplay** page:
   screen as *Touring Pro* or *Celebrity* and on their golfer card with their profession, and keep a record on the Best
   Scores like anyone. They do not become members. How often they come, what they wait for and pay, and who they are, is
   in `data/visitors.toml`, which content packs can change and add to (docs/MODDING.md, section 3). Not part of the
-  one-click *OpenSGolf extras* choice, as their fees and crowds change the club's takings.
+  *OpenSGolf* preset, as their fees and crowds change the club's takings.
 
 On the **Sandbox** page:
 
-- **Slower seasons: the calendar at 1x / 1/2x / 1/4x.** *(Noticeable)* A click steps the speed (1x is the original). The month and year
+- **Calendar: normal / half speed / quarter speed / stopped.** *(Noticeable)* A click steps the value (normal is the
+  original). *Half* and *quarter speed* are the slower seasons: the month and year
   move on at half or a quarter of the original's pace while everything that happens by the game's own clock keeps its
   pace: golfers arrive, play and pay as before, staff work, weeds grow, and wages and hole maintenance are charged as
   often as ever (the original charges them every 1024/(difficulty+2) game ticks, not by the month). So a year holds two or
@@ -446,11 +466,13 @@ On the **Sandbox** page:
   speeds. Things that measure how long you have played rather than the time of year also stay on the game's clock: the
   course's welcome story and design tip, the advisor's first year on Easy, the opening story pair and the famous golfers'
   challenges (from the second year of play). Switching the speed in the middle of a game carries on from the date
-  reached; a championship always keeps the original calendar.
-- **Sandbox: pause the calendar.** *(Big change)* The time of year never moves on (it wins over the speed above): golfers keep coming
-  and paying, wages and upkeep keep being charged, but no month starts and no year ends, so there is no interest, no
-  board, no year-end report and no SGA tournament offer while it is on, and the season stays as it is. Untick it to let
-  the calendar go on from where it stood.
+  reached; a championship always keeps the original calendar. *Stopped* pauses the calendar: the time of year never
+  moves on: golfers keep coming and paying, wages and upkeep keep being charged, but no month starts and no year ends, so
+  there is no interest, no board, no year-end report and no SGA tournament offer while it is stopped, and the season
+  stays as it is. Step on to *normal* to let the calendar go on from where it stood. The line keeps the two settings
+  older versions had (*Slower seasons* and *Pause the calendar*): a game or settings saved with either reads as the
+  matching value, one with both as *stopped* (as it played), and a game saved with a stopped calendar reads as paused in
+  an older version. The Cheats box's *Sandbox: pause the calendar* switch is the same as *stopped*.
 - **Sandbox: freeze golfer happiness.** *(Big change)* No golfer's mood ever drops: a bad moment, fatigue at the end of a hole, a sad
   story beat are all undone, while good moments still lift moods. A pair's mood is still set at the first tee from how
   well the two get on (their starting mood). Nobody leaves unhappy.
@@ -459,8 +481,8 @@ On the **Sandbox** page:
   made. Upgrading a building still needs a Country Club course (10 holes), as in Sandbox Mode. Unticking it takes back only
   what the course has not earned; landmarks the club owns stay.
 
-The three "Sandbox:" switches are what a Sandbox Mode game (unlimited money) is most often wanted with, but each works in
-a normal game too.
+The two "Sandbox:" switches and a stopped calendar are what a Sandbox Mode game (unlimited money) is most often wanted
+with, but each works in a normal game too.
 
 On the **Looks** page:
 
@@ -477,9 +499,18 @@ On the **Looks** page:
   light on the ground (see docs/ENHANCED.md, *Evening lights*). With the extra off paths look as in the original and lamp
   posts are not drawn (they are kept with the game and come back when it is switched on). The style and the lamp posts
   are saved with the game; a game without them saves as before.
+- **Tab turns placed buildings and the clubhouse.** With no building tool in hand, Tab turns the building under the
+  pointer a quarter: the clubhouse, putting greens, the other amenities and landmarks (the driving range and home sites
+  keep their way; the range is drawn tile by tile). Only the picture turns: footprints are square, so paths, golfer
+  routes, putting, the clubhouse door and the ratings do not change. With a garden item or the landmark tool in hand, Tab
+  steps through its designs (benches, flower beds, scenic trees, bridges, landmarks) as the strip of pictures over the
+  panel shows them. The original already turns a putting green or building you are about to place with Tab, and picks a
+  random design when you pick a flower bed, scenic tree or bridge (and the first bench); you then choose from the strip.
+- **Random trees.** Every tree the brushes plant takes a random look of its kind (see *Random trees* under *Camera
+  bookmarks and the mouse*).
 
 Test hooks: `--extras BITS` sets the extras a new game starts with (1 Tab turns, 2 cut content, 4 hardcore, 8 higher staff
-limits, 16 animals, 32 set par, 64 or 128 the calendar at 1/2x or 1/4x, 256 pause the calendar, 512 freeze golfer
+limits, 16 animals, 32 set par, 64 or 128 the calendar at half or quarter speed, 256 the calendar stopped, 512 freeze golfer
 happiness, 1024 unlock all, 2048 left-handed golfers, 4096 weather that matters, bits 13 to 15 path styles and lamps (below),
 65536 more visitors; not saved to the settings); `--edit "H:N,M,..."` makes golfer slots N, M... left-handed (-1 your
 pro); `--edit "V:I,G"` makes golfer slot G (a negative G: the -G-th ordinary golfer out on the course) visitor I of
@@ -489,7 +520,7 @@ presses the Tab of the first extra with the pointer on tile x,y; `--edit "S:page
 landmark tool on strip page 0 (own), 1 (cut) or 2 (animals); `--edit "b:x,y,4,t"` places landmark type t (19..32 the cut ones,
 100 + kind an animal pair); `--edit "M:6"` opens the extras box (`M:6,P` on page P: 0 Gameplay, 1 Sandbox, 2
 Looks, 3 Info, 4 Helpers; `SG_POPUP_MOUSE="x,y"` leaves the pointer on the box there, so the foot shows that line's
-description). Path styles and lamps: the style is bits 13 to 15 of `--extras` and `X:` (8192 times 1 original paths, 2
+description: at 800 x 600 the preset line is at y 138 and a page's first option at y 282). Path styles and lamps: the style is bits 13 to 15 of `--extras` and `X:` (8192 times 1 original paths, 2
 brick, 3 gravel, 4 dark stone, 5 boardwalk), `--edit "S:3"` opens the lamp page, `--edit "b:x,y,4,200"` places a lamp post
 on tile x,y, and `SG_FX_HOUR=0.95` (night) lights the lanterns for stills.
 
@@ -509,7 +540,8 @@ open for more until *Done* or Esc:
 - **Buy all the land.** Every tract of the property still for sale (as the Land screen shows them) becomes yours, for
   nothing (it does not count as a purchase, so it does not raise the price of land later). Greyed when there is none left.
 - **Sandbox: pause the calendar / freeze golfer happiness / unlock all buildings and landmarks**, each with its state:
-  the same three switches as on the extras box's *Sandbox* page (see above), there in a click.
+  the same switches as on the extras box's *Sandbox* page (see above; pausing the calendar is its *Calendar: stopped*),
+  there in a click.
 
 Using any of the first five marks the game for good ("cheats used", saved with it; the sandbox switches are extras, not
 cheats, and do not). The Load Previous Game list then says **Cheats used** beside the course's theme, and a course shared
@@ -528,12 +560,12 @@ Preferences has a **Search options...** line, and typing a letter or digit while
 box that finds an option on any of the Preferences' pages by its words. Type to narrow the list (each word you type must
 start a word of the option or of its page's name, in any order and any case; Backspace takes back a letter); it shows up
 to ten options at once with the page each is on (an Enhanced graphics page, an extras page, *Graphics* for Enhanced
-graphics itself, *Keys* for the keyboard controls), and how many more there are. A click on a found option ticks or
+graphics itself, *Preferences* for the bug fixes and the update check, *Keys* for the keyboard controls), and how many more there are. A click on a found option ticks or
 unticks it, or steps a setting with choices, as on its own page; a click on a key opens Change keys with that action
 waiting for its new key. **Show only what differs from the original game** keeps the options that are not as a new player
 has them. **Reset everything to the original game...** asks first, then puts every option back: every gameplay and
 interface extra off, Enhanced graphics off with all its options at their defaults (the bug fixes on, as they are by
-default and as the "Original game" choice of Select Difficulty keeps them), and every key back to the original's. The
+default and as the *Original* preset leaves them), and every key back to the original's. The
 search box opens again afterwards on the same words. As in the other Preferences boxes nothing changes until its OK
 (Enter, or the tick); Esc leaves everything as it was.
 
@@ -594,10 +626,13 @@ As in the original: **F1** Course Report, **F2** Player Comments (the twenty mos
 ## OpenSGolf extras
 
 The port's own additions to the interface, none of them in the original (crates/simgolf/src/extras.rs and the modules it
-names). They only add a screen, a tag, a strip, a button or a save. A new player starts with them off; the Game box on Select
-Difficulty turns them on in one click, and System Functions, Preferences,
-*OpenSGolf extras...* has a tick for each on its Info and Helpers pages (kept in `settings.json` under `ui_extras`; a tick missing there, as in settings from before it existed, reads as off for the two pauses and the update check), and `--no-extras` turns them all off
-for one run. With every tick off the game draws and plays exactly as before (the stills of every report, panel and menu
+names). They only add a screen, a tag, a strip, a button or a save: helpers (and one look, random trees), none of them
+changes how the game plays. A new player starts with them off; the *Original + helpers* and *OpenSGolf* presets turn
+them on in one click (the two pauses and the three controls ticks excepted, which stay as you set them), and System
+Functions, Preferences, *OpenSGolf extras...* ticks them on its Info and Helpers pages (the Info page by groups) and
+Looks page (kept in `settings.json` under `ui_extras`, one tick each; a tick missing there reads as off, and so do they
+all when settings.json has no `ui_extras` at all, as in settings from before the extras or written only by other
+screens), and `--no-extras` turns them all off for one run. With every tick off the game draws and plays exactly as before (the stills of every report, panel and menu
 compare pixel for pixel with the build before the extras).
 
 - **People** (**Shift+G**, or *Information, People*): every golfer on the course, sortable by name, type (visitor,
@@ -618,7 +653,8 @@ compare pixel for pixel with the build before the extras).
 - **Message history** (**Shift+M**, *Information, Message history*, or a click on the ticker): every ticker message with
   its date and its speaker's portrait or picture, newest first, the last thousand, saved with the game. A click on a message
   takes the camera to the golfer it is about (and opens the card) or to the place it is about.
-- **Name tags** (**Shift+H** turns them off and on): the golfer or employee under the pointer gets a small tag with the
+- **Name tags** (with the People line of the Info page; **Shift+H** hides them and shows them again until the game is
+  closed, and does nothing while the extra is off): the golfer or employee under the pointer gets a small tag with the
   name, a golfer's face of the moment and type or an employee's job, whether the original's names (Shift+N) are on or not.
   Not drawn while a tool is armed, over the dock and its panel, or after the screen has been touched.
 - **Tabbed reports**: over the F1 to F10 screens, a strip of ten tabs flips from one report to another without going back
@@ -669,33 +705,35 @@ compare pixel for pixel with the build before the extras).
   happiness after it, greens fees taken). The page draws one of them as a line over the months on the F3 Histograph's
   page, in its fonts and colours: the tabs at the top choose the club or a hole and the measure (or Up/Down for the
   measure, PageUp/PageDown for the club and the holes, the wheel for the measure), the months along the bottom follow the
-  game calendar (with *Slower seasons* a point is still one month of the calendar), and the month under the pointer
+  game calendar (with the calendar at half or quarter speed a point is still one month of the calendar), and the month under the pointer
   shows its exact value in a box (Left/Right, Home/End, or a click or tap on the plot hold a month up without a pointer).
   The month in progress is drawn paler, as it stands so far. The last 80 months (ten game years) are kept with the save
   while the extra is on; nothing from before it was switched on is shown. Esc, Enter, a right click, the tick or Shift+Y
   close it.
 
-- **Pause in the background** (off, also with the one-click OpenSGolf extras: some players leave the game running in the
+- **Pause in the background** (off; the presets leave it as you set it: some players leave the game running in the
   background on purpose): the game pauses when its window goes to the background (another window takes the focus, the
   window is minimised, the browser tab is hidden or the page loses the focus, the Android app is put away) and goes on when
   it comes back. A pause you made yourself stays, and pausing or unpausing in between makes the pause yours. A line under
   the Paused caption says why the game stopped.
-- **Pause on big news** (off, also with the one-click OpenSGolf extras): the game pauses right after a VIP (the CEO, the
+- **Pause on big news** (off; the presets leave it as you set it): the game pauses right after a VIP (the CEO, the
   county commissioner, the heiress) arrives, a famous golfer challenges your pro, the SGA offers a tournament, the board
   warns about debt at the end of the year (the year-end report follows when the game goes on), or the cash goes below
   zero (not in Sandbox Mode). The news is where the original puts it, on the ticker or the report; *Paused for big news*
   under the Paused caption. Unpause as usual (Shift+P or the dock's pause button).
-- **Check for updates when the game starts** (off, also with the one-click OpenSGolf extras: it goes online, which is
-  yours to choose): the title menu's *Check for updates* (see *The title menu*), once in the background when the game
+- **Check for updates when the game starts** (a plain Preferences line, not in the extras box; off, and the presets leave
+  it as you set it: it goes online, which is yours to choose): the title menu's *Check for updates* (see *The title menu*), once in the background when the game
   starts. It says nothing unless a newer version is out; then a box offers **Update now**, **Skip this version** (that
   version is not offered at start again, a newer one is; kept in `settings.json` as `update_skip`) or **Not now**. Only
   GitHub is contacted. The browser version has nothing to check.
-- **Zoom towards the pointer** (off, also with the one-click OpenSGolf extras: it changes how the original's zoom feels):
+- **Zoom towards the pointer** (*Controls: zoom towards the pointer* on the Helpers page; off, set by the Change keys'
+  *Original* and *Modern controls* presets and left alone by the extras presets: it changes how the original's zoom feels):
   the mouse wheel keeps the ground under the pointer where it is on the screen as it zooms, and a two-finger pinch the
   ground between the fingers, instead of zooming about the middle of the screen. It works at the original's three zoom
   levels and with Enhanced graphics' smooth zoom (frame by frame as the zoom eases). z, x and the dock's zoom buttons
   still zoom about the middle.
-- **Drag to place** (off, also with the one-click OpenSGolf extras: it changes what the original's drag does): with
+- **Drag to place** (*Controls: drag to place...* on the Helpers page; off, set by the controls presets like zooming
+  towards the pointer: it changes what the original's drag does): with
   benches, flower beds, ball washers, willows or scenic bridges armed, hold the left button and drag to lay a row of them
   along the straight line from the tile you pressed to the tile you let go, one on every tile of the line (one per
   footprint for anything larger than a tile), instead of one wherever the pointer passes. While you drag, each item's
@@ -708,35 +746,33 @@ compare pixel for pixel with the build before the extras).
   Test hooks: `SG_ROW="x,y"` holds a row from tile x,y to the pointer (`SG_CURSOR_TILE`, with `SG_BUILD=kind` and
   `SG_PANEL_MOUSE`) for stills; `--edit "W:x0,y0,x1,y1,kind"` places a row of object kind `kind` (1 benches, 2 flower beds,
   3 ball washers, 16 willows, 19 bridges) and prints the places, the items that fit, their cost and the cash.
-- **Live scorecards** (on with the one-click OpenSGolf extras: it only shows): while a golfer card is open (a click on a
+- **Live scorecards** (with the People line of the Info page; on in the *Original + helpers* and *OpenSGolf* presets: it
+  only shows): while a golfer card is open (a click on a
   golfer, the People screen's Card, the profile page's Card) the golfer's round so far is drawn under it on the Player
   panel's own round scorecard, the one the original shows during your pro's round: hole numbers and pars, then the golfer
   and the partner, each hole's score coloured against par as the original colours your pro's (red under par, dark grey
   par, blue and purple over), the hole in progress in grey; the wide last column holds the course's par and each golfer's
   strokes so far, and the score against par (E, +3, -1) stands at the end of each name's bar. Test hook: `--screen card`.
-- **Clickable ticker** (on with the one-click OpenSGolf extras): a click on a ticker message said by a golfer takes the
+- **Clickable ticker** (with the Message history line of the Info page; on in the helper presets): a click on a ticker message said by a golfer takes the
   camera to that golfer and follows him (as People > Follow; any camera move lets go), a click on a message about a place
   (a building with no path, a building's own news) takes it there. A message about nothing on the course opens the
   message history as before (with that extra on); the Show button stays.
-- **The year in numbers** (on with the one-click OpenSGolf extras): the End of Year report stays as the original has it;
+- **The year in numbers** (with the Extra reports line of the Info page; on in the helper presets): the End of Year report stays as the original has it;
   its OK then brings a second page in the report's own art, the year's key figures against the year before with a green
   arrow up or a red arrow down: money taken in and profit (the Financial Report's ledger), rounds played, the fun and
   skill ratings, members, the happiest and the unhappiest hole (the golfers' mood as they finish it), and tournaments your
   pro won. Rounds, tournaments and last year's holes are counted by the extra itself from the first year end it sees (a
   dash until then; they are kept with the game only while it is on). Its OK goes on as the report's did (the Top 10
   when due). Test hook: `--screen yearsum` (the season in progress, as `--screen yearend`).
-- **Home-site details** (on with the one-click OpenSGolf extras): with the pointer on a home site (no tool in hand), a
+- **Home-site details** (its own line on the Info page; on in the helper presets): with the pointer on a home site (no tool in hand), a
   box in the look of the Home Site tool's sums says whose home it is (a celebrity's vacation home names the celebrity),
   what it cost to build and what the lot sold for when placed (the only money a home site brings in), that sale spread
   over the months since (both kept from the moment the extra is on), what a lot there is worth now, what buying it back
   would cost (demolishing it), and which hole sets its value and how much of it that hole makes. Test hook: the edit spec
   `b:X,Y,5` places a home site, `SG_POINTER=x,y` points at it.
 
-These four only show or move the camera; nothing of the game changes. Ticks saved before them read as off.
-
-Test hooks for stills: `--screen people|staff|pro|history|profile|pathview|tags|ticker|card` (with a game;
-  Both only watch the game: the golfers play exactly the same with them on or off. Ticks saved before they existed read
-  as off (choose them in the extras box).
+These four only show or move the camera; nothing of the game changes. Ticks saved before them read as off. The landing
+map, comments by hole and history graphs only watch the game too: the golfers play exactly the same with them on or off.
 
 Test hooks for stills: `--screen people|staff|pro|history|profile|pathview|tags|ticker|card|landing|holecomments|graphs|yearsum` (with a game;
 `graphs` with `SG_GRAPHS=S,M[,C]` shows series S (0 the club, 1 to 18 a hole), measure M (its tab, from 0) and holds
@@ -774,16 +810,16 @@ The port's own camera helpers (crates/simgolf/src/views.rs); nothing changes unt
   Shift+Alt+1 to 4 go back to a bookmark and Ctrl+Shift+1 to 4 keep one (for keyboards whose F keys need Fn).
 - **Middle button drag**: dragging with the middle mouse button moves the course whatever tool is held (with the smooth
   camera it coasts on when let go).
-- **Zoom towards the pointer**: an OpenSGolf extra (Preferences, *OpenSGolf extras...*, Helpers page), off by default:
-  see *OpenSGolf extras* above.
+- **Zoom towards the pointer**: an OpenSGolf extra (Preferences, *OpenSGolf extras...*, Helpers page, *Controls: zoom
+  towards the pointer*), off by default and part of the *Modern controls* preset: see *OpenSGolf extras* above.
 - **The right button** is the original's: on the course a right click with a building, path or amenity tool in hand,
   a message showing, a golfer's card open or an employee being moved only puts that away; with an elevation tool it
   lowers the ground (the - key; with Analyze Golf Shot it is the / key); otherwise the first right click on a tile names
   in green over it what an undo there would do ("Reset to rough", "Remove Path", "Demolish Snack Bar") and a second right
   click on the same tile undoes it, money back as the Undo button's tool gives it (a terrain brush and the Undo tool stay
   in hand). OpenSGolf up to 0.4.7 dragged the course with the right button instead and had no right-click undo (issue
-  #67); that drag is now the **Right-drag panning** extra (Helpers page, off by default, and off for settings saved by
-  0.4.7): with it on, a drag with the right button moves the course and a right click that does not move (less than 5
+  #67); that drag is now the **Right-drag panning** extra (Helpers page, *Controls: right-drag moves the course*; off by
+  default, off for settings saved by 0.4.7, and part of the *Modern controls* preset): with it on, a drag with the right button moves the course and a right click that does not move (less than 5
   pixels) does the original's on release. The middle button and the arrow keys always move the course.
 
 **Ctrl+Z** (Cmd+Z on a Mac) undoes the last click or drag with a building or terrain tool that changed the course:
@@ -820,8 +856,8 @@ tile x,y to the pointer (`SG_CURSOR_TILE`) and `SG_AREA=f` holds Alt (with `SG_P
 
 ### Random trees
 
-An OpenSGolf extra (Preferences, *OpenSGolf extras...*, Helpers page), off by default and left out of the one-click
-extras; ticks saved before it read as off. In the original a tree brush keeps one look while it is in hand (picked at
+An OpenSGolf extra (Preferences, *OpenSGolf extras...*, Looks page: only which picture each tree gets changes), off by
+default and on in the *Original + helpers* and *OpenSGolf* presets; ticks saved before it read as off. In the original a tree brush keeps one look while it is in hand (picked at
 random when you pick the brush, Tab steps it) and the scenic tree tool one of its seven trees until you choose another.
 With **Random trees** on, every tree the woods, pine and palm brushes plant, by a click, a painted stroke, a rectangle or
 a fill, takes a random look of its kind (the small, medium or large tree, and for pines either species), and every scenic
@@ -887,7 +923,8 @@ changed every key does what it did before.
   the one in use is lit yellow). *Original controls* puts every key back to the original's and turns the WASD camera,
   *Zoom towards the pointer*, *Drag to place*, *Right-drag panning* and Enhanced graphics' *Smooth camera* tick off. *Modern controls* puts
   every key back to its default with the WASD camera on, and turns *Zoom towards the pointer*, *Drag to place* and
-  *Right-drag panning* (OpenSGolf extras, Helpers page) and the *Smooth camera* tick (which counts only while Enhanced graphics is on: the
+  *Right-drag panning* (OpenSGolf extras, Helpers page, the three *Controls:* lines; the extras presets leave them
+  alone) and the *Smooth camera* tick (which counts only while Enhanced graphics is on: the
   preset never switches Enhanced graphics itself) on. They only set those existing options, which stay changeable one by
   one; click the other preset to undo one (keys you moved yourself are not kept by either).
 * **Middle-button drag** (always on) drags the course whatever tool is held, as a left drag does with no tool.
@@ -991,11 +1028,14 @@ way of drawing the game for large and wide screens: sharp text, smooth interface
 wide window, sharper and anti-aliased course, a smooth camera and smooth motion. Each part has its own tick; Classic stays
 the default. With the smooth camera the mouse wheel and a pinch zoom continuously between the three levels (z, x and the
 zoom buttons still step to the next level), turns are animated, arrow-key scrolls glide and a dragged course coasts to a
-stop. The screen has three pages, chosen with the tabs along its top (a click or a tap; Left, Right or Tab on the
-keyboard): *Display* (the master switch and the options above), *Effects* (the shader effects, cast shadows, the balls'
-trail and impacts, and the effects' quality, which a click steps through low, medium and high) and *Atmosphere* (sky, time
-of day, cloud shadows, haze, rain, mist and the post-processing). The master switch heads every page. `--enhanced` and
-`--classic-render` switch it for one run. Test hooks: `--edit M:5` opens the screen (`M:5,P` on page P, 0 to 2);
+stop. The screen has five pages, chosen with the tabs along its top (a click or a tap; Left, Right or Tab on the
+keyboard): *Display* (the master switch, the options above, the frame rate cap and v-sync), *Effects* (the shader
+effects, cast shadows, the balls' trail and impacts, grass tufts, sharpening, crowds, wildlife, and the effects' quality,
+which a click steps through low, medium and high), *Atmosphere* (sky, time of day and its length, evening lights, cloud
+shadows, haze, reflections and the post-processing), *Weather* (rain, wet ground, lightning, heat, winter, mist, wind,
+seasons) and *Water* (the water's own options). The master switch heads every page. *Fix the original game's bugs* is
+not here but a plain Preferences line (it counts in Classic too; docs/FIXES.md). `--enhanced` and `--classic-render`
+switch it for one run. Test hooks: `--edit M:5` opens the screen (`M:5,P` on page P, 0 to 4);
 `SG_POINTER=x,y` moves the pointer and `SG_CLICK=x,y[;x,y...]` clicks, in window pixels, after the first frame of a
 scripted still (for checking where clicks land on a wide window).
 

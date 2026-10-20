@@ -1,9 +1,10 @@
 # Fixes of the original game's bugs
 
 OpenSGolf plays SimGolf 1:1, bugs included, unless a bug is fixed here. Where the bug is the original's own behaviour the
-fix sits behind the setting **Fix the original game's bugs** (Preferences, *Enhanced graphics settings...*, Display page;
-settings.json `enhanced.fix_original_bugs`). It is **on by default** and, unlike every other line of that box, works in
-Classic too (the Enhanced master switch does not gate it). Turn it off to play the original's behaviour. Crashes and the
+fix sits behind the setting **Fix the original game's bugs** (a line of Preferences itself, with the note "Its own
+glitches only; play is otherwise the original's."; kept as settings.json `enhanced.fix_original_bugs`, where it always
+was). It is **on by default** and works in Classic too (the Enhanced master switch does not gate it); the presets of
+Select Difficulty's Game box and of the extras box leave it as it is. Turn it off to play the original's behaviour. Crashes and the
 port's own bugs are fixed whatever the setting.
 
 - Switch in the game: `enhanced::fix_bugs()` (crates/simgolf/src/enhanced.rs); in the simulation `sg_core::fixes::on()`
