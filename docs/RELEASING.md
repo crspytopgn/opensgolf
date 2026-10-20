@@ -44,4 +44,7 @@ once; copies that never updated past the leak will trust the old key, so say so 
 ### Signing by hand
 
 `OPENSGOLF_UPDATE_KEY=<private key> sgtool update-sign SHA256SUMS` writes `SHA256SUMS.sig` (and prints the public key),
-for a release whose files were uploaded by hand. `sha256sum opensgolf-* > SHA256SUMS` makes the list; upload both.
+for a release whose files were uploaded by hand. `sha256sum opensgolf-* > SHA256SUMS` makes the list; upload both. For updates of only what changed (GitHub issue #65) also upload each Windows
+.zip and Linux .tar.gz again without `packs/` as NAME-bin.zip / NAME-bin.tar.gz, and `opensgolf-packs.sha256`
+(`find packs -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum` at the release's tag) before making SHA256SUMS; a
+release without them is still updated, with the whole package.

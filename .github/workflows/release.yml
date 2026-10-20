@@ -9,6 +9,9 @@ name: release
 #   Windows  opensgolf-windows.zip (x64) and opensgolf-windows-arm64.zip (Windows on ARM, e.g. Snapdragon laptops)
 #   Android  opensgolf-android.apk (signed with a debug key, for sideloading)
 #   browser  opensgolf-web.zip
+# Each Windows .zip and Linux .tar.gz also comes as NAME-bin.zip / NAME-bin.tar.gz, the same package without packs/ (the
+# programs, lang and the documents, a few MB), with opensgolf-packs.sha256 listing every file in packs/: the game's
+# "Update now" then downloads only the programs and the pack files that changed (GitHub issue #65, autoupdate.rs),
 # and SHA256SUMS with SHA256SUMS.sig, its ed25519 signature, which the game's "Update now" checks before installing a
 # package (crates/simgolf/src/autoupdate.rs; the key is the secret OPENSGOLF_UPDATE_KEY, docs/RELEASING.md).
 # The icon is the engine's own drawing (sg_core::freeset::app_icon, `sgtool icon`).
@@ -65,6 +68,8 @@ jobs:
           cp icons/icon_256.png "$out/opensgolf.png"
           cp -r packs lang "$out/"
           tar czf "$out.tar.gz" "$out"
+          # the same without packs/, for selective updates (autoupdate.rs)
+          tar czf "$out-bin.tar.gz" --exclude="$out/packs" "$out"
       - name: AppImage
         run: |
           # the game finds its packs and translations next to the program (usr/bin), its saves in ~/.local/share/opensgolf
@@ -154,10 +159,14 @@ jobs:
           cp LICENSE README.md docs/PLAYING.md docs/MODDING.md "$out/"
           cp -r packs lang "$out/"
           7z a "$out.zip" "$out" > /dev/null
+          # the same without packs/, for selective updates (autoupdate.rs)
+          7z a "$out-bin.zip" "$out" '-xr!packs' > /dev/null
       - uses: actions/upload-artifact@v4
         with:
           name: windows-${{ matrix.name }}
-          path: ${{ matrix.out }}.zip
+          path: |
+            ${{ matrix.out }}.zip
+            ${{ matrix.out }}-bin.zip
 
   android:
     runs-on: ubuntu-latest
@@ -202,10 +211,17 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/') || inputs.version != ''
     steps:
+      - uses: actions/checkout@v4
+        with:
+          path: src
       - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
+      - name: List the packs' files (opensgolf-packs.sha256)
+        # a selective update compares these with the player's copy and fetches only the files that differ, from this
+        # release's tag in the repository (autoupdate.rs); signed with the packages below
+        run: (cd src && find packs -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum) > dist/opensgolf-packs.sha256
       - name: Sign the packages (SHA256SUMS, SHA256SUMS.sig)
         # "Update now" (crates/simgolf/src/autoupdate.rs) installs only a package whose SHA-256 is in SHA256SUMS, signed
         # with the key in the OPENSGOLF_UPDATE_KEY secret (the private key `sgtool update-keygen` prints: 64 hex digits,

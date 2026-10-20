@@ -118,8 +118,9 @@ Optional, and off by default (Start New Game has a one-click switch between *the
 - **Drag to place** (interface extra): drag to lay a row of benches, flower beds, ball washers, willows or bridges, with
   the row and its cost shown before you let go; and *Original* and *Modern* control presets on the Change keys screen.
 - **Updates from the title menu:** *Check for updates*, then *Update now* downloads the new version, checks its signature
-  and installs it in place (Windows, macOS, Linux, Android); an interface extra checks once at each start. Only GitHub is
-  contacted, and only then.
+  and installs it in place (Windows, macOS, Linux, Android); on Windows and with the Linux .tar.gz it downloads only the
+  programs and the pack files that changed. An interface extra checks once at each start. Only GitHub is contacted, and
+  only then.
 - **Content packs and game scripts** that change prices, buildings, terrain, golfers, text, art and sounds, add scenarios,
   and can be downloaded from inside the game ([docs/MODDING.md](docs/MODDING.md)).
 - **A course editor** (*Course editor...* on the title menu): build a course free of charge with the game's own tools,
