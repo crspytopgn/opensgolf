@@ -71,6 +71,8 @@ icon = "@mipmap/ic_launcher"
 name = "android.permission.REQUEST_INSTALL_PACKAGES"
 
 [package.metadata.android.activity_attributes]
+# landscape either way up (SimGolf's screens are 800 x 600): a turn half round needs no restart, and the game reads the
+# surface's size every frame (main.rs update), so it follows the surface whenever Android changes it
 "android:screenOrientation" = "sensorLandscape"
 # Android 12 and newer refuse a launcher activity that does not say this
 "android:exported" = "true"

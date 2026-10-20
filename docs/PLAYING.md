@@ -981,7 +981,14 @@ The same touch controls work in the browser and in the Android app (crates/simgo
 
 In a browser the game covers what can be seen of the page (the visual viewport), and follows Safari's address, tab and
 bottom bars as they show and hide and the device as it turns: on an iPad or iPhone the bottom of the game (the dock, a
-panel's lower row) used to sit under the bars (web/opensgolf.js `sgFitCanvas`).
+panel's lower row) used to sit under the bars (web/opensgolf.js `sgFitCanvas`). It is sized again a few times in the
+second after the device turns, since iOS Safari reports the new size late.
+
+SimGolf is a landscape game. A phone or tablet held upright while the game runs (in the browser) gets a card over the game
+asking to turn it sideways; turning it takes the card away, and no tap reaches the game while it is up. **Play anyway**
+plays upright for the rest of the browser tab's session: the whole game in a 4:3 band across the middle of the screen,
+black above and below (web/files.js `sgPortraitAsk`, `sgCanvasRect`). Only touch devices are asked (a coarse pointer, or
+an iPad); a desktop window, however tall, never is. The Android app is held in landscape by the system (either way up).
 
 Tap for a click; drag one finger to scroll the course (or to paint with the selected tool); hold a finger still for half a
 second for a right click (undo, remove, close a screen). With the raise / lower tool (the Elevation panel, or =), a tap raises

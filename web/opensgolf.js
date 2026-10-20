@@ -728,6 +728,9 @@ function sgStart() {
     // the page under the game must not scroll (Safari moves a fixed canvas with it while its bars slide)
     document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
+    // black round the game where it does not fill the view (an upright phone after "Play anyway", sgCanvasRect)
+    document.documentElement.style.background = "#000";
+    document.body.style.background = "#000";
     sgFitCanvas();
     canvas.focus();
     // the sound output (see sgStartAudio)
@@ -745,22 +748,63 @@ function sgFitCanvas() {
     if (!c || c.style.display !== "block") return;
     const vv = window.visualViewport;
     const w = vv ? vv.width : window.innerWidth, h = vv ? vv.height : window.innerHeight;
+    // a phone or tablet held upright: the "turn sideways" card, and after "Play anyway" the game in a 4:3 band (files.js)
+    const touch = sgTouchDevice();
+    sgRotateCard(sgPortraitAsk(touch, w, h, sgRotateDismissed()));
+    const r = sgCanvasRect(touch, w, h, vv ? vv.offsetLeft : 0, vv ? vv.offsetTop : 0);
     const css = (k, v) => { if (c.style[k] !== v) c.style[k] = v; };
-    css("width", Math.round(w) + "px");
-    css("height", Math.round(h) + "px");
-    css("left", Math.round(vv ? vv.offsetLeft : 0) + "px");
-    css("top", Math.round(vv ? vv.offsetTop : 0) + "px");
+    css("width", r.width + "px");
+    css("height", r.height + "px");
+    css("left", r.left + "px");
+    css("top", r.top + "px");
     // gl.js's own resize (it listens to the window's resize only, which Safari does not send for its bars)
     if (typeof resize === "function" && typeof wasm_exports !== "undefined" && wasm_exports.resize) resize(c, wasm_exports.resize);
 }
+// Sized again a few times after a turn: iOS Safari reports the new size late (the first resize after a turn can still
+// carry the old one, and a bar sliding away does not always send an event).
+function sgFitSoon() {
+    sgFitCanvas();
+    for (const ms of [100, 300, 700, 1200]) setTimeout(sgFitCanvas, ms);
+}
 if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", sgFitCanvas);
+    window.visualViewport.addEventListener("resize", sgFitSoon);
     window.visualViewport.addEventListener("scroll", sgFitCanvas);
 }
-window.addEventListener("resize", sgFitCanvas);
-// (the new size comes a moment after the turn on older iOS, and a bar sliding away does not always send an event)
-window.addEventListener("orientationchange", () => { sgFitCanvas(); setTimeout(sgFitCanvas, 300); });
+window.addEventListener("resize", sgFitSoon);
+window.addEventListener("orientationchange", sgFitSoon);
+if (window.screen && screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener("change", sgFitSoon);
 setInterval(sgFitCanvas, 500);
+
+// A phone or tablet: a coarse pointer (a finger), or an iPad, which says it is a Mac but has a touch screen. A desktop with
+// a touch screen keeps its fine pointer (the mouse) and is not one.
+function sgTouchDevice() {
+    try {
+        if (window.matchMedia && matchMedia("(pointer: coarse)").matches) return true;
+    } catch (e) {}
+    return navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent);
+}
+
+// "Play anyway" holds for the tab's session (sessionStorage, which a private window may refuse: then for the page).
+let sgRotateAnyway = false;
+function sgRotateDismissed() {
+    if (sgRotateAnyway) return true;
+    try { return sessionStorage.getItem("sg_rotate_anyway") === "1"; } catch (e) { return false; }
+}
+function sgRotateDismiss() {
+    sgRotateAnyway = true;
+    try { sessionStorage.setItem("sg_rotate_anyway", "1"); } catch (e) {}
+    sgFitSoon();
+    const c = document.getElementById("glcanvas");
+    if (c) c.focus();
+}
+// Shows or hides the "turn your device sideways" card (index.html #rotate). It lies over the game, so no tap reaches it.
+function sgRotateCard(show) {
+    const el = document.getElementById("rotate");
+    if (!el || el.hidden === !show) return;
+    el.hidden = !show;
+    // (no keys to the game under it either)
+    if (show && document.activeElement && document.activeElement.blur) document.activeElement.blur();
+}
 
 // No game folder: the game finds no original files under game/ and plays on the free base set (opensgolf-free), which it
 // draws itself.
@@ -1650,7 +1694,9 @@ let sgKbd = null;
 let sgKbdWanted = false;
 for (const type of ["touchend", "pointerup"]) {
     window.addEventListener(type, () => {
-        if (sgKbdWanted && sgKbd && document.activeElement !== sgKbd) {
+        // (not for a tap on the "turn sideways" card over the game)
+        const card = document.getElementById("rotate");
+        if (sgKbdWanted && sgKbd && document.activeElement !== sgKbd && !(card && !card.hidden)) {
             sgKbd.value = " ";
             sgKbd.focus();
         }

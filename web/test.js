@@ -233,6 +233,26 @@ test("sounds in a coding the game cannot play are counted and named", () => {
     assert.ok(s.problem && /2 of your sounds use a format OpenSGolf can't play yet \(e\.g\. DSP Group TrueSpeech\)/.test(s.text), s.text);
 });
 
+test("a phone or tablet held upright is asked to turn; a desktop window never is", () => {
+    assert.strictEqual(f.sgPortraitAsk(true, 390, 664, false), true); // iPhone 13 upright
+    assert.strictEqual(f.sgPortraitAsk(true, 820, 1180, false), true); // iPad Air upright
+    assert.strictEqual(f.sgPortraitAsk(true, 750, 342, false), false); // sideways
+    assert.strictEqual(f.sgPortraitAsk(true, 500, 500, false), false); // square is not upright
+    assert.strictEqual(f.sgPortraitAsk(true, 390, 664, true), false); // "Play anyway"
+    assert.strictEqual(f.sgPortraitAsk(false, 600, 1000, false), false); // a tall desktop window
+});
+
+test("the canvas fills the view, or a 4:3 band across the middle of an upright touch screen", () => {
+    assert.deepStrictEqual(f.sgCanvasRect(true, 750, 342, 0, 0), { left: 0, top: 0, width: 750, height: 342 });
+    assert.deepStrictEqual(f.sgCanvasRect(false, 600, 1000, 0, 0), { left: 0, top: 0, width: 600, height: 1000 });
+    assert.deepStrictEqual(f.sgCanvasRect(true, 390, 664, 0, 0), { left: 0, top: 186, width: 390, height: 293 });
+    // the visual viewport's offset (Safari's bars, a pinch) carries over
+    assert.deepStrictEqual(f.sgCanvasRect(true, 400, 700, 0, 10), { left: 0, top: 210, width: 400, height: 300 });
+    // never taller than the view (a nearly square upright view)
+    const r = f.sgCanvasRect(true, 600, 610, 0, 0);
+    assert.ok(r.height <= 610 && r.top >= 0 && r.width === 600, JSON.stringify(r));
+});
+
 (async () => {
     for (const [name, fn] of tests) {
         try {
