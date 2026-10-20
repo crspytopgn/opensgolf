@@ -2307,12 +2307,13 @@ STR_PROFILE_SAVED                       :Profile "{NAME}" saved.
 STR_PROFILE_DELETED                     :Profile "{NAME}" deleted.
 STR_PROFILE_LOADED                      :Profile "{NAME}" loaded: restart the game to play with it.
 STR_PROFILE_LOADED_MISSING              :Profile "{NAME}" loaded without the packs not installed: {MISSING}. Restart the game to play with it.
-# Loading a game saved with other content packs (content_profiles.rs). {SAVED} and {NOW} list packs as "id version".
-STR_SAVE_PACKS_DIFFER                   :This game was saved with the content packs {SAVED}; the game is now running with {NOW}. It may not play as it did.
-STR_SAVE_PACKS_MISSING                  :Not installed (or in another version): {MISSING}.
-STR_SAVE_PACKS_SWITCH                   :Switch to the save's packs (the game restarts and loads it)
-STR_SAVE_PACKS_SWITCH_LATER             :Switch to the save's packs (then restart and load it)
-STR_SAVE_PACKS_LOAD_ANYWAY              :Load it with the packs in use
+# Loading a game saved with other content packs (content_profiles.rs): plain words; the packs' ids and versions go to the
+# log only
+STR_SAVE_PACKS_DIFFER                   :This game was saved with other add-ons (mods or a translation) than the ones in use. It may play a little differently. Load it anyway?
+STR_SAVE_PACKS_MISSING                  :Some of them are not installed here.
+STR_SAVE_PACKS_SWITCH                   :Switch to what it was saved with (the game restarts and loads it)
+STR_SAVE_PACKS_SWITCH_LATER             :Switch to what it was saved with (then restart and load it)
+STR_SAVE_PACKS_LOAD_ANYWAY              :Load it anyway
 STR_SAVE_PACKS_CANCEL                   :Do not load it
 STR_SAVE_PACKS_SWITCHED                 :Switched to the saved game's content packs.
 STR_SAVE_PACKS_RESTART_YOURSELF         :The save's content packs are chosen. Restart the game (in a browser: reload the page), then load the game again.
@@ -3221,3 +3222,11 @@ STR_SVE_LOST_STORIES                    :stories under way
 STR_SVE_LOST_TOURNAMENT                 :the tournament under way
 STR_SVE_LOST_HOLE_NAMES                 :the holes' names
 STR_SVE_LOST_OPTIONS                    :the original's Preferences
+# The Import and export saved games extra (extras.rs save_files; Load Previous Game's buttons, issue #49)
+STR_EXTRAS_SAVE_FILES                   : Import and export saved games (buttons in Load Previous Game)
+STR_EXTRAS_DESC_SAVE_FILES              :For moving your games to another device (computer, phone, tablet, browser): Load Previous Game gets Import a save file... and Export this save...
+# Loading a game saved with other graphics (content_profiles.rs save_packs_question): the base packs in plain words
+STR_SAVE_PACKS_ART_ORIGINAL             :the original SimGolf art
+STR_SAVE_PACKS_ART_FREE                 :the free graphics
+STR_SAVE_PACKS_ART_OTHER                :the graphics "{ID}"
+STR_SAVE_PACKS_DIFFER_ART               :This game was saved with {SAVED}; you're using {NOW}. It may look or play a little differently. Load it anyway?

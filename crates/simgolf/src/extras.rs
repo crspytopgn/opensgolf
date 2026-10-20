@@ -47,6 +47,9 @@
 //!   instead of the tool's one look until Tab steps it. Left out of the one-click OpenSGolf extras: it changes what the
 //!   original's tools plant. The facing is not chosen: the original turns every tree by its tile's place, and nothing
 //!   per tile holds a facing.
+//! * import and export saved games (files_ui.rs file_buttons): Load Previous Game's *Import a save file...* and *Export
+//!   this save...*, for moving games between devices (issue #49). Up to 0.4.9 they came with Course sharing, so ticks
+//!   saved before it follow that tick.
 //!
 //! With every extra off the game draws and plays exactly as before they existed (each hook asks its switch first).
 use serde::{Deserialize, Serialize};
@@ -80,6 +83,7 @@ pub struct Settings {
     pub home_details: bool,
     pub right_drag: bool,
     pub random_trees: bool,
+    pub save_files: bool,
 }
 
 impl Settings {
@@ -108,6 +112,7 @@ impl Settings {
         home_details: true,
         right_drag: false,
         random_trees: false,
+        save_files: true,
     };
     pub const ALL_OFF: Settings = Settings {
         people: false,
@@ -132,6 +137,7 @@ impl Settings {
         home_details: false,
         right_drag: false,
         random_trees: false,
+        save_files: false,
     };
 
     /// The ticks as the Extras box's checkbox bits (in `UI_KEYS` order).
@@ -159,6 +165,7 @@ impl Settings {
             self.home_details,
             self.right_drag,
             self.random_trees,
+            self.save_files,
         ]
         .iter()
         .enumerate()
@@ -190,6 +197,7 @@ impl Settings {
             home_details: on(19),
             right_drag: on(20),
             random_trees: on(21),
+            save_files: on(22),
         }
     }
 
@@ -218,7 +226,7 @@ impl Default for Settings {
 
 /// The interface extras' lines on the Extras box's Interface page (extras_ui.rs), one tick per extra in `Settings::bits`
 /// order (text keys in lang/en.txt).
-pub const UI_KEYS: [&str; 22] = [
+pub const UI_KEYS: [&str; 23] = [
     "STR_EXTRAS_PEOPLE",
     "STR_EXTRAS_HISTORY",
     "STR_EXTRAS_NAME_TAGS",
@@ -241,6 +249,7 @@ pub const UI_KEYS: [&str; 22] = [
     "STR_EXTRAS_HOME_DETAILS",
     "STR_EXTRAS_RIGHT_DRAG",
     "STR_EXTRAS_RANDOM_TREES",
+    "STR_EXTRAS_SAVE_FILES",
 ];
 
 thread_local! {
@@ -321,6 +330,9 @@ pub fn right_drag() -> bool {
 pub fn random_trees() -> bool {
     settings().random_trees
 }
+pub fn save_files() -> bool {
+    settings().save_files
+}
 
 fn settings_json() -> serde_json::Value {
     sg_core::fsutil::read_file(crate::app::save_dir().join(crate::hd::SETTINGS_FILE))
@@ -346,6 +358,7 @@ pub fn saved() -> Settings {
     if v.is_object() && v.get("sharing").is_none() {
         s.sharing = s.people;
     }
+    follow_sharing(&v, &mut s);
     // ticks saved before the two pauses existed: off (they are off in every preset)
     if v.get("pause_background").is_none() {
         s.pause_background = false;
@@ -357,6 +370,13 @@ pub fn saved() -> Settings {
     // game, so a player who had the extras on chooses them anew)
     upgrade_off(&v, &mut s);
     s
+}
+
+/// Ticks saved before Import and export saved games (0.5), whose buttons came with Course sharing: it follows that tick.
+fn follow_sharing(v: &serde_json::Value, s: &mut Settings) {
+    if v.get("save_files").is_none() {
+        s.save_files = s.sharing;
+    }
 }
 
 /// The extras added in 0.4 read as off from ticks saved before them.
@@ -933,7 +953,6 @@ mod tests {
         assert_eq!(Settings::from_bits(n.bits()), n);
         assert_eq!(n.style(), n, "they make the game style");
         assert_eq!(Settings::ALL_ON.bits() & n.bits(), n.bits());
-        assert_eq!(UI_KEYS.len(), 22);
         // a save with nothing of theirs is the same as before
         assert!(Kept::default().is_empty());
         assert_eq!(serde_json::to_string(&Kept::default()).unwrap(), "{}");
@@ -958,6 +977,25 @@ mod tests {
         assert_eq!(r.bits(), 1 << 20);
         assert_eq!(Settings::from_bits(r.bits()), r);
         assert_eq!(r.style(), Settings::ALL_OFF);
+    }
+
+    #[test]
+    fn save_files_follow_course_sharing_from_older_ticks() {
+        for sharing in [false, true] {
+            let v: serde_json::Value = serde_json::json!({ "people": true, "sharing": sharing, "random_trees": true });
+            let mut s: Settings = serde_json::from_value(v.clone()).unwrap();
+            follow_sharing(&v, &mut s);
+            assert_eq!(s.save_files, sharing);
+        }
+        let v: serde_json::Value = serde_json::json!({ "sharing": false, "save_files": true });
+        let mut s: Settings = serde_json::from_value(v.clone()).unwrap();
+        follow_sharing(&v, &mut s);
+        assert!(s.save_files && !s.sharing);
+        assert!(Settings::ALL_ON.save_files && !Settings::ALL_OFF.save_files);
+        let f = Settings { save_files: true, ..Settings::ALL_OFF };
+        assert_eq!(f.bits(), 1 << 22);
+        assert_eq!(Settings::from_bits(f.bits()), f);
+        assert_eq!(UI_KEYS.len(), 23);
     }
 
     #[test]

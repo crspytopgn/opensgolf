@@ -213,15 +213,17 @@ fn top_c(s: &Ui, g: &mut Gfx, x: f32, y: f32, t: &str, size: f32, c: [f32; 4]) {
 /// The Course sharing extra's *Paste a course code* button on the championship course list (share.rs).
 const PASTE_RECT: Rect = Rect::new(414.0, 520.0, 176.0, 36.0);
 
-/// The Course sharing extra's *Import a save file...* and *Export this save...* buttons on Load Previous Game, where the
-/// course list has its paste button (the port's own: saved games to and from files the player keeps, issue #49).
+/// The Import and export saved games extra's *Import a save file...* and *Export this save...* buttons on Load Previous
+/// Game, where the course list has its paste button (the port's own: saved games to and from files the player keeps,
+/// issue #49).
 const IMPORT_RECT: Rect = Rect::new(414.0, 500.0, 176.0, 28.0);
 const EXPORT_RECT: Rect = Rect::new(414.0, 534.0, 176.0, 28.0);
 
-/// Whether Load Previous Game shows the Import and Export buttons: with the Course sharing extra, where the player can
-/// reach the files (not on Android, whose save folder is the app's own).
+/// Whether Load Previous Game shows the Import and Export buttons: with the Import and export saved games extra (up to
+/// 0.4.9 part of Course sharing), where the player can reach the files (not on Android, whose save folder is the app's
+/// own).
 fn file_buttons(kind: ListKind) -> bool {
-    kind == ListKind::Load && crate::extras::sharing() && !cfg!(target_os = "android")
+    kind == ListKind::Load && crate::extras::save_files() && !cfg!(target_os = "android")
 }
 
 /// The Save pictures extra's map of a course: one cell per tile (a cell per 2 x 2 tiles, or more, on large maps), coloured
