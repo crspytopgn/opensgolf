@@ -118,6 +118,8 @@ Optional, and off by default (Start New Game has a one-click switch between *the
   the right button (a right click stays the original's undo).
 - **Drag to place** (interface extra): drag to lay a row of benches, flower beds, ball washers, willows or bridges, with
   the row and its cost shown before you let go; and *Original* and *Modern* control presets on the Change keys screen.
+- **Random trees** (interface extra): every tree planted takes a random size and species of its kind, and every scenic
+  tree a random one of the seven.
 - **Updates from the title menu:** *Check for updates*, then *Update now* downloads the new version, checks its signature
   and installs it in place (Windows, macOS, Linux, Android); an interface extra checks once at each start. Only GitHub is
   contacted, and only then.

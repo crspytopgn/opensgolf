@@ -3190,3 +3190,7 @@ STR_VISITOR_REMARK_FELIX_NIGHTLY_2      :Simply out of this world!
 # Right-drag panning (OpenSGolf extras, issue #67)
 STR_EXTRAS_RIGHT_DRAG                   : Right-drag panning: drag with the right button to move the course
 STR_EXTRAS_DESC_RIGHT_DRAG              :Drag with the right button held to move the course, as OpenSGolf did before. A right click without dragging still undoes and puts tools away, as in the original.
+
+# Random trees (OpenSGolf extras, issue #68)
+STR_EXTRAS_RANDOM_TREES                 : Random trees: each tree planted gets a random look
+STR_EXTRAS_DESC_RANDOM_TREES            :Every tree the woods, pine and palm brushes plant gets a random size (and pines a random species), and every scenic tree a random one of the seven, for a more natural course. The look under the pointer is the next one.

@@ -42,6 +42,11 @@
 //! * right-drag panning (main.rs right_down): a drag with the right button moves the course, as OpenSGolf did up to 0.4.7;
 //!   a right click that does not move is still the original's (undo, putting a tool away). Left out of the one-click
 //!   OpenSGolf extras like zooming towards the pointer: it changes what the original's right button does.
+//! * random trees (app.rs painted_tile, place_tile_item): each tree the woods, pine and palm brushes plant takes a random
+//!   one of its type's looks (size, and for pines the species), and each scenic tree placed a random one of the seven,
+//!   instead of the tool's one look until Tab steps it. Left out of the one-click OpenSGolf extras: it changes what the
+//!   original's tools plant. The facing is not chosen: the original turns every tree by its tile's place, and nothing
+//!   per tile holds a facing.
 //!
 //! With every extra off the game draws and plays exactly as before they existed (each hook asks its switch first).
 use serde::{Deserialize, Serialize};
@@ -74,6 +79,7 @@ pub struct Settings {
     pub year_summary: bool,
     pub home_details: bool,
     pub right_drag: bool,
+    pub random_trees: bool,
 }
 
 impl Settings {
@@ -101,6 +107,7 @@ impl Settings {
         year_summary: true,
         home_details: true,
         right_drag: false,
+        random_trees: false,
     };
     pub const ALL_OFF: Settings = Settings {
         people: false,
@@ -124,6 +131,7 @@ impl Settings {
         year_summary: false,
         home_details: false,
         right_drag: false,
+        random_trees: false,
     };
 
     /// The ticks as the Extras box's checkbox bits (in `UI_KEYS` order).
@@ -150,6 +158,7 @@ impl Settings {
             self.year_summary,
             self.home_details,
             self.right_drag,
+            self.random_trees,
         ]
         .iter()
         .enumerate()
@@ -180,12 +189,13 @@ impl Settings {
             year_summary: on(18),
             home_details: on(19),
             right_drag: on(20),
+            random_trees: on(21),
         }
     }
 
     /// The ticks that make the game style (extras_ui.rs GameStyle): all but the two pauses, which leave the game as it is,
-    /// the update check, which has nothing to do with the game, and zooming towards the pointer, drag to place and
-    /// right-drag panning, matters of the mouse.
+    /// the update check, which has nothing to do with the game, zooming towards the pointer, drag to place and
+    /// right-drag panning, matters of the mouse, and random trees, a matter of the building tools.
     pub fn style(&self) -> Settings {
         Settings {
             pause_background: false,
@@ -194,6 +204,7 @@ impl Settings {
             zoom_pointer: false,
             drag_place: false,
             right_drag: false,
+            random_trees: false,
             ..*self
         }
     }
@@ -207,7 +218,7 @@ impl Default for Settings {
 
 /// The interface extras' lines on the Extras box's Interface page (extras_ui.rs), one tick per extra in `Settings::bits`
 /// order (text keys in lang/en.txt).
-pub const UI_KEYS: [&str; 21] = [
+pub const UI_KEYS: [&str; 22] = [
     "STR_EXTRAS_PEOPLE",
     "STR_EXTRAS_HISTORY",
     "STR_EXTRAS_NAME_TAGS",
@@ -229,6 +240,7 @@ pub const UI_KEYS: [&str; 21] = [
     "STR_EXTRAS_YEAR_SUMMARY",
     "STR_EXTRAS_HOME_DETAILS",
     "STR_EXTRAS_RIGHT_DRAG",
+    "STR_EXTRAS_RANDOM_TREES",
 ];
 
 thread_local! {
@@ -305,6 +317,9 @@ pub fn home_details() -> bool {
 }
 pub fn right_drag() -> bool {
     settings().right_drag
+}
+pub fn random_trees() -> bool {
+    settings().random_trees
 }
 
 fn settings_json() -> serde_json::Value {
@@ -383,6 +398,10 @@ fn upgrade_off(v: &serde_json::Value, s: &mut Settings) {
     // right-drag panning (0.4.8): off from ticks saved before it, so a 0.4.7 player's right button is the original's
     if v.get("right_drag").is_none() {
         s.right_drag = false;
+    }
+    // random trees (0.4.8): off from ticks saved before it
+    if v.get("random_trees").is_none() {
+        s.random_trees = false;
     }
 }
 
@@ -914,7 +933,7 @@ mod tests {
         assert_eq!(Settings::from_bits(n.bits()), n);
         assert_eq!(n.style(), n, "they make the game style");
         assert_eq!(Settings::ALL_ON.bits() & n.bits(), n.bits());
-        assert_eq!(UI_KEYS.len(), 21);
+        assert_eq!(UI_KEYS.len(), 22);
         // a save with nothing of theirs is the same as before
         assert!(Kept::default().is_empty());
         assert_eq!(serde_json::to_string(&Kept::default()).unwrap(), "{}");
@@ -937,6 +956,23 @@ mod tests {
         assert!(!Settings::ALL_ON.right_drag && !Settings::ALL_OFF.right_drag && !Settings::default().right_drag);
         let r = Settings { right_drag: true, ..Settings::ALL_OFF };
         assert_eq!(r.bits(), 1 << 20);
+        assert_eq!(Settings::from_bits(r.bits()), r);
+        assert_eq!(r.style(), Settings::ALL_OFF);
+    }
+
+    #[test]
+    fn random_trees_are_off_unless_ticked() {
+        let v: serde_json::Value = serde_json::from_str("{\"people\": true, \"drag_place\": true, \"right_drag\": true}").unwrap();
+        let mut s: Settings = serde_json::from_value(v.clone()).unwrap();
+        upgrade_off(&v, &mut s);
+        assert!(!s.random_trees && s.right_drag);
+        let v: serde_json::Value = serde_json::from_str("{\"random_trees\": true}").unwrap();
+        let mut s: Settings = serde_json::from_value(v.clone()).unwrap();
+        upgrade_off(&v, &mut s);
+        assert!(s.random_trees);
+        assert!(!Settings::ALL_ON.random_trees && !Settings::ALL_OFF.random_trees);
+        let r = Settings { random_trees: true, ..Settings::ALL_OFF };
+        assert_eq!(r.bits(), 1 << 21);
         assert_eq!(Settings::from_bits(r.bits()), r);
         assert_eq!(r.style(), Settings::ALL_OFF);
     }

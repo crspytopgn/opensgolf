@@ -3099,6 +3099,12 @@ impl App {
         if let Some((slot, _)) = sg_core::decor::tree_sound(new) {
             self.ui_sound(slot);
         }
+        // the Random trees extra (OpenSGolf extras): the next tree this brush plants takes a random look of its kind, any
+        // of the variant byte's twelve (v % 3 the size, (v / 3) & 1 a pine's species; decor::trees), drawn from the
+        // looks' own generator so the game's is untouched; the brush's look under the pointer shows it
+        if crate::extras::random_trees() && (13..=15).contains(&new) {
+            self.paint_variant = Some((self.paint_idx, self.look_rng.below(12)));
+        }
     }
 
     pub fn edit_path(&mut self, tx: i32, ty: i32, remove: bool) {
@@ -3165,6 +3171,11 @@ impl App {
             land::K_FLOWERS => self.ui_sound(148),
             land::K_BRIDGE => self.ui_sound(263),
             _ => {}
+        }
+        // the Random trees extra (OpenSGolf extras): the next scenic tree is a random one of the seven, as picking the
+        // tool chooses one (0x434ac0); the strip and the look under the pointer show it
+        if kind == land::K_WILLOW && crate::extras::random_trees() {
+            self.arm_design(kind);
         }
         self.after_object_change();
         true

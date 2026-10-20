@@ -803,6 +803,22 @@ Test hooks: `SG_TAPE="x0,y0,x1,y1"` (tiles, fractions allowed) sets a tape down;
 tile x,y to the pointer (`SG_CURSOR_TILE`) and `SG_AREA=f` holds Alt (with `SG_PAINT=type`, for stills of the previews);
 `--edit "B:x0,y0,x1,y1,type"` paints a rectangle and `--edit "L:x,y,type"` fills, printing the tiles, the cost and the cash.
 
+### Random trees
+
+An OpenSGolf extra (Preferences, *OpenSGolf extras...*, Helpers page), off by default and left out of the one-click
+extras; ticks saved before it read as off. In the original a tree brush keeps one look while it is in hand (picked at
+random when you pick the brush, Tab steps it) and the scenic tree tool one of its seven trees until you choose another.
+With **Random trees** on, every tree the woods, pine and palm brushes plant, by a click, a painted stroke, a rectangle or
+a fill, takes a random look of its kind (the small, medium or large tree, and for pines either species), and every scenic
+tree placed a random one of the seven (plum, dogwood, elm, Japanese maple, cypress, scenic tree, peach), so a stand of
+trees no longer looks planted in rows. The see-through tree under the pointer, and for scenic trees the lit picture in
+the strip, show the look the next one will take; Tab and the strip still choose it by hand. Only the tile's own variant
+byte changes, which the original already keeps and saves for every planted tree, so saves are as before and the trees
+look the same in the original. The facing cannot be chosen: the original turns each tree by the place of its tile, and
+nothing kept for a tile holds a facing. With the extra off the brushes plant exactly as the original's. Test hook: with
+it ticked, `--edit "B:x0,y0,x1,y1,14"` plants a rectangle of pines (13 broadleaf trees, 15 palms) and
+`--edit "W:x0,y0,x1,y1,16"` a row of scenic trees.
+
 On Windows, macOS and Linux, **F11** or **Alt+Enter** switches between a window and full screen (in the browser, use the
 browser's own full screen, F11).
 
