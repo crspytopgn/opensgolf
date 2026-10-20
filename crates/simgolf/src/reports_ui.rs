@@ -183,12 +183,17 @@ impl App {
         s.put_centered(g, F_INFO14, 598.0, 96.0, tr("STR_COMMENTS_FREQUENCY"), black());
         let rows = self.comment_rows();
         let y0 = 124.0;
+        // with bigger text (textsize.rs; the port's own) the rows grow with their words, as far as the report still ends on
+        // the screen, and each comment takes what fits before the hole column
+        let k = crate::textsize::k(((560.0 - y0 - 61.0) / (15.0 * rows.len().max(1) as f32)).max(1.0));
+        let pitch = (15.0 * k).round();
+        let (f, ty) = (F_INFO14.scaled(k), (2.0 * k).round());
         for (n, (_, line, hole, freq)) in rows.iter().enumerate() {
-            let y = y0 + 15.0 * n as f32;
+            let y = y0 + pitch * n as f32;
             if has {
-                s.image_part(g, im, 148.0, y, 148.0, 224.0, 505.0, 17.0);
+                s.image_scaled(g, im, (148.0, y, 505.0, pitch + 2.0), (148.0, 224.0, 505.0, 17.0));
             } else {
-                s.fill(g, 148.0, y, 505.0, 15.0, rgb(0.92, 0.9, 0.84));
+                s.fill(g, 148.0, y, 505.0, pitch, rgb(0.92, 0.9, 0.84));
             }
             let c = match line.tone {
                 sg_core::thoughts::Tone::Good => c15(0x1284),
@@ -197,11 +202,11 @@ impl App {
             };
             // 0x4546b0: the row piece's top is the header piece's height (102) plus 22 and the text's top that plus 24, so the
             // words sit 2 below the piece; the exe draws nothing in place of the rows when none was recorded
-            s.put(g, F_INFO14, 182.0, y + 2.0, &line.text, c);
-            s.put_centered(g, F_INFO14, 504.0, y + 2.0, &format!("{hole}"), c);
-            s.put_centered(g, F_INFO14, 598.0, y + 2.0, &format!("{freq}%"), c);
+            s.put(g, crate::textsize::fit(F_INFO14, k, &line.text, 300.0), 182.0, y + ty, &line.text, c);
+            s.put_centered(g, f, 504.0, y + ty, &format!("{hole}"), c);
+            s.put_centered(g, f, 598.0, y + ty, &format!("{freq}%"), c);
         }
-        let fy = y0 + 15.0 * rows.len() as f32;
+        let fy = y0 + pitch * rows.len() as f32;
         if has {
             s.image_part(g, im, 148.0, fy, 148.0, 321.0, 505.0, 61.0);
         }

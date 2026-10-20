@@ -216,6 +216,10 @@ impl Fnt {
     pub fn width(self, s: &str) -> f32 {
         Font::get(self.face).map(|f| f.width(s, self.px)).unwrap_or(s.len() as f32 * self.px * 0.5)
     }
+    /// The same face `k` times the size, to a whole pixel (the text size, textsize.rs; itself at 1).
+    pub fn scaled(self, k: f32) -> Fnt {
+        Fnt { face: self.face, px: crate::textsize::sized(self.px, k) }
+    }
 }
 
 // The start up set (0x45bd83), by font object.

@@ -758,20 +758,20 @@ impl App {
         } else {
             trf("STR_CARD_NAME_JOB", &[("GOLFER", &self.club.vip_name(gi)), ("JOB", &p.job)])
         };
-        s.text_centered(g, 420.0, top(40.0, LARGE), &name, LARGE, teal);
-        s.text_centered(
-            g,
-            420.0,
-            top(62.0, BODY),
-            &trf("STR_CARD_MARITAL_AGE", &[("MARITAL", &self.club.marital(gi)), ("AGE", &self.club.age(gi))]),
-            BODY,
-            teal,
-        );
-        s.text_centered(g, 420.0, top(75.0, BODY), &and_list(&trait_words(p.traits)), BODY, teal);
+        // the card's art cannot grow: with bigger text (textsize.rs) each line takes what fits beside the face and the bars,
+        // and the 13 to 16 pixel rows between them cap the body lines at 125%
+        let id_line = |g: &mut Gfx, y: f32, t: &str, size: f32, cap: f32, c| {
+            let big = crate::textsize::fit_px(size, cap, t, 290.0);
+            s.text_centered(g, 420.0, top(y - ((big - size) / 2.0).floor(), big), t, big, c);
+        };
+        id_line(g, 40.0, &name, LARGE, 1.5, teal);
+        let marital = trf("STR_CARD_MARITAL_AGE", &[("MARITAL", &self.club.marital(gi)), ("AGE", &self.club.age(gi))]);
+        id_line(g, 62.0, &marital, BODY, 1.2, teal);
+        id_line(g, 75.0, &and_list(&trait_words(p.traits)), BODY, 1.2, teal);
         let opinion = sg_core::thoughts::course_opinion(gg.mood, 0);
-        s.text_centered(g, 420.0, top(91.0, BODY), &trf("STR_CARD_OPINION", &[("OPINION", &opinion)]), BODY, c15(0x4210));
+        id_line(g, 91.0, &trf("STR_CARD_OPINION", &[("OPINION", &opinion)]), BODY, 1.2, c15(0x4210));
         let likes: Vec<&str> = (0..3).filter(|b| gg.class & (1 << b) != 0).map(|b| tr(CLASS_WORDS[b])).collect();
-        s.text_centered(g, 420.0, top(105.0, BODY), &likes.join(tr("STR_LIST_SEPARATOR")), BODY, teal);
+        id_line(g, 105.0, &likes.join(tr("STR_LIST_SEPARATOR")), BODY, 1.2, teal);
         // the five bars: the bright full length, then the dark part from the right end
         for (i, (label, w)) in bars(&gg).iter().enumerate() {
             let y = 44.0 + 16.0 * i as f32;
@@ -877,12 +877,15 @@ impl App {
             if text.is_empty() {
                 continue;
             }
-            // a line wider than the window goes on to the next
+            // a line wider than the window goes on to the next; with bigger text (textsize.rs) at most 125% here, so the
+            // window still shows four lines and none runs onto the buttons
+            let k = crate::textsize::k(1.25);
+            let size = crate::textsize::sized(size, k);
             for l in wrap_text(&text, size, 380.0) {
-                if y <= 240.0 {
+                if if k > 1.0 { y + size <= 246.0 } else { y <= 240.0 } {
                     s.text(g, 248.0, top(y, size), &l, size, c);
                 }
-                y += 13.0;
+                y += (13.0 * k).round();
             }
         }
     }

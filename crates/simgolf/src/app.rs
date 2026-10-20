@@ -2337,6 +2337,10 @@ impl App {
                     if crate::extras::hole_comments() {
                         self.tally_thought(g, id, arg);
                     }
+                    // the landing map's heat map of complaints (insight.rs)
+                    if crate::extras::landing_map() {
+                        self.heat_thought(g, id, arg);
+                    }
                 }
                 golf::Event::GreatShot { g, partner, text, bad, pts } => self.great_shot_event(g, partner, text, bad, &pts),
             }

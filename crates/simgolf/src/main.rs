@@ -95,6 +95,7 @@ mod share;
 mod staffview_ui;
 mod sysdiag;
 mod tags_ui;
+mod textsize;
 mod thoughts_ui;
 mod touch;
 mod tourney_ui;
@@ -562,6 +563,12 @@ fn open_screen(app: &mut App, screen: Option<&str>) {
             if let Some(h) = std::env::var("SG_LANDING_HOLE").ok().and_then(|v| v.parse::<usize>().ok()) {
                 app.xs.insight.hole = h.clamp(1, 18);
                 app.xs.insight.fixed = true;
+            }
+            // SG_LANDING_SHOW=M[,W]: what it shows (0 shots, 1 landings, 2 waiting, 3 complaints), W 1 for the whole course
+            if let Ok(v) = std::env::var("SG_LANDING_SHOW") {
+                let v = ints(&v);
+                app.xs.insight.show = v.first().copied().unwrap_or(0).clamp(0, 3) as u8;
+                app.xs.insight.whole = v.get(1).is_some_and(|&w| w != 0);
             }
         }
         Some(s @ ("history" | "profile" | "pathview" | "tags" | "ticker" | "card")) if app.ui_ok => {
@@ -1313,6 +1320,8 @@ impl Stage {
         extras::init(o.no_extras);
         // the player's keys (controls.rs)
         controls::init();
+        // the text size (textsize.rs; Preferences' Text size line)
+        textsize::init();
         // the effects (fx.rs) follow Enhanced's ticks; --fx / --fx-set / OPENSGOLF_FX turn them on for this run
         fx::configure(o.fx, o.fx_set.as_deref());
         if !app.load_theme(&mut g, app.theme) {
@@ -3277,6 +3286,10 @@ impl EventHandler for Stage {
         }
         // OpenSGolf extras: the ticker's Show button and the message history (extras.rs)
         if ui_ok && button == MouseButton::Left && self.app.ticker_click(vx, vy) {
+            return;
+        }
+        // the landing map's legend: what it shows and for which holes (insight.rs)
+        if ui_ok && button == MouseButton::Left && self.app.landing_legend_click(vx, vy) {
             return;
         }
         if ui_ok && button == MouseButton::Left && self.app.card_click(vx, vy) {
