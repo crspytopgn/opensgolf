@@ -543,7 +543,7 @@ pub const COURSE_SIZE_RECT: Rect = Rect::new(14.0, 548.0, 300.0, 44.0);
 /// Its hover code.
 pub const COURSE_SIZE_HIT: i32 = 101;
 
-/// The game style button on Select Difficulty (the port's own, docs/PLAYING.md "Original game or OpenSGolf extras"):
+/// The Game box on Select Difficulty (the port's own, docs/PLAYING.md "Original game or OpenSGolf extras": the presets),
 /// a box right of the course size.
 /// It starts right of x 472, where the Impossible face's hit area (DIFF_CENTRES[3]) ends at this height.
 pub const STYLE_RECT: Rect = Rect::new(480.0, 548.0, 255.0, 44.0);
@@ -842,17 +842,22 @@ impl App {
             let detail = trf("STR_COURSE_SIZE_DETAIL", &[("TILES", &n), ("YARDS", &(n * 25))]);
             s.text(g, r.x + 10.0, r.y + 37.0, &detail, 12.0, rgb(0.85, 0.85, 1.0));
         }
-        // the game style (the port's own): the original game or the OpenSGolf extras, one click apart
+        // the game's preset (the port's own, extras_ui.rs Preset): Original, Original + helpers, OpenSGolf or Custom, a
+        // click steps to the next
         {
             let r = STYLE_RECT;
             let lit = self.hover == STYLE_HIT;
             self.free_box_or_fill(g, &s, r, lit);
-            let (name, detail) = match self.game_style() {
-                crate::extras_ui::GameStyle::Original => ("STR_STYLE_ORIGINAL", "STR_STYLE_ORIGINAL_DETAIL"),
-                crate::extras_ui::GameStyle::Extras => ("STR_STYLE_EXTRAS", "STR_STYLE_EXTRAS_DETAIL"),
-                crate::extras_ui::GameStyle::Mix => ("STR_STYLE_MIX", "STR_STYLE_MIX_DETAIL"),
+            let p = self.game_style();
+            // Klepto ITC, the title screens' face, draws its plus sign as a bar: "Original & helpers" here
+            let name = trf("STR_STYLE_GAME", &[("PRESET", &tr(p.key()))]).replace('+', "&");
+            let detail = match p {
+                crate::extras_ui::Preset::Original => "STR_STYLE_ORIGINAL_DETAIL",
+                crate::extras_ui::Preset::Helpers => "STR_STYLE_HELPERS_DETAIL",
+                crate::extras_ui::Preset::OpenSGolf => "STR_STYLE_OPENSGOLF_DETAIL",
+                crate::extras_ui::Preset::Custom => "STR_STYLE_CUSTOM_DETAIL",
             };
-            s.text(g, r.x + 10.0, r.y + 19.0, tr(name), 17.0, if lit { rgb(1.0, 1.0, 0.6) } else { rgb(1.0, 1.0, 1.0) });
+            s.text(g, r.x + 10.0, r.y + 19.0, &name, 17.0, if lit { rgb(1.0, 1.0, 0.6) } else { rgb(1.0, 1.0, 1.0) });
             s.text(g, r.x + 10.0, r.y + 37.0, tr(detail), 12.0, rgb(0.85, 0.85, 1.0));
         }
         g.flush();

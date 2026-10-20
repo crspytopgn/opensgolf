@@ -60,7 +60,13 @@ impl App {
 
     /// The tag for this frame (draw_hud, over the golfers' names and thoughts).
     pub fn draw_name_tag(&self, g: &mut Gfx, s: &Ui) {
-        if !crate::extras::name_tags() || self.screen != Screen::Play || self.edit || self.card_ui.held.is_some() || self.xs.touched {
+        if !crate::extras::name_tags()
+            || self.xs.tags_hidden
+            || self.screen != Screen::Play
+            || self.edit
+            || self.card_ui.held.is_some()
+            || self.xs.touched
+        {
             return;
         }
         let (px, py) = self.info.pointer;

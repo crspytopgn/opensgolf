@@ -1761,9 +1761,18 @@ impl Stage {
                 if self.app.switch_hd(&mut self.g, m & 16 != 0) {
                     self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
                 }
-                // the port's own Enhanced graphics tick: its master switch, the options under it kept
+                // the port's own Enhanced graphics tick: its master switch, the options under it kept; and the bug fixes
+                // (kept with the Enhanced settings, though no Enhanced option: they count in Classic too)
                 let mut enh = enhanced::settings();
                 enh.enabled = m & 1 << popup_ui::PREFS_ENHANCED_ON != 0;
+                enh.fix_original_bugs = m & 1 << popup_ui::PREFS_FIX_BUGS != 0;
+                // the port's own update check (kept with the interface extras' ticks)
+                let mut ui = extras::settings();
+                if ui.update_check != (m & 1 << popup_ui::PREFS_UPDATE_CHECK != 0) {
+                    ui.update_check = !ui.update_check;
+                    extras::set(ui);
+                    extras::save(&ui);
+                }
                 if self.app.apply_enhanced(&mut self.g, enh) {
                     self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
                 }
@@ -1809,6 +1818,8 @@ impl Stage {
     /// The OpenSGolf extras chosen in Preferences: the gameplay ones become the game's (and the next game's) extras, the
     /// interface ones are put in use; both are saved.
     fn apply_extras(&mut self, ex: sg_core::extras::Extras, ui: extras::Settings) {
+        // a mix of the player's own is kept for the presets' Custom (extras_ui.rs)
+        extras_ui::remember_custom(&ex, &ui);
         self.app.set_extras(ex);
         extras::set(ui);
         extras::save(&ui);
@@ -2214,7 +2225,7 @@ impl Stage {
                 // the OpenSGolf extras' keys (extras.rs): People, the message history, name tags, the path view
                 KeyCode::G if extras::people() => app.open_people(),
                 KeyCode::M if extras::history() => app.open_history(),
-                KeyCode::H => app.toggle_name_tags(),
+                KeyCode::H if extras::name_tags() => app.toggle_name_tags(),
                 KeyCode::V if extras::path_help() => app.toggle_path_view(),
                 // the port's own comfort keys (comfort.rs, staffview_ui.rs): quick save, quick load, the staff areas
                 KeyCode::F5 => app.quick_save(),

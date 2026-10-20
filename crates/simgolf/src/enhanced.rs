@@ -362,7 +362,8 @@ pub const OPTIONS: &[OptionEntry] = &[
     tick!("smooth_camera", "STR_ENHANCED_SMOOTH_CAMERA", DISPLAY, smooth_camera),
     tick!("smooth_motion", "STR_ENHANCED_SMOOTH_MOTION", DISPLAY, smooth_motion),
     tick!("photo_mode", "STR_ENHANCED_PHOTO_MODE", DISPLAY, photo_mode),
-    tick!("fix_original_bugs", "STR_ENHANCED_FIX_BUGS", DISPLAY, fix_original_bugs),
+    // "Fix the original game's bugs" (`fix_original_bugs`) is kept with these settings but is a plain Preferences line
+    // (popup_ui PREFS_FIX_BUGS): it is no graphics option and counts in Classic too
     // the port's frame rate settings (framerate.rs): they count with Enhanced graphics off too
     OptionEntry {
         key: "frame_cap",
@@ -1320,6 +1321,8 @@ mod tests {
         for o in OPTIONS {
             assert!(v.get(o.key).is_some(), "{}", o.key);
         }
+        // the bug fixes are kept here but shown on Preferences itself (popup_ui PREFS_FIX_BUGS)
+        assert!(v.get("fix_original_bugs").is_some() && !OPTIONS.iter().any(|o| o.key == "fix_original_bugs"));
     }
 
     #[test]

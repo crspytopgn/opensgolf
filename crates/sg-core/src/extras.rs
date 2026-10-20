@@ -31,8 +31,13 @@
 //! * `more_visitors`: More visitors: touring pros and invented celebrities come to play now and then (sg_core::visitors,
 //!   data/visitors.toml); pros pay more and rate the course, celebrities draw a few extra golfers.
 //!
-//! Pause the calendar, Freeze happiness and Unlock all are named "Sandbox: ..." in the Extras box as they are what a sandbox
-//! player wants most, but each works in a normal game too.
+//! Freeze happiness and Unlock all are named "Sandbox: ..." in the Extras box as they are what a sandbox player wants
+//! most, but each works in a normal game too. The Extras box shows Slower seasons and Pause the calendar as one line,
+//! *Calendar: normal / half speed / quarter speed / stopped* (`Extras::calendar`), over the same two stored fields, so
+//! saves and settings keep their format and older versions read a newer save's calendar as it was meant.
+//!
+//! Of these, `rotate` (only the picture turns) and `path_style` (only the look of paths, and lamps for decoration) change
+//! how the game looks, not how it plays: the Extras box lists them on its Looks page and the presets treat them as looks.
 
 use serde::{Deserialize, Serialize};
 
@@ -96,10 +101,38 @@ pub const SEASON_SPEED: usize = 6;
 /// The calendar speeds' names ({VALUE} of the Slower seasons line), by `season_speed`.
 pub const SPEED_KEYS: [&str; 3] = ["STR_EXTRAS_SPEED_1", "STR_EXTRAS_SPEED_HALF", "STR_EXTRAS_SPEED_QUARTER"];
 
+/// The Calendar line's values ({VALUE} of STR_EXTRAS_CALENDAR), by `Extras::calendar`: normal (the original), half speed,
+/// quarter speed, stopped.
+pub const CALENDAR_KEYS: [&str; 4] =
+    ["STR_EXTRAS_CALENDAR_NORMAL", "STR_EXTRAS_CALENDAR_HALF", "STR_EXTRAS_CALENDAR_QUARTER", "STR_EXTRAS_CALENDAR_STOPPED"];
+/// The Calendar line's value for a stopped calendar (Pause the calendar).
+pub const CALENDAR_STOPPED: u8 = 3;
+
 impl Extras {
-    /// The gameplay extras of the "OpenSGolf extras" choice on Select Difficulty: the ones that add to the game without
-    /// changing its balance (not Hardcore, not the unfinished cut content, not More visitors, whose higher fees and extra
-    /// golfers change the club's takings).
+    /// The extras of the "Original + helpers" preset (the simgolf crate's extras_ui.rs `Preset`): only the two that change
+    /// how the game looks, not how it plays (Tab turns a building's picture; path styles and lamps, with the original's
+    /// paths until the player picks another style).
+    pub const LOOKS: Extras = Extras {
+        rotate: true,
+        cut_content: false,
+        hardcore: false,
+        more_staff: false,
+        animals: false,
+        set_par: false,
+        season_speed: 0,
+        pause_calendar: false,
+        freeze_moods: false,
+        unlock_all: false,
+        lefties: false,
+        weather: false,
+        path_style: 1,
+        more_visitors: false,
+    };
+
+    /// The extras of the "OpenSGolf" preset: the looks, and the light gameplay extras that add to the game without changing
+    /// its balance much (higher staff limits, buyable animals). Not Hardcore, not the experimental cut content, not More
+    /// visitors or Weather that matters (they change the club's takings), not Set par, Left-handed golfers or the sandbox
+    /// switches.
     pub const OPENSGOLF: Extras = Extras {
         rotate: true,
         cut_content: false,
@@ -221,6 +254,34 @@ impl Extras {
     pub fn step_option(&mut self, i: usize) {
         let v = self.option(i);
         self.set_option(i, (v + 1) % Self::choices(i));
+    }
+
+    /// The Calendar line of the Extras box: 0 normal (the original), 1 half speed, 2 quarter speed, 3 stopped
+    /// (`CALENDAR_STOPPED`). A stopped calendar wins over the speed, as `Calendar::step` has it, so a game saved with both
+    /// Slower seasons and Pause the calendar on reads as stopped.
+    pub fn calendar(&self) -> u8 {
+        if self.pause_calendar {
+            CALENDAR_STOPPED
+        } else {
+            self.season_speed.min(2)
+        }
+    }
+
+    /// Sets the Calendar line's value: stopped is Pause the calendar with the speed back at normal; the speeds untick the
+    /// pause. Only the two stored fields change, so the save's format is the one older versions read.
+    pub fn set_calendar(&mut self, v: u8) {
+        if v >= CALENDAR_STOPPED {
+            self.pause_calendar = true;
+            self.season_speed = 0;
+        } else {
+            self.pause_calendar = false;
+            self.season_speed = v;
+        }
+    }
+
+    /// A click on the Calendar line: normal, half, quarter, stopped, normal.
+    pub fn step_calendar(&mut self) {
+        self.set_calendar((self.calendar() + 1) % CALENDAR_KEYS.len() as u8);
     }
 
     /// Game ticks to one tick of the calendar: 1 (the original), 2 or 4.
@@ -600,6 +661,35 @@ mod tests {
             econ.on_tick_dated(t, &cal, 1, 0, &[], &mut rng);
         }
         assert_eq!(econ.debt_stage, 1);
+    }
+
+    #[test]
+    fn the_calendar_line_reads_and_writes_the_two_stored_fields() {
+        // old saves with either bit read as the matching value, and with both as stopped (the pause wins, as it plays)
+        for (bits, want) in [(0u32, 0u8), (1 << 6, 1), (2 << 6, 2), (1 << 8, 3), (1 << 8 | 2 << 6, 3), (1 << 8 | 1 << 6, 3)] {
+            assert_eq!(Extras::from_bits(bits).calendar(), want, "bits {bits:#x}");
+        }
+        let old: Extras = serde_json::from_str(r#"{"season_speed":2,"pause_calendar":true}"#).unwrap();
+        assert_eq!(old.calendar(), CALENDAR_STOPPED);
+        assert!(!Calendar::default().step(4, &old), "plays stopped");
+        // each value is stored as the fields older versions know
+        let mut e = Extras::default();
+        let mut seen = Vec::new();
+        for _ in 0..4 {
+            e.step_calendar();
+            seen.push((e.calendar(), e.season_speed, e.pause_calendar));
+        }
+        assert_eq!(seen, vec![(1, 1, false), (2, 2, false), (3, 0, true), (0, 0, false)]);
+        assert!(e.is_off());
+        for v in 0..4 {
+            let mut e = Extras::default();
+            e.set_calendar(v);
+            assert_eq!(Extras::from_bits(e.bits()).calendar(), v);
+            // the date moves as the two old ticks made it move
+            assert_eq!(Calendar::rate(&e), [1.0, 0.5, 0.25, 0.0][v as usize]);
+        }
+        // the presets leave the calendar alone (the original's)
+        assert_eq!((Extras::LOOKS.calendar(), Extras::OPENSGOLF.calendar()), (0, 0));
     }
 
     #[test]
