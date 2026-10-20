@@ -1312,6 +1312,13 @@ STR_MENU_PREFS_KEYS                     : Keyboard controls...
 STR_MENU_PREFS_EXTRAS                   : OpenSGolf extras...
 # Preferences > Search (the port's own, prefs_search.rs): find an option on any page of the Preferences by its words
 STR_MENU_PREFS_SEARCH                   : Search options...
+# Preferences' text size line (the port's own, textsize.rs): a click steps normal, 125%, 150%
+STR_MENU_PREFS_TEXT_SIZE                : Text size: {SIZE}
+STR_TEXT_SIZE_NORMAL                    :normal
+STR_TEXT_SIZE_125                       :125%
+STR_TEXT_SIZE_150                       :150%
+# The search box's place of the text size line: Preferences itself
+STR_SEARCH_PLACE_PREFS                  :Preferences
 STR_SEARCH_TITLE                        :Search the Preferences (type to find)
 STR_SEARCH_FIND                         :Find: {QUERY}
 STR_SEARCH_HINT                         :(type a word, e.g. snow, pause or par)
@@ -1375,7 +1382,7 @@ STR_EXTRAS_DESC_HISTORY                 :Keeps every ticker message with its dat
 STR_EXTRAS_DESC_NAME_TAGS               :A small tag with the name of the golfer or employee under the pointer (Shift+H hides and shows them).
 STR_EXTRAS_DESC_REPORT_TABS             :A strip of tabs over the F1 to F10 reports flips from one report to another without going back to the course.
 STR_EXTRAS_DESC_PATH_HELP               :Path view (Shift+V) marks paths that reach the clubhouse and buildings they miss; a Show button finds a closed building.
-STR_EXTRAS_DESC_LANDING_MAP             :Dots on the course show where the golfers' shots on a hole come to rest, with a count of where they ended (Shift+D).
+STR_EXTRAS_DESC_LANDING_MAP             :Dots on the course show where the golfers' shots on a hole come to rest; its legend switches to heat maps of where balls land, golfers wait and golfers complain (Shift+D).
 STR_EXTRAS_DESC_HOLE_COMMENTS           :The thoughts golfers had most often on each hole, this month, last month or this year (Shift+I).
 STR_EXTRAS_DESC_GRAPHS                  :Graphs of the club and each hole month by month: rounds, money, happiness, ratings and members (Shift+Y).
 STR_EXTRAS_DESC_LIVE_SCORECARDS         :An open golfer card shows the golfer's round so far, hole by hole, as the original shows your pro's.
@@ -2857,6 +2864,21 @@ STR_LANDING_POINT                       :Point at a hole to see its shots.
 STR_LANDING_CLOSE                       :Shift+D hides the landing map.
 STR_LANDING_ON                          :Landing map on: point at a hole. Shift+D hides it.
 STR_LANDING_OFF                         :Landing map off.
+# The landing map's heat maps (insight.rs): the legend's tabs and key
+STR_LANDING_TITLE_COURSE                :Landing map: whole course
+STR_LANDING_SHOW_DOTS                   :Shots
+STR_LANDING_SHOW_LANDED                 :Landings
+STR_LANDING_SHOW_WAITING                :Waiting
+STR_LANDING_SHOW_COMPLAINTS             :Complaints
+STR_LANDING_THIS_HOLE                   :This hole
+STR_LANDING_WHOLE_COURSE                :Whole course
+STR_LANDING_NO_HOLES                    :No holes are open yet.
+STR_LANDING_FEW                         :few
+STR_LANDING_MANY                        :many
+STR_LANDING_HEAT_NONE                   :Nothing seen here yet: the map fills as golfers play.
+STR_LANDING_HEAT_LANDED                 :Where the last {COUNT} tee shots and approaches came to rest.
+STR_LANDING_HEAT_WAITING                :Where golfers stood waiting: {MINUTES} golfer-minutes in all.
+STR_LANDING_HEAT_COMPLAINTS             :Where golfers complained: {COUNT} complaints in all.
 # Comments by hole (insight.rs)
 STR_HOLECOMMENTS_TITLE                  :Comments by Hole
 STR_HOLECOMMENTS_THIS_MONTH             :This month ({MONTH})
@@ -3223,7 +3245,6 @@ STR_EXTRAS_DESC_GROUP_MESSAGES          :Keeps every ticker message to read back
 STR_MENU_PREFS_FIX_BUGS                 : Fix the original game's bugs
 STR_MENU_PREFS_FIX_BUGS_NOTE            :Its own glitches only; play is otherwise the original's.
 STR_MENU_PREFS_UPDATE_CHECK             : Check for updates when the game starts (online)
-STR_SEARCH_PLACE_PREFS                  :Preferences
 
 # Enhanced graphics' looks of 0.5 (the port's own, docs/ENHANCED.md): lit windows and dawn sprinklers (with the time of
 # day), winter frost, and pixel-perfect scaling (Display; it counts with Enhanced graphics off too)

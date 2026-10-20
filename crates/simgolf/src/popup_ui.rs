@@ -179,14 +179,19 @@ fn is_note(l: &str) -> bool {
     l.starts_with('\t')
 }
 
-/// A line's width as the box is sized for it (an option with its leading space; a note in its own font, from where an
-/// option's text starts).
-fn line_width(l: &str) -> f32 {
+/// A line's width in the box's font `f` (an option with its leading space; a note in its own font at the same text size,
+/// from where an option's text starts).
+fn line_width(l: &str, f: crate::ui::Fnt) -> f32 {
     if is_note(l) {
-        CHOICE_FONT.width(" ") + NOTE_FONT.width(&l[1..])
+        f.width(" ") + note_font(f).width(&l[1..])
     } else {
-        CHOICE_FONT.width(l)
+        f.width(l)
     }
+}
+
+/// The note's font for a box drawn in `f` (it grows with the text size, textsize.rs).
+fn note_font(f: crate::ui::Fnt) -> crate::ui::Fnt {
+    NOTE_FONT.scaled(f.px / CHOICE_FONT.px)
 }
 
 impl ChoiceBox {
@@ -199,12 +204,46 @@ impl ChoiceBox {
         self.lines.iter().enumerate().filter(|(_, l)| l.starts_with(' ')).map(|(i, _)| i).collect()
     }
 
-    /// The box as 0x46d6e0 computes it (before the frame's rounding): x = cx - w / 2, y = the call's y.
+    /// The text size the box is drawn at (textsize.rs; the port's own): the player's, cut to what keeps the box on the
+    /// 800 x 600 screen, in steps of 5%; 1 at normal size, where everything below is the exe's.
+    pub fn k(&self) -> f32 {
+        let want = crate::textsize::scale();
+        if want == 1.0 {
+            return 1.0;
+        }
+        let widest = (self.widest(CHOICE_FONT) as f32).max(self.min_w).max(1.0);
+        let h1 = (self.lines.len() as f32 * 3.0 + 3.0) * 8.0;
+        let k = want.min(592.0 / h1).min((792.0 - 0x40 as f32) / widest).max(1.0);
+        (k * 20.0).floor() / 20.0
+    }
+
+    /// The box's font: the popup's, at the box's text size.
+    pub fn font(&self) -> crate::ui::Fnt {
+        CHOICE_FONT.scaled(self.k())
+    }
+
+    fn widest(&self, f: crate::ui::Fnt) -> i32 {
+        self.lines.iter().map(|l| line_width(l, f).round() as i32).max().unwrap_or(0)
+    }
+
+    /// The box as 0x46d6e0 computes it (before the frame's rounding): x = cx - w / 2, y = the call's y. With bigger text
+    /// (the port's own) it grows with its lines and moves in from the screen's edges to stay on it.
     pub fn rect(&self) -> Rect {
-        let widest = self.lines.iter().map(|l| line_width(l).round() as i32).max().unwrap_or(0).max(self.min_w as i32);
+        let k = self.k();
+        let widest = self.widest(self.font()).max((self.min_w * k) as i32);
         let w = (((widest - 1) | 15) + 0x31) as f32;
-        let h = (self.lines.len() as f32 * 3.0 + 3.0) * 8.0;
-        Rect::new(self.cx - (w / 2.0).trunc(), self.top, w, h)
+        let h = ((self.lines.len() as f32 * 3.0 + 3.0) * 8.0 * k).round();
+        let (x, y) = (self.cx - (w / 2.0).trunc(), self.top);
+        if k == 1.0 {
+            return Rect::new(x, y, w, h);
+        }
+        Rect::new(x.min(796.0 - w).max(4.0), y.min(596.0 - h).max(4.0), w, h)
+    }
+
+    /// The x the box's headings are centred on (the call's x, or where the box moved to).
+    pub fn centre(&self) -> f32 {
+        let r = self.rect();
+        r.x + (r.w / 2.0).trunc()
     }
 
     /// The frame as drawn (0x40cc00 grows a size that is not a multiple of 16 to 15 mod 16 and moves back by half of what
@@ -219,13 +258,14 @@ impl ChoiceBox {
     /// The y of each line (the top the text calls are given; options draw their text 8 below it, 7 when under the
     /// pointer).
     pub fn line_tops(&self) -> Vec<f32> {
-        let mut y = self.top + 12.0;
+        let k = self.k();
+        let mut y = self.rect().y + 12.0 * k;
         let mut seen_option = false;
         let mut v = Vec::with_capacity(self.lines.len());
         for l in &self.lines {
-            v.push(y);
+            v.push(y.round());
             seen_option |= l.starts_with(' ');
-            y += if seen_option { 24.0 } else { 18.0 };
+            y += if seen_option { 24.0 } else { 18.0 } * k;
         }
         v
     }
@@ -238,20 +278,31 @@ impl ChoiceBox {
         let opts = self.options();
         let first = *opts.first()?;
         let y0 = self.line_tops()[first];
-        let right = self.cx + (r.w / 2.0).trunc() - 48.0;
+        let right = self.centre() + (r.w / 2.0).trunc() - 48.0;
         if x <= r.x || x >= right || y < y0 {
             return None;
         }
-        let line = first + ((y - y0) / 24.0) as usize;
+        let line = first + ((y - y0) / (24.0 * self.k())) as usize;
         opts.iter().position(|&o| o == line)
     }
 
     /// The OK tick of a checkbox list: the 50 x 50 cut at (cx + w / 2 - 40, top + h - 40); a click within 20 of its
     /// centre (both ways) accepts.
     pub fn ok_tick(&self) -> Rect {
-        let r = self.rect();
-        let (x, y) = (self.cx + (r.w / 2.0).trunc() - 40.0, self.top + r.h - 40.0);
+        let (x, y) = self.ok_corner();
         Rect::new(x + 1.0, y + 1.0, 39.0, 39.0)
+    }
+
+    /// Where the OK tick's 50 x 50 cut is drawn.
+    pub fn ok_corner(&self) -> (f32, f32) {
+        let r = self.rect();
+        (self.centre() + (r.w / 2.0).trunc() - 40.0, r.y + r.h - 40.0)
+    }
+
+    /// How far below a line's top its 24-pixel-high art (the check boxes, the radio balls) goes with bigger text, to sit
+    /// in the middle of the taller row.
+    pub fn art_dy(&self) -> f32 {
+        ((24.0 * self.k() - 24.0) / 2.0).floor()
     }
 }
 
@@ -265,7 +316,10 @@ impl App {
             self.draw_choice_box_free(g, s, b, hover);
             return;
         }
-        let f = CHOICE_FONT;
+        let f = b.font();
+        let (tk, cx, dy) = (b.k(), b.centre(), b.art_dy());
+        // the text's place in its row, the exe's 8 (7 lit) at normal size
+        let ty = (8.0 * tk).round();
         let white = c15(0x7fff);
         let teal = c15(0x0210);
         let tops = b.line_tops();
@@ -275,16 +329,16 @@ impl App {
             let Some(k) = opts.iter().position(|&o| o == i) else {
                 if is_note(l) {
                     // the port's note, in the teal of the Extras box's hints
-                    s.put(g, NOTE_FONT, r.x + 36.0 + f.width(" "), y + 1.0, &l[1..], c15(0x0210));
+                    s.put(g, note_font(f), r.x + 36.0 + f.width(" "), y + tk.round(), &l[1..], c15(0x0210));
                     continue;
                 }
                 let c = if b.checks.is_some() { c15(0x7ff0) } else { white };
-                s.put_shadowed(g, f, b.cx, y, l, c, true);
+                s.put_shadowed(g, f, cx, y, l, c, true);
                 continue;
             };
             let x = r.x + 36.0;
             if b.disabled & (1 << k) != 0 {
-                s.put(g, f, x, y + 8.0, l, c15(0x6318));
+                s.put(g, f, x, y + ty, l, c15(0x6318));
                 continue;
             }
             let lit = hover == Some(k);
@@ -296,10 +350,11 @@ impl App {
             };
             let c = if chosen { white } else { teal };
             if lit {
-                s.put_shadowed(g, f, x, y + 7.0, l, c, false);
+                s.put_shadowed(g, f, x, y + ty - 1.0, l, c, false);
             } else {
-                s.put(g, f, x, y + 8.0, l, c);
+                s.put(g, f, x, y + ty, l, c);
             }
+            let y = y + dy;
             match b.checks {
                 Some(_) if plain => {}
                 Some(_) => {
@@ -322,7 +377,7 @@ impl App {
             }
         }
         if b.checks.is_some() && self.art.trans.tex.is_some() {
-            let (x, y) = (b.cx + (r.w / 2.0).trunc() - 40.0, b.top + r.h - 40.0);
+            let (x, y) = b.ok_corner();
             s.image_part(g, &self.art.trans, x, y, 350.0, 140.0, 50.0, 50.0);
         }
     }
@@ -335,7 +390,12 @@ impl App {
         let r = b.rect();
         let (fx, fw) = crate::message_ui::round16(r.x, r.w);
         let (fy, _) = crate::message_ui::round16(r.y, r.h);
-        let f = CHOICE_FONT;
+        let f = b.font();
+        let (tk, cx) = (b.k(), b.centre());
+        let ty = (8.0 * tk).round();
+        // the switches and dots in the middle of the row (15 below its top at normal size)
+        let mid = (12.0 * tk).round() + 3.0;
+        let row = (24.0 * tk).round();
         let white = c15(0x7fff);
         let tops = b.line_tops();
         let opts = b.options();
@@ -345,14 +405,14 @@ impl App {
             let y = tops[i];
             let Some(k) = opts.iter().position(|&o| o == i) else {
                 if is_note(l) {
-                    s.put(g, NOTE_FONT, r.x + 36.0 + f.width(" "), y + 1.0, &l[1..], INK);
+                    s.put(g, note_font(f), r.x + 36.0 + f.width(" "), y + tk.round(), &l[1..], INK);
                     continue;
                 }
                 if i == 0 {
                     let c = if b.checks.is_some() { c15(0x7ff0) } else { white };
-                    s.put_shadowed(g, f, b.cx, y, l, c, true);
+                    s.put_shadowed(g, f, cx, y, l, c, true);
                 } else {
-                    s.put_centered(g, f, b.cx, y, l, INK);
+                    s.put_centered(g, f, cx, y, l, INK);
                 }
                 continue;
             };
@@ -360,18 +420,18 @@ impl App {
             let lit = hover == Some(k);
             let off = b.disabled & (1 << k) != 0;
             if lit && !off {
-                gl::capsule(g, s, fx + 6.0, y + 3.0, fw - 12.0, 24.0, [1.0, 0.93, 0.62, 0.95]);
+                gl::capsule(g, s, fx + 6.0, y + 3.0, fw - 12.0, row, [1.0, 0.93, 0.62, 0.95]);
             }
             let plain = b.plain & (1 << k) != 0;
-            s.put(g, f, x, y + 8.0, l, if off { DIM_INK } else { INK });
+            s.put(g, f, x, y + ty, l, if off { DIM_INK } else { INK });
             match b.checks {
-                Some(_) if plain => s.put(g, f, r.x + 12.0, y + 8.0, "\u{bb}", if off { DIM_INK } else { INK }),
-                Some(m) => gl::switch(g, s, r.x.max(fx + 7.0), y + 15.0, m & (1 << k) != 0, lit),
-                None => gl::radio(g, s, r.x.max(fx + 7.0) + 13.0, y + 15.0, lit),
+                Some(_) if plain => s.put(g, f, r.x + 12.0, y + ty, "\u{bb}", if off { DIM_INK } else { INK }),
+                Some(m) => gl::switch(g, s, r.x.max(fx + 7.0), y + mid, m & (1 << k) != 0, lit),
+                None => gl::radio(g, s, r.x.max(fx + 7.0) + 13.0, y + mid, lit),
             }
         }
         if b.checks.is_some() && self.art.trans.tex.is_some() {
-            let (x, y) = (b.cx + (r.w / 2.0).trunc() - 40.0, b.top + r.h - 40.0);
+            let (x, y) = b.ok_corner();
             s.image_part(g, &self.art.trans, x, y, 350.0, 140.0, 50.0, 50.0);
         }
     }
@@ -539,6 +599,7 @@ impl Popup {
                         | 1 << PREFS_KEYS
                         | 1 << PREFS_EXTRAS
                         | 1 << PREFS_SEARCH
+                        | 1 << PREFS_TEXT_SIZE
                         | 1 << PREFS_LANGUAGE
                         | self.files_line.map_or(0, |k| 1 << k)
                 }
@@ -593,7 +654,8 @@ impl Popup {
         let (x0, x1) = (r.x + 16.0, r.x + r.w - 16.0);
         let w = (x1 - x0) / n as f32;
         let y = tops[1 + self.head_lines()] + 2.0;
-        (0..n).map(|i| (i as u8, Rect::new(x0 + w * i as f32 + 2.0, y, w - 4.0, 30.0))).collect()
+        let h = (30.0 * b.k()).round();
+        (0..n).map(|i| (i as u8, Rect::new(x0 + w * i as f32 + 2.0, y, w - 4.0, h))).collect()
     }
     fn options(&self) -> Vec<usize> {
         self.choice_box().options()
@@ -613,12 +675,14 @@ pub const PREFS_EXTRAS: usize = 9;
 /// The option of the Preferences list that opens Preferences > Search (prefs_search.rs).
 pub const PREFS_SEARCH: usize = 10;
 /// The Preferences' "Fix the original game's bugs" tick (enhanced.rs `fix_original_bugs`, docs/FIXES.md; the port's own,
-/// on by default, Classic too), with a note under it.
+/// on by default, Classic too), with a note under it (no option).
 pub const PREFS_FIX_BUGS: usize = 11;
 /// The Preferences' "Check for updates when the game starts" tick (extras.rs `update_check`; the port's own, off by default).
 pub const PREFS_UPDATE_CHECK: usize = 12;
+/// The Preferences' option that steps the text size (the port's own, textsize.rs).
+pub const PREFS_TEXT_SIZE: usize = 13;
 /// The Preferences' option that switches the language (shown only when there is a translation to switch to).
-const PREFS_LANGUAGE: usize = 13;
+const PREFS_LANGUAGE: usize = 14;
 /// What the search box returns: OK; a found key (its action after this) to change on Change keys; Reset to original.
 pub const SEARCH_OK: usize = 0;
 pub const SEARCH_RESET: usize = 1;
@@ -651,6 +715,7 @@ impl App {
         let languages = if kind == PopupKind::Prefs { crate::language::available().len() } else { 0 };
         let language =
             if languages > 1 { trf("STR_MENU_PREFS_LANGUAGE", &[("LANGUAGE", &crate::language::current_name())]) } else { String::new() };
+        let text_size = trf("STR_MENU_PREFS_TEXT_SIZE", &[("SIZE", &tr(crate::textsize::name_key(crate::textsize::pct())))]);
         let set_par_lines: [String; 2];
         // the port's note under the bug fixes' tick (a line starting with a tab: `is_note`)
         let fix_note = format!("\t{}", tr("STR_MENU_PREFS_FIX_BUGS_NOTE"));
@@ -728,6 +793,8 @@ impl App {
                     tr("STR_MENU_PREFS_FIX_BUGS"),
                     fix_note.as_str(),
                     tr("STR_MENU_PREFS_UPDATE_CHECK"),
+                    // the port's own: the text size (textsize.rs)
+                    text_size.as_str(),
                 ],
                 0,
                 400.0,
@@ -838,6 +905,7 @@ impl App {
                 ex: self.extras_shown(),
                 ui: crate::extras::settings(),
                 keys: crate::controls::settings(),
+                text: crate::textsize::pct(),
             },
             tab_hover: None,
             last_pick: None,
@@ -898,12 +966,14 @@ impl App {
         use crate::info_ui::c15;
         let r = b.rect();
         let tops = b.line_tops();
-        let pw = crate::extras_ui::pill_w();
-        let pf = crate::extras_ui::PILL_FONT;
+        // the pills grow with the text (textsize.rs)
+        let tk = b.k();
+        let pw = (crate::extras_ui::pill_w() * tk).round();
+        let pf = crate::extras_ui::PILL_FONT.scaled(tk);
         for ((k, l), &line) in crate::extras_ui::box_lines(p.page).into_iter().enumerate().zip(&b.options()) {
             let Some(t) = crate::extras_ui::tag(l) else { continue };
             let (fill, edge) = t.colours();
-            let (x, y, h) = (r.x + r.w - 24.0 - pw, tops[line] + 5.0, 18.0);
+            let (x, y, h) = (r.x + r.w - 24.0 - pw, tops[line] + (5.0 * tk).round(), (18.0 * tk).round());
             if self.on_free_set() {
                 let c = c15(fill);
                 crate::glass_ui::capsule(g, s, x, y, pw, h + 2.0, [c[0] * 1.1, c[1] * 1.1, c[2] * 1.1, 1.0]);
@@ -928,7 +998,9 @@ impl App {
         let shown = p.sel.or(if self.xs.touched { p.last_pick } else { None });
         let (text, desc) = crate::extras_ui::foot_text(p.page, shown, &p.pref.ex, &p.pref.ui);
         let w = r.w - 20.0 - 60.0;
-        let (f, lines) = FOOT_FONTS
+        // with bigger text (textsize.rs) the foot steps down from its size to the original's until two lines hold it
+        let fonts: Vec<crate::ui::Fnt> = FOOT_FONTS.iter().flat_map(|&f| [f.scaled(tk), f.scaled((tk + 1.0) / 2.0), f]).collect();
+        let (f, lines) = fonts
             .iter()
             .map(|&f| (f, crate::extras::wrap(f, text, w)))
             .find(|(_, l)| l.len() <= 2)
@@ -948,7 +1020,10 @@ impl App {
     /// others teal on a darker blue; a tab under the pointer is outlined.
     fn draw_page_tabs(&self, g: &mut Gfx, s: &Ui, p: &Popup) {
         use crate::info_ui::c15;
-        let f = CHOICE_FONT;
+        let k = p.choice_box().k();
+        let f = CHOICE_FONT.scaled(k);
+        // the label's place in the tab, the exe's 5 (6 when not lit) at normal size
+        let (y5, y6) = ((5.0 * k).round(), (6.0 * k).round());
         if self.on_free_set() {
             for (page, r) in p.tabs() {
                 let on = page == p.page;
@@ -961,9 +1036,9 @@ impl App {
                 let label = p.page_name(page);
                 let x = r.x + (r.w - f.width(label)) * 0.5;
                 if on {
-                    s.put(g, f, x, r.y + 5.0, label, crate::glass_ui::INK);
+                    s.put(g, f, x, r.y + y5, label, crate::glass_ui::INK);
                 } else {
-                    s.put_shadowed(g, f, x, r.y + 5.0, label, c15(0x7fff), false);
+                    s.put_shadowed(g, f, x, r.y + y5, label, c15(0x7fff), false);
                 }
             }
             return;
@@ -977,9 +1052,9 @@ impl App {
             let label = p.page_name(page);
             let x = r.x + (r.w - f.width(label)) * 0.5;
             if on {
-                s.put_shadowed(g, f, x, r.y + 5.0, label, c15(0x7fff), false);
+                s.put_shadowed(g, f, x, r.y + y5, label, c15(0x7fff), false);
             } else {
-                s.put(g, f, x, r.y + 6.0, label, c15(if hover { 0x7fff } else { 0x0210 }));
+                s.put(g, f, x, r.y + y6, label, c15(if hover { 0x7fff } else { 0x0210 }));
             }
         }
     }
@@ -1078,6 +1153,16 @@ impl App {
             // "Use my SimGolf files...": the ticks so far are kept, as with OK, then the line's action runs
             if p.files_line.is_some_and(|f| f == k && (pick.is_some() || p.sel == Some(k))) {
                 return Some((p.checks | 1 << PREFS_FILES_FLAG) as usize);
+            }
+            if pick == Some(PREFS_TEXT_SIZE) {
+                // the next text size, at once: the box is rebuilt at it with the ticks and the lit line kept
+                let (checks, sel, keyed) = (p.checks, p.sel, p.keyed);
+                crate::textsize::cycle();
+                self.open_popup(PopupKind::Prefs);
+                if let Some(p) = self.popup.as_mut() {
+                    (p.checks, p.sel, p.keyed) = (checks, sel, keyed);
+                }
+                return Some(usize::MAX);
             }
             if pick == Some(PREFS_LANGUAGE) {
                 // the next language, at once: the box is rebuilt in it with the ticks kept
@@ -1182,15 +1267,18 @@ fn draw_banner(g: &mut Gfx, s: &Ui, b: &ChoiceBox, text: &str, free: bool, head:
     let r = b.rect();
     let y = b.line_tops()[1 + head + crate::enhanced::TAB_LINES] + 1.0;
     let (x0, x1) = (r.x + 18.0, r.x + r.w - 18.0);
+    // with bigger text the band grows with its words (textsize.rs)
+    let k = b.k();
+    let (f, h, ty) = (crate::textsize::fit(BANNER_FONT, k, text, x1 - x0 - 8.0), (26.0 * k).round(), (3.0 * k).round());
     if free {
         // a ribbon across the box
-        crate::glass_ui::capsule(g, s, x0, y - 1.0, x1 - x0, 28.0, [0.2, 0.62, 0.42, 1.0]);
-        s.put_shadowed(g, BANNER_FONT, (x0 + x1) * 0.5, y + 3.0, text, c15(0x7fff), true);
+        crate::glass_ui::capsule(g, s, x0, y - 1.0, x1 - x0, h + 2.0, [0.2, 0.62, 0.42, 1.0]);
+        s.put_shadowed(g, f, (x0 + x1) * 0.5, y + ty, text, c15(0x7fff), true);
         return;
     }
-    s.fill(g, x0 - 1.0, y - 1.0, x1 - x0 + 2.0, 28.0, c15(0x7fff));
-    s.fill(g, x0, y, x1 - x0, 26.0, c15(0x5ade));
-    s.put_shadowed(g, BANNER_FONT, (x0 + x1) * 0.5, y + 3.0, text, c15(0x7fff), true);
+    s.fill(g, x0 - 1.0, y - 1.0, x1 - x0 + 2.0, h + 2.0, c15(0x7fff));
+    s.fill(g, x0, y, x1 - x0, h, c15(0x5ade));
+    s.put_shadowed(g, f, (x0 + x1) * 0.5, y + ty, text, c15(0x7fff), true);
 }
 
 impl App {
@@ -1298,5 +1386,34 @@ impl App {
         }
         s.text(g, r.x + 26.0, 302.0, &shown, 16.0, rgb(0.05, 0.05, 0.2));
         g.flush();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bigger_text_grows_the_box_and_keeps_it_on_the_screen() {
+        let lines: Vec<String> = std::iter::once("Title".to_string()).chain((0..14).map(|i| format!(" Option number {i}"))).collect();
+        let b = ChoiceBox::new(lines, 400.0, 176.0);
+        crate::textsize::set(100);
+        assert_eq!(b.k(), 1.0);
+        let normal = b.rect();
+        // at normal size the exe's geometry: (lines * 3 + 3) * 8 high from the call's y, lines 18 then 24 apart
+        assert_eq!((normal.y, normal.h), (176.0, (15.0 * 3.0 + 3.0) * 8.0));
+        assert_eq!(b.line_tops()[..3], [188.0, 206.0, 230.0]);
+        for p in [125, 150] {
+            crate::textsize::set(p);
+            let r = b.rect();
+            assert!(b.k() > 1.0 && b.k() <= p as f32 / 100.0);
+            assert!(r.h > normal.h && r.y >= 4.0 && r.y + r.h <= 596.0 && r.x >= 4.0 && r.x + r.w <= 796.0);
+            // the rows follow the size, and a click on a row finds its option
+            let tops = b.line_tops();
+            assert!(tops[2] - tops[1] > 24.0);
+            assert_eq!(b.option_at(r.x + 50.0, tops[5] + 2.0), Some(4));
+            assert!(b.ok_tick().y + 39.0 <= r.y + r.h);
+        }
+        crate::textsize::set(100);
     }
 }

@@ -797,9 +797,12 @@ impl App {
         // and "Course editor..." (editor.rs)
         self.draw_editor_button(g, &s);
         if !self.toast.is_empty() && self.clock < self.toast_until {
-            let w = text_width(&self.toast, 18.0) + 24.0;
-            s.fill(g, 400.0 - w / 2.0, 560.0, w, 30.0, rgba(0.1, 0.1, 0.3, 0.9));
-            s.text_centered(g, 400.0, 581.0, &self.toast, 18.0, rgb(1.0, 1.0, 0.8));
+            // with bigger text (textsize.rs) the note grows up from the bottom, as wide as the screen at most
+            let size = crate::textsize::fit_px(18.0, 2.0, &self.toast, 780.0);
+            let w = text_width(&self.toast, size) + 24.0;
+            let h = 30.0 + (size - 18.0);
+            s.fill(g, 400.0 - w / 2.0, 590.0 - h, w, h, rgba(0.1, 0.1, 0.3, 0.9));
+            s.text_centered(g, 400.0, 581.0, &self.toast, size, rgb(1.0, 1.0, 0.8));
         }
         g.flush();
     }

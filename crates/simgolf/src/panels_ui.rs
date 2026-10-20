@@ -515,10 +515,14 @@ pub(crate) fn tip_bar(g: &mut Gfx, s: &Ui, text: &str, px: f32, py: f32) {
 /// The tooltip bar sized for `chars` characters whatever the text (the amenity slots' cost bar keeps the name's width).
 pub(crate) fn tip_bar_sized(g: &mut Gfx, s: &Ui, text: &str, chars: usize, px: f32, py: f32) {
     let (px, y) = (px.floor(), py.floor() - 5.0);
-    let half = 3.0 * chars as f32;
+    // with bigger text (textsize.rs) the bar and its words grow about the same middle
+    let k = crate::textsize::scale();
+    let (f, hh) = (crate::textsize::big(crate::ui::F_ARIAL10), crate::textsize::px(10.0));
+    let half = (3.0 * chars as f32 * k).max(if k > 1.0 { f.width(text) / 2.0 + 3.0 } else { 0.0 }).floor();
     let x = px.max(half).min(800.0 - half);
-    s.fill(g, x - half, y - 5.0, 2.0 * half, 10.0, rgba(0.0, 0.0, 0.0, 0.5));
-    s.put_centered(g, crate::ui::F_ARIAL10, x, y - 5.0, text, rgb(1.0, 1.0, 1.0));
+    let top = if k > 1.0 { (y - (hh / 2.0).floor()).max(0.0) } else { y - 5.0 };
+    s.fill(g, x - half, top, 2.0 * half, hh, rgba(0.0, 0.0, 0.0, 0.5));
+    s.put_centered(g, f, x, top, text, rgb(1.0, 1.0, 1.0));
 }
 
 thread_local! {

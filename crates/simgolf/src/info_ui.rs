@@ -90,6 +90,29 @@ pub fn text_right(s: &Ui, g: &mut Gfx, x: f32, y: f32, t: &str, size: f32, c: [f
     s.text(g, x - text_width(t, size), y, t, size, c);
 }
 
+/// The Course Report's text with bigger text (textsize.rs; the port's own): each cell as big as its room on the art holds,
+/// at most this much (the rows are 17 pixels apart); 14 pixels, the exe's, at normal size.
+const REPORT_CAP: f32 = 1.15;
+
+/// The room of the cell a right-aligned or centred x falls in.
+fn col(x: f32) -> Option<(f32, f32)> {
+    CX.iter().zip(CW).map(|(&l, w)| (l, w)).find(|&(l, w)| x > l && x <= l + w + 2.0)
+}
+
+fn cell_right(s: &Ui, g: &mut Gfx, x: f32, y: f32, t: &str, c: [f32; 4]) {
+    let room = col(x).map_or(40.0, |(l, _)| x - l - 2.0);
+    text_right(s, g, x, y, t, crate::textsize::fit_px(14.0, REPORT_CAP, t, room), c);
+}
+
+fn cell_centred(s: &Ui, g: &mut Gfx, x: f32, y: f32, t: &str, c: [f32; 4]) {
+    let room = col(x).map_or(40.0, |(_, w)| w - 2.0);
+    s.text_centered(g, x, y, t, crate::textsize::fit_px(14.0, REPORT_CAP, t, room), c);
+}
+
+fn cell_left(s: &Ui, g: &mut Gfx, x: f32, y: f32, t: &str, room: f32, c: [f32; 4]) {
+    s.text(g, x, y, t, crate::textsize::fit_px(14.0, REPORT_CAP, t, room), c);
+}
+
 /// "1.23" in hundredths, "-" for negatives (0x42dd50).
 pub fn hundredths(v: i32) -> String {
     format!("{}{}.{:02}", if v < 0 { "-" } else { "" }, v.abs() / 100, v.abs() % 100)
@@ -217,7 +240,7 @@ impl App {
         // in 0x821ee8 (Manual SSi 14), the rows' tops 2 below their pieces, the totals' 11 below theirs
         s.put_centered(g, crate::ui::F_INFO_TITLE, 316.0, 35.0, tr("STR_REPORT_TITLE"), ink);
         for c in 0..12 {
-            s.text_centered(g, CX[c] + CW[c] / 2.0, 86.0, tr(HEAD[c]), 14.0, ink);
+            cell_centred(&s, g, CX[c] + CW[c] / 2.0, 86.0, tr(HEAD[c]), ink);
         }
         let all = self.club.game & sg_core::golfer::game::TWO_TEES != 0;
         let holes = self.report_holes();
@@ -294,7 +317,7 @@ impl App {
             mark(g, 11, (r.profit < 0).then_some(0));
             let ty = y + 12.0;
             let hole = &self.club.holes[r.hole];
-            s.text(g, 15.0, ty, &ratings::hole_name(r.hole, hole), 14.0, ink);
+            cell_left(&s, g, 15.0, ty, &ratings::hole_name(r.hole, hole), 72.0, ink);
             // Top 100 / Top 18 / scenic marker (index 3..7 on the sheet's icon row), and the dogleg arrow in the type cell
             let tops = if r.flags & 1 != 0 { 1 + (r.flags >> 1 & 1) as usize } else { 0 };
             let m = 2 + tops + if r.scenic { 3 } else { 0 };
@@ -303,35 +326,35 @@ impl App {
             }
             let dog = if r.flags & 0x60 == 0 { 1 } else { (r.flags >> 4 & 2) as usize };
             s.image_part(g, art, 555.0, y + 1.0, 547.0, 549.0 + 14.0 * dog as f32, 12.0, 13.0);
-            text_right(&s, g, 151.0, ty, &r.yards.to_string(), 14.0, ink);
-            s.text_centered(g, 172.0, ty, &r.par.to_string(), 14.0, ink);
-            text_right(&s, g, 227.0, ty, &hundredths(r.avg), 14.0, ink);
-            text_right(&s, g, 278.0, ty, &trf("STR_UNIT_MINUTES", &[("MINUTES", &r.minutes)]), 14.0, ink);
-            text_right(&s, g, 324.0, ty, &format!("{}%", r.fun), 14.0, ink);
-            text_right(&s, g, 369.0, ty, &hundredths(r.len), 14.0, ink);
-            text_right(&s, g, 415.0, ty, &hundredths(r.acc), 14.0, ink);
-            text_right(&s, g, 462.0, ty, &hundredths(r.img), 14.0, ink);
-            s.text(g, 471.0, ty, r.type_name, 14.0, ink);
-            text_right(&s, g, 635.0, ty, &digits(r.avg_fee), 14.0, ink);
-            text_right(&s, g, 709.0, ty, &digits(r.revenue), 14.0, ink);
-            text_right(&s, g, 786.0, ty, &digits(r.profit), 14.0, ink);
+            cell_right(&s, g, 151.0, ty, &r.yards.to_string(), ink);
+            cell_centred(&s, g, 172.0, ty, &r.par.to_string(), ink);
+            cell_right(&s, g, 227.0, ty, &hundredths(r.avg), ink);
+            cell_right(&s, g, 278.0, ty, &trf("STR_UNIT_MINUTES", &[("MINUTES", &r.minutes)]), ink);
+            cell_right(&s, g, 324.0, ty, &format!("{}%", r.fun), ink);
+            cell_right(&s, g, 369.0, ty, &hundredths(r.len), ink);
+            cell_right(&s, g, 415.0, ty, &hundredths(r.acc), ink);
+            cell_right(&s, g, 462.0, ty, &hundredths(r.img), ink);
+            cell_left(&s, g, 471.0, ty, r.type_name, 80.0, ink);
+            cell_right(&s, g, 635.0, ty, &digits(r.avg_fee), ink);
+            cell_right(&s, g, 709.0, ty, &digits(r.revenue), ink);
+            cell_right(&s, g, 786.0, ty, &digits(r.profit), ink);
         }
         let total_y = REPORT_TOP + REPORT_PITCH * rows.len() as f32;
         s.image_part(g, art, 0.0, total_y, 0.0, 420.0, 800.0, 29.0);
         let ty = total_y + 21.0;
         if open > 0 {
-            s.text(g, 15.0, ty, tr("STR_REPORT_TOTAL"), 14.0, ink);
-            text_right(&s, g, 151.0, ty, &digits(t_yds), 14.0, ink);
-            s.text_centered(g, 172.0, ty, &t_par.to_string(), 14.0, ink);
-            text_right(&s, g, 227.0, ty, &hundredths(t_avg), 14.0, ink);
+            cell_left(&s, g, 15.0, ty, tr("STR_REPORT_TOTAL"), 95.0, ink);
+            cell_right(&s, g, 151.0, ty, &digits(t_yds), ink);
+            cell_centred(&s, g, 172.0, ty, &t_par.to_string(), ink);
+            cell_right(&s, g, 227.0, ty, &hundredths(t_avg), ink);
             // the exe shows the last hole's minutes past the hour, not the total's
             let time = if t_min >= 60 {
                 trf("STR_UNIT_HOURS_MINUTES", &[("HOURS", &(t_min / 60)), ("MINUTES", &(m_last % 60))])
             } else {
                 trf("STR_UNIT_MINUTES", &[("MINUTES", &(m_last % 60))])
             };
-            text_right(&s, g, 278.0, ty, &time, 14.0, ink);
-            text_right(&s, g, 324.0, ty, &format!("{}%", t_fun / open), 14.0, ink);
+            cell_right(&s, g, 278.0, ty, &time, ink);
+            cell_right(&s, g, 324.0, ty, &format!("{}%", t_fun / open), ink);
             for (c, (x, v)) in [(369.0, t_len / open), (415.0, t_acc / open), (462.0, t_img / open)].into_iter().enumerate() {
                 // the totals light up only from 50 (the +Img total never does: the exe's own slip)
                 let k = match v {
@@ -342,14 +365,14 @@ impl App {
                 if let (Some(k), true) = (k, c < 2) {
                     s.image_part(g, art, CX[5 + c], total_y + 9.0, CX[5 + c], [205.0, 241.0, 275.0][k as usize], CW[5 + c], 15.0);
                 }
-                text_right(&s, g, x, ty, &hundredths(v), 14.0, ink);
+                cell_right(&s, g, x, ty, &hundredths(v), ink);
             }
-            text_right(&s, g, 635.0, ty, &format!("\u{a7}{}", digits(t_fee / open)), 14.0, ink);
-            text_right(&s, g, 709.0, ty, &format!("\u{a7}{}", digits(t_rev)), 14.0, ink);
+            cell_right(&s, g, 635.0, ty, &format!("\u{a7}{}", digits(t_fee / open)), ink);
+            cell_right(&s, g, 709.0, ty, &format!("\u{a7}{}", digits(t_rev)), ink);
             if t_prof < 0 {
                 s.image_part(g, art, CX[11], total_y + 9.0, CX[11], 205.0, CW[11], 15.0);
             }
-            text_right(&s, g, 786.0, ty, &format!("\u{a7}{}", digits(t_prof)), 14.0, ink);
+            cell_right(&s, g, 786.0, ty, &format!("\u{a7}{}", digits(t_prof)), ink);
         }
         let by = total_y + 29.0;
         s.image_part(g, art, 0.0, by, 0.0, 468.0, 800.0, 72.0);

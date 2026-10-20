@@ -169,7 +169,7 @@ fn button_radius(px_per_unit: f32) -> f32 {
 }
 
 /// The left edge of the OpenSGolf extras' legends at the top right (the path view, the staff areas, the landing map: x 566,
-/// y 140 to 372): while one is up the column stands to its left instead of over it.
+/// y 140 to 430, further left with bigger text): while one is up the column stands to its left instead of over it.
 const LEGEND_LEFT: f32 = 566.0;
 
 /// Slot `i`'s centre for radius `r` with the column's right edge at `right`, in the 800 x 600 layout (held to the right edge
@@ -374,7 +374,7 @@ impl Stage {
 
     /// Slot `i`'s centre on this frame.
     fn slot_centre(&self, i: usize) -> (f32, f32) {
-        button_centre(i, self.button_radius(), if self.app.right_legend_up() { LEGEND_LEFT } else { 800.0 })
+        button_centre(i, self.button_radius(), if self.app.right_legend_up() { self.app.legend_left() } else { 800.0 })
     }
 
     /// The touch button shown at this drawable-pixel point, if any.
@@ -464,7 +464,9 @@ impl Stage {
                 OskKey::Cancel => tr("STR_OSK_CANCEL").to_string(),
                 OskKey::Ok => tr("STR_OSK_OK").to_string(),
             };
-            s.text_centered(g, x + w * 0.5, y + h * 0.5 + 5.0, &label, 15.0, rgb(1.0, 1.0, 1.0));
+            // bigger with the text size, as far as the key holds it (textsize.rs)
+            let size = crate::textsize::fit_px(15.0, 2.0, &label, w - 6.0).min(h - 4.0).max(15.0);
+            s.text_centered(g, x + w * 0.5, y + h * 0.5 + 5.0 + ((size - 15.0) / 3.0).floor(), &label, size, rgb(1.0, 1.0, 1.0));
         }
         g.flush();
     }
@@ -573,7 +575,8 @@ impl Stage {
                 // its name to the left, as the dock's tooltips are (the camera button's plate, photo.rs)
                 let name = tr(b.label());
                 // (as large on the device as the buttons are, so readable on a phone too)
-                let k = r / R_MIN;
+                // and bigger again with the text size (textsize.rs)
+                let k = r / R_MIN * crate::textsize::scale();
                 let size = 13.0 * k;
                 let tw = crate::ui::text_width(name, size);
                 let (x, y) = (cx - r - 8.0 - tw - 12.0 * k, cy - 10.0 * k);
@@ -771,6 +774,13 @@ impl App {
         (self.comfort.staff_view && self.land.is_some())
             || (self.xs.path_view && crate::extras::path_help())
             || (self.xs.insight.map && crate::extras::landing_map())
+    }
+
+    /// The left edge of the legends up at the top right: x 566, or the landing map's when bigger text has widened it
+    /// (textsize.rs).
+    fn legend_left(&self) -> f32 {
+        let (k, _, _) = self.legend_place(self.legend_below());
+        (790.0 - (224.0 * k).round()).min(LEGEND_LEFT)
     }
 
     /// Whether a name is being typed (rename, save, Customise Golfer).

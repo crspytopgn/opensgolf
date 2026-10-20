@@ -18,6 +18,8 @@ pub struct Prefs {
     pub ex: Extras,
     pub ui: extras::Settings,
     pub keys: controls::Settings,
+    /// The text size in percent (textsize.rs; 100 the original's).
+    pub text: u32,
 }
 
 impl Prefs {
@@ -30,6 +32,7 @@ impl Prefs {
             ex: Extras::default(),
             ui: extras::Settings::ALL_OFF,
             keys: controls::Settings::default(),
+            text: 100,
         }
     }
 }
@@ -47,6 +50,8 @@ pub enum Hit {
     Pref(bool),
     /// controls::ACTIONS[i]'s key.
     Key(usize),
+    /// The Preferences' text size line (textsize.rs).
+    TextSize,
 }
 
 /// The most found options the box lists at once (more: "type more to narrow").
@@ -57,7 +62,7 @@ pub const LINE_W: f32 = 600.0;
 
 /// Every option, in the Preferences' order: Enhanced graphics, the extras' pages, the keys.
 pub fn all() -> Vec<Hit> {
-    let mut v = vec![Hit::Pref(false), Hit::Pref(true), Hit::EnhancedOn];
+    let mut v = vec![Hit::Pref(false), Hit::Pref(true), Hit::TextSize, Hit::EnhancedOn];
     for page in 0..enhanced::PAGES.len() as u8 {
         v.extend(enhanced::OPTIONS.iter().enumerate().filter(|(_, o)| o.page == page).map(|(i, _)| Hit::Enhanced(i)));
     }
@@ -84,6 +89,7 @@ pub fn place(h: Hit) -> String {
         }
         Hit::Pref(_) => tr("STR_SEARCH_PLACE_PREFS").to_string(),
         Hit::Key(_) => tr("STR_SEARCH_PLACE_KEYS").to_string(),
+        Hit::TextSize => tr("STR_SEARCH_PLACE_PREFS").to_string(),
     }
 }
 
@@ -105,6 +111,10 @@ pub fn text(h: Hit, p: &Prefs) -> (String, bool) {
             let key = p.keys.binding(i).map(controls::Binding::label).unwrap_or_else(|| "-".into());
             (trf("STR_SEARCH_KEY", &[("ACTION", &tr(controls::ACTIONS[i].text)), ("KEY", &key)]), false)
         }
+        Hit::TextSize => {
+            let size = tr(crate::textsize::name_key(p.text));
+            (trf("STR_MENU_PREFS_TEXT_SIZE", &[("SIZE", &size)]).trim().to_string(), p.text != 100)
+        }
     }
 }
 
@@ -117,6 +127,7 @@ pub fn changed(h: Hit, p: &Prefs) -> bool {
         Hit::Extra(l) => crate::extras_ui::line_value(l, &p.ex, &p.ui) != crate::extras_ui::line_value(l, &o.ex, &o.ui),
         Hit::Pref(_) => text(h, p).1 != text(h, &o).1,
         Hit::Key(i) => p.keys.keys_of(i).collect::<Vec<_>>() != o.keys.keys_of(i).collect::<Vec<_>>(),
+        Hit::TextSize => p.text != o.text,
     }
 }
 
@@ -128,7 +139,7 @@ pub fn plain(h: Hit) -> bool {
         Hit::Enhanced(i) => !enhanced::OPTIONS[i].choices.is_empty(),
         Hit::Extra(l) => crate::extras_ui::is_plain(l),
         Hit::Pref(_) => false,
-        Hit::Key(_) => true,
+        Hit::Key(_) | Hit::TextSize => true,
     }
 }
 
@@ -159,6 +170,7 @@ pub fn toggle(h: Hit, p: &mut Prefs) {
         Hit::Pref(false) => p.enh.fix_original_bugs = !p.enh.fix_original_bugs,
         Hit::Pref(true) => p.ui.update_check = !p.ui.update_check,
         Hit::Key(_) => {}
+        Hit::TextSize => p.text = crate::textsize::next(p.text),
     }
 }
 
@@ -254,6 +266,7 @@ mod tests {
         assert_eq!(search("updates", false, &p), vec![Hit::Pref(true)]);
         assert_eq!(search("scorecards", false, &p), vec![Hit::Extra(ExtrasLine::Group(0))]);
         assert!(search("zoom", false, &p).contains(&Hit::Key(controls::action("zoom_in"))));
+        assert_eq!(search("text size", false, &p), vec![Hit::TextSize]);
         assert!(search("no such option at all", false, &p).is_empty());
         // words are matched from their start
         assert!(!search("rain", false, &p)
@@ -302,6 +315,12 @@ mod tests {
         assert!(p.ui.update_check);
         toggle(Hit::EnhancedOn, &mut p);
         assert!(p.enh.enabled);
+        // the text size steps through its sizes and back
+        for want in [125, 150, 100] {
+            toggle(Hit::TextSize, &mut p);
+            assert_eq!(p.text, want);
+        }
+        assert!(plain(Hit::TextSize));
         assert!(plain(speed) && plain(Hit::Key(0)) && !plain(Hit::EnhancedOn));
         assert!(plain(Hit::Extra(ExtrasLine::Game(sg_core::extras::PATHS))) && !plain(Hit::Extra(ExtrasLine::Game(9))));
     }

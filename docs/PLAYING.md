@@ -693,6 +693,15 @@ compare pixel for pixel with the build before the extras).
   and anything else (trees, rocks, a ravine, out of bounds). Each hole keeps its last 200 shots from the moment the
   extra is on; building the hole again with its tee or cup elsewhere starts it afresh. Kept with the save while the
   extra is on.
+  **Heat maps**: the legend's tabs switch the map from the dots (*Shots*) to a heat map over the course, translucent so
+  the course shows through, pale yellow where little happens to deep red at the busiest tile: *Landings*, where balls
+  come to rest (the same shots as the dots); *Waiting*, where golfers stand still waiting (on a tee for the group
+  ahead, for the way to clear, held up on the path; not while a golfer or the partner plays a shot), with the
+  golfer-minutes in all; *Complaints*, where golfers stood when a thought put them out (each red line of comments by
+  hole), with how many. *This hole* and *Whole course* pick the hole under the pointer or every open hole (the dots
+  too). Waiting and complaints are recorded from the moment the extra is on (a game saved before 0.5 starts them
+  empty), only watch the game (the golfers play exactly the same), lean to the recent months (a tile's count halves
+  with the rest of its hole's past 50,000), and are kept with the save like the shots.
 - **Comments by hole** (**Shift+I**, *Information, Comments by hole*, or the *By hole* tab after F10 on the tabbed
   reports): a page with a block for each open hole: the three thoughts golfers had most often while playing it, each on
   its own line with how many times, and how many thoughts in all. Every thought counts (each bubble over a golfer on the
@@ -781,7 +790,8 @@ map, comments by hole and history graphs only watch the game too: the golfers pl
 Test hooks for stills: `--screen people|staff|pro|history|profile|pathview|tags|ticker|card|landing|holecomments|graphs|yearsum` (with a game;
 `graphs` with `SG_GRAPHS=S,M[,C]` shows series S (0 the club, 1 to 18 a hole), measure M (its tab, from 0) and holds
 month C (from 0) up as a tap would;
-`landing` shows the landing map of the first open hole, or of hole N with `SG_LANDING_HOLE=N`; `SG_HOLECOMMENTS=P[,N]` shows comments by hole for period P, 0 this
+`landing` shows the landing map of the first open hole, or of hole N with `SG_LANDING_HOLE=N`, and with
+`SG_LANDING_SHOW=M[,1]` shows M (0 the shots, 1 landings, 2 waiting, 3 complaints), for the whole course with 1; `SG_HOLECOMMENTS=P[,N]` shows comments by hole for period P, 0 this
 month, 1 last month, 2 this year, scrolled N holes down;
 `SG_PEOPLE_SORT=COL[,1]` sorts the People list by column COL, downward with 1), `--edit "M:6"` opens the extras box.
 
@@ -1144,6 +1154,25 @@ The looks added in 0.5 (the port's own; docs/ENHANCED.md has the details), each 
   picture by fractions (x1.33 on 1280 x 800, x1.8 on 1920 x 1080), smoothing the art. On a window too small for the next
   whole size the picture stays at the one below (x1 on 1920 x 1080), so it suits big and 4K screens best; with Enhanced
   graphics on, its own smoothing options (smooth interface art, the pixel-art scaler) still apply when they are ticked.
+
+## Text size
+
+System Functions > Preferences has a **Text size:** line (the port's own helper; not in the original): each click steps
+*normal*, *125%* and *150%*, at once, and it is remembered (`"text_size"` in `settings.json`; normal writes nothing and
+draws exactly as before; Search options finds it as *Text size*). Bigger text grows the message window and its notes
+(taller, the same width), the notes at the bottom of the title screens, every pop-up box (Information, System Functions,
+Preferences and its Enhanced graphics, OpenSGolf extras and Search boxes, the questions and notices, with their tabs,
+banners, tags and descriptions), the tooltips, the name tags, the touch buttons' names and the on-screen keyboard's keys,
+the path view, staff areas and landing map legends, comments by hole, the message history, the People screen and the F2
+Player Comments report. A box that would leave the 800 x 600 screen grows only as far as it fits (the Preferences and
+Extras boxes reach about 125%) and moves in from the edges; the legends at the top right grow only as far as they still end
+above the dock's panel (with the path view and the landing map up together, hardly at all), and move down under a
+message the bigger text made taller. The original's fixed art panels cannot grow, so their words grow only as far as
+their room holds: the golfer card (its thoughts at most 125%), the F1 Course Report, F3 Histograph and F4 Financial
+Report cells (115% where the rows are tight), the F5 routing pages' headings, and the People list's rows (120%). With
+Enhanced graphics' sharp text the bigger text is rasterised at the screen's own size; in Classic it is the same font
+drawn bigger. Test hook: `SG_TEXT_SIZE=125` or `150` uses a size for
+one run without saving it.
 
 ## Language
 

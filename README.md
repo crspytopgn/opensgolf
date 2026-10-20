@@ -113,8 +113,11 @@ helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a fe
   switches. A game in which a cheat was used says so on the Load list, and its course record is no shared challenge.
 - **Quick save and quick load** (Shift+F5, Shift+F9) and a **staff areas** view (Shift+A) that shows every employee's
   work ring and the fairways and greens no groundskeeper reaches.
-- **Golfer insight** (interface extras): a landing map of where golfers' shots on each hole end up (Shift+D), and each
-  hole's most frequent golfer comments this month, last month and this year (Shift+I).
+- **Golfer insight** (interface extras): a landing map of where golfers' shots on each hole end up (Shift+D), with heat
+  maps of where balls land, golfers wait and golfers complain, for a hole or the whole course, and each hole's most
+  frequent golfer comments this month, last month and this year (Shift+I).
+- **Text size** (Preferences): normal, 125% or 150% text in the message window, pop-up boxes, tooltips, name tags,
+  touch labels and the port's own pages, the boxes growing with it and staying on screen.
 - **History graphs** (interface extra): the club's and each hole's months as line graphs on the Histograph's page:
   rounds, revenue, costs, profit, cash, happiness, ratings and members, and each hole's plays, strokes over par,
   happiness and fees (Shift+Y).
