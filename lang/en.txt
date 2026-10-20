@@ -1458,8 +1458,8 @@ STR_ENHANCED_FX_RAIN                    : Rain on some days
 STR_ENHANCED_FX_MIST                    : Morning mist in low ground
 STR_ENHANCED_FX_REFLECTIONS             : Reflections and sun glitter on the water
 STR_ENHANCED_FX_WIND                    : Wind: trees, palms and flags sway
-STR_ENHANCED_FX_EVENING_LIGHTS          : Lit windows, lamps and fireflies at dusk
-STR_ENHANCED_FX_SEASONS                 : Seasons: blossom, autumn colours, frost
+STR_ENHANCED_FX_EVENING_LIGHTS          : Lamps and fireflies at dusk
+STR_ENHANCED_FX_SEASONS                 : Seasons: blossom, autumn colours, dew
 STR_ENHANCED_FX_AFTER_RAIN              : Wet ground, puddles and rainbows
 STR_ENHANCED_FX_LIGHTNING               : Lightning in heavy rain
 STR_ENHANCED_FX_HEAT                    : Heat waves in the desert: bleached light, parched grass
@@ -3197,3 +3197,19 @@ STR_EXTRAS_DESC_RIGHT_DRAG              :Drag with the right button held to move
 # Random trees (OpenSGolf extras, issue #68)
 STR_EXTRAS_RANDOM_TREES                 : Random trees: each tree planted gets a random look
 STR_EXTRAS_DESC_RANDOM_TREES            :Every tree the woods, pine and palm brushes plant gets a random size (and pines a random species), and every scenic tree a random one of the seven, for a more natural course. The look under the pointer is the next one.
+
+# Enhanced graphics' looks of 0.5 (the port's own, docs/ENHANCED.md): lit windows and dawn sprinklers (with the time of
+# day), winter frost, and pixel-perfect scaling (Display; it counts with Enhanced graphics off too)
+STR_ENHANCED_FX_WINDOW_LIGHTS           : Warm light in the buildings' windows at night
+STR_ENHANCED_FX_SPRINKLERS              : Sprinklers on the fairways and greens at dawn
+STR_ENHANCED_FX_FROST                   : Frost on cold mornings, melting by late morning
+STR_ENHANCED_PIXEL_PERFECT              : Pixel-perfect scaling: whole sizes only (Classic too)
+STR_FX_WINDOW_LIGHTS                    :Lit windows
+STR_FX_SPRINKLERS                       :Dawn sprinklers
+STR_FX_FROST                            :Morning frost
+
+# The showcase fly-over (the port's own, showcase.rs; docs/PLAYING.md)
+STR_CTL_SHOWCASE                        :Showcase: fly over the course hole by hole
+STR_SHOWCASE_NO_HOLES                   :The showcase needs an open hole to fly over.
+STR_TOUCH_SHOWCASE                      :Showcase
+STR_SHOWCASE_HOLE                       :Hole {HOLE}  -  Par {PAR}  -  {YARDS} yards

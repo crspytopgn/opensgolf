@@ -226,7 +226,7 @@ impl App {
         let a = self.fx.atmos;
         let t = self.fx.time;
         let mv = self.mv;
-        let vscale = (self.draw_w / 800.0).min(self.draw_h / 600.0);
+        let vscale = crate::ui::view_scale(self.draw_w, self.draw_h);
         // sizes in the art's pixels as the view draws them (the exe's zoom 4 draws them one to one; Enhanced's closer
         // smooth zoom magnifies them, whole pixels from there on)
         let z = self.view_zoom() / crate::app::ZOOM_UNIT / 4.0;

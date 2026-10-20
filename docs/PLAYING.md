@@ -891,6 +891,11 @@ changed every key does what it did before.
   preset never switches Enhanced graphics itself) on. They only set those existing options, which stay changeable one by
   one; click the other preset to undo one (keys you moved yourself are not kept by either).
 * **Middle-button drag** (always on) drags the course whatever tool is held, as a left drag does with no tool.
+* **Shift+O** (the port's own *Showcase*) flies over the course: the interface goes and the camera glides round the open
+  holes in order, from each back tee down to the green with a short pause on each and the hole's number, par and length
+  in a caption, round and round until any key, click or tap ends it; the camera, the zoom and the tool in hand then come
+  back as they were. The golfers play on. Classic and Enhanced graphics alike (with the smooth camera the zoom eases in);
+  it needs an open hole. Test hook: `SG_SHOWCASE=T` starts it held T seconds in, for stills.
 * **u** hides the whole interface (dock, panels, messages, the money and ratings) during normal play, for a clear view of
   the course; a small note in the bottom left corner says which key brings it back. Clicks then go to the course. Photo
   mode (Enhanced graphics) has its own view and is not affected.
@@ -1020,7 +1025,8 @@ animated water, terrain light with occlusion and shadows, a sky beyond the map, 
 `--fx-set LIST` picks options (`scaler=off|sharp|edge`, `water`, `lighting`, `occlusion`, `shadows`, `sprite-shadows`,
 `sky`, `tilt-shift`, `grading`, `bloom`, `vignette`, `cast-shadows`, `time-of-day`, `clouds`, `haze`, `rain`, `mist`,
 `ball-trail`, `ball-impacts`, `reflections`, `wind`, `evening-lights`, `seasons`, `after-rain`, `lightning`, `heat`, `life`, `crowds`, `winter`, `sharpen`, `grass`,
-`water-colour`, `waves`, `shoreline`, `caustics`, `rain-rings`, `water-life`, `ice`, `spray` = on/off,
+`water-colour`, `waves`, `shoreline`, `caustics`, `rain-rings`, `water-life`, `ice`, `spray`, `window-lights`,
+`sprinklers`, `frost` = on/off,
 `quality=low|medium|high`, `day-length=short|normal|long`), `--fx-list` prints them, and `OPENSGOLF_FX` does the
 same from the environment. Without them the game looks exactly as before. Test hooks: `SG_FX_BENCH=N` with `--png` prints
 the frame time over N frames, `SG_FX_LOG=1` the light map's build time, each ball's landing (where, on what, at which
@@ -1057,10 +1063,10 @@ The **Weather** page and the newer Atmosphere options (docs/ENHANCED.md has the 
   rippling with the waves; the sun's glitter grows warm and strong at golden hour; the water laps at the shore.
 - *Wind* (on): each day has its wind; trees, palms, bushes and tall grasses lean and sway in gusts, flags fly downwind, the
   rain slants and the clouds drift with it.
-- *Lit windows, lamps and fireflies at dusk* (on, with the time of day): from sunset the buildings' windows glow, lamps
-  light up beside the buildings and along the paths, and fireflies drift over the rough on parkland and tropical courses.
-- *Seasons* (on): blossom on the trees and fresh greens in March and April, autumn colours in September and October, frost
-  and dew on spring and autumn mornings (with the time of day). Palms, cacti and conifers barely change.
+- *Lamps and fireflies at dusk* (on, with the time of day): from sunset lamps light up beside the buildings and along the
+  paths, and fireflies drift over the rough on parkland and tropical courses.
+- *Seasons* (on): blossom on the trees and fresh greens in March and April, autumn colours in September and October, and
+  dew on spring and autumn mornings (with the time of day). Palms, cacti and conifers barely change.
 - *Wet ground, puddles and rainbows* (on, with rain): during a rainy day and drying through the next the ground is darker
   and glossy, puddles fill on level fairway and rough and shrink as they dry, and about every other time the sun comes out
   after rain a rainbow stands in the sky.
@@ -1069,6 +1075,24 @@ The **Weather** page and the newer Atmosphere options (docs/ENHANCED.md has the 
 - *Heat waves in the desert* (off): on a desert course's hot summer days a warm, bleached midday light, a heat haze over
   the distance and, on the hottest days, parched grass that greens again after (the same days *Weather that matters*
   plays). It costs nothing measurable.
+
+The looks added in 0.5 (the port's own; docs/ENHANCED.md has the details), each its own tick, drawing only:
+
+- *Warm light in the buildings' windows at night* (on, with the time of day; Atmosphere): from sunset to just after dawn
+  the clubhouse's and the other buildings' windows glow warm, found in the art itself (the original's or the free set's),
+  with their light spilling softly round the buildings.
+- *Sprinklers on the fairways and greens at dawn* (on, with the time of day; Atmosphere): from first light a few
+  sprinklers stand on the fairways, greens and tees, their jets sweeping to and fro and the grass round them darkening as
+  it is watered; gone by mid-morning, and not in the rain or on a frosty morning.
+- *Frost on cold mornings* (on, with the time of day; Weather): on cold mornings early and late in the year a pale sheen
+  of frost lies on the grass, greens and fairways included, melting back into the hollows and the shade as the morning
+  warms and gone by late morning; never on desert or tropical courses.
+- *Pixel-perfect scaling* (off; Display; it counts with Enhanced graphics off too, like the frame rate cap): the 800 x 600
+  picture is scaled by whole numbers only (x2 on a 1600 x 1200 window, x3 on 4K) with its pixels sharp instead of smoothed,
+  and the rest of the window is a border (black, or Enhanced graphics' dark green frame). Classic otherwise scales the
+  picture by fractions (x1.33 on 1280 x 800, x1.8 on 1920 x 1080), smoothing the art. On a window too small for the next
+  whole size the picture stays at the one below (x1 on 1920 x 1080), so it suits big and 4K screens best; with Enhanced
+  graphics on, its own smoothing options (smooth interface art, the pixel-art scaler) still apply when they are ticked.
 
 ## Language
 

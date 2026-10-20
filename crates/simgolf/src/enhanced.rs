@@ -130,6 +130,16 @@ pub struct Settings {
     pub frame_cap: u8,
     /// V-sync (the window's swap interval, from the next start; browsers always have it). Counts in Classic too.
     pub vsync: bool,
+    /// The buildings' windows lit warm from dusk to dawn, with the time of day (fx_night.rs; the port's own).
+    pub fx_window_lights: bool,
+    /// Sprinklers watering a few fairway, green and tee tiles at dawn, with the time of day (fx_dawn.rs; the port's own).
+    pub fx_sprinklers: bool,
+    /// Frost on the grass on cold mornings early and late in the year where the theme has a winter, melting by late
+    /// morning, with the time of day (fx_nature.rs, the terrain shader; the port's own).
+    pub fx_frost: bool,
+    /// Pixel-perfect scaling (the port's own): the 800 x 600 picture scaled by whole numbers only, its art sharp
+    /// (nearest-neighbour), a border round it. Off by default; counts in Classic too, like the frame rate cap.
+    pub pixel_perfect: bool,
 }
 
 impl Settings {
@@ -190,6 +200,11 @@ impl Settings {
         fix_original_bugs: true,
         frame_cap: crate::framerate::UNCAPPED,
         vsync: true,
+        fx_window_lights: true,
+        fx_sprinklers: true,
+        fx_frost: true,
+        // a different look of the whole picture: offered, not on by default
+        pixel_perfect: false,
     };
 }
 
@@ -274,7 +289,8 @@ pub fn smooth_edges() -> bool {
     smooth_ui()
 }
 pub fn widescreen() -> bool {
-    on(|s| s.widescreen)
+    // pixel-perfect scaling keeps the picture 800 x 600 in its border: the HUD stays in it
+    on(|s| s.widescreen && !s.pixel_perfect)
 }
 pub fn terrain_filter() -> bool {
     on(|s| s.terrain_filter)
@@ -290,6 +306,10 @@ pub fn smooth_motion() -> bool {
 }
 pub fn photo_mode() -> bool {
     on(|s| s.photo_mode)
+}
+/// Pixel-perfect scaling (the port's own; ui::view_scale): not under the master switch, so Classic can have it too.
+pub fn pixel_perfect() -> bool {
+    settings().pixel_perfect
 }
 /// "Fix original bugs" (docs/FIXES.md): not under the master switch, so Classic gets the fixes too unless it is turned off.
 pub fn fix_bugs() -> bool {
@@ -456,6 +476,12 @@ pub const OPTIONS: &[OptionEntry] = &[
     tick!("fx_water_life", "STR_ENHANCED_FX_WATER_LIFE", WATER, fx_water_life),
     tick!("fx_ice", "STR_ENHANCED_FX_ICE", WATER, fx_ice),
     tick!("fx_spray", "STR_ENHANCED_FX_SPRAY", WATER, fx_spray),
+    // the port's own looks of 0.5: lit windows and dawn sprinklers (with the time of day), winter frost, and pixel-perfect
+    // scaling (which counts with Enhanced graphics off too, like the frame rate settings)
+    tick!("fx_window_lights", "STR_ENHANCED_FX_WINDOW_LIGHTS", ATMOSPHERE, fx_window_lights),
+    tick!("fx_sprinklers", "STR_ENHANCED_FX_SPRINKLERS", ATMOSPHERE, fx_sprinklers),
+    tick!("fx_frost", "STR_ENHANCED_FX_FROST", WEATHER, fx_frost),
+    tick!("pixel_perfect", "STR_ENHANCED_PIXEL_PERFECT", DISPLAY, pixel_perfect, Reload::Art),
 ];
 
 // ---- the settings file ------------------------------------------------------------------------------------------------------
@@ -786,6 +812,8 @@ impl App {
         let art = |s: &Settings| {
             let mut k: Vec<bool> = OPTIONS.iter().filter(|o| o.reload == Reload::Art).map(|o| s.enabled && (o.get)(s) != 0).collect();
             k.push(s.enabled);
+            // pixel-perfect scaling's sharp art counts in Classic too
+            k.push(s.pixel_perfect);
             k
         };
         if art(&old) == art(&new) {
@@ -1312,6 +1340,29 @@ mod tests {
         assert_eq!(Anchor::TopLeft.shift(ext), (-133.0, 0.0));
         assert_eq!(Anchor::BottomRight.shift(ext), (133.0, 0.0));
         assert_eq!(Anchor::Top.shift(ext), (0.0, 0.0));
+    }
+
+    #[test]
+    fn pixel_perfect_scales_by_whole_numbers() {
+        use crate::ui::view_scale;
+        set(Settings::DEFAULT);
+        // off (the default): the fraction that fits, as Classic always scaled
+        assert_eq!(view_scale(1280.0, 800.0), 800.0 / 600.0);
+        assert_eq!(view_scale(3840.0, 2160.0), 3.6);
+        // on, Classic too: the largest whole number that fits; a small window still shrinks
+        set(Settings { pixel_perfect: true, ..Settings::DEFAULT });
+        assert_eq!(view_scale(800.0, 600.0), 1.0);
+        assert_eq!(view_scale(1280.0, 800.0), 1.0);
+        assert_eq!(view_scale(1920.0, 1080.0), 1.0);
+        assert_eq!(view_scale(1600.0, 1200.0), 2.0);
+        assert_eq!(view_scale(3840.0, 2160.0), 3.0);
+        assert_eq!(view_scale(640.0, 480.0), 0.8);
+        // the picture's corner on a whole pixel, and Enhanced widescreen kept off
+        let v = crate::ui::Screen::new(1281.0, 801.0).view;
+        assert_eq!((v.ox, v.oy), (240.0, 100.0));
+        set(Settings { pixel_perfect: true, enabled: true, ..Settings::DEFAULT });
+        assert!(!widescreen());
+        set(Settings::DEFAULT);
     }
 
     #[test]

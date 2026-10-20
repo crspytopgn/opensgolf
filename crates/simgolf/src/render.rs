@@ -33,7 +33,7 @@ impl App {
     /// Draws the course and everything on it. Camera as the original: ortho +-5000 depth, pitch about X, then yaw 45 degrees.
     pub fn render_world(&mut self, g: &mut Gfx) {
         // world units per drawable pixel: the zoom is in the 800 x 600 screen's pixels, so a bigger window shows the same view
-        let vscale = (self.draw_w / 800.0).min(self.draw_h / 600.0);
+        let vscale = crate::ui::view_scale(self.draw_w, self.draw_h);
         // the zoom and turn as shown: eased by Enhanced's smooth camera, else the camera's own (enhanced.rs)
         let upp = 2.0 / (self.view_zoom() * vscale);
         let (hw, hh) = (self.draw_w * upp * 0.5, self.draw_h * upp * 0.5);
@@ -112,7 +112,7 @@ impl App {
         let lifts = sg_core::pro::aim_lifts(p.distance, opt, zoom);
         let mv = self.mv;
         let (ux, uy, uz) = (mv[1], mv[5], mv[9]);
-        let vscale = (self.draw_w / 800.0).min(self.draw_h / 600.0);
+        let vscale = crate::ui::view_scale(self.draw_w, self.draw_h);
         let px = self.upp * vscale; // world units per 800 x 600 pixel
                                     // a ground point moved `up` pixels up the screen
         let lifted = |p: [f32; 3], up: f32| [p[0] + ux * up * px, p[1] + uy * up * px, p[2] + uz * up * px];
@@ -206,7 +206,7 @@ impl App {
                                                   // The sprites were rendered at 4 camera yaws, 90 degrees apart; 8 view sprites (people) face 45 degree steps.
         let quarter = ((self.view_rot() / 90.0).round() as i32 % 4 + 4) % 4;
         let s = SPRITE_UNITS_PER_PIXEL;
-        let px = self.upp * (self.draw_w / 800.0).min(self.draw_h / 600.0); // world units per 800 x 600 pixel
+        let px = self.upp * crate::ui::view_scale(self.draw_w, self.draw_h); // world units per 800 x 600 pixel
         let mut items: Vec<(f32, usize)> = Vec::new();
         // where each prop is drawn: between the last two ticks with Enhanced's smooth motion (enhanced.rs), else where it is
         let smooth = crate::enhanced::smooth_motion();
@@ -314,6 +314,8 @@ impl App {
             self.fx_cast_shadows(g, u, &items, &shown);
             // the evening's pools of lamp and window light on the ground (fx_night.rs)
             self.fx_light_pools(g, u);
+            // the grass the dawn's sprinklers water (fx_dawn.rs)
+            self.fx_sprinkler_wet(g, u);
         }
         let art_shadows = !crate::fx_shadow::hide_art_shadows();
         // the exe composites each sprite's shadow under its body when it loads them (0x43d740 draws NameShadow.flc, then
@@ -330,6 +332,10 @@ impl App {
             if crate::fx::active() { self.fx_lamp_quads(px).into_iter().map(|(k, v)| (k, lamp_tex, v)).collect() } else { Vec::new() };
         // and the Path styles and lamps extra's lamp posts (paths_lamps.rs)
         lamps.extend(self.lamp_quads(g.white, lamp_tex));
+        // Enhanced graphics only: the dawn's sprinklers, in the same order (fx_dawn.rs)
+        if crate::fx::active() {
+            lamps.extend(self.fx_sprinkler_quads(g.white));
+        }
         lamps.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
         let mut next_lamp = 0;
         for &(key, i) in &items {
@@ -400,7 +406,7 @@ impl App {
         let mv = self.mv;
         let (rx, ry, rz) = (mv[0], mv[4], mv[8]);
         let (ux, uy, uz) = (mv[1], mv[5], mv[9]);
-        let vscale = (self.draw_w / 800.0).min(self.draw_h / 600.0);
+        let vscale = crate::ui::view_scale(self.draw_w, self.draw_h);
         let px = self.upp * vscale; // world units per 800 x 600 pixel
         let side = (2.0 * self.exe_zoom() / 4.0).max(1.0f32);
         if self.ball_trail.len() != self.club.g.len() {

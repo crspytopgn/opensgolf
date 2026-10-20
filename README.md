@@ -94,8 +94,9 @@ Optional, and off by default (Start New Game has a one-click switch between *the
 
 - **Enhanced graphics** for 4K and widescreen: sharp scaling, water (depth, waves with the wind, shorelines, rain rings,
   reeds, ducks, swans, jumping fish, frozen ponds), light, weather by each place's climate, seasons, late-winter snow,
-  desert heat waves, birds of prey, butterflies and falling leaves, grass tufts, tournament crowds and a photo mode
-  ([docs/ENHANCED.md](docs/ENHANCED.md)).
+  desert heat waves, birds of prey, butterflies and falling leaves, grass tufts, tournament crowds, lit windows at night,
+  dawn sprinklers, morning frost, pixel-perfect whole-number scaling (Classic too) and a photo mode
+  ([docs/ENHANCED.md](docs/ENHANCED.md)); a showcase fly-over of the course hole by hole (Shift+O).
 - **Bigger courses:** Large, Huge and Giant, up to 128 × 128 tiles.
 - **OpenSGolf extras:** a Hardcore economy, turning buildings, cut content restored as landmarks, animals to buy, higher
   staff limits, setting a hole's par, left-handed golfers (and a left-handed pro), weather that matters (rain, snow,

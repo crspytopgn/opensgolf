@@ -444,6 +444,8 @@ pub struct App {
     pub enh: crate::enhanced::EnhState,
     /// Enhanced graphics' photo mode while it is open (photo.rs); always None in Classic.
     pub photo: Option<Box<crate::photo::Photo>>,
+    /// The showcase fly-over while it is under way (showcase.rs; the port's own, Classic too).
+    pub showcase: Option<crate::showcase::Showcase>,
     pub batches: Vec<Batch>,
     pub path_batches: Vec<Batch>,
     /// Paths not joined to the clubhouse, drawn as mud tracks (manual p. 18).
@@ -821,6 +823,7 @@ impl App {
             fx: Default::default(),
             enh: Default::default(),
             photo: None,
+            showcase: None,
             batches: Vec::new(),
             path_batches: Vec::new(),
             mud_batches: Vec::new(),

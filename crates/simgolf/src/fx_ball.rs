@@ -139,7 +139,7 @@ impl App {
         let k = sg_core::terrain::TILE_SIZE / sg_core::staff::UNIT as f32;
         let (bx, bz) = (x0 + x * k, z0 + y * k);
         let gy = self.terrain.height_at(bx, bz);
-        let px = self.upp * (self.draw_w / 800.0).min(self.draw_h / 600.0);
+        let px = self.upp * crate::ui::view_scale(self.draw_w, self.draw_h);
         let lift = sg_core::course::HEIGHT_STEP_PX as f32 * self.exe_zoom() * h / 5.0 / 16.0 * px;
         let mv = self.mv;
         [bx + mv[1] * lift, gy + mv[5] * lift, bz + mv[9] * lift]
@@ -154,7 +154,7 @@ impl App {
         let now = self.game_tick as f32 + self.tick_fraction();
         let mv = self.mv;
         let (rx, ry, rz, ux, uy, uz) = (mv[0], mv[4], mv[8], mv[1], mv[5], mv[9]);
-        let vscale = (self.draw_w / 800.0).min(self.draw_h / 600.0);
+        let vscale = crate::ui::view_scale(self.draw_w, self.draw_h);
         let half_px = 1.3 * (self.exe_zoom() / 4.0).max(0.5) * vscale * self.upp;
         let mut v = Vec::new();
         for i in 0..self.fx.balls.trails.len() {
@@ -204,7 +204,7 @@ impl App {
         let now = self.game_tick as f32 + self.tick_fraction();
         let mv = self.mv;
         let (rx, ry, rz, ux, uy, uz) = (mv[0], mv[4], mv[8], mv[1], mv[5], mv[9]);
-        let vscale = (self.draw_w / 800.0).min(self.draw_h / 600.0);
+        let vscale = crate::ui::view_scale(self.draw_w, self.draw_h);
         let px = self.upp * vscale; // world units per 800 x 600 pixel
         let z = self.exe_zoom() / 4.0; // 1 at the closest zoom
         let dot = crate::fx::gpu(g).dot;

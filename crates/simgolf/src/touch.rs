@@ -7,8 +7,8 @@
 //!   lowering.
 //! * Two fingers: dragging pans, pinching steps through the three zoom levels, twisting turns the view a quarter.
 //! * A few round touch buttons down the right edge stand in for keys the screen has no button for (game speed, repeat the
-//!   last message, turn the building, open the hole); they show only once the screen has been touched, Turn and Open hole
-//!   only while they have something to do.
+//!   last message, turn the building, open the hole, the showcase fly-over); they show only once the screen has been
+//!   touched, Turn and Open hole only while they have something to do, Showcase once a hole is open.
 //! * When a name is typed (rename, save) the phone's keyboard is raised: through the page in a browser (web/opensgolf.js),
 //!   through miniquad on Android.
 
@@ -125,8 +125,10 @@ enum Btn {
     Message,
     Turn,
     OpenHole,
+    /// The showcase fly-over (showcase.rs), last, below the others.
+    Showcase,
 }
-const BUTTONS: [Btn; 4] = [Btn::Speed, Btn::Message, Btn::Turn, Btn::OpenHole];
+const BUTTONS: [Btn; 5] = [Btn::Speed, Btn::Message, Btn::Turn, Btn::OpenHole, Btn::Showcase];
 
 impl Btn {
     fn action(self) -> &'static str {
@@ -135,6 +137,7 @@ impl Btn {
             Btn::Message => "message",
             Btn::Turn => "turn_building",
             Btn::OpenHole => "open_hole",
+            Btn::Showcase => "showcase",
         }
     }
     fn label(self) -> &'static str {
@@ -143,6 +146,7 @@ impl Btn {
             Btn::Message => "STR_TOUCH_MESSAGE",
             Btn::Turn => "STR_TOUCH_TURN",
             Btn::OpenHole => "STR_TOUCH_OPEN_HOLE",
+            Btn::Showcase => "STR_TOUCH_SHOWCASE",
         }
     }
 }
@@ -563,6 +567,7 @@ impl Stage {
                 Btn::Message => icon_message(g, &s, cx, cy, r, ink),
                 Btn::Turn => icon_turn(g, &s, cx, cy, r, ink),
                 Btn::OpenHole => icon_flag(g, &s, cx, cy, r, ink, lit),
+                Btn::Showcase => icon_film(g, &s, cx, cy, r, ink),
             }
             if self.touch.held == Some(b) {
                 // its name to the left, as the dock's tooltips are (the camera button's plate, photo.rs)
@@ -732,10 +737,20 @@ fn icon_flag(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4], lit: 
     s.quad(g, fl, flag);
 }
 
+/// The showcase's picture: a film camera, a box with its lens hood to the right.
+fn icon_film(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4]) {
+    shaded(g, ink, |g, dx, dy, c| {
+        let (x0, x1, h) = (cx - r * 0.44 + dx, cx + r * 0.12 + dx, r * 0.24);
+        let y = cy + dy;
+        s.quad(g, [(x0, y - h), (x1, y - h), (x1, y + h), (x0, y + h)], c);
+        s.quad(g, [(x1, y - r * 0.06), (cx + r * 0.44 + dx, y - h), (cx + r * 0.44 + dx, y + h), (x1, y + r * 0.06)], c);
+    });
+}
+
 impl App {
     /// Whether a touch button has something to do now: Speed and Message always; Turn while Tab turns something (a building
     /// or a green's look in hand, the Path styles extra's style with the Pathway tool, a placed building with the Rotate
-    /// extra); Open hole once the hole being built has its tee and green.
+    /// extra); Open hole once the hole being built has its tee and green; Showcase once a hole is open.
     fn touch_button_wanted(&self, b: Btn) -> bool {
         match b {
             Btn::Speed | Btn::Message => true,
@@ -747,6 +762,7 @@ impl App {
             },
             Btn::Turn => self.club.extras.rotate,
             Btn::OpenHole => self.club.can_open_hole(),
+            Btn::Showcase => self.club.holes.iter().skip(1).take(18).any(|h| h.par != 0),
         }
     }
 
