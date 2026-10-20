@@ -508,6 +508,40 @@ the *Weather that matters* gameplay extra on, the weather's day is the game's (t
 its normal length) whatever the *Day length*, so the rain falls when the golfers play in it; with it off, the weather's
 day is the light's, as before.
 
+### Lit windows, dawn sprinklers, frost (0.5)
+
+The port's own, each its own tick, all with the time of day (without it there is no evening or morning):
+
+- **Lit windows** (*Warm light in the buildings' windows at night*, Atmosphere, on): the windows of *Evening lights* above
+  on a tick of their own, with the warm pool spilling round each building; *Lamps and fireflies at dusk* keeps the lamps
+  and the fireflies. The windows are found in each frame's art, so the original's buildings and the free set's alike glow
+  (the free set's pale-blue panes are framed by its light walls as the original's dark ones are). Both lights share the
+  evening's strength (`Atmos::night`).
+- **Dawn sprinklers** (*Sprinklers on the fairways and greens at dawn*, Atmosphere, on; `crates/simgolf/src/fx_dawn.rs`):
+  from phase 0.975 (just before dawn) to 0.09, gone by 0.15, not in the rain, the snow or on a frosty morning. Where they
+  stand is a render-side hash of the course: about one tee, green or fairway tile in fifteen, at least four tiles apart, at
+  most 24. Each throws a jet that sweeps to and fro across a half circle round its own heading; its 30 drops leave the
+  nozzle one after another and fly out along the jet as it pointed when they left, arcing up a third of the throw (1.5
+  tiles) and down, a solid two-pixel stream near the nozzle breaking into single drops and falling spray. The drops and
+  the riser are squares of the art's pixel size in the sprites' depth order (render.rs draws them with the lamps), tinted
+  by the dawn light as the sprites are; a soft dark disc under each, drawn with the evening's pools, is the watered grass.
+- **Frost** (*Frost on cold mornings, melting by late morning*, Weather, on): the seasons' frost on a tick of its own
+  (*Seasons* keeps the blossom, the autumn colours and the dew), on cold mornings from March to mid April and in October
+  (and full in a late-winter cold snap, fx_winter.rs), from dawn to phase 0.2. None where the theme has no winter: the
+  desert's frost was taken out with the tropics'. The terrain shader lays it on the grass (fairways, greens and tees
+  included) as an even pale sheen with a fine grain of brighter rime when it is full, and as it thins the sheen melts back
+  in patches into the hollows and the shade (a threshold on the patch noise plus the occlusion that rises as the frost
+  weakens) before it goes.
+- **Pixel-perfect scaling** (*Pixel-perfect scaling: whole sizes only*, Display, off; counts in Classic too, like the frame
+  rate cap): `ui::view_scale` gives the window pixels per 800 x 600 pixel for the interface and the course alike, and with
+  this on it takes the largest whole number that fits (a window smaller than 800 x 600 still shrinks), with the picture's
+  corner on a whole pixel; textures made the classic way (the interface art, the sprites, the classic font, not the
+  mipmapped terrain) magnify nearest-neighbour; `ui::pixel_border` covers the window round the picture (black, or the
+  widescreen frame's dark green with Enhanced on) and Enhanced widescreen stays off while it is on. Enhanced's own
+  smoothing (smooth interface art, the pixel-art scaler) is the player's choice and still applies when ticked. Every
+  `(w / 800).min(h / 600)` in the renderer and the effects goes through `ui::view_scale`, so with the option off the numbers
+  are the same as before.
+
 ### Performance
 
 The cost is per pixel and small: the terrain shader adds one light-map fetch and the light per pixel; water about a dozen

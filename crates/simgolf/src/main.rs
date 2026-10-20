@@ -43,6 +43,7 @@ mod framerate;
 mod fx;
 mod fx_ball;
 mod fx_crowd;
+mod fx_dawn;
 mod fx_glsl;
 mod fx_heat;
 mod fx_life;
@@ -92,6 +93,7 @@ mod scenario_ui;
 mod scorecard_ui;
 mod screens_ui;
 mod share;
+mod showcase;
 mod staffview_ui;
 mod sysdiag;
 mod tags_ui;
@@ -382,6 +384,8 @@ struct Stage {
     /// A key just opened a name box (Shift+S the Save dialog): the character that key types comes next and is not the
     /// name's (it put an "S" in front of every typed save name).
     swallow_char: bool,
+    /// The click or tap that ended the showcase fly-over (showcase.rs): its button's release does nothing either.
+    showcase_up: bool,
     /// The wheel's turn not yet spent on a zoom step (in notches) and the clock of its last event.
     wheel: (f32, f64),
     pause_toggle: bool,
@@ -1587,6 +1591,7 @@ impl Stage {
             alt: false,
             ctrl_click: false,
             swallow_char: false,
+            showcase_up: false,
             wheel: (0.0, 0.0),
             pause_toggle: false,
             shown_version: 0,
@@ -2134,6 +2139,11 @@ impl Stage {
             self.editing &= !row;
             return;
         }
+        // the port's own showcase fly-over (showcase.rs): Shift+O, a key the original leaves unused
+        if act == Some(controls::action("showcase")) {
+            self.app.toggle_showcase();
+            return;
+        }
         // the port's own: the whole interface hidden or shown again (u; controls_ui.rs)
         if act == Some(controls::action("hide_interface")) {
             self.app.ctl.hud_hidden = !self.app.ctl.hud_hidden;
@@ -2406,6 +2416,8 @@ impl Stage {
         enhanced::begin_frame();
         // OpenSGolf extras: People > Follow keeps the camera on its target (extras.rs)
         app.follow_tick();
+        // the port's own showcase fly-over moves the camera hole by hole (showcase.rs; nothing until it is used)
+        app.showcase_frame();
         app.camera_frame(app.clock);
         app.count_exe_frames();
         // the title screens set Klepto ITC (difficulty, the file lists and Pick A Pro, the theme packs); the rest of the game
@@ -2463,9 +2475,14 @@ impl Stage {
             if post {
                 app.fx_world_end(&mut self.g, target);
             }
-            app.draw_building_label(&mut self.g);
-            if app.great_shot.is_none() {
-                app.draw_cursor_overlay(&mut self.g);
+            if app.showcase.is_some() {
+                // the showcase fly-over: the course alone, with the hole's caption (showcase.rs)
+                app.draw_showcase_caption(&mut self.g);
+            } else {
+                app.draw_building_label(&mut self.g);
+                if app.great_shot.is_none() {
+                    app.draw_cursor_overlay(&mut self.g);
+                }
             }
             if app.hud_hidden() {
                 // the interface hidden with u (controls_ui.rs): only a note on how to bring it back
@@ -2550,6 +2567,10 @@ impl Stage {
         // the OpenSGolf extras' tab strip over the F1 to F10 reports (report_tabs.rs)
         self.app.draw_report_tabs(&mut self.g);
         self.app.draw_notice(&mut self.g);
+        // pixel-perfect scaling's border round the picture (ui.rs; nothing when it is off), under the touch layer
+        if self.app.photo.is_none() {
+            ui::pixel_border(&mut self.g, self.app.draw_w, self.app.draw_h);
+        }
         self.draw_touch_buttons();
         self.draw_osk();
         self.draw_gamepad_pointer();
@@ -2746,6 +2767,8 @@ impl Stage {
             // the pointer is tested against the interface as last drawn
             self.draw_frame(None);
         }
+        // SG_SHOWCASE=T: the showcase fly-over, T seconds in (showcase.rs)
+        self.app.showcase_test_hook();
         // SG_TOUCH and SG_TAP: the touch layer's buttons and taps (touch.rs)
         self.touch_test_hook();
         // SG_PRESS="u;Shift+F6;...": keys pressed after the clicks (names as settings.json's "controls" has them)
@@ -3136,6 +3159,11 @@ impl EventHandler for Stage {
         let button = if self.ctrl_click { MouseButton::Right } else { button };
         sysdiag::event(sysdiag::Ev::Click);
         self.mouse = (x, y);
+        // a click or a tap ends the showcase fly-over (showcase.rs), and does nothing else
+        if self.app.end_showcase() {
+            self.showcase_up = true;
+            return;
+        }
         // a notice (gamefiles.rs) takes the click
         if self.app.notice.is_some() {
             let (vx, vy) = self.app.view.to_virtual(x, y);
@@ -3382,6 +3410,9 @@ impl EventHandler for Stage {
 
     fn mouse_button_up_event(&mut self, button: MouseButton, x: f32, y: f32) {
         let button = if button == MouseButton::Left && std::mem::take(&mut self.ctrl_click) { MouseButton::Right } else { button };
+        if std::mem::take(&mut self.showcase_up) {
+            return;
+        }
         if self.app.photo.is_some() {
             self.photo_button(false, button, x, y);
             return;
@@ -3446,6 +3477,10 @@ impl EventHandler for Stage {
         self.app.ctrl_held = self.ctrl;
         self.alt = mods.alt || k == KeyCode::LeftAlt || k == KeyCode::RightAlt;
         self.app.bt.alt = self.alt;
+        // any key ends the showcase fly-over (showcase.rs), and does nothing else
+        if self.app.end_showcase() {
+            return;
+        }
         let typing = self.app.typing();
         self.key_down(k);
         self.swallow_char = !typing && self.app.typing();

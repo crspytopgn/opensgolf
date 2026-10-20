@@ -308,6 +308,8 @@ pub const ACTIONS: &[Action] = {
         // the port's hidden Cheats box (cheats_ui.rs): the original has no Ctrl keys (the port's Ctrl+V, Ctrl+Z and Ctrl with
         // a digit or a camera bookmark's key leave C free); nothing changes until a cheat is picked in the box
         act!("cheats", "STR_CTL_CHEATS", ctrl_shifted(C)),
+        // the port's own showcase fly-over (showcase.rs): Shift+O, which the original leaves unused
+        act!("showcase", "STR_CTL_SHOWCASE", shifted(O)),
     ]
 };
 
@@ -693,8 +695,8 @@ mod tests {
             let (k, sh, _) = s.translate(a.default.key, a.default.shift, a.default.ctrl, false).unwrap();
             assert_eq!((k, sh), (a.default.key, a.default.shift), "{}", a.id);
         }
-        // keys no action owns: holes, the keypad, a free letter
-        for k in [KeyCode::Key1, KeyCode::KpAdd, KeyCode::O] {
+        // keys no action owns: holes, the keypad, a free letter (O is free, Shift+O the showcase's)
+        for k in [KeyCode::Key1, KeyCode::KpAdd, KeyCode::K] {
             assert_eq!(s.translate(k, false, false, false), Some((k, false, None)));
             assert_eq!(s.translate(k, true, false, false), Some((k, true, None)));
         }

@@ -106,7 +106,7 @@ impl App {
 
     /// Virtual pixels to world units at the current zoom, and the eye's right and up axes in world space.
     fn eye_axes(&self) -> (f32, [f32; 3], [f32; 3]) {
-        let vs = (self.draw_w / 800.0).min(self.draw_h / 600.0);
+        let vs = crate::ui::view_scale(self.draw_w, self.draw_h);
         let m = self.mv;
         (self.upp * vs, [m[0], m[4], m[8]], [m[1], m[5], m[9]])
     }
@@ -134,7 +134,7 @@ impl App {
             let (x, z) = app.terrain.tile_centre(a, b);
             [x, app.terrain.height_at(x, z), z]
         };
-        let vs = (self.draw_w / 800.0).min(self.draw_h / 600.0);
+        let vs = crate::ui::view_scale(self.draw_w, self.draw_h);
         let mut start = at(self, back);
         let lands: Vec<(i32, i32)> = self.club.layout_land[1..].to_vec();
         for (n, l) in lands.into_iter().enumerate() {

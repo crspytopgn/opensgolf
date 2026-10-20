@@ -100,7 +100,7 @@ impl App {
         let a = self.fx.atmos;
         let t = self.fx.time;
         let mv = self.mv;
-        let vscale = (self.draw_w / 800.0).min(self.draw_h / 600.0);
+        let vscale = crate::ui::view_scale(self.draw_w, self.draw_h);
         // sizes below are in the art's pixels: drawn one to one at the closest zoom (the exe's 4), smaller further out
         let z = self.exe_zoom() / 4.0;
         let tint = self.fx_sprite_tint(0.0, 0.0, false).map(|t| [t[0], t[1], t[2]]).unwrap_or([1.0; 3]);
@@ -204,7 +204,7 @@ impl App {
         let a = self.fx.atmos;
         let t = self.fx.time;
         let mv = self.mv;
-        let vscale = (self.draw_w / 800.0).min(self.draw_h / 600.0);
+        let vscale = crate::ui::view_scale(self.draw_w, self.draw_h);
         let z = self.exe_zoom() / 4.0;
         let tint = self.fx_sprite_tint(0.0, 0.0, false).map(|t| [t[0], t[1], t[2]]).unwrap_or([1.0; 3]);
         let mut d = Dots { v: Vec::new(), axes: [mv[0], mv[4], mv[8], mv[1], mv[5], mv[9]], px: self.upp * vscale };

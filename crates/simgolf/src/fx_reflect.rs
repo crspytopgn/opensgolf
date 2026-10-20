@@ -157,7 +157,7 @@ impl App {
         crate::fx::pause_scaler(true);
         let u = Uniforms::flat(proj, mv);
         let quarter = ((self.view_rot() / 90.0).round() as i32 % 4 + 4) % 4;
-        let vscale = (self.draw_w / 800.0).min(self.draw_h / 600.0);
+        let vscale = crate::ui::view_scale(self.draw_w, self.draw_h);
         let upp = 2.0 / (proj.0[0] * self.draw_w).max(1e-6);
         let px = upp * vscale;
         for &(_, i, x, z, lift, level) in &items {

@@ -512,7 +512,8 @@ impl Gfx {
             format: TextureFormat::RGBA8,
             wrap: TextureWrap::Clamp,
             min_filter: FilterMode::Linear,
-            mag_filter: FilterMode::Linear,
+            // pixel-perfect scaling (the port's own, ui::view_scale): the art's pixels magnified whole, unsmoothed
+            mag_filter: if !mipmaps && crate::enhanced::pixel_perfect() { FilterMode::Nearest } else { FilterMode::Linear },
             mipmap_filter: if mipmaps { MipmapFilterMode::Linear } else { MipmapFilterMode::None },
             allocate_mipmaps: mipmaps,
             sample_count: 1,
