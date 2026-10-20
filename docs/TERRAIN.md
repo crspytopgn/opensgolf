@@ -150,7 +150,7 @@ The table and mapping are in `blendVariation()`.
 | 7 | N | W | NW | 1 |
 
 Texture type for a tile type (`Tile::m116d`): type 1 with bit 0x80 of the variation byte becomes
-TrickyGreen (26); types 6 and 21 use Rough (4); type 7 uses SandBunker1..4 by `byte & 3`; types 13..16
+TrickyGreen (26) (golf.exe's green brush stores 0xff there for the tricky green, 0x420561); types 6 and 21 use Rough (4); type 7 uses SandBunker1..4 by `byte & 3`; types 13..16
 use Woods (13); type 17 (water) uses WaterMiddle (23) or WaterDeep (24) when the byte is 1 or 2, so
 water depth lives in that byte; type 22 uses Rough when the byte is 0x40..0x47. Rough, Fairway and type 7
 clamp variations above 4 to 0 (they have only 5 files).

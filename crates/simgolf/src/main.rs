@@ -848,8 +848,12 @@ fn apply_edit_spec(app: &mut App, spec: &str) {
                 app.dirty = true;
             }
             b't' if item.len() > 2 && v.len() >= 3 => {
-                // paint one tile through the hole tool (type 0 tee, 1 green)
+                // paint one tile through the hole tool (type 0 tee, 1 green); t:x,y,type,V with the brush's variant V
+                // (the times Tab was pressed: an odd V is the tricky green)
                 app.paint_idx = PAINT.iter().position(|p| p.ty == at(2)).unwrap_or(app.paint_idx);
+                if v.len() >= 4 {
+                    app.paint_variant = Some((app.paint_idx, at(3)));
+                }
                 let r = std::mem::replace(&mut app.brush, 0);
                 app.sync_course();
                 app.edit_paint(at(0), at(1));

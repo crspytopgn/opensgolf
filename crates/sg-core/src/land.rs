@@ -1498,6 +1498,19 @@ impl Land {
         land
     }
 
+    /// Gives the terrain's greens the land's variant byte, whose bit 0x80 draws them as tricky greens. Games saved before the
+    /// green brush's Tab reached the terrain have their tricky greens only in the land.
+    pub fn green_looks_to(&self, t: &mut Terrain) {
+        for a in 0..mn().min(t.w) {
+            for b in 0..mn().min(t.h) {
+                let (i, o) = (idx(a, b), t.tile_index(a, b));
+                if self.ty[i] == T_GREEN && t.ty[o] == T_GREEN {
+                    t.variation[o] = self.var[i];
+                }
+            }
+        }
+    }
+
     /// Takes the player's terrain edits (tile types, paths, corner heights) into the land, keeping objects and their footprints.
     pub fn sync_from_terrain(&mut self, t: &Terrain) {
         for a in 0..mn().min(t.w) {
@@ -1715,7 +1728,8 @@ impl Land {
                 let o = t.tile_index(a, b);
                 t.ty[o] = self.ty[i];
                 t.set[o] = seed.range(5) as u8;
-                if self.ty[i] == T_WATER {
+                // water keeps its depth in this byte, a green its tricky bit (0x80, Terrain.dll's TrickyGreen textures)
+                if self.ty[i] == T_WATER || self.ty[i] == T_GREEN {
                     t.variation[o] = self.var[i];
                 }
                 let building = self.ty[i] == T_BUILDING || self.ty[i] == T_HOME_SITE;
@@ -2101,6 +2115,25 @@ mod tile_item_tests {
             tile_corner: Vec::new(),
         };
         Land::from_terrain(&t, 0)
+    }
+
+    /// Issue #69: a tricky green (variant byte 0xff, 0x420561) keeps its byte on the way to the terrain, where bit 0x80
+    /// selects the TrickyGreen textures, including in games saved before the terrain carried it.
+    #[test]
+    fn tricky_greens_reach_the_terrain() {
+        let mut l = rough_land();
+        let (i, j) = (idx(12, 14), idx(13, 14));
+        l.ty[i] = T_GREEN;
+        l.ty[j] = T_GREEN;
+        l.var[i] = 0xff;
+        l.var[j] = 0;
+        let mut t = l.to_terrain();
+        assert_eq!(t.variation[t.tile_index(12, 14)], 0xff);
+        assert_eq!(t.variation[t.tile_index(13, 14)], 0);
+        let o = t.tile_index(12, 14);
+        t.variation[o] = 0;
+        l.green_looks_to(&mut t);
+        assert_eq!(t.variation[o], 0xff);
     }
 
     #[test]
