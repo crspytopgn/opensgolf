@@ -3261,3 +3261,7 @@ STR_CTL_SHOWCASE                        :Showcase: fly over the course hole by h
 STR_SHOWCASE_NO_HOLES                   :The showcase needs an open hole to fly over.
 STR_TOUCH_SHOWCASE                      :Showcase
 STR_SHOWCASE_HOLE                       :Hole {HOLE}  -  Par {PAR}  -  {YARDS} yards
+# Aiming the pro by touch (the port's own, touch.rs; docs/PLAYING.md)
+STR_TOUCH_SWING                         :Swing
+STR_TOUCH_AIM_LABEL                     :{YARDS} yds, {CLUB}
+STR_TOUCH_PLACE                         :Place
