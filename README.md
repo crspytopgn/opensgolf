@@ -107,6 +107,8 @@ Optional, and off by default (Start New Game has a one-click switch between *the
   sharing: copy a course code, a friend pastes it and tries to beat your course record.
 - **A hidden Cheats box** (Ctrl+Shift+C): add or take away money, force a VIP visit, buy all the land, the sandbox
   switches. A game in which a cheat was used says so on the Load list, and its course record is no shared challenge.
+- **Saved games of the original SimGolf** (`.sve`) come over as games of the port's own: course, holes, buildings, money,
+  date, members, people and staff ([docs/PLAYING.md](docs/PLAYING.md#saved-games-where-they-are-backups-and-imports)).
 - **Quick save and quick load** (Shift+F5, Shift+F9) and a **staff areas** view (Shift+A) that shows every employee's
   work ring and the fairways and greens no groundskeeper reaches.
 - **Golfer insight** (interface extras): a landing map of where golfers' shots on each hole end up (Shift+D), and each

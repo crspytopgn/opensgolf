@@ -167,23 +167,31 @@ browser or another device does not have them, so back them up. On the start page
 - **Restore saves...** takes such a backup (its files replace those of the same name), a zip of a desktop save folder
   (whatever folder it was zipped from; the game copy, HD pack, photos and reports in it are left out, its content packs
   go with the page's packs), or single files: saved games (`.sgs`, into Saved Games), championship courses (`.sgch`) and
-  pros (`.pro`), `settings.json`, and the original's `top10.sve`. A single file never replaces a save of the same name: it
-  is added as "Name (2)". The games are then in Load Previous Game.
+  pros (`.pro`), `settings.json`, and the original's `top10.sve` and saved games (`.sve`, brought over when Load Previous
+  Game opens; see below). A single file never replaces a save of the same name: it is added as "Name (2)". The games are
+  then in Load Previous Game.
 
 **In the game**, with the Course sharing extra on (System Functions > Preferences > OpenSGolf extras; not in the original),
 Load Previous Game has two buttons of the port's own under the list: **Import a save file...** (the system's file
 picker, or the browser's) adds a saved game, a shared course (`.sgch`, to the championship courses), a text file with a
-course code, or the original's `top10.sve`, as dropping it on the window does; **Export this save...** writes a copy of
+course code, or the original's `top10.sve` or saved games (`.sve`), as dropping it on the window does; **Export this save...** writes a copy of
 the selected save where you choose (the browser downloads it). Test hooks: `SG_PICK_SAVE=FILE` imports FILE without the
 picker, `SG_EXPORT_SAVE=FILE` exports to FILE.
 
-**The original SimGolf's files.** Its saved games (`Saved Games\<name>.sve` in its folder) cannot be read: what the exe
-writes is known only as a list of blocks (a 100-byte header text, then the cash, the clock, the difficulty and several
-counters, the object table, the map arrays, the golfer table, the property list and the history ring;
-docs/DECODE_WORLD2.md 6.2), not the layout of each block, so a conversion would be guesswork. Picking or dropping one says
-so. Its Top 10 Designers (`top10.sve`) has the same layout as the port's: importing it in the game adds its designers to
-your table (its made-up default designers are left out, and the best ten of both stay); the start page's Restore puts it in
-place of the browser's table, after asking.
+**The original SimGolf's files.** Its saved games (`Saved Games\<name>.sve` in its folder) are brought over as games of
+the port's own: copy them into OpenSGolf's `Saved Games` folder (on Android too) and open Load Previous Game, or pick or
+drop one as above, or give them to the start page's Restore (browser). Each becomes a new saved game, "<name> (imported)"
+(the original file is moved into `Saved Games/Originals`; the browser keeps no copy), and loading it says what came over
+and what did not ("Imported from the original: ...; not carried over: ..."). It brings the land, terrain and elevation,
+the holes (tees, pins, par), buildings, paths, decorations and weeds, money and the yearly ledger, the date, difficulty and
+sandbox, the property and theme, the members, the people (your pro's name and looks), the staff, accomplishments, best
+rounds and the monthly history. The golfers out on the course, stories under way, animals and residents, a tournament
+under way, hole names and some hole statistics are not carried over; new golfers arrive at once. A file that does not read
+as a saved game of the original is refused with the reason, and nothing is added. The layout is in docs/DECODE_SAVE.md;
+it was read from the exe, not yet checked against many real saves, so a save that is refused or comes over wrong is worth
+reporting. Its Top 10 Designers (`top10.sve`) has the same layout as the port's: importing it in the game adds its
+designers to your table (its made-up default designers are left out, and the best ten of both stay); the start page's
+Restore puts it in place of the browser's table, after asking.
 
 ## Course size
 

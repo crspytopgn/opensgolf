@@ -78,6 +78,21 @@ impl Noise {
         Noise { g }
     }
 
+    /// The grid as the exe keeps it (0x838c1c: 19 x 19 signed bytes, row r at r * 19, of which the 17 x 17 corner is read),
+    /// as an original saved game holds it (sve.rs). None when the bytes are too few.
+    pub fn from_exe_grid(b: &[u8]) -> Option<Noise> {
+        if b.len() < 17 * 19 {
+            return None;
+        }
+        let mut g = [[0i32; 17]; 17];
+        for (r, row) in g.iter_mut().enumerate() {
+            for (c, v) in row.iter_mut().enumerate() {
+                *v = b[r * 19 + c] as i8 as i32;
+            }
+        }
+        Some(Noise { g })
+    }
+
     fn sample(&self, x: i32, y: i32) -> i32 {
         let i = (((x - 0x80) >> 8) & 15) as usize;
         let j = (((y - 0x80) >> 8) & 15) as usize;
@@ -1470,6 +1485,32 @@ fn landmark(land: &mut Land, rng: &mut ExeRng, prop: i32, n: i32, a: i32, b: i32
 impl Land {
     /// Land for a course that was not generated (the demo course, a loaded course file): the terrain's tiles, paths and heights,
     /// no objects. Slot 0 of a Parkland property stands in for the deal.
+    /// Land whose arrays are all filled in afterwards by whoever builds it (an original saved game, sve.rs): rough
+    /// everywhere, sea-level corners, no objects, at the map size in play.
+    pub fn blank(slot_index: usize, slot: Slot, difficulty: i32) -> Land {
+        Land {
+            n: mn(),
+            slot_index,
+            slot,
+            difficulty,
+            ty: vec![T_ROUGH; nn()],
+            flags: vec![0; nn()],
+            layer: vec![crate::data::land_type(T_ROUGH).layer; nn()],
+            var: vec![0; nn()],
+            height: vec![3; hn()],
+            original: vec![T_ROUGH; nn()],
+            objects: Vec::new(),
+            clubhouse: (-1, -1),
+            staff_start: (-1, -1),
+            view: (-1, -1),
+            margin: 0,
+            hill: 48,
+            undo: vec![UNDO_NONE; nn()],
+            refund: vec![0; nn()],
+            growth: vec![0; nn()],
+        }
+    }
+
     pub fn from_terrain(t: &Terrain, theme: u8) -> Land {
         let property = crate::data::records().iter().position(|r| r.theme == theme).unwrap_or(0);
         let mut land = Land {

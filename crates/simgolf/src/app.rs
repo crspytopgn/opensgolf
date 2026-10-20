@@ -360,6 +360,10 @@ pub struct SaveGame {
     /// none, and they load without asking).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub packs: Option<crate::content_profiles::SavedPacks>,
+    /// A game brought over from a saved game of the original SimGolf (share.rs, sg_core::sve): what came over and what did
+    /// not, told to the player when the game is loaded. The game's own saves do not write it again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub imported: Option<String>,
 }
 
 const SAVE_MAGIC: &[u8] = b"SIMGOLF-NATIVE-SAVE\n";
@@ -402,6 +406,81 @@ pub fn encode_save(save: &SaveGame, level: u8) -> Result<Vec<u8>, String> {
 /// Whether bytes start as a saved game does.
 pub fn is_save(data: &[u8]) -> bool {
     data.starts_with(SAVE_MAGIC)
+}
+
+/// A game read from a saved game of the original SimGolf (sg_core::sve) as a save of the port's own, at the original's
+/// size. The people of the save keep their own heads; a custom portrait (head 19 and up) is the theme pack's when the same
+/// person is in it, else the person's stock head. What came over and what did not goes in `imported`.
+pub fn original_save(g: sg_core::sve::Game, game_dir: &Path) -> SaveGame {
+    let _size = sg_core::mapsize::scoped(sg_core::mapsize::ORIGINAL);
+    let pack = THEME_PACKS
+        .iter()
+        .find(|p| p.replace(' ', "_").eq_ignore_ascii_case(&g.theme_pack.replace(' ', "_")))
+        .copied()
+        .unwrap_or("Standard")
+        .replace(' ', "_");
+    let mut club = g.club;
+    let theirs = sg_core::roster::load(game_dir, &pack);
+    for (i, p) in club.roster.iter_mut().enumerate() {
+        if p.head.is_some_and(|h| h >= 19) {
+            match theirs.get(i).filter(|q| q.name == p.name && q.portrait.is_some()) {
+                Some(q) => {
+                    p.head = q.head;
+                    p.portrait = q.portrait.clone();
+                }
+                None => p.head = None,
+            }
+        }
+    }
+    let terrain = g.land.to_terrain();
+    let mut staff_tiles = TileState::new(terrain.w, terrain.h);
+    let n = land::mn();
+    for a in 0..n {
+        for b in 0..n {
+            let i = (a * n + b) as usize;
+            let t = (b * terrain.w + a) as usize;
+            staff_tiles.flags[t] |= g.weeds[i] & (staff::WEEDS | staff::WORKED);
+            if g.land.flags[i] & land::flag::CREEK != 0 {
+                staff_tiles.flags[t] |= staff::SEEDS_WEEDS;
+            }
+        }
+    }
+    let mut rng = ExeRng::from_clock(g.tick ^ g.course_id as u32);
+    let noise = g.noise.unwrap_or_else(|| Noise::new(&mut rng));
+    let mut bought = vec![-1; sg_core::data::properties().len()];
+    if let Some(b) = bought.get_mut(g.land.slot.property) {
+        *b = (g.tick >> 13) as i32;
+    }
+    let list = |keys: &[&'static str]| keys.iter().map(|k| tr(k)).collect::<Vec<_>>().join(", ");
+    let note = trf("STR_SVE_IMPORTED_NOTE", &[("CARRIED", &list(&g.carried)), ("DROPPED", &list(&g.dropped))]);
+    SaveGame {
+        version: 1,
+        size: sg_core::mapsize::ORIGINAL,
+        // the exe's theme (0 Parkland, 1 Desert, 2 Tropical, 3 Links) as the port's theme index (`App::exe_theme`)
+        theme: [0, 2, 3, 1][g.theme.min(3) as usize],
+        course_name: g.course_name,
+        difficulty: g.difficulty,
+        terrain,
+        land: Some(g.land),
+        club,
+        course: g.course,
+        econ: g.econ,
+        exe_rng: rng,
+        noise,
+        employees: g.employees,
+        staff_tiles,
+        game_tick: g.tick,
+        hole_stats: Vec::new(),
+        theme_pack: pack,
+        course_id: Some(g.course_id & 0xffff),
+        bought,
+        goals: Default::default(),
+        scripts: Default::default(),
+        extras: Default::default(),
+        shared: false,
+        packs: None,
+        imported: Some(note),
+    }
 }
 
 pub fn read_save_bytes(data: &[u8], name: &str) -> Result<SaveGame, String> {
@@ -688,6 +767,9 @@ pub struct App {
     pub course_size: i32,
     pub toast: String,
     pub toast_until: f64,
+    /// The toast is about the original's saved games found in the Saved Games folder (share.rs): the Load list shows it
+    /// even without the port's buttons.
+    pub sve_toast: bool,
     /// A message in the game's box over the screen, with an OK or a question's two options (gamefiles.rs).
     pub notice: Option<crate::gamefiles::Notice>,
     /// "Check for updates" on the title menu: the request under way (update.rs).
@@ -967,6 +1049,7 @@ impl App {
             course_size: sg_core::mapsize::ORIGINAL,
             toast: String::new(),
             toast_until: 0.0,
+            sve_toast: false,
             notice: None,
             update_check: None,
             update_auto: false,
@@ -1044,6 +1127,7 @@ impl App {
     pub fn show_toast(&mut self, msg: &str) {
         self.toast = msg.to_string();
         self.toast_until = self.clock + 3.0;
+        self.sve_toast = false;
         self.post_message(msg, 1, crate::message_ui::NOBODY);
     }
 
@@ -2727,6 +2811,7 @@ impl App {
             },
             packs: self.saved_packs(),
             shared: false,
+            imported: None,
         };
         encode_save(&save, level)
     }
@@ -2748,7 +2833,8 @@ impl App {
 
     /// `load_save`; with `keep_art` (undo.rs) a save of the theme already loaded keeps its textures and only rebuilds the
     /// course's meshes and props.
-    pub fn load_save_with(&mut self, g: &mut Gfx, s: SaveGame, keep_art: bool) -> Result<(), String> {
+    pub fn load_save_with(&mut self, g: &mut Gfx, mut s: SaveGame, keep_art: bool) -> Result<(), String> {
+        let imported = s.imported.take();
         // the save's course size (older saves: the original's), before anything reads the map
         sg_core::mapsize::set(s.size);
         self.course_size = sg_core::mapsize::n();
@@ -2817,6 +2903,10 @@ impl App {
         self.econ.free = self.editor.is_some();
         if self.editor.is_some() {
             self.scen.host = Default::default();
+        }
+        // a game brought over from the original's saved game says what came over (share.rs)
+        if let Some(note) = imported {
+            self.post_message(&note, 1, crate::message_ui::NOBODY);
         }
         Ok(())
     }

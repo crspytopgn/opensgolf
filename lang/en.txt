@@ -2748,7 +2748,6 @@ STR_FILES_PICK_SAVE_TITLE               :Import a saved game, shared course or c
 STR_FILES_EXPORT_TITLE                  :Export the saved game
 STR_TOAST_SAVE_EXPORTED                 :{NAME} exported: {FILE}
 STR_TOAST_SAVE_FOLDER                   :Saved games are files in {FOLDER}. Copy a save file (.sgs) there to load it.
-STR_TOAST_ORIGINAL_SAVE                 :{FILE} is a saved game of the original SimGolf. OpenSGolf cannot read those yet (their layout is not decoded); continue it in the original, or start the course again here.
 STR_TOAST_TOP10_IMPORTED                :The original's Top 10 Designers were added to yours ({COUNT} made the list).
 # A game date: "March 3, 2001"
 STR_EXTRAS_DATE                         :{MONTH} {DAY}, {YEAR}
@@ -3197,3 +3196,28 @@ STR_EXTRAS_DESC_RIGHT_DRAG              :Drag with the right button held to move
 # Random trees (OpenSGolf extras, issue #68)
 STR_EXTRAS_RANDOM_TREES                 : Random trees: each tree planted gets a random look
 STR_EXTRAS_DESC_RANDOM_TREES            :Every tree the woods, pine and palm brushes plant gets a random size (and pines a random species), and every scenic tree a random one of the seven, for a more natural course. The look under the pointer is the next one.
+
+# Saved games of the original SimGolf brought over (share.rs, sg_core::sve, issue #49)
+STR_TOAST_SVE_IMPORTED                  :{COURSE} from the original SimGolf was added to Load Previous Game as {NAME}.
+STR_TOAST_SVE_UNREADABLE                :{FILE} could not be read as a saved game of the original SimGolf ({WHY}). Nothing was added.
+STR_SVE_IMPORTED_SUFFIX                 :(imported)
+STR_SVE_PICKED_FILE                     :The file picked
+STR_SVE_IMPORTED_NOTE                   :Imported from the original: {CARRIED}. Not carried over: {DROPPED}.
+STR_SVE_PART_LAND                       :the land, terrain and elevation
+STR_SVE_PART_HOLES                      :the holes (tees, pins, par)
+STR_SVE_PART_BUILDINGS                  :buildings, paths and decorations
+STR_SVE_PART_MONEY                      :money and the yearly ledger
+STR_SVE_PART_DATE                       :the date
+STR_SVE_PART_DIFFICULTY                 :the difficulty
+STR_SVE_PART_PROPERTY                   :the property and its theme
+STR_SVE_PART_MEMBERS                    :the members
+STR_SVE_PART_PEOPLE                     :the people and your pro
+STR_SVE_PART_STAFF                      :the staff
+STR_SVE_PART_RECORDS                    :accomplishments, best rounds and history
+STR_SVE_LOST_GOLFERS                    :the golfers out on the course (new ones arrive)
+STR_SVE_LOST_HOLE_STATS                 :some hole statistics
+STR_SVE_LOST_WILDLIFE                   :animals and home residents (they come back)
+STR_SVE_LOST_STORIES                    :stories under way
+STR_SVE_LOST_TOURNAMENT                 :the tournament under way
+STR_SVE_LOST_HOLE_NAMES                 :the holes' names
+STR_SVE_LOST_OPTIONS                    :the original's Preferences
