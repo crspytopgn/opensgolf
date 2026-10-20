@@ -761,6 +761,15 @@ The port's own camera helpers (crates/simgolf/src/views.rs); nothing changes unt
   camera it coasts on when let go).
 - **Zoom towards the pointer**: an OpenSGolf extra (Preferences, *OpenSGolf extras...*, Helpers page), off by default:
   see *OpenSGolf extras* above.
+- **The right button** is the original's: on the course a right click with a building, path or amenity tool in hand,
+  a message showing, a golfer's card open or an employee being moved only puts that away; with an elevation tool it
+  lowers the ground (the - key; with Analyze Golf Shot it is the / key); otherwise the first right click on a tile names
+  in green over it what an undo there would do ("Reset to rough", "Remove Path", "Demolish Snack Bar") and a second right
+  click on the same tile undoes it, money back as the Undo button's tool gives it (a terrain brush and the Undo tool stay
+  in hand). OpenSGolf up to 0.4.7 dragged the course with the right button instead and had no right-click undo (issue
+  #67); that drag is now the **Right-drag panning** extra (Helpers page, off by default, and off for settings saved by
+  0.4.7): with it on, a drag with the right button moves the course and a right click that does not move (less than 5
+  pixels) does the original's on release. The middle button and the arrow keys always move the course.
 
 **Ctrl+Z** (Cmd+Z on a Mac) undoes the last click or drag with a building or terrain tool that changed the course:
 terrain, paths, holes, buildings and garden items. The whole game goes back to just before it, money included, as if that moment had been saved and loaded.
@@ -845,9 +854,9 @@ changed every key does what it did before.
   shot and the draw.
 * **Original and Modern controls** (two buttons under the list on Change keys; nothing changes until one is clicked, and
   the one in use is lit yellow). *Original controls* puts every key back to the original's and turns the WASD camera,
-  *Zoom towards the pointer*, *Drag to place* and Enhanced graphics' *Smooth camera* tick off. *Modern controls* puts
-  every key back to its default with the WASD camera on, and turns *Zoom towards the pointer* and *Drag to place* (both
-  OpenSGolf extras, Helpers page) and the *Smooth camera* tick (which counts only while Enhanced graphics is on: the
+  *Zoom towards the pointer*, *Drag to place*, *Right-drag panning* and Enhanced graphics' *Smooth camera* tick off. *Modern controls* puts
+  every key back to its default with the WASD camera on, and turns *Zoom towards the pointer*, *Drag to place* and
+  *Right-drag panning* (OpenSGolf extras, Helpers page) and the *Smooth camera* tick (which counts only while Enhanced graphics is on: the
   preset never switches Enhanced graphics itself) on. They only set those existing options, which stay changeable one by
   one; click the other preset to undo one (keys you moved yourself are not kept by either).
 * **Middle-button drag** (always on) drags the course whatever tool is held, as a left drag does with no tool.

@@ -559,7 +559,7 @@ pub fn key_label(id: &str) -> String {
 pub enum Preset {
     /// Every key at the original's default, the WASD camera off, and the options below off.
     Original,
-    /// The WASD camera, zooming towards the pointer (an OpenSGolf extra), drag to place (an OpenSGolf extra) and Enhanced
+    /// The WASD camera, zooming towards the pointer, drag to place and right-drag panning (OpenSGolf extras) and Enhanced
     /// graphics' smooth camera tick (which counts only while Enhanced graphics is on; the preset leaves the master switch
     /// alone).
     Modern,
@@ -571,6 +571,7 @@ pub struct PresetValues {
     pub keys: Settings,
     pub zoom_pointer: bool,
     pub drag_place: bool,
+    pub right_drag: bool,
     pub smooth_camera: bool,
 }
 
@@ -583,6 +584,7 @@ impl Preset {
             keys: Settings { wasd: modern, keys: BTreeMap::new() },
             zoom_pointer: modern,
             drag_place: modern,
+            right_drag: modern,
             smooth_camera: modern,
         }
     }
@@ -608,11 +610,12 @@ pub fn preset_values_now() -> PresetValues {
         keys: settings(),
         zoom_pointer: x.zoom_pointer,
         drag_place: x.drag_place,
+        right_drag: x.right_drag,
         smooth_camera: crate::enhanced::settings().smooth_camera,
     }
 }
 
-/// Puts a preset in use and saves what it sets (the keys, the two interface extras' ticks and the smooth camera tick).
+/// Puts a preset in use and saves what it sets (the keys, the three interface extras' ticks and the smooth camera tick).
 pub fn apply_preset(p: Preset) {
     let smooth = crate::enhanced::settings().smooth_camera;
     put_preset(p);
@@ -628,7 +631,7 @@ fn put_preset(p: Preset) {
     let v = p.values();
     set(v.keys);
     let mut x = crate::extras::settings();
-    (x.zoom_pointer, x.drag_place) = (v.zoom_pointer, v.drag_place);
+    (x.zoom_pointer, x.drag_place, x.right_drag) = (v.zoom_pointer, v.drag_place, v.right_drag);
     crate::extras::set(x);
     let mut e = crate::enhanced::settings();
     e.smooth_camera = v.smooth_camera;
@@ -644,13 +647,13 @@ mod tests {
         let o = Preset::Original.values();
         // the original: every key its default, nothing else on
         assert_eq!(o.keys, Settings::default());
-        assert!(!o.zoom_pointer && !o.drag_place && !o.smooth_camera);
+        assert!(!o.zoom_pointer && !o.drag_place && !o.right_drag && !o.smooth_camera);
         for i in 0..ACTIONS.len() {
             assert_eq!(o.keys.binding(i), Some(ACTIONS[i].default), "{}", ACTIONS[i].id);
             assert_eq!(o.keys.extra(i), None);
         }
         let m = Preset::Modern.values();
-        assert!(m.keys.wasd && m.keys.keys.is_empty() && m.zoom_pointer && m.drag_place && m.smooth_camera);
+        assert!(m.keys.wasd && m.keys.keys.is_empty() && m.zoom_pointer && m.drag_place && m.right_drag && m.smooth_camera);
         // the modern keys clash nowhere (the WASD camera moves water and sand out of the way)
         assert!((0..ACTIONS.len()).all(|i| m.keys.conflicts(i).is_empty()));
         assert_eq!(Preset::of(&o), Some(Preset::Original));
@@ -673,7 +676,7 @@ mod tests {
         put_preset(Preset::Modern);
         assert_eq!(Preset::of(&preset_values_now()), Some(Preset::Modern));
         // the other extras are left as they were
-        let x = crate::extras::Settings { zoom_pointer: true, drag_place: true, ..crate::extras::Settings::ALL_OFF };
+        let x = crate::extras::Settings { zoom_pointer: true, drag_place: true, right_drag: true, ..crate::extras::Settings::ALL_OFF };
         assert_eq!(crate::extras::settings(), x);
         put_preset(Preset::Original);
         assert_eq!(Preset::of(&preset_values_now()), Some(Preset::Original));

@@ -39,6 +39,10 @@
 //! * home-site details (homes_ui.rs): what a home site under the pointer cost, brought in and is worth, and the hole that
 //!   lifts its value.
 //!
+//! * right-drag panning (main.rs right_down): a drag with the right button moves the course, as OpenSGolf did up to 0.4.7;
+//!   a right click that does not move is still the original's (undo, putting a tool away). Left out of the one-click
+//!   OpenSGolf extras like zooming towards the pointer: it changes what the original's right button does.
+//!
 //! With every extra off the game draws and plays exactly as before they existed (each hook asks its switch first).
 use serde::{Deserialize, Serialize};
 use std::cell::Cell;
@@ -69,6 +73,7 @@ pub struct Settings {
     pub ticker_jump: bool,
     pub year_summary: bool,
     pub home_details: bool,
+    pub right_drag: bool,
 }
 
 impl Settings {
@@ -95,6 +100,7 @@ impl Settings {
         ticker_jump: true,
         year_summary: true,
         home_details: true,
+        right_drag: false,
     };
     pub const ALL_OFF: Settings = Settings {
         people: false,
@@ -117,6 +123,7 @@ impl Settings {
         ticker_jump: false,
         year_summary: false,
         home_details: false,
+        right_drag: false,
     };
 
     /// The ticks as the Extras box's checkbox bits (in `UI_KEYS` order).
@@ -142,6 +149,7 @@ impl Settings {
             self.ticker_jump,
             self.year_summary,
             self.home_details,
+            self.right_drag,
         ]
         .iter()
         .enumerate()
@@ -171,14 +179,23 @@ impl Settings {
             ticker_jump: on(17),
             year_summary: on(18),
             home_details: on(19),
+            right_drag: on(20),
         }
     }
 
     /// The ticks that make the game style (extras_ui.rs GameStyle): all but the two pauses, which leave the game as it is,
-    /// the update check, which has nothing to do with the game, and zooming towards the pointer and drag to place, matters
-    /// of the mouse.
+    /// the update check, which has nothing to do with the game, and zooming towards the pointer, drag to place and
+    /// right-drag panning, matters of the mouse.
     pub fn style(&self) -> Settings {
-        Settings { pause_background: false, pause_events: false, update_check: false, zoom_pointer: false, drag_place: false, ..*self }
+        Settings {
+            pause_background: false,
+            pause_events: false,
+            update_check: false,
+            zoom_pointer: false,
+            drag_place: false,
+            right_drag: false,
+            ..*self
+        }
     }
 }
 
@@ -190,7 +207,7 @@ impl Default for Settings {
 
 /// The interface extras' lines on the Extras box's Interface page (extras_ui.rs), one tick per extra in `Settings::bits`
 /// order (text keys in lang/en.txt).
-pub const UI_KEYS: [&str; 20] = [
+pub const UI_KEYS: [&str; 21] = [
     "STR_EXTRAS_PEOPLE",
     "STR_EXTRAS_HISTORY",
     "STR_EXTRAS_NAME_TAGS",
@@ -211,6 +228,7 @@ pub const UI_KEYS: [&str; 20] = [
     "STR_EXTRAS_TICKER_JUMP",
     "STR_EXTRAS_YEAR_SUMMARY",
     "STR_EXTRAS_HOME_DETAILS",
+    "STR_EXTRAS_RIGHT_DRAG",
 ];
 
 thread_local! {
@@ -285,6 +303,9 @@ pub fn year_summary() -> bool {
 pub fn home_details() -> bool {
     settings().home_details
 }
+pub fn right_drag() -> bool {
+    settings().right_drag
+}
 
 fn settings_json() -> serde_json::Value {
     sg_core::fsutil::read_file(crate::app::save_dir().join(crate::hd::SETTINGS_FILE))
@@ -358,6 +379,10 @@ fn upgrade_off(v: &serde_json::Value, s: &mut Settings) {
         if v.get(k).is_none() {
             *t = false;
         }
+    }
+    // right-drag panning (0.4.8): off from ticks saved before it, so a 0.4.7 player's right button is the original's
+    if v.get("right_drag").is_none() {
+        s.right_drag = false;
     }
 }
 
@@ -889,9 +914,30 @@ mod tests {
         assert_eq!(Settings::from_bits(n.bits()), n);
         assert_eq!(n.style(), n, "they make the game style");
         assert_eq!(Settings::ALL_ON.bits() & n.bits(), n.bits());
-        assert_eq!(UI_KEYS.len(), 20);
+        assert_eq!(UI_KEYS.len(), 21);
         // a save with nothing of theirs is the same as before
         assert!(Kept::default().is_empty());
         assert_eq!(serde_json::to_string(&Kept::default()).unwrap(), "{}");
+    }
+
+    #[test]
+    fn right_drag_is_off_unless_ticked() {
+        // ticks as 0.4.7 saved them (every extra of its day on): the right button stays the original's
+        let v: serde_json::Value = serde_json::from_str(
+            "{\"people\": true, \"zoom_pointer\": true, \"drag_place\": true, \"live_scorecards\": true, \"home_details\": true}",
+        )
+        .unwrap();
+        let mut s: Settings = serde_json::from_value(v.clone()).unwrap();
+        upgrade_off(&v, &mut s);
+        assert!(!s.right_drag && s.drag_place && s.zoom_pointer);
+        let v: serde_json::Value = serde_json::from_str("{\"right_drag\": true}").unwrap();
+        let mut s: Settings = serde_json::from_value(v.clone()).unwrap();
+        upgrade_off(&v, &mut s);
+        assert!(s.right_drag);
+        assert!(!Settings::ALL_ON.right_drag && !Settings::ALL_OFF.right_drag && !Settings::default().right_drag);
+        let r = Settings { right_drag: true, ..Settings::ALL_OFF };
+        assert_eq!(r.bits(), 1 << 20);
+        assert_eq!(Settings::from_bits(r.bits()), r);
+        assert_eq!(r.style(), Settings::ALL_OFF);
     }
 }

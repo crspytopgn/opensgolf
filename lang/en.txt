@@ -3186,3 +3186,7 @@ STR_VISITOR_REMARK_PRUDENCE_OAKES_2     :A page-turner from the first tee to the
 STR_VISITOR_REMARK_FELIX_NIGHTLY_0      :A black hole of a course.
 STR_VISITOR_REMARK_FELIX_NIGHTLY_1      :A middling star, but it shines now and then.
 STR_VISITOR_REMARK_FELIX_NIGHTLY_2      :Simply out of this world!
+
+# Right-drag panning (OpenSGolf extras, issue #67)
+STR_EXTRAS_RIGHT_DRAG                   : Right-drag panning: drag with the right button to move the course
+STR_EXTRAS_DESC_RIGHT_DRAG              :Drag with the right button held to move the course, as OpenSGolf did before. A right click without dragging still undoes and puts tools away, as in the original.

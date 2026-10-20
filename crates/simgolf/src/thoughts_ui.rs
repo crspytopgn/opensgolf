@@ -138,6 +138,14 @@ impl App {
             let c = c15(if units > 0 { 0x23e8 } else { 0x7d08 });
             s.put_shadowed(g, crate::ui::F_MANUAL15, sx.floor(), sy.floor() - 4.0, &text, c, true);
         }
+        // words over map points (0x40c7a0): the same font and call, in their own colour (the right click's undo preview)
+        for (x, y, text, until) in &self.map_labels {
+            if *until <= self.clock {
+                continue;
+            }
+            let Some((sx, sy)) = self.screen_of(*x, *y) else { continue };
+            s.put_shadowed(g, crate::ui::F_MANUAL15, sx.floor(), sy.floor() - 4.0, text, c15(0x23e8), true);
+        }
     }
 }
 

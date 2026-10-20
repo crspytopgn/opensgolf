@@ -114,7 +114,8 @@ Optional, and off by default (Start New Game has a one-click switch between *the
   round so far on the original's scorecard, a click on a ticker message to go to its golfer or place, a page after the
   End of Year report with the year against the last, and what a home site cost, sold for and is worth.
 - **Camera bookmarks and modern mouse controls:** four kept views of the course (Ctrl+Shift+F1..F4 keep, Shift+F1..F4
-  return), dragging with the middle button, and an interface extra that zooms towards the pointer.
+  return), dragging with the middle button, and interface extras that zoom towards the pointer and drag the course with
+  the right button (a right click stays the original's undo).
 - **Drag to place** (interface extra): drag to lay a row of benches, flower beds, ball washers, willows or bridges, with
   the row and its cost shown before you let go; and *Original* and *Modern* control presets on the Change keys screen.
 - **Updates from the title menu:** *Check for updates*, then *Update now* downloads the new version, checks its signature
