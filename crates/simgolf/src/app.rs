@@ -586,6 +586,11 @@ pub struct App {
     /// Floating money (0x40c890): an 8-entry ring of (amount in $100 units, map x, map y, ticks left).
     pub floats: [(i32, i32, i32, u8); 8],
     pub float_next: usize,
+    /// Words over map points (0x40c720, drawn by 0x40c7a0): (map x, map y, text, clock when they go), at most 8. The right
+    /// click's undo preview is the one user.
+    pub map_labels: Vec<(i32, i32, String, f64)>,
+    /// The tile of the last right click on the course (0x4c2e24, 0x5a6368): a right click there again undoes.
+    pub undo_mark: Option<(i32, i32)>,
     /// The popup menu shown, and the last ticker message (Repeat Last Message).
     pub popup: Option<crate::popup_ui::Popup>,
     /// The content packs found and loaded (docs/MODDING.md), for Preferences > Content.
@@ -876,6 +881,8 @@ impl App {
             dock_tip: (-1, 0),
             dock_blink: 0,
             floats: [(0, 0, 0, 0); 8],
+            map_labels: Vec::new(),
+            undo_mark: None,
             float_next: 0,
             popup: None,
             content: Default::default(),
@@ -1906,6 +1913,8 @@ impl App {
         self.staff_golfers.clear();
         // what was showing of the old course: its floating money, a golfer's card, the shot analysis
         self.floats = [(0, 0, 0, 0); 8];
+        self.map_labels.clear();
+        self.undo_mark = None;
         self.card = None;
         self.analysis = None;
         // and its messages: one showing would carry over, and Repeat Last Message would bring it back
@@ -3135,6 +3144,12 @@ impl App {
         if let Some((slot, _)) = sg_core::decor::tree_sound(new) {
             self.ui_sound(slot);
         }
+        // the Random trees extra (OpenSGolf extras): the next tree this brush plants takes a random look of its kind, any
+        // of the variant byte's twelve (v % 3 the size, (v / 3) & 1 a pine's species; decor::trees), drawn from the
+        // looks' own generator so the game's is untouched; the brush's look under the pointer shows it
+        if crate::extras::random_trees() && (13..=15).contains(&new) {
+            self.paint_variant = Some((self.paint_idx, self.look_rng.below(12)));
+        }
     }
 
     pub fn edit_path(&mut self, tx: i32, ty: i32, remove: bool) {
@@ -3202,6 +3217,11 @@ impl App {
             land::K_BRIDGE => self.ui_sound(263),
             _ => {}
         }
+        // the Random trees extra (OpenSGolf extras): the next scenic tree is a random one of the seven, as picking the
+        // tool chooses one (0x434ac0); the strip and the look under the pointer show it
+        if kind == land::K_WILLOW && crate::extras::random_trees() {
+            self.arm_design(kind);
+        }
         self.after_object_change();
         true
     }
@@ -3239,6 +3259,38 @@ impl App {
             Some((k, t)) if k == land::K_LANDMARK && self.landmark_allowed(t) => Some(t),
             _ => None,
         }
+    }
+
+    /// A right click on a course tile, as the main frame takes it (0x41f1bc): the first names what an undo there would do,
+    /// over the tile's middle in green for 48 frames (0x40a160, then 0x40c720 with 0x23e8; any words already there go,
+    /// 0x40c860); a second right click on the same tile, however much later, undoes it (0x40a4e0) and the words go.
+    pub fn right_click_undo(&mut self, a: i32, b: i32) {
+        let at = (a * 1024 + 512, b * 1024 + 512);
+        self.map_labels.retain(|l| (l.0, l.1) != at);
+        if self.undo_mark == Some((a, b)) {
+            self.undo_mark = None;
+            // one step of the port's own Ctrl+Z (undo.rs), as a click on the course is
+            self.undo_press();
+            self.undo_tile(a, b);
+            self.undo_release();
+            return;
+        }
+        self.ensure_land();
+        let Some(land) = self.land.as_mut() else { return };
+        land.sync_from_terrain(&self.terrain);
+        let (text, _) = land.undo_label(a, b);
+        self.map_label(at, text);
+        self.undo_mark = Some((a, b));
+    }
+
+    /// Words over a map point for 48 of the exe's frames (0x40c720: a ring of 8).
+    pub fn map_label(&mut self, at: (i32, i32), text: String) {
+        let now = self.clock;
+        self.map_labels.retain(|l| l.3 > now);
+        if self.map_labels.len() >= 8 {
+            self.map_labels.remove(0);
+        }
+        self.map_labels.push((at.0, at.1, text, now + 0x30 as f64 * sg_core::flight::TICK_MS as f64 / 1000.0));
     }
 
     /// Undo on a tile, as the exe's second right-click does: an item comes off with exactly what it cost back (booked to Build

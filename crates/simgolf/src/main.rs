@@ -179,6 +179,10 @@ struct Options {
     save_scenario: Option<String>,
 }
 
+/// Drawable pixels (at a dpi scale of 1) the pointer must go from where the right button went down before the Right-drag
+/// panning extra takes it for a drag (the port's own).
+const RIGHT_DRAG_SLOP: f32 = 5.0;
+
 const USAGE: &str = "usage: opensgolf [--game DIR] [--theme T] [--seed N] [--size WxH] [--zoom Z] [--rot DEG] [--center TX,TY] [--png FILE] \
 [--time S] [--follow] [--golfer NAME] [--sandbox] [--course-size N] [--cash N] [--difficulty 0-3] [--screen menu|property|play|report] [--course FILE] [--save FILE] \
 [--edit SPEC] [--panel N] [--mute] [--sound-log] [--clock MS] [--property N|NAME] [--hd | --classic] [--hd-pack DIR] \
@@ -372,6 +376,9 @@ struct Stage {
     alt: bool,
     /// The mouse button held down was a Ctrl+click, taken as a right-click (its release is a right one too).
     ctrl_click: bool,
+    /// The right button is down on the course with the Right-drag panning extra on (OpenSGolf extras): where it went down
+    /// and whether the pointer has since moved far enough to make it a drag.
+    right_down: Option<(f32, f32, bool)>,
     /// A key just opened a name box (Shift+S the Save dialog): the character that key types comes next and is not the
     /// name's (it put an "S" in front of every typed save name).
     swallow_char: bool,
@@ -1569,6 +1576,7 @@ impl Stage {
             frames: 0,
             editing: false,
             dragging: false,
+            right_down: None,
             touch: Default::default(),
             paused_total: 0.0,
             pause_start: 0.0,
@@ -1827,6 +1835,42 @@ impl Stage {
         self.app.report_course(true);
         if self.app.ui_ok && self.app.report_art.tex.is_some() {
             self.app.screen = Screen::Report;
+        }
+    }
+
+    /// A right click on the course (drawable pixels), as the exe's main frame takes it (0x41e4be..0x41f29d, read from the
+    /// machine code): with an elevation tool it is the - key (0x2d, lowering the ground) or with Analyze Golf Shot the /
+    /// key (0x2f); with a building or amenity tool (0x4c2854, the port's path and building tools), a message showing
+    /// (0x569498), a golfer chosen (0x53df54, the golfer card) or an employee being moved (0x4c2e10) it only puts those
+    /// away; otherwise it is the undo's: the first right click on a tile names what an undo there would do, the second
+    /// undoes it (App::right_click_undo). A terrain brush and the Undo button's undo mode stay in hand.
+    fn right_click(&mut self, x: f32, y: f32) {
+        let hit = self.app.pick_ground(x, y);
+        let app = &mut self.app;
+        if app.edit && app.tool == 1 {
+            if app.pstate.elev_tool == 3 {
+                app.start_analysis(None, true);
+            } else if let Some((hx, hz)) = hit {
+                let (a, b) = app.terrain.corner_of(hx, hz);
+                app.undo_press();
+                app.edit_elevation(a, b, -1);
+                app.undo_release();
+            }
+            return;
+        }
+        let building = app.edit && matches!(app.tool, 2 | 4);
+        if building || app.ticker.showing || app.card.is_some() || app.moving_employee.is_some() {
+            if building {
+                app.edit = false;
+            }
+            app.ticker.showing = false;
+            app.card = None;
+            app.moving_employee = None;
+            return;
+        }
+        if let Some((hx, hz)) = hit {
+            let (a, b) = app.terrain.tile_of(hx, hz);
+            app.right_click_undo(a, b);
         }
     }
 
@@ -3000,6 +3044,20 @@ impl EventHandler for Stage {
             }
             self.app.apply_tool(self.shift, true);
         } else if self.dragging {
+            // the Right-drag panning extra: the course moves once the pointer has gone a few pixels from where the right
+            // button went down (a right click that stays put is the original's, on release)
+            let (mut dx, mut dy) = (dx, dy);
+            if let Some((px, py, moved)) = self.right_down.as_mut() {
+                if !*moved {
+                    if (x - *px).hypot(y - *py) < RIGHT_DRAG_SLOP * self.app.dpi.max(1.0) {
+                        return;
+                    }
+                    *moved = true;
+                    (dx, dy) = (x - *px, y - *py);
+                    // a drag of the view ends People > Follow
+                    self.app.xs.follow = None;
+                }
+            }
             let k = self.app.upp; // drawable pixels -> world units
             let sin_p = (pitch_for(self.app.draw_w, self.app.draw_h).to_radians()).sin() as f32;
             self.app.drag_pan(-dx * k, dy * k / sin_p, now());
@@ -3255,6 +3313,19 @@ impl EventHandler for Stage {
             self.app.aim_click();
             return;
         }
+        // a right click on the course is the original's (right_click); with the Right-drag panning extra (OpenSGolf
+        // extras) a drag with the right button moves the course instead, and a right click that stays put is the
+        // original's when the button comes up. Up to 0.4.7 every right press here panned and nothing else (issue #67).
+        if button == MouseButton::Right {
+            if extras::right_drag() {
+                self.right_down = Some((x, y, false));
+                self.dragging = true;
+                self.app.drag_state(true, now());
+            } else {
+                self.right_click(x, y);
+            }
+            return;
+        }
         // the port's own undo: the game as it is before a click on the course (undo.rs)
         if button == MouseButton::Left && self.app.screen == Screen::Play && self.app.edit {
             self.app.undo_press();
@@ -3294,6 +3365,17 @@ impl EventHandler for Stage {
         if self.app.photo.is_some() {
             self.photo_button(false, button, x, y);
             return;
+        }
+        // the Right-drag panning extra: a right button that did not drag is the original's right click
+        if button == MouseButton::Right {
+            if let Some((px, py, moved)) = self.right_down.take() {
+                self.app.drag_state(false, now());
+                self.dragging = false;
+                if !moved {
+                    self.right_click(px, py);
+                }
+                return;
+            }
         }
         // a rectangle or row under way ends with the left button only; it is painted or placed before the undo step is kept
         if button != MouseButton::Left && (self.app.bt.rect_from.is_some() || self.app.bt.row_from.is_some()) {

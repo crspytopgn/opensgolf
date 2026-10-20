@@ -776,6 +776,15 @@ The port's own camera helpers (crates/simgolf/src/views.rs); nothing changes unt
   camera it coasts on when let go).
 - **Zoom towards the pointer**: an OpenSGolf extra (Preferences, *OpenSGolf extras...*, Helpers page), off by default:
   see *OpenSGolf extras* above.
+- **The right button** is the original's: on the course a right click with a building, path or amenity tool in hand,
+  a message showing, a golfer's card open or an employee being moved only puts that away; with an elevation tool it
+  lowers the ground (the - key; with Analyze Golf Shot it is the / key); otherwise the first right click on a tile names
+  in green over it what an undo there would do ("Reset to rough", "Remove Path", "Demolish Snack Bar") and a second right
+  click on the same tile undoes it, money back as the Undo button's tool gives it (a terrain brush and the Undo tool stay
+  in hand). OpenSGolf up to 0.4.7 dragged the course with the right button instead and had no right-click undo (issue
+  #67); that drag is now the **Right-drag panning** extra (Helpers page, off by default, and off for settings saved by
+  0.4.7): with it on, a drag with the right button moves the course and a right click that does not move (less than 5
+  pixels) does the original's on release. The middle button and the arrow keys always move the course.
 
 **Ctrl+Z** (Cmd+Z on a Mac) undoes the last click or drag with a building or terrain tool that changed the course:
 terrain, paths, holes, buildings and garden items. The whole game goes back to just before it, money included, as if that moment had been saved and loaded.
@@ -808,6 +817,22 @@ greens), tiles already of that type are free, and when the money runs out the re
 Test hooks: `SG_TAPE="x0,y0,x1,y1"` (tiles, fractions allowed) sets a tape down; `SG_AREA="r,x,y"` holds a rectangle from
 tile x,y to the pointer (`SG_CURSOR_TILE`) and `SG_AREA=f` holds Alt (with `SG_PAINT=type`, for stills of the previews);
 `--edit "B:x0,y0,x1,y1,type"` paints a rectangle and `--edit "L:x,y,type"` fills, printing the tiles, the cost and the cash.
+
+### Random trees
+
+An OpenSGolf extra (Preferences, *OpenSGolf extras...*, Helpers page), off by default and left out of the one-click
+extras; ticks saved before it read as off. In the original a tree brush keeps one look while it is in hand (picked at
+random when you pick the brush, Tab steps it) and the scenic tree tool one of its seven trees until you choose another.
+With **Random trees** on, every tree the woods, pine and palm brushes plant, by a click, a painted stroke, a rectangle or
+a fill, takes a random look of its kind (the small, medium or large tree, and for pines either species), and every scenic
+tree placed a random one of the seven (plum, dogwood, elm, Japanese maple, cypress, scenic tree, peach), so a stand of
+trees no longer looks planted in rows. The see-through tree under the pointer, and for scenic trees the lit picture in
+the strip, show the look the next one will take; Tab and the strip still choose it by hand. Only the tile's own variant
+byte changes, which the original already keeps and saves for every planted tree, so saves are as before and the trees
+look the same in the original. The facing cannot be chosen: the original turns each tree by the place of its tile, and
+nothing kept for a tile holds a facing. With the extra off the brushes plant exactly as the original's. Test hook: with
+it ticked, `--edit "B:x0,y0,x1,y1,14"` plants a rectangle of pines (13 broadleaf trees, 15 palms) and
+`--edit "W:x0,y0,x1,y1,16"` a row of scenic trees.
 
 On Windows, macOS and Linux, **F11** or **Alt+Enter** switches between a window and full screen (in the browser, use the
 browser's own full screen, F11).
@@ -860,9 +885,9 @@ changed every key does what it did before.
   shot and the draw.
 * **Original and Modern controls** (two buttons under the list on Change keys; nothing changes until one is clicked, and
   the one in use is lit yellow). *Original controls* puts every key back to the original's and turns the WASD camera,
-  *Zoom towards the pointer*, *Drag to place* and Enhanced graphics' *Smooth camera* tick off. *Modern controls* puts
-  every key back to its default with the WASD camera on, and turns *Zoom towards the pointer* and *Drag to place* (both
-  OpenSGolf extras, Helpers page) and the *Smooth camera* tick (which counts only while Enhanced graphics is on: the
+  *Zoom towards the pointer*, *Drag to place*, *Right-drag panning* and Enhanced graphics' *Smooth camera* tick off. *Modern controls* puts
+  every key back to its default with the WASD camera on, and turns *Zoom towards the pointer*, *Drag to place* and
+  *Right-drag panning* (OpenSGolf extras, Helpers page) and the *Smooth camera* tick (which counts only while Enhanced graphics is on: the
   preset never switches Enhanced graphics itself) on. They only set those existing options, which stay changeable one by
   one; click the other preset to undo one (keys you moved yourself are not kept by either).
 * **Middle-button drag** (always on) drags the course whatever tool is held, as a left drag does with no tool.
