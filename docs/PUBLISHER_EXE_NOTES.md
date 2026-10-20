@@ -538,7 +538,9 @@ WEAK for a game loaded mid-growth (the save format was not checked for the count
   scenic elm, Japanese maple and peach 13, cypress and scenic tree 12), frame 0 a sprig a few pixels high and the last the
   grown tree, and
   each `...Shadow.flc` has the same frames, so the shadow grows with the tree (the shadow is drawn with the body's frame).
-  Nothing is scaled. The free set's tree sheets have the same frame counts, also drawn as a growing tree.
+  Nothing is scaled. The free set's tree sheets have the same frame counts, also drawn as a growing tree. The
+  scenic elm (`Flics/Scenic/ScenicElm.flc`, no views in its header) holds 52 frames, four turns of a 13-frame growth; the
+  game draws only its last frame (a lone grown broadleaf in Parkland and Links), and the free set's elm has the same layout.
 - The brush (0x420608) sets the tile's flag 0x4000 and its counter (byte array 0x578804) to 0 on every tile whose type it
   changes, whatever the brush; the same tile repainted with its own type is left alone. The building tool does the same for a
   scenic tree (the willow tool, `place_tile_item`) and for a new flower bed.
