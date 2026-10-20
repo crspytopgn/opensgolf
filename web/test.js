@@ -210,8 +210,12 @@ test("the summary counts the sounds found, used and skipped, and why", () => {
     assert.ok(s.problem);
     const none = f.sgFilesSummary(["game/Flics/a.fli"], [], 0);
     assert.ok(none.problem && /found 0, used 0, skipped 0/.test(none.text) && /free OpenSGolf sounds/.test(none.text), none.text);
-    const fine = f.sgFilesSummary(paths, [], 3);
-    assert.ok(!fine.problem && /found 3, used 3, skipped 0\./.test(fine.text), fine.text);
+    const full = paths.concat(Array.from({ length: 120 }, (_, i) => "game/Sounds/Effects/s" + i + ".wav"));
+    const fine = f.sgFilesSummary(full, [], 123);
+    assert.ok(!fine.problem && /found 123, used 123, skipped 0\./.test(fine.text), fine.text);
+    // a downloaded copy with the sounds left out but for a stray one or two points at the CD or its .iso
+    const few = f.sgFilesSummary(paths, [], 3);
+    assert.ok(few.problem && /Only 3 sounds in your files/.test(few.text) && /\.iso/.test(few.text), few.text);
 });
 
 test("sounds in a coding the game cannot play are counted and named", () => {
