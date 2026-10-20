@@ -3503,8 +3503,9 @@ impl EventHandler for Stage {
     }
 
     fn files_dropped_event(&mut self) {
-        // the port's own Course sharing: shared courses, saved games and course codes dropped on the window (share.rs)
-        if !extras::sharing() {
+        // the port's own Course sharing, or Import and export saved games: shared courses, saved games and course codes
+        // dropped on the window (share.rs)
+        if !extras::sharing() && !extras::save_files() {
             return;
         }
         for i in 0..miniquad::window::dropped_file_count() {

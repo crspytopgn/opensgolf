@@ -294,7 +294,8 @@ miniquad_add_plugin({
         // picture is kept under picked/ and its name handed over when the game asks (-1 until one is picked).
         env.sg_pick_file = function () { sgPickFile(); };
         // Load Previous Game's Import a save file (files_ui.rs): the same picker for a saved game, shared course, course
-        // code or the original's top10.sve; the game reads it from picked/ and files it as a dropped file (share.rs)
+        // code or the original's top10.sve and saved games; the game reads it from picked/ and files it as a dropped file
+        // (share.rs)
         env.sg_pick_save = function () { sgPickFile(".sgs,.sgch,.txt,.sve"); };
         env.sg_pick_poll = function (dst, cap) {
             if (sgPicked === null) return -1;
@@ -632,7 +633,7 @@ async function sgZipSaves(buf) {
 }
 
 // "Restore saves...": backups (.zip) and single files (.sgs saved games, .sgch championship courses, .pro pros, the
-// original's top10.sve, settings.json). A backup's files replace those of the same name; a single file never replaces one.
+// original's top10.sve and saved games (.sve), settings.json). A backup's files replace those of the same name; a single file never replaces one.
 async function sgRestoreFiles(fileList) {
     const files = Array.from(fileList || []);
     if (files.length === 0) return;
@@ -671,8 +672,10 @@ async function sgRestoreFiles(fileList) {
                 "? (Import a save file... on the game's Load Previous Game adds it to yours instead.)")) continue;
             path = "top10.sve";
         } else if (low.endsWith(".sve")) {
-            original.push(f.name);
-            continue;
+            // a saved game of the original SimGolf: the game reads it into a game of its own when Load Previous Game opens
+            // (crates/simgolf/src/share.rs, import_original_folder)
+            path = sgFreeName("Saved Games/", f.name, bytes);
+            if (path !== null && path !== "") original.push(f.name);
         } else if (low.endsWith(".sgs") && sgIsSave(bytes)) {
             path = sgFreeName("Saved Games/", f.name, bytes);
         } else if ((low.endsWith(".sgch") && sgIsSave(bytes)) || low.endsWith(".pro")) {
@@ -695,7 +698,7 @@ async function sgRestoreFiles(fileList) {
     }
     if (same > 0) say.push(sgPlural(same, "file") + " already in this browser.");
     if (full > 0) say.push(sgPlural(full, "file") + " did not fit in this browser's storage; delete old saves in the game and try again.");
-    if (original.length > 0) say.push(original.join(", ") + ": saved games of the original SimGolf, which OpenSGolf cannot read yet (their layout is not decoded).");
+    if (original.length > 0) say.push(original.join(", ") + ": saved games of the original SimGolf; they are brought over as \"(imported)\" games when you open Load Previous Game.");
     if (unknown.length > 0) say.push(unknown.join(", ") + ": not a saved game or a backup (left out).");
     sgSaveStatus(say.join(" ") || "Nothing to restore.");
     sgSaveCount();

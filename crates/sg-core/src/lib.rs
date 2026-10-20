@@ -58,6 +58,7 @@ pub mod sounds;
 pub mod sprites;
 pub mod staff;
 pub mod stories;
+pub mod sve;
 pub mod terrain;
 pub mod thoughts;
 pub mod top10;

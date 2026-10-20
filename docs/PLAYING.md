@@ -154,7 +154,7 @@ versions, and it loads there.
 
 On the desktop, **back up** by copying the save folder (or just `Saved Games`); to **bring a save in**, copy the `.sgs` into
 `Saved Games` (while the game runs too: Load Previous Game reads the folder each time it opens). Dropping a `.sgs` on the
-game's window does the same when the Course sharing extra is on.
+game's window does the same when the Import and export saved games (or the Course sharing) extra is on.
 
 **In the browser** there is no folder: the page keeps the files in this browser's local storage for the site (the same
 names, under keys starting `simgolf-file:`). They stay until the site's data is cleared, but a private window, another
@@ -167,23 +167,33 @@ browser or another device does not have them, so back them up. On the start page
 - **Restore saves...** takes such a backup (its files replace those of the same name), a zip of a desktop save folder
   (whatever folder it was zipped from; the game copy, HD pack, photos and reports in it are left out, its content packs
   go with the page's packs), or single files: saved games (`.sgs`, into Saved Games), championship courses (`.sgch`) and
-  pros (`.pro`), `settings.json`, and the original's `top10.sve`. A single file never replaces a save of the same name: it
-  is added as "Name (2)". The games are then in Load Previous Game.
+  pros (`.pro`), `settings.json`, and the original's `top10.sve` and saved games (`.sve`, brought over when Load Previous
+  Game opens; see below). A single file never replaces a save of the same name: it is added as "Name (2)". The games are
+  then in Load Previous Game.
 
-**In the game**, with the Course sharing extra on (System Functions > Preferences > OpenSGolf extras; not in the original),
+**In the game**, with the Import and export saved games extra on (System Functions > Preferences > OpenSGolf extras,
+Helpers; not in the original; up to 0.4.9 it was part of Course sharing, so settings from then with Course sharing on
+have it on),
 Load Previous Game has two buttons of the port's own under the list: **Import a save file...** (the system's file
 picker, or the browser's) adds a saved game, a shared course (`.sgch`, to the championship courses), a text file with a
-course code, or the original's `top10.sve`, as dropping it on the window does; **Export this save...** writes a copy of
+course code, or the original's `top10.sve` or saved games (`.sve`), as dropping it on the window does; **Export this save...** writes a copy of
 the selected save where you choose (the browser downloads it). Test hooks: `SG_PICK_SAVE=FILE` imports FILE without the
 picker, `SG_EXPORT_SAVE=FILE` exports to FILE.
 
-**The original SimGolf's files.** Its saved games (`Saved Games\<name>.sve` in its folder) cannot be read: what the exe
-writes is known only as a list of blocks (a 100-byte header text, then the cash, the clock, the difficulty and several
-counters, the object table, the map arrays, the golfer table, the property list and the history ring;
-docs/DECODE_WORLD2.md 6.2), not the layout of each block, so a conversion would be guesswork. Picking or dropping one says
-so. Its Top 10 Designers (`top10.sve`) has the same layout as the port's: importing it in the game adds its designers to
-your table (its made-up default designers are left out, and the best ten of both stay); the start page's Restore puts it in
-place of the browser's table, after asking.
+**The original SimGolf's files.** Its saved games (`Saved Games\<name>.sve` in its folder) are brought over as games of
+the port's own: copy them into OpenSGolf's `Saved Games` folder (on Android too) and open Load Previous Game, or pick or
+drop one as above, or give them to the start page's Restore (browser). Each becomes a new saved game, "<name> (imported)"
+(the original file is moved into `Saved Games/Originals`; the browser keeps no copy), and loading it says what came over
+and what did not ("Imported from the original: ...; not carried over: ..."). It brings the land, terrain and elevation,
+the holes (tees, pins, par), buildings, paths, decorations and weeds, money and the yearly ledger, the date, difficulty and
+sandbox, the property and theme, the members, the people (your pro's name and looks), the staff, accomplishments, best
+rounds and the monthly history. The golfers out on the course, stories under way, animals and residents, a tournament
+under way, hole names and some hole statistics are not carried over; new golfers arrive at once. A file that does not read
+as a saved game of the original is refused with the reason, and nothing is added. The layout is in docs/DECODE_SAVE.md;
+it was read from the exe, not yet checked against many real saves, so a save that is refused or comes over wrong is worth
+reporting. Its Top 10 Designers (`top10.sve`) has the same layout as the port's: importing it in the game adds its
+designers to your table (its made-up default designers are left out, and the best ten of both stay); the start page's
+Restore puts it in place of the browser's table, after asking.
 
 ## Course size
 
@@ -303,8 +313,8 @@ Everything OpenSGolf adds is optional, and every option belongs to one of three 
 
 - **Looks**: changes only how the game looks (path styles and lamps, Tab turning a building's picture, random trees,
   Enhanced graphics). Play is exactly the original's.
-- **Helpers**: shows you more or saves you effort (the People screen, extra reports, message history, autosave, the
-  pauses, the mouse helpers). Play is exactly the original's.
+- **Helpers**: shows you more or saves you effort (the People screen, extra reports, message history, autosave, import
+  and export of saved games, the pauses, the mouse helpers). Play is exactly the original's.
 - **Gameplay**: changes how the game plays (animals to buy, more staff, set par, weather, visitors, hardcore, the
   calendar and the sandbox switches). Each carries a tag saying how much: *Light touch*, *Noticeable*, *Big change*, or
   *Experimental*.
@@ -344,7 +354,8 @@ along its top; a click on a tab, Left and Right or Tab turn them). A banner unde
   clickable ticker**; **Path help**; **Home-site details**. A grouped line ticks or unticks its members together; if only
   some of them are on (ticks saved by an older version, or Shift+H's tags), it says *(some on)* and a click turns them all
   on. Each member keeps its own tick in settings.json, so older versions read them as before.
-- **Helpers** (helpers): "Saves you effort. Play is unchanged." (autosave, save pictures, course sharing, the two pauses,
+- **Helpers** (helpers): "Saves you effort. Play is unchanged." (autosave, save pictures, course sharing, import and
+  export saved games, the two pauses,
   and under the *Controls:* name the three ticks the Change keys' *Original* and *Modern controls* presets set: drag to
   place, zoom towards the pointer, right-drag panning; also further down)
 
@@ -681,10 +692,13 @@ compare pixel for pixel with the build before the extras).
   `OPENSGOLF-COURSE-1:`) and saves the course for championship play. Send the code to a friend in a message or a text
   file. They press **Ctrl+V** (Cmd+V on a Mac) anywhere in OpenSGolf, or click *Paste a course code* on Play a
   Championship's course list, and the course joins their championship courses. Dropping a shared `.sgch` course, a saved
-  game (`.sgs`) or a text file holding a code on the window brings it in too, and so does Load Previous Game's *Import a
-  save file...* button (its *Export this save...* copies a save out; see "Saved games: where they are, backups and
-  imports"). The challenge: your course record travels with the course, and the course list shows it to your friend as
+  game (`.sgs`) or a text file holding a code on the window brings it in too. The challenge: your course record travels with the course, and the course list shows it to your friend as
   the score to beat.
+- **Import and export saved games**: for moving your games between devices (browser, desktop, another computer). Load
+  Previous Game gets *Import a save file...* (the system's file picker, or the browser's; it takes a saved game, a shared
+  course, a course code file or the original's `.sve`) and *Export this save...* (a copy of the selected save where you
+  choose; the browser downloads it). Dropping such a file on the window works too. See "Saved games: where they are,
+  backups and imports". Up to 0.4.9 these came with Course sharing: settings saved then follow its tick.
 - **Landing map** (**Shift+D**, or *Information, Landing map on / off*): where the golfers' shots on a hole come to rest,
   as small dots on the course for the hole under the pointer (or the last one pointed at, or the one Hole Stats showed
   last): white the tee shots, yellow the second shots, orange the third, red the fourth and later, with a fainter pip
@@ -901,7 +915,7 @@ F keys (Shift + Alt + 6 is Shift+F6). A Mac keyboard has no PageUp or Home: **fn
 (turn the view), or use the dock's turn buttons. In the browser a screenshot (Shift+F6), a SimFoto and a great shot's
 photo (F10) are downloaded; saved games and the accomplishment snapshots stay in the browser's storage.
 
-Content packs (mods, docs/MODDING.md): System Functions, Preferences, *Content packs...* lists the installed packs; switch them on or off and order the mods there (Up and Down, or PageUp and PageDown on the picked row). The choices are saved in `settings.json` at once and take effect the next time the game starts. `--screen content` opens the screen for stills. *Save profile...* keeps the current choices under a name and *Profiles...* lists the saved ones to load (the choices then take effect at the next start) or delete. A game saved with other packs than the ones in use asks before it loads from *Load Previous Game*: switch to the save's packs (the desktop game starts again on them and loads the save; on Android and in a browser restart or reload, then load it), load it anyway, or not load it (docs/MODDING.md 2).
+Content packs (mods, docs/MODDING.md): System Functions, Preferences, *Content packs...* lists the installed packs; switch them on or off and order the mods there (Up and Down, or PageUp and PageDown on the picked row). The choices are saved in `settings.json` at once and take effect the next time the game starts. `--screen content` opens the screen for stills. *Save profile...* keeps the current choices under a name and *Profiles...* lists the saved ones to load (the choices then take effect at the next start) or delete. A game saved with other packs than the ones in use asks before it loads from *Load Previous Game*, in plain words ("This game was saved with the original SimGolf art; you're using the free graphics", or other add-ons; the packs' ids and versions go to the log): switch to the save's packs (the desktop game starts again on them and loads the save; on Android and in a browser restart or reload, then load it), load it anyway, or not load it (docs/MODDING.md 2).
 
 Scenarios (docs/MODDING.md 5): with a scenario pack installed, *Start New Game* first offers a free game (the original's
 way on: Select Difficulty, then a property) or one of the scenarios, each with its goals; a scenario that names no

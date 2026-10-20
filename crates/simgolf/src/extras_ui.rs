@@ -150,9 +150,9 @@ const PAGE_LINES: [&[ExtrasLine]; 5] = {
         &[G(x::PATHS), G(0), U(21)],
         // People, extra reports, messages, path help, home-site details
         &[Group(0), Group(1), Group(2), U(4), U(19)],
-        // autosave, save pictures, sharing, the two pauses, then the three the controls presets set: drag to place, zoom
+        // autosave, save pictures, sharing, import and export saved games, the two pauses, then the three the controls presets set: drag to place, zoom
         // towards the pointer, right-drag panning
-        &[U(5), U(6), U(7), U(8), U(9), U(15), U(14), U(20)],
+        &[U(5), U(6), U(7), U(22), U(8), U(9), U(15), U(14), U(20)],
     ]
 };
 
@@ -242,6 +242,7 @@ const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_HOME_DETAILS",
     "STR_EXTRAS_DESC_RIGHT_DRAG",
     "STR_EXTRAS_DESC_RANDOM_TREES",
+    "STR_EXTRAS_DESC_SAVE_FILES",
 ];
 
 /// A line's description (what ticking it changes; for the preset line, what the preset in use is).
@@ -906,7 +907,8 @@ mod tests {
         assert_eq!(tag(ExtrasLine::Game(x::LEFTIES)), Some(Tag::Light));
         assert_eq!(page_of(ExtrasLine::Ui(5)), Some(4), "autosave");
         // the controls presets' ticks sit together at the end of the Helpers page
-        assert_eq!(page_lines(4)[5..], [ExtrasLine::Ui(15), ExtrasLine::Ui(14), ExtrasLine::Ui(20)]);
+        assert_eq!(page_lines(4)[6..], [ExtrasLine::Ui(15), ExtrasLine::Ui(14), ExtrasLine::Ui(20)]);
+        assert_eq!(page_lines(4)[2..4], [ExtrasLine::Ui(7), ExtrasLine::Ui(22)], "import and export next to sharing");
         assert_eq!((page_of(ExtrasLine::Preset), tag(ExtrasLine::Preset)), (None, None));
         assert_eq!(page_of(ExtrasLine::Ui(UPDATE_CHECK)), None);
     }

@@ -2312,12 +2312,13 @@ STR_PROFILE_SAVED                       :Profile "{NAME}" saved.
 STR_PROFILE_DELETED                     :Profile "{NAME}" deleted.
 STR_PROFILE_LOADED                      :Profile "{NAME}" loaded: restart the game to play with it.
 STR_PROFILE_LOADED_MISSING              :Profile "{NAME}" loaded without the packs not installed: {MISSING}. Restart the game to play with it.
-# Loading a game saved with other content packs (content_profiles.rs). {SAVED} and {NOW} list packs as "id version".
-STR_SAVE_PACKS_DIFFER                   :This game was saved with the content packs {SAVED}; the game is now running with {NOW}. It may not play as it did.
-STR_SAVE_PACKS_MISSING                  :Not installed (or in another version): {MISSING}.
-STR_SAVE_PACKS_SWITCH                   :Switch to the save's packs (the game restarts and loads it)
-STR_SAVE_PACKS_SWITCH_LATER             :Switch to the save's packs (then restart and load it)
-STR_SAVE_PACKS_LOAD_ANYWAY              :Load it with the packs in use
+# Loading a game saved with other content packs (content_profiles.rs): plain words; the packs' ids and versions go to the
+# log only
+STR_SAVE_PACKS_DIFFER                   :This game was saved with other add-ons (mods or a translation) than the ones in use. It may play a little differently. Load it anyway?
+STR_SAVE_PACKS_MISSING                  :Some of them are not installed here.
+STR_SAVE_PACKS_SWITCH                   :Switch to what it was saved with (the game restarts and loads it)
+STR_SAVE_PACKS_SWITCH_LATER             :Switch to what it was saved with (then restart and load it)
+STR_SAVE_PACKS_LOAD_ANYWAY              :Load it anyway
 STR_SAVE_PACKS_CANCEL                   :Do not load it
 STR_SAVE_PACKS_SWITCHED                 :Switched to the saved game's content packs.
 STR_SAVE_PACKS_RESTART_YOURSELF         :The save's content packs are chosen. Restart the game (in a browser: reload the page), then load the game again.
@@ -2753,7 +2754,6 @@ STR_FILES_PICK_SAVE_TITLE               :Import a saved game, shared course or c
 STR_FILES_EXPORT_TITLE                  :Export the saved game
 STR_TOAST_SAVE_EXPORTED                 :{NAME} exported: {FILE}
 STR_TOAST_SAVE_FOLDER                   :Saved games are files in {FOLDER}. Copy a save file (.sgs) there to load it.
-STR_TOAST_ORIGINAL_SAVE                 :{FILE} is a saved game of the original SimGolf. OpenSGolf cannot read those yet (their layout is not decoded); continue it in the original, or start the course again here.
 STR_TOAST_TOP10_IMPORTED                :The original's Top 10 Designers were added to yours ({COUNT} made the list).
 # A game date: "March 3, 2001"
 STR_EXTRAS_DATE                         :{MONTH} {DAY}, {YEAR}
@@ -3261,3 +3261,36 @@ STR_CTL_SHOWCASE                        :Showcase: fly over the course hole by h
 STR_SHOWCASE_NO_HOLES                   :The showcase needs an open hole to fly over.
 STR_TOUCH_SHOWCASE                      :Showcase
 STR_SHOWCASE_HOLE                       :Hole {HOLE}  -  Par {PAR}  -  {YARDS} yards
+
+# Saved games of the original SimGolf brought over (share.rs, sg_core::sve, issue #49)
+STR_TOAST_SVE_IMPORTED                  :{COURSE} from the original SimGolf was added to Load Previous Game as {NAME}.
+STR_TOAST_SVE_UNREADABLE                :{FILE} could not be read as a saved game of the original SimGolf ({WHY}). Nothing was added.
+STR_SVE_IMPORTED_SUFFIX                 :(imported)
+STR_SVE_PICKED_FILE                     :The file picked
+STR_SVE_IMPORTED_NOTE                   :Imported from the original: {CARRIED}. Not carried over: {DROPPED}.
+STR_SVE_PART_LAND                       :the land, terrain and elevation
+STR_SVE_PART_HOLES                      :the holes (tees, pins, par)
+STR_SVE_PART_BUILDINGS                  :buildings, paths and decorations
+STR_SVE_PART_MONEY                      :money and the yearly ledger
+STR_SVE_PART_DATE                       :the date
+STR_SVE_PART_DIFFICULTY                 :the difficulty
+STR_SVE_PART_PROPERTY                   :the property and its theme
+STR_SVE_PART_MEMBERS                    :the members
+STR_SVE_PART_PEOPLE                     :the people and your pro
+STR_SVE_PART_STAFF                      :the staff
+STR_SVE_PART_RECORDS                    :accomplishments, best rounds and history
+STR_SVE_LOST_GOLFERS                    :the golfers out on the course (new ones arrive)
+STR_SVE_LOST_HOLE_STATS                 :some hole statistics
+STR_SVE_LOST_WILDLIFE                   :animals and home residents (they come back)
+STR_SVE_LOST_STORIES                    :stories under way
+STR_SVE_LOST_TOURNAMENT                 :the tournament under way
+STR_SVE_LOST_HOLE_NAMES                 :the holes' names
+STR_SVE_LOST_OPTIONS                    :the original's Preferences
+# The Import and export saved games extra (extras.rs save_files; Load Previous Game's buttons, issue #49)
+STR_EXTRAS_SAVE_FILES                   : Import and export saved games (buttons in Load Previous Game)
+STR_EXTRAS_DESC_SAVE_FILES              :For moving your games to another device (computer, phone, tablet, browser): Load Previous Game gets Import a save file... and Export this save...
+# Loading a game saved with other graphics (content_profiles.rs save_packs_question): the base packs in plain words
+STR_SAVE_PACKS_ART_ORIGINAL             :the original SimGolf art
+STR_SAVE_PACKS_ART_FREE                 :the free graphics
+STR_SAVE_PACKS_ART_OTHER                :the graphics "{ID}"
+STR_SAVE_PACKS_DIFFER_ART               :This game was saved with {SAVED}; you're using {NOW}. It may look or play a little differently. Load it anyway?
