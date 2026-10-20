@@ -945,12 +945,24 @@ Tap for a click; drag one finger to scroll the course (or to paint with the sele
 second for a right click (undo, remove, close a screen). With the raise / lower tool (the Elevation panel, or =), a tap raises
 the ground and holding a finger still for half a second lowers it instead (the keyboard's Shift+click); keep the finger down
 and drag to go on lowering along the way. With two fingers: drag to scroll, pinch to step through the three
-zoom levels, twist to turn the view a quarter. Once the screen has been touched, four buttons on the right stand in for keys
-that have no button in the game: Open hole (h), Turn (Tab), Speed (]) and Message (?). Naming a course or a save raises the
+zoom levels, twist to turn the view a quarter. Once the screen has been touched, small round buttons down the right edge
+(under the money, fun and rating gauges, drawn like the dock's own + and - buttons and see-through until pressed) stand in for
+keys that have no button in the game: **Speed** (], normal, x2, x4: its arrows show the speed), **Message** (?, the last
+message again), **Turn** (Tab; only while Tab turns something: a building or a green's look in hand, the Path styles
+extra's style with the Pathway tool, placed buildings with the Rotate extra) and **Open hole** (h; only once the hole being
+built has its tee and green). A button acts when the finger lifts on it (slide off to let it be) and shows its name while
+pressed; it does what its action does whatever keys are set in Keyboard controls, and nothing under it is clicked. They
+step left of the Staff areas, Path view and Landing map legends while one is up, and are hidden with the interface (u),
+in photo mode and under any screen, box or name being typed. Naming a course or a save raises the
 phone's keyboard (in the browser through a hidden text box on the page, on Android the system keyboard). In the browser
 the game also draws its own keyboard across the bottom of the screen while a name is typed, with **OK** (Enter) and
 **Cancel** (Esc), because Safari on an iPad raises its keyboard only for some taps and a name box closes only with those
 keys (issue #50).
+
+Test hooks (scripted stills): `SG_TOUCH=1` counts the screen as touched, so the touch buttons show; `SG_TAP="x,y;hold:x,y;
+down:x,y;key:B;..."` taps, holds for a long press or puts a finger down and leaves it (a pressed button), at window
+pixels and through the same path a finger takes, or presses a key (the names `settings.json` uses), after `SG_CLICK` and
+before `SG_PRESS`; each step prints the button it pressed and the speed, turn, open holes, Shift and tool.
 
 ### Android
 

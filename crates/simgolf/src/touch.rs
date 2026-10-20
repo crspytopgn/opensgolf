@@ -6,8 +6,9 @@
 //!   lowers the ground instead (the desktop's Shift+click, which a tablet has no key for), and dragging on from there keeps
 //!   lowering.
 //! * Two fingers: dragging pans, pinching steps through the three zoom levels, twisting turns the view a quarter.
-//! * A few touch buttons down the right edge stand in for keys the screen has no button for (open the hole, turn the
-//!   building, game speed, repeat the last message); they show only once the screen has been touched.
+//! * A few round touch buttons down the right edge stand in for keys the screen has no button for (game speed, repeat the
+//!   last message, turn the building, open the hole); they show only once the screen has been touched, Turn and Open hole
+//!   only while they have something to do.
 //! * When a name is typed (rename, save) the phone's keyboard is raised: through the page in a browser (web/opensgolf.js),
 //!   through miniquad on Android.
 
@@ -62,6 +63,10 @@ pub struct Touch {
     lowering: bool,
     /// The on-screen keyboard's Shift (capitals for the next letter).
     osk_shift: bool,
+    /// The touch button under the finger: it acts when the finger lifts on it (sliding off lets it be).
+    held: Option<Btn>,
+    /// The button last let go and when, lit for a moment.
+    flash: Option<(Btn, f64)>,
 }
 
 /// The on-screen keyboard (browser on a touch screen, while a name is typed; issue #50): Safari on an iPad raises its own
@@ -110,16 +115,69 @@ fn osk_hit(vx: f32, vy: f32) -> Option<OskKey> {
     osk_keys().into_iter().find(|(_, (x, y, w, h))| vx >= *x && vx < x + w && vy >= *y && vy < y + h).map(|(k, _)| k)
 }
 
-/// The touch buttons: label (a text key) and the key each one presses.
-const BUTTONS: [(&str, KeyCode); 4] = [
-    ("STR_TOUCH_OPEN_HOLE", KeyCode::H),
-    ("STR_TOUCH_TURN", KeyCode::Tab),
-    ("STR_TOUCH_SPEED", KeyCode::RightBracket),
-    ("STR_TOUCH_MESSAGE", KeyCode::Slash),
-];
+/// The touch buttons, top to bottom down the right edge: what each stands in for (an action of controls.rs, run as its key
+/// would be whatever key the player gave it) and its name, shown beside it while a finger is on it. Speed and Message are
+/// always there and come first, so the two that come and go (Turn with something to turn, Open hole with a hole ready)
+/// never move the others.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Btn {
+    Speed,
+    Message,
+    Turn,
+    OpenHole,
+}
+const BUTTONS: [Btn; 4] = [Btn::Speed, Btn::Message, Btn::Turn, Btn::OpenHole];
 
-fn button_rect(i: usize) -> (f32, f32, f32, f32) {
-    (734.0, 190.0 + 40.0 * i as f32, 62.0, 32.0)
+impl Btn {
+    fn action(self) -> &'static str {
+        match self {
+            Btn::Speed => "speed",
+            Btn::Message => "message",
+            Btn::Turn => "turn_building",
+            Btn::OpenHole => "open_hole",
+        }
+    }
+    fn label(self) -> &'static str {
+        match self {
+            Btn::Speed => "STR_TOUCH_SPEED",
+            Btn::Message => "STR_TOUCH_MESSAGE",
+            Btn::Turn => "STR_TOUCH_TURN",
+            Btn::OpenHole => "STR_TOUCH_OPEN_HOLE",
+        }
+    }
+}
+
+/// The column's top: under the money, fun and rating gauges (to y 130) and Enhanced graphics' camera button (140 to 164).
+const COLUMN_TOP: f32 = 176.0;
+/// The buttons' radius in 800 x 600 units: about 36 pixels across on the device's screen (CSS pixels in a browser), kept
+/// between the size of the dock's Information button and a size that still leaves the column clear of the build panel.
+const R_MIN: f32 = 15.0;
+const R_MAX: f32 = 23.0;
+const R_SCREEN: f32 = 18.0;
+/// The room round a button that still counts as on it (fingers are wider than the art).
+const HIT_PAD: f32 = 5.0;
+/// Seconds a button stays lit after it is let go.
+const FLASH: f64 = 0.25;
+
+/// A button's radius for this many device-independent pixels to an 800 x 600 unit.
+fn button_radius(px_per_unit: f32) -> f32 {
+    (R_SCREEN / px_per_unit.max(0.01)).clamp(R_MIN, R_MAX)
+}
+
+/// The left edge of the OpenSGolf extras' legends at the top right (the path view, the staff areas, the landing map: x 566,
+/// y 140 to 372): while one is up the column stands to its left instead of over it.
+const LEGEND_LEFT: f32 = 566.0;
+
+/// Slot `i`'s centre for radius `r` with the column's right edge at `right`, in the 800 x 600 layout (held to the right edge
+/// with Enhanced widescreen).
+fn button_centre(i: usize, r: f32, right: f32) -> (f32, f32) {
+    (right - 6.0 - r, COLUMN_TOP + r + i as f32 * (2.0 * (r + HIT_PAD)))
+}
+
+/// Whether (vx, vy) is on the button centred at `c`.
+fn on_button(c: (f32, f32), r: f32, vx: f32, vy: f32) -> bool {
+    let h = r + HIT_PAD;
+    (vx - c.0).abs() <= h && (vy - c.1).abs() <= h
 }
 
 fn two(f: &[Finger]) -> ((f32, f32), f32, f32) {
@@ -141,7 +199,11 @@ impl Stage {
                 self.touch.fingers.push((id, (x, y), (x, y)));
                 match self.touch.fingers.len() {
                     1 => {
-                        if self.osk_press(x, y) || self.touch_button(x, y) {
+                        if self.osk_press(x, y) {
+                            self.touch.mode = Mode::Spent;
+                        } else if let Some(b) = self.touch_button_at(x, y) {
+                            // the button takes the whole touch: nothing reaches the course or the interface under it
+                            self.touch.held = Some(b);
                             self.touch.mode = Mode::Spent;
                         } else {
                             self.touch.mode = Mode::Pending;
@@ -150,6 +212,7 @@ impl Stage {
                     }
                     2 => {
                         // a second finger ends whatever the first was doing
+                        self.touch.held = None;
                         if self.touch.mode == Mode::Mouse {
                             let p = self.touch.fingers[0].2;
                             self.mouse_button_up_event(MouseButton::Left, p.0, p.1);
@@ -165,6 +228,9 @@ impl Stage {
                 let Some(f) = self.touch.fingers.iter_mut().find(|f| f.0 == id) else { return };
                 f.2 = (x, y);
                 let start = f.1;
+                if self.touch.held.is_some() && self.touch_button_at(x, y) != self.touch.held {
+                    self.touch.held = None;
+                }
                 match self.touch.mode {
                     Mode::Pending => {
                         let (dx, dy) = (x - start.0, y - start.1);
@@ -184,6 +250,12 @@ impl Stage {
                 let was = self.touch.mode;
                 let last = self.touch.fingers.len() == 1;
                 self.touch.fingers.retain(|f| f.0 != id);
+                if let Some(b) = self.touch.held.take() {
+                    if phase == TouchPhase::Ended && self.touch_button_at(x, y) == Some(b) {
+                        self.touch.flash = Some((b, now));
+                        self.touch_button_press(b);
+                    }
+                }
                 match was {
                     Mode::Pending if phase == TouchPhase::Ended => {
                         // a tap: point where the finger was, then press and release once the screen has seen the pointer
@@ -291,23 +363,41 @@ impl Stage {
         vy < 452.0 && !(self.app.ui_ok && crate::render::dock_hit(vx, vy) >= 0)
     }
 
-    /// A press on one of the touch buttons: its key, as if typed.
-    fn touch_button(&mut self, x: f32, y: f32) -> bool {
+    /// The touch buttons' radius for this window, in 800 x 600 units.
+    fn button_radius(&self) -> f32 {
+        button_radius(self.app.view.scale / self.app.dpi.max(0.5))
+    }
+
+    /// Slot `i`'s centre on this frame.
+    fn slot_centre(&self, i: usize) -> (f32, f32) {
+        button_centre(i, self.button_radius(), if self.app.right_legend_up() { LEGEND_LEFT } else { 800.0 })
+    }
+
+    /// The touch button shown at this drawable-pixel point, if any.
+    fn touch_button_at(&self, x: f32, y: f32) -> Option<Btn> {
         if !self.touch_buttons_shown() {
-            return false;
+            return None;
         }
-        let (vx, vy) = self.app.view.to_virtual(x, y);
-        for (i, &(_, key)) in BUTTONS.iter().enumerate() {
-            let (bx, by, bw, bh) = button_rect(i);
-            if vx >= bx && vx < bx + bw && vy >= by && vy < by + bh {
-                let shift = key == KeyCode::Slash;
-                let mods = KeyMods { shift, ..Default::default() };
-                self.key_down_event(key, mods, false);
-                self.key_up_event(key, mods);
-                return true;
-            }
-        }
-        false
+        // in the column's own layout: with Enhanced widescreen it is drawn at the window's right edge, and a press in the room
+        // round a button (or on one that has just appeared) is not on anything drawn the last frame for unshift to find
+        let s = Ui::new(self.app.draw_w, self.app.draw_h);
+        let (vx, vy) = s.view.to_virtual_raw(x, y);
+        let (dx, dy) = s.anchor_shift(crate::enhanced::Anchor::Right);
+        let (vx, vy) = (vx - dx, vy - dy);
+        let r = self.button_radius();
+        BUTTONS
+            .iter()
+            .enumerate()
+            .find(|&(i, &b)| self.app.touch_button_wanted(b) && on_button(self.slot_centre(i), r, vx, vy))
+            .map(|(_, &b)| b)
+    }
+
+    /// A touch button let go: its action, as its key does on the course (play_key after the player's own keys are read, so a
+    /// key moved elsewhere, a shot shape on the same key or a Shift left down cannot change what the button does).
+    fn touch_button_press(&mut self, b: Btn) {
+        let i = crate::controls::action(b.action());
+        let d = crate::controls::ACTIONS[i].default;
+        self.play_action(d.key, d.shift, Some(i));
     }
 
     fn osk_shown(&self) -> bool {
@@ -375,10 +465,79 @@ impl Stage {
         g.flush();
     }
 
-    fn touch_buttons_shown(&self) -> bool {
-        self.touch.used && self.app.ui_ok && self.app.screen == Screen::Play && self.app.photo.is_none()
+    /// Test hooks for scripted stills (after SG_CLICK, before SG_PRESS): SG_TOUCH=1 counts the screen as touched (the touch
+    /// buttons show); SG_TAP="x,y;hold:x,y;down:x,y;key:Tab;..." taps, holds for a long press, or puts a finger down and
+    /// leaves it there (for stills of a pressed button) at window pixels, through the same path a finger takes, or presses a
+    /// key (settings.json's names), with the frames a tap's click waits for drawn in between. Each step prints the button
+    /// it pressed and the state the buttons change.
+    pub(crate) fn touch_test_hook(&mut self) {
+        if std::env::var_os("SG_TOUCH").is_some() {
+            self.touch.used = true;
+            self.app.xs.touched = true;
+        }
+        for t in std::env::var("SG_TAP").unwrap_or_default().split(';').map(str::trim).filter(|t| !t.is_empty()) {
+            if let Some(k) = t.strip_prefix("key:") {
+                let Some(b) = crate::controls::Binding::parse(k) else { continue };
+                let mods = KeyMods { shift: b.shift, ctrl: b.ctrl, ..Default::default() };
+                self.key_down_event(b.key, mods, false);
+                self.key_up_event(b.key, KeyMods::default());
+                self.draw_frame(None);
+                continue;
+            }
+            let (how, p) = t.split_once(':').filter(|(h, _)| matches!(*h, "hold" | "down")).unwrap_or(("tap", t));
+            let v = crate::ints(p);
+            let [x, y] = v[..] else { continue };
+            let (x, y) = (x as f32, y as f32);
+            self.touch(TouchPhase::Started, 1, x, y);
+            let held = self.touch.held;
+            if how == "down" {
+                // the finger stays down: the frame is drawn with the button pressed
+                self.draw_frame(None);
+                continue;
+            }
+            if how == "hold" {
+                self.touch.started = self.app.clock - LONG_PRESS - 0.1;
+                self.touch_update();
+            }
+            self.touch(TouchPhase::Ended, 1, x, y);
+            for _ in 0..4 {
+                self.touch_update();
+                self.draw_frame(None);
+            }
+            let a = &self.app;
+            println!(
+                "touch {how} {x},{y}: {} (speed {}, turn {}, open holes {}, shift {}, tool {} {})",
+                held.map_or("no button".to_string(), |b| format!("{b:?} button")),
+                a.speed,
+                a.turn,
+                a.club.holes.iter().filter(|h| h.par != 0).count(),
+                self.shift,
+                a.edit,
+                a.tool
+            );
+        }
     }
 
+    /// The touch buttons show on the course once the screen has been touched, with the interface up and nothing over the
+    /// course that takes the keys (a notice, a SimFoto, the shot analysis, a name being typed).
+    fn touch_buttons_shown(&self) -> bool {
+        let a = &self.app;
+        self.touch.used
+            && a.ui_ok
+            && a.screen == Screen::Play
+            && a.photo.is_none()
+            && !a.no_hud
+            && !a.hud_hidden()
+            && a.notice.is_none()
+            && a.great_shot.is_none()
+            && a.simfoto.is_none()
+            && a.analysis.is_none()
+            && !a.typing()
+    }
+
+    /// The touch buttons, drawn like the original's small round dock buttons (Interface/3mainLowerLeft.pcx: + - and the
+    /// turns, a navy face in a pale rim with a cream picture, the picture gold while lit), by code so that they look the
+    /// same with the free base set. They stay see-through until pressed; the button under a finger shows its name.
     pub(crate) fn draw_touch_buttons(&mut self) {
         if !self.touch_buttons_shown() {
             return;
@@ -386,18 +545,218 @@ impl Stage {
         let s = Ui::new(self.app.draw_w, self.app.draw_h);
         // Enhanced widescreen: at the window's right edge (nothing in Classic)
         s.anchor(crate::enhanced::Anchor::Right);
+        let r = self.button_radius();
+        let now = self.app.clock;
+        let flash = self.touch.flash.filter(|f| now - f.1 < FLASH).map(|f| f.0);
+        let centres: Vec<(f32, f32)> = (0..BUTTONS.len()).map(|i| self.slot_centre(i)).collect();
         let g: &mut Gfx = &mut self.g;
-        for (i, &(label, _)) in BUTTONS.iter().enumerate() {
-            let (x, y, w, h) = button_rect(i);
-            s.fill(g, x, y, w, h, rgba(0.1, 0.1, 0.3, 0.7));
-            s.fill(g, x, y, w, 1.0, rgba(0.7, 0.7, 1.0, 0.8));
-            s.text_centered(g, x + w * 0.5, y + h * 0.5 + 4.0, tr(label), 12.0, rgb(1.0, 1.0, 1.0));
+        for (i, &b) in BUTTONS.iter().enumerate() {
+            if !self.app.touch_button_wanted(b) {
+                continue;
+            }
+            let (cx, cy) = centres[i];
+            let lit = self.touch.held == Some(b) || flash == Some(b);
+            draw_button(g, &s, cx, cy, r, lit);
+            let ink = if lit { GOLD } else { with_alpha(CREAM, 0.9) };
+            match b {
+                Btn::Speed => icon_speed(g, &s, cx, cy, r, self.app.speed, ink),
+                Btn::Message => icon_message(g, &s, cx, cy, r, ink),
+                Btn::Turn => icon_turn(g, &s, cx, cy, r, ink),
+                Btn::OpenHole => icon_flag(g, &s, cx, cy, r, ink, lit),
+            }
+            if self.touch.held == Some(b) {
+                // its name to the left, as the dock's tooltips are (the camera button's plate, photo.rs)
+                let name = tr(b.label());
+                // (as large on the device as the buttons are, so readable on a phone too)
+                let k = r / R_MIN;
+                let size = 13.0 * k;
+                let tw = crate::ui::text_width(name, size);
+                let (x, y) = (cx - r - 8.0 - tw - 12.0 * k, cy - 10.0 * k);
+                s.fill(g, x, y, tw + 12.0 * k, 20.0 * k, rgba(0.0, 0.0, 0.0, 0.7));
+                s.text(g, x + 6.0 * k, y + 15.0 * k, name, size, rgb(1.0, 1.0, 1.0));
+            }
         }
         g.flush();
     }
 }
 
+// ---- the touch buttons' look --------------------------------------------------------------------------------------------
+// The colours are the 15-bit palette of the dock's small buttons (3mainLowerLeft.pcx cuts at x 600 and 650): rim 0x101830
+// and 0x707098 / 0x8888b8, face 0x303870 to 0x182040, picture 0xf0e0c0 with its shade 0xd8c070, lit 0xf8b800.
+
+const NAVY_DARK: [f32; 4] = [16.0 / 255.0, 24.0 / 255.0, 48.0 / 255.0, 1.0];
+const RIM_LIGHT: [f32; 4] = [136.0 / 255.0, 136.0 / 255.0, 184.0 / 255.0, 1.0];
+const RIM_SHADE: [f32; 4] = [32.0 / 255.0, 40.0 / 255.0, 80.0 / 255.0, 1.0];
+const FACE_MID: [f32; 4] = [56.0 / 255.0, 64.0 / 255.0, 120.0 / 255.0, 1.0];
+const FACE_EDGE: [f32; 4] = [24.0 / 255.0, 32.0 / 255.0, 64.0 / 255.0, 1.0];
+const CREAM: [f32; 4] = [240.0 / 255.0, 224.0 / 255.0, 192.0 / 255.0, 1.0];
+const GOLD: [f32; 4] = [248.0 / 255.0, 184.0 / 255.0, 0.0, 1.0];
+const FLAG_RED: [f32; 4] = [216.0 / 255.0, 48.0 / 255.0, 32.0 / 255.0, 1.0];
+/// How see-through a button is until pressed.
+const IDLE_ALPHA: f32 = 0.65;
+/// Pieces of a circle.
+const SEGMENTS: usize = 32;
+
+fn with_alpha(c: [f32; 4], a: f32) -> [f32; 4] {
+    [c[0], c[1], c[2], c[3] * a]
+}
+
+fn mix(a: [f32; 4], b: [f32; 4], k: f32) -> [f32; 4] {
+    std::array::from_fn(|i| a[i] + (b[i] - a[i]) * k)
+}
+
+/// A ring from radius `r0` out to `r1` round (cx, cy) (r0 = 0 for a disc), each piece coloured by `col` of its middle angle
+/// (radians, 0 to the right, growing clockwise on the screen). The pieces do not overlap, so a see-through ring is even.
+fn ring(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r0: f32, r1: f32, col: impl Fn(f32) -> [f32; 4]) {
+    let step = std::f32::consts::TAU / SEGMENTS as f32;
+    for k in 0..SEGMENTS {
+        let (a0, a1) = (k as f32 * step, (k + 1) as f32 * step);
+        let p = |r: f32, a: f32| (cx + r * a.cos(), cy + r * a.sin());
+        s.quad(g, [p(r0, a0), p(r1, a0), p(r1, a1), p(r0, a1)], col((a0 + a1) * 0.5));
+    }
+}
+
+/// A round button: a dark outline, a bevel lit from the top left, and a navy face lighter towards its middle.
+fn draw_button(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, lit: bool) {
+    let a = if lit { 1.0 } else { IDLE_ALPHA };
+    // a soft shadow below and to the right, outside the button
+    ring(g, s, cx + 1.0, cy + 2.0, r, r + 1.5, |ang| rgba(0.0, 0.0, 0.0, 0.3 * a * (ang - 0.8).cos().max(0.0)));
+    ring(g, s, cx, cy, r - 1.5, r, |_| with_alpha(NAVY_DARK, a));
+    // the bevel: light where it faces the top left (angle 225 degrees), dark where it faces away
+    let light = std::f32::consts::PI * 1.25;
+    ring(g, s, cx, cy, r - 4.0, r - 1.5, |ang| with_alpha(mix(RIM_SHADE, RIM_LIGHT, ((ang - light).cos() + 1.0) * 0.5), a));
+    ring(g, s, cx, cy, r - 5.0, r - 4.0, |_| with_alpha(NAVY_DARK, a));
+    let face = r - 5.0;
+    let mid = if lit { mix(FACE_MID, RIM_LIGHT, 0.25) } else { FACE_MID };
+    let bands = 10;
+    for k in 0..bands {
+        let (r0, r1) = (face * k as f32 / bands as f32, face * (k + 1) as f32 / bands as f32);
+        let c = mix(mid, FACE_EDGE, (k as f32 + 0.5) / bands as f32);
+        ring(g, s, cx, cy, r0, r1, |_| with_alpha(c, a));
+    }
+}
+
+/// A picture drawn twice: a dark shade a little down and right, then the picture, as the dock's pictures are.
+fn shaded(g: &mut Gfx, ink: [f32; 4], draw: impl Fn(&mut Gfx, f32, f32, [f32; 4])) {
+    draw(g, 0.8, 0.8, with_alpha(NAVY_DARK, ink[3]));
+    draw(g, 0.0, 0.0, ink);
+}
+
+/// Speed: one, two or three play arrows for normal, x2 and x4.
+fn icon_speed(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, speed: u8, ink: [f32; 4]) {
+    let n = match speed {
+        1 => 1,
+        2 => 2,
+        _ => 3,
+    };
+    let h = r * 0.42;
+    let w = r * 0.38;
+    let total = w * n as f32 + (n - 1) as f32 * r * 0.04;
+    let x0 = cx - total * 0.5;
+    shaded(g, ink, |g, dx, dy, c| {
+        for k in 0..n {
+            let x = x0 + k as f32 * (w + r * 0.04) + dx;
+            let y = cy + dy;
+            s.quad(g, [(x, y - h), (x + w, y), (x + w, y), (x, y + h)], c);
+        }
+    });
+}
+
+/// Message: a speech bubble with three dots.
+fn icon_message(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4]) {
+    let (bw, bh) = (r * 0.5, r * 0.36);
+    let by = cy - r * 0.07;
+    shaded(g, ink, |g, dx, dy, c| {
+        let (x, y) = (cx + dx, by + dy);
+        // the bubble: an ellipse in pieces that meet at its middle, and its tail to the lower left
+        let step = std::f32::consts::TAU / SEGMENTS as f32;
+        for k in 0..SEGMENTS {
+            let (a0, a1) = (k as f32 * step, (k + 1) as f32 * step);
+            let p = |a: f32| (x + bw * a.cos(), y + bh * a.sin());
+            s.quad(g, [(x, y), p(a0), p(a1), (x, y)], c);
+        }
+        let t = (x - bw * 0.45, y + bh * 0.7);
+        s.quad(g, [t, (t.0 + bw * 0.35, t.1), (x - bw * 0.75, y + bh * 1.55), t], c);
+    });
+    let d = r * 0.07;
+    for k in -1..=1 {
+        let x = cx + k as f32 * bw * 0.48;
+        s.quad(g, [(x - d, by - d), (x + d, by - d), (x + d, by + d), (x - d, by + d)], with_alpha(NAVY_DARK, ink[3]));
+    }
+}
+
+/// Turn: a thick arrow bending round to the right (the dock's turn buttons' picture, with more of the turn).
+fn icon_turn(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4]) {
+    let rad = r * 0.36;
+    let w = r * 0.13;
+    let (oy, from, to) = (cy + r * 0.04, std::f32::consts::PI * 0.75, std::f32::consts::PI * 2.05);
+    shaded(g, ink, |g, dx, dy, c| {
+        let n = 14;
+        let p = |a: f32, rr: f32| (cx + dx + rr * a.cos(), oy + dy + rr * a.sin());
+        for k in 0..n {
+            let a0 = from + (to - from) * k as f32 / n as f32;
+            let a1 = from + (to - from) * (k + 1) as f32 / n as f32;
+            s.quad(g, [p(a0, rad - w), p(a0, rad + w), p(a1, rad + w), p(a1, rad - w)], c);
+        }
+        // the head, pointing on round the turn
+        let tip_a = to + 0.55;
+        let (bx, by) = p(to, rad);
+        let (ox, oy2) = (to.cos(), to.sin());
+        let tip = p(tip_a, rad);
+        let hw = w * 2.4;
+        s.quad(g, [(bx - ox * hw, by - oy2 * hw), (bx + ox * hw, by + oy2 * hw), tip, tip], c);
+    });
+}
+
+/// Open hole: the flagstick in its cup, the flag red (as the build panel's green shows it) and the stick cream.
+fn icon_flag(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4], lit: bool) {
+    let px = cx - r * 0.12;
+    let (top, foot) = (cy - r * 0.48, cy + r * 0.42);
+    let flag = if lit { GOLD } else { with_alpha(FLAG_RED, ink[3]) };
+    shaded(g, ink, |g, dx, dy, c| {
+        s.line(g, px + dx, top + dy, px + dx, foot + dy, r * 0.09, c);
+        // the cup: a flat ring at the stick's foot
+        s.quad(
+            g,
+            [
+                (px - r * 0.3 + dx, foot + dy),
+                (px + dx, foot - r * 0.07 + dy),
+                (px + r * 0.3 + dx, foot + dy),
+                (px + dx, foot + r * 0.07 + dy),
+            ],
+            c,
+        );
+    });
+    let fl = [(px, top), (px + r * 0.5, top + r * 0.16), (px + r * 0.5, top + r * 0.16), (px, top + r * 0.34)];
+    s.quad(g, fl.map(|(x, y)| (x + 0.8, y + 0.8)), with_alpha(NAVY_DARK, ink[3]));
+    s.quad(g, fl, flag);
+}
+
 impl App {
+    /// Whether a touch button has something to do now: Speed and Message always; Turn while Tab turns something (a building
+    /// or a green's look in hand, the Path styles extra's style with the Pathway tool, a placed building with the Rotate
+    /// extra); Open hole once the hole being built has its tee and green.
+    fn touch_button_wanted(&self, b: Btn) -> bool {
+        match b {
+            Btn::Speed | Btn::Message => true,
+            Btn::Turn if self.edit => match self.tool {
+                4 => true,
+                0 => self.paint_variant.is_some_and(|(k, _)| k == self.paint_idx),
+                2 => self.club.extras.lamps(),
+                _ => false,
+            },
+            Btn::Turn => self.club.extras.rotate,
+            Btn::OpenHole => self.club.can_open_hole(),
+        }
+    }
+
+    /// Whether one of the extras' legends is up at the top right, under the gauges (pathview_ui, staffview_ui, insight).
+    fn right_legend_up(&self) -> bool {
+        (self.comfort.staff_view && self.land.is_some())
+            || (self.xs.path_view && crate::extras::path_help())
+            || (self.xs.insight.map && crate::extras::landing_map())
+    }
+
     /// Whether a name is being typed (rename, save, Customise Golfer).
     pub fn typing(&self) -> bool {
         self.rename.is_some()
@@ -458,5 +817,29 @@ mod tests {
         assert!(keys.iter().any(|(k, _)| *k == OskKey::Ok) && keys.iter().any(|(k, _)| *k == OskKey::Cancel));
         // the rename box (240..330) and the save box stay clear of the keyboard
         assert!(keys.iter().all(|(_, (_, y, _, _))| *y > 340.0));
+    }
+
+    #[test]
+    fn touch_buttons_fit_between_the_gauges_and_the_panel_at_every_size() {
+        // a phone in landscape (0.65 pixels to the unit), tablets, a desktop, a 4K screen
+        for px in [0.3, 0.65, 1.0, 1.37, 1.71, 2.4, 3.6] {
+            let r = button_radius(px);
+            assert!((R_MIN..=R_MAX).contains(&r));
+            for right in [800.0, LEGEND_LEFT] {
+                let c: Vec<(f32, f32)> = (0..BUTTONS.len()).map(|i| button_centre(i, r, right)).collect();
+                for (i, &(x, y)) in c.iter().enumerate() {
+                    // under the gauges and the camera button (to y 164), above the dock's panel (y 452), on the screen
+                    assert!(y - r - HIT_PAD > 164.0 && y + r + HIT_PAD < 452.0, "slot {i} at {px}: {y}");
+                    assert!(x + r + HIT_PAD <= right + 0.01 && x - r > 0.0);
+                    // no press is on two buttons
+                    if let Some(&(_, y2)) = c.get(i + 1) {
+                        assert!(y2 - y >= 2.0 * (r + HIT_PAD) - 0.01);
+                    }
+                    assert!(on_button((x, y), r, x + r, y - r) && !on_button((x, y), r, x, y + r + HIT_PAD + 1.0));
+                }
+            }
+        }
+        // about 36 device pixels across where that fits
+        assert_eq!(button_radius(1.0), 18.0);
     }
 }

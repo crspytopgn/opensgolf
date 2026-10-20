@@ -2090,6 +2090,13 @@ impl Stage {
         // the player's keys (controls.rs): the key pressed becomes the default key of the action bound to it
         let aiming = self.app.club.pro_aiming().is_some();
         let Some((k, shift, act)) = controls::translate(k, self.shift, self.ctrl, aiming) else { return };
+        self.play_action(k, shift, act);
+    }
+
+    /// What a course screen key does, given as the original's (default) key, its Shift and the action it was bound to (the
+    /// touch buttons, touch.rs, come in here with their action whatever keys the player chose).
+    pub(crate) fn play_action(&mut self, k: KeyCode, shift: bool, act: Option<usize>) {
+        let aiming = self.app.club.pro_aiming().is_some();
         // the port's hidden Cheats box (cheats_ui.rs; Ctrl+Shift+C)
         if act == Some(controls::action("cheats")) {
             self.app.open_cheats();
@@ -2728,6 +2735,8 @@ impl Stage {
             // the pointer is tested against the interface as last drawn
             self.draw_frame(None);
         }
+        // SG_TOUCH and SG_TAP: the touch layer's buttons and taps (touch.rs)
+        self.touch_test_hook();
         // SG_PRESS="u;Shift+F6;...": keys pressed after the clicks (names as settings.json's "controls" has them)
         for b in std::env::var("SG_PRESS").unwrap_or_default().split(';').filter_map(controls::Binding::parse) {
             let mods = KeyMods { shift: b.shift, ctrl: b.ctrl, ..Default::default() };
