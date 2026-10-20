@@ -135,6 +135,23 @@
   footer { margin-top: 36px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--card-border); padding-top: 16px; }
   footer p { margin: 0 0 8px; }
 
+  /* a phone or tablet held upright while the game runs (the port's own; opensgolf.js sgRotateCard): a card over the game
+     asking to turn it sideways, which also keeps taps off the game; "Play anyway" plays upright in a 4:3 band */
+  #rotate { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; padding: 24px 16px;
+    background:
+      radial-gradient(600px 400px at 50% 20%, rgba(120, 220, 140, 0.18), transparent 70%),
+      linear-gradient(180deg, var(--bg2), var(--bg));
+    touch-action: none; -webkit-user-select: none; user-select: none; }
+  #rotate[hidden] { display: none; }
+  #rotate .card { max-width: 360px; width: 100%; align-items: center; text-align: center; gap: 14px; background: var(--card-solid); }
+  #rotate h2 { margin: 0; font-size: 22px; line-height: 1.25; }
+  #rotate p { margin: 0; }
+  #rotate .btn { width: 100%; margin-top: 4px; }
+  #rotate svg { width: 120px; height: 120px; }
+  #rotate .phone { transform-origin: 60px 60px; animation: sg-turn 2.4s ease-in-out infinite; }
+  @keyframes sg-turn { 0%, 20% { transform: rotate(0deg); } 50%, 80% { transform: rotate(-90deg); } 100% { transform: rotate(0deg); } }
+  @media (prefers-reduced-motion: reduce) { #rotate .phone { animation: none; } }
+
   @media (max-width: 560px) {
     .hero { padding: 16px 16px 28px; background-position: 70% 30%; }
     .hero::before { background:
@@ -358,6 +375,24 @@
   </main>
 </div>
 <canvas id="glcanvas" tabindex="1"></canvas>
+<div id="rotate" hidden role="dialog" aria-modal="true" aria-labelledby="rotatetitle">
+  <section class="card">
+    <svg viewBox="0 0 120 120" aria-hidden="true">
+      <path d="M22 36a40 40 0 0 1 30-18" fill="none" stroke="#a9c2ae" stroke-width="3" stroke-linecap="round"/>
+      <path d="M50 12l4 7-8 2" fill="none" stroke="#a9c2ae" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <g class="phone">
+        <rect x="40" y="22" width="40" height="76" rx="8" fill="#12331f" stroke="#f1f6ef" stroke-width="4"/>
+        <rect x="46" y="32" width="28" height="56" rx="2" fill="#3fae5f"/>
+        <ellipse cx="60" cy="74" rx="10" ry="4" fill="#58c27a"/>
+        <rect x="59.5" y="46" width="2" height="28" fill="#fff"/>
+        <path d="M61.5 46l9 3.5-9 3.5z" fill="#e8423b"/>
+      </g>
+    </svg>
+    <h2 id="rotatetitle">Turn your device sideways to play</h2>
+    <p>SimGolf is made for a wide screen. The game is waiting for you.</p>
+    <button class="btn" id="rotateanyway">Play anyway</button>
+  </section>
+</div>
 <script src="gl.js"></script>
 <script src="files.js"></script>
 <script src="opensgolf.js"></script>
@@ -369,6 +404,7 @@
   document.getElementById("packfolder").addEventListener("change", e => sgLoadPackFolder(e.target.files));
   document.getElementById("packzip").addEventListener("change", e => sgLoadPackZip(e.target.files[0]));
   document.getElementById("playfree").addEventListener("click", () => sgPlayFree());
+  document.getElementById("rotateanyway").addEventListener("click", () => sgRotateDismiss());
   document.getElementById("backup").addEventListener("click", () => sgBackupSaves());
   document.getElementById("restore").addEventListener("change", e => { sgRestoreFiles(e.target.files).finally(() => { e.target.value = ""; }); });
   document.querySelector('a[href="#saves"]').addEventListener("click", () => { document.getElementById("saves").open = true; });

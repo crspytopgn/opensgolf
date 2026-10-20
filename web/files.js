@@ -13,6 +13,23 @@ function sgVersion() {
     return SG_VERSION.startsWith("%") ? "dev" : SG_VERSION;
 }
 
+// --- phones and tablets held upright (the port's own; web/opensgolf.js sgFitCanvas) ------------------------------------------
+// SimGolf is a landscape game: its screens are 800 x 600. A phone or tablet (a touch device: a coarse pointer, or an iPad
+// that calls itself a Mac) held upright (taller than wide) is asked to turn sideways, until the player picks "Play anyway"
+// for the session. A desktop window, however tall, is never asked.
+function sgPortraitAsk(touch, w, h, dismissed) {
+    return !!touch && h > w && !dismissed;
+}
+
+// Where the game's canvas goes in the visible area (w x h at left, top): all of it, except on a touch device held upright,
+// where the game plays in a 4:3 band across the middle (the 800 x 600 screens fill its width; the rest is black), so the
+// whole game shows at the largest size the width allows, neither cut off nor stretched.
+function sgCanvasRect(touch, w, h, left, top) {
+    if (!touch || h <= w) return { left: Math.round(left), top: Math.round(top), width: Math.round(w), height: Math.round(h) };
+    const bh = Math.min(h, w * 3 / 4);
+    return { left: Math.round(left), top: Math.round(top + (h - bh) / 2), width: Math.round(w), height: Math.round(bh) };
+}
+
 function sgKey(p) {
     return p.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/$/, "").replace(/^\.\//, "").toLowerCase();
 }
@@ -1718,5 +1735,5 @@ function sgFilesSummary(paths, skipped = [], found = null, bad = null) {
 if (typeof module !== "undefined") {
     module.exports = { sgKey, sgSkip, sgRootOf, sgStraySound, sgPlace, sgZipEntries, sgZipRead, sgUnzip, sgInflate, sgInflateInto,
         sgBunzip2, sgUnlzma, sgUnppmd, sgZipName, sgZipPath, sgCrc32, sgFilesSummary, sgVersion, sgSoundCoding,
-        sgSoundCodings };
+        sgSoundCodings, sgPortraitAsk, sgCanvasRect };
 }
