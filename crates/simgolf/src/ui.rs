@@ -566,9 +566,18 @@ impl Screen {
         if !self.wide {
             return;
         }
+        self.shift.set(self.anchor_shift(a));
+    }
+
+    /// How far [`Self::anchor`] moves what follows (0, 0 in Classic), for hit tests that cannot wait for the frame's
+    /// rectangles (enhanced::unshift).
+    pub fn anchor_shift(&self, a: crate::enhanced::Anchor) -> (f32, f32) {
+        if !self.wide {
+            return (0.0, 0.0);
+        }
         let (dx, dy) = a.shift(self.extent());
         let k = self.view.scale;
-        self.shift.set(((dx * k).round() / k, (dy * k).round() / k));
+        ((dx * k).round() / k, (dy * k).round() / k)
     }
 
     /// One quad of the interface: corners (x0, y0) to (x1, y1) in 800x600 units, moved by the anchor in use.
