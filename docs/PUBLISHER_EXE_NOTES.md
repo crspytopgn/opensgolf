@@ -524,7 +524,46 @@ Confidence: high for the choice of sprite, palette and placement; screen offsets
 - Small pines and palms are drawn as two trees on the tile; other trees once, nudged sideways by ((a + 3b) % 5 - 2) zoom
   units. The view is (a - 2b) & 3.
 - A painted tile restarts its growth counter (flag 0x4000); a growing tree shows the counter as its frame, plays its sound
-  (0x93 broadleaf, 0x91 pine, 0x92 palm) when it starts and stops growing at its last frame.
+  (0x93 broadleaf, 0x91 pine, 0x92 palm) when it starts and stops growing at its last frame. See "Planting: trees grow".
+
+## Planting: trees grow (tile loops 0x412354 and 0x413da3, brush 0x420561)
+
+Confidence: EXACT for the counter, the frames, the end and the sound (read from the machine code at the addresses given);
+DERIVED for the rate (the tile loops are inside the main loop with no branch around them, so they run on every pass);
+WEAK for a game loaded mid-growth (the save format was not checked for the counter). Implemented in
+`sg_core::decor::sprout_frame` and `App::update_tree_growth`.
+- A newly planted tree springs up from a seedling: the tree sprites hold their growth in their own frames. Every tree file has
+  4 views of 11 to 16 frames (`Flics/Trees/*.flc`: maples 16, Scots pines 15, palms and tree cacti 13, pines, firs, Joshua
+  trees, cacti and the Links trees 12, small and medium spruces 11; the scenic trees: plum and dogwood 15, willow 14,
+  scenic elm, Japanese maple and peach 13, cypress and scenic tree 12), frame 0 a sprig a few pixels high and the last the
+  grown tree, and
+  each `...Shadow.flc` has the same frames, so the shadow grows with the tree (the shadow is drawn with the body's frame).
+  Nothing is scaled. The free set's tree sheets have the same frame counts, also drawn as a growing tree.
+- The brush (0x420608) sets the tile's flag 0x4000 and its counter (byte array 0x578804) to 0 on every tile whose type it
+  changes, whatever the brush; the same tile repainted with its own type is left alone. The building tool does the same for a
+  scenic tree (the willow tool, `place_tile_item`) and for a new flower bed.
+- The main loop draws a frame every (0xaf, or 0xfa with game flag 0x20000) / 2 = 87 (125) ms (wait at 0x41e65f, without the
+  wait in the fast mode). In each frame the tile loop 0x413da3 reads the counter of a flagged tile and adds one
+  (0x413df7; one in eight chances only while a weed stands there), clearing the flag once it is past 24 (0x413dfd). The
+  drawing does not stop for the pause (flag 4 only stops the tick at 0x41762f), so a tree planted while paused grows too.
+- Tree, pine and palm tiles (0x4142a0, 0x41456b, 0x41477d) draw the counter as the frame of the tree (both trees of a pair),
+  play the tree's sound (0x93 / 0x91 / 0x92, volume 100 / 50 / 50, 0x4481b0) when the counter is 0, and clear the flag when the
+  counter equals the sprite's frames per view less one (0x53f3e8). So a tree grows in 11 to 16 frames, about 1.0 to 1.4 s, the
+  same in every theme and for every brush (woods, pine, palm: maples, Joshua trees, tropical brush, pines, firs, spruces,
+  cacti, palms). While growing, a broadleaf is never swapped for the lone scenic elm (that test is in the grown branch,
+  0x41439c), so a lone broadleaf grows as a maple and then stands as the elm.
+- A scenic tree (scenic elm tile, 0x412c59) grows the same way with sound 0x93; its bed of flowers (0xfc) does not. A flower bed
+  piece (0x41338d) shows the counter as its frame and ends the growing at its last frame (counter set to 0xff).
+- A weed on the tile: the weed branch (0x41404e) sets the tree's counter to -1, so the tree is drawn grown.
+- A tile off the screen (0x42f940 fails, 0x413e23) drops the flag once its counter is past 0: trees planted out of sight are
+  grown when next seen, without the sound.
+- Gameplay: the flag is read elsewhere only by the golfers' weed complaint (0x425900: a weed counts once its tile is no longer
+  flagged), the groundskeeper (0x40342f) and the pointer's tool picture (0x419d53, 0x41a9c8: none over a growing tile). The
+  golfers, the ball and the ratings read the tile's type, which changes at once: the tree is there from the click.
+- The land generator never sets the flag, so the trees of a new course stand grown.
+- The port keeps the frames drawn per planted tile for the drawing only (`App::sprouts`), advanced by the exe's 87 ms frames
+  on the clock or by the game's ticks when they come faster, so a grown tree is drawn exactly as before and the simulation's
+  tiles are not touched by the drawing; a game loaded shows its trees grown.
 - Weeds: crabgrass (0x184) on types that are no hazard, the theme's weed (0x190: dandelion, oil slick in Desert, dry grass in
   Tropical) elsewhere; frame = last frame - (b & 2) - (a & 1), never below (a + 2b) & 3, the growth counter while growing.
 

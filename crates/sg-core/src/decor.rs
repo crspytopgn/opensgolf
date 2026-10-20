@@ -155,6 +155,18 @@ pub fn tree_sound(t: u8) -> Option<(i32, i32)> {
     }
 }
 
+/// A newly planted tree, scenic tree or flower bed as the main frame draws it while its tile grows (flag 0x4000, counter
+/// 0x578804, set to 0 by the brush at 0x420608 and by the building tool): the counter, which the tile loop at 0x413df7 adds
+/// one to on every drawn frame, is the frame shown (trees 0x4142a0, 0x41456b, 0x41477d; scenic trees 0x412c59; beds
+/// 0x41338d), and the growing stops when it reaches the sprite's last frame. A tile off the screen (0x413e23) stops growing
+/// once its counter has passed 0. `count` is the frames drawn since planting; returns the frame to draw and whether the
+/// plant is now grown.
+pub fn sprout_frame(count: u32, frames: i32, on_screen: bool) -> (i32, bool) {
+    let last = (frames - 1).max(0);
+    let c = count.min(last as u32) as i32;
+    (c, c >= last || (!on_screen && count > 0))
+}
+
 /// The weed sprite of a tile (0x413f46): crabgrass where the type is no hazard, the theme's weed elsewhere; the frame steps
 /// back from the last by the tile's position, never below its variant, and follows the growth counter while it grows.
 pub fn weed(t: u8, a: i32, b: i32, frames: i32, counter: Option<i32>) -> Draw {
@@ -663,6 +675,21 @@ pub fn palette_file(pal: u8, theme: u8) -> Option<&'static str> {
 mod tests {
     use super::*;
     use crate::course::{n, nn};
+
+    #[test]
+    fn a_planted_tree_grows_one_frame_per_drawn_frame() {
+        // a maple has 16 frames a view: frames 0..15 on the screen, grown on its last
+        let shown: Vec<(i32, bool)> = (0..17).map(|c| sprout_frame(c, 16, true)).collect();
+        assert_eq!(shown[0], (0, false));
+        assert_eq!(shown[7], (7, false));
+        assert_eq!(shown[15], (15, true));
+        assert_eq!(shown[16], (15, true));
+        // off the screen it is grown once its counter has passed 0
+        assert_eq!(sprout_frame(0, 16, false), (0, false));
+        assert_eq!(sprout_frame(1, 16, false), (1, true));
+        // a one-frame sprite is grown at once
+        assert_eq!(sprout_frame(0, 1, true), (0, true));
+    }
 
     #[test]
     fn rock_cuts_follow_the_sheet() {
