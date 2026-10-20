@@ -253,6 +253,21 @@ test("the canvas fills the view, or a 4:3 band across the middle of an upright t
     assert.ok(r.height <= 610 && r.top >= 0 && r.width === 600, JSON.stringify(r));
 });
 
+test("the start page's dark palette is the same for the device's dark scheme and the theme button's Dark", () => {
+    const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+    const block = re => {
+        const m = html.match(re);
+        assert.ok(m, "no block for " + re);
+        return m[1].replace(/\s+/g, " ").trim();
+    };
+    const device = block(/@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme="light"\]\) \{([^}]*)\}\s*\}/);
+    const button = block(/\n\s*:root\[data-theme="dark"\] \{([^}]*)\}/);
+    assert.ok(device.includes("--panel:"), device);
+    assert.strictEqual(button, device);
+    // and no other dark-only rules that the button's Dark would miss
+    assert.strictEqual(html.match(/prefers-color-scheme/g).length, 1);
+});
+
 (async () => {
     for (const [name, fn] of tests) {
         try {

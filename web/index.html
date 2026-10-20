@@ -6,6 +6,11 @@
 <meta name="theme-color" content="#1f6b3f">
 <meta name="description" content="OpenSGolf: Sid Meier's SimGolf, remastered. A free, open-source, fan-made golf resort game you can play right in your browser, with your own SimGolf files or free graphics.">
 <title>OpenSGolf: SimGolf, remastered, in your browser</title>
+<script>
+  // the colour theme picked with the page's theme button (the port's own): "light" or "dark" set on <html> before anything
+  // is drawn, so the page never flashes the other palette; nothing kept follows the device's scheme
+  try { var t = localStorage.getItem("opensgolf-theme"); if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%232f8f4e'/%3E%3Crect x='30' y='12' width='3' height='34' fill='%23fff'/%3E%3Cpath d='M33 12l16 6-16 6z' fill='%23e8423b'/%3E%3Ccircle cx='24' cy='46' r='6' fill='%23fff'/%3E%3C/svg%3E">
 <!-- the headline font (a free Google Font); without it the headlines fall back to the system's rounded or plain bold -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -36,9 +41,19 @@
     --code-bg: #e8efe2; --code-ink: #1d3a1f;
     --foot: #59625c;
     --dark-band: #17452a;
+    --mast-sky:
+      radial-gradient(90px 34px at 72% 28%, rgba(255,255,255,0.9), transparent 70%),
+      radial-gradient(70px 26px at 78% 22%, rgba(255,255,255,0.85), transparent 70%),
+      radial-gradient(120px 30px at 18% 78%, rgba(255,255,255,0.55), transparent 70%),
+      linear-gradient(180deg, #1b5cae 0%, #3a86d4 55%, #8cc4ee 100%);
+    --card-head: var(--bar2);
+    --site-ring: rgba(255, 255, 255, 0.55);
+    color-scheme: light;
   }
+  /* the dark palette: the device's dark scheme unless Light was picked with the theme button, or Dark picked with it. The
+     two blocks must stay the same (web/test.js checks); dark styles go in them as properties, not in rules of their own */
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --bg1: #0f2a1b; --bg2: #0b1d1f; --bg3: #070f22;
       --glow: rgba(90, 170, 110, 0.16); --dimple-lo: rgba(0, 0, 0, 0.22); --dimple-hi: rgba(255, 255, 255, 0.025);
       --panel: #142019;
@@ -55,7 +70,37 @@
       --code-bg: #24382a; --code-ink: #d9f0d0;
       --foot: #a9b6ad;
       --dark-band: #0e2a19;
+      --mast-sky:
+        radial-gradient(90px 34px at 72% 28%, rgba(255,255,255,0.12), transparent 70%),
+        linear-gradient(180deg, #0c1838 0%, #213a70 60%, #4b5b8f 100%);
+      --card-head: var(--gold);
+      --site-ring: rgba(255, 255, 255, 0.16);
+      color-scheme: dark;
     }
+  }
+  :root[data-theme="dark"] {
+    --bg1: #0f2a1b; --bg2: #0b1d1f; --bg3: #070f22;
+    --glow: rgba(90, 170, 110, 0.16); --dimple-lo: rgba(0, 0, 0, 0.22); --dimple-hi: rgba(255, 255, 255, 0.025);
+    --panel: #142019;
+    --panel-edge: #2c4434;
+    --ink: #e9f2e6;
+    --ink-soft: #bfd0c2;
+    --inset: #1c2b21;
+    --inset-hi: #2f4636;
+    --inset-lo: #0a120d;
+    --line: #2f4636;
+    --link: #8cc8ff;
+    --tip-bg: #3a2f0a; --tip-edge: #e0a800; --tip-ink: #fff1c2;
+    --news-bg: #15233a; --news-edge: #3c5f8c;
+    --code-bg: #24382a; --code-ink: #d9f0d0;
+    --foot: #a9b6ad;
+    --dark-band: #0e2a19;
+    --mast-sky:
+      radial-gradient(90px 34px at 72% 28%, rgba(255,255,255,0.12), transparent 70%),
+      linear-gradient(180deg, #0c1838 0%, #213a70 60%, #4b5b8f 100%);
+    --card-head: var(--gold);
+    --site-ring: rgba(255, 255, 255, 0.16);
+    color-scheme: dark;
   }
   * { box-sizing: border-box; }
   html { background: var(--bg3); scroll-behavior: smooth; }
@@ -81,29 +126,38 @@
 
   /* the site panel: fixed width, centred, bevelled */
   .site { position: relative; z-index: 1; max-width: 800px; margin: 24px auto 40px; background: var(--panel);
-    border: 1px solid #0d3b6e; border-radius: 14px; box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.55), 0 18px 50px rgba(5, 25, 60, 0.45);
+    border: 1px solid #0d3b6e; border-radius: 14px; box-shadow: 0 0 0 4px var(--site-ring), 0 18px 50px rgba(5, 25, 60, 0.45);
     overflow: hidden; }
 
   /* the masthead: a little sky and course of its own, the title and the in-game picture framed in green */
-  .mast { position: relative; padding: 14px 18px 46px; overflow: hidden; color: #fff;
-    background:
-      radial-gradient(90px 34px at 72% 28%, rgba(255,255,255,0.9), transparent 70%),
-      radial-gradient(70px 26px at 78% 22%, rgba(255,255,255,0.85), transparent 70%),
-      radial-gradient(120px 30px at 18% 78%, rgba(255,255,255,0.55), transparent 70%),
-      linear-gradient(180deg, #1b5cae 0%, #3a86d4 55%, #8cc4ee 100%); }
-  @media (prefers-color-scheme: dark) {
-    .mast { background:
-      radial-gradient(90px 34px at 72% 28%, rgba(255,255,255,0.12), transparent 70%),
-      linear-gradient(180deg, #0c1838 0%, #213a70 60%, #4b5b8f 100%); }
-  }
+  .mast { position: relative; padding: 14px 18px 46px; overflow: hidden; color: #fff; background: var(--mast-sky); }
   .mast .hills { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 56px; display: block; }
   .mast .row { position: relative; display: flex; align-items: center; gap: 18px; }
   .mast .titles { flex: 1 1 auto; min-width: 0; }
-  .toplinks { position: relative; display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+  .toplinks { position: relative; z-index: 2; display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
   .toplinks a { font: bold 12px var(--ui); color: #fff; text-decoration: none; padding: 5px 10px; border-radius: 4px;
     background: rgba(8, 36, 80, 0.55); border: 1px solid rgba(255, 255, 255, 0.35); min-height: 28px; display: inline-flex; align-items: center; }
   .toplinks a:hover { background: rgba(8, 36, 80, 0.8); text-decoration: underline; }
   .toplinks a.coffee { background: #ffdd00; color: #1b1b1b; border-color: #b39b00; }
+  /* the theme button (the port's own): a glossy gel pill turning Auto (the device's scheme), Light and Dark in turn; it
+     shows the one in use from <html>'s data-theme, so it is right from the first paint; a taller tap area round it */
+  .theme { position: relative; display: inline-flex; align-items: center; min-height: 28px; padding: 0 11px 0 7px; border-radius: 14px;
+    font: bold 12px var(--ui); color: #0d2a52; cursor: pointer; border: 1px solid #5d7fa8;
+    background: linear-gradient(180deg, #ffffff 0%, #e6eff9 45%, #c9daef 52%, #dde9f6 100%);
+    box-shadow: inset 0 1px 0 #fff, inset 0 -2px 3px rgba(40, 80, 130, 0.22), 0 1px 2px rgba(0, 0, 0, 0.3); -webkit-tap-highlight-color: transparent; }
+  .theme::before { content: ""; position: absolute; inset: -8px -3px; }
+  .theme:hover { filter: brightness(1.06); }
+  .theme:active { box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.25); }
+  .theme:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .theme > span { display: inline-flex; align-items: center; gap: 5px; }
+  .theme svg { width: 16px; height: 16px; flex: 0 0 auto; }
+  .theme .t-light, .theme .t-dark,
+  :root[data-theme="light"] .theme .t-auto, :root[data-theme="dark"] .theme .t-auto { display: none; }
+  :root[data-theme="light"] .theme .t-light, :root[data-theme="dark"] .theme .t-dark { display: inline-flex; }
+  :root[data-theme="dark"] .theme { color: #fff; border-color: #0b1640; text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.5);
+    background: linear-gradient(180deg, #7d8cc8 0%, #3b4a8c 45%, #24326e 52%, #33428a 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 -2px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.3); }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   header { display: flex; align-items: center; gap: 12px; }
   header svg { flex: 0 0 auto; width: 62px; height: 62px; filter: drop-shadow(0 3px 4px rgba(0, 20, 50, 0.5)); }
   h1 { margin: 0; font: 800 clamp(40px, 7vw, 58px)/1 var(--head); color: var(--gold); letter-spacing: 0.5px;
@@ -146,8 +200,7 @@
   .card { background: var(--inset); border: 1px solid; border-color: var(--inset-lo) var(--inset-hi) var(--inset-hi) var(--inset-lo);
     box-shadow: inset 1px 1px 0 rgba(0,0,0,0.06), 0 0 0 1px var(--line); border-radius: 8px; padding: 14px;
     display: flex; flex-direction: column; gap: 8px; }
-  .card h2 { margin: 0; font: 700 19px/1.25 var(--head); color: var(--bar2); display: flex; align-items: center; gap: 8px; }
-  @media (prefers-color-scheme: dark) { .card h2 { color: var(--gold); } }
+  .card h2 { margin: 0; font: 700 19px/1.25 var(--head); color: var(--card-head); display: flex; align-items: center; gap: 8px; }
   .card h2 .icon { font-size: 20px; }
   .card p { margin: 0; color: var(--ink-soft); }
   .card .actions { margin-top: auto; display: flex; flex-wrap: wrap; gap: 10px; padding-top: 6px; }
@@ -409,6 +462,12 @@
   <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#2f74c8" stroke="#fff" stroke-width="1.2"/><rect x="10.8" y="10" width="2.4" height="8" rx="1" fill="#fff"/><circle cx="12" cy="6.8" r="1.5" fill="#fff"/></symbol>
   <symbol id="i-sound" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#f0b400" stroke="#8a5a00" stroke-width="1"/><path d="M5.5 9.5h3l4-3.5v12l-4-3.5h-3z" fill="#2b1d00"/>
     <path d="M15 8.5a5 5 0 0 1 0 7M17.3 6.5a8 8 0 0 1 0 11" fill="none" stroke="#2b1d00" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><g stroke="#d98a00" stroke-width="2" stroke-linecap="round"><path d="M12 1.8v2.6M12 19.6v2.6M1.8 12h2.6M19.6 12h2.6M4.8 4.8l1.8 1.8M17.4 17.4l1.8 1.8M4.8 19.2l1.8-1.8M17.4 6.6l1.8-1.8"/></g>
+    <circle cx="12" cy="12" r="5.2" fill="#ffd23f" stroke="#d98a00" stroke-width="1.2"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M15.5 3a9 9 0 1 0 5.5 13.6A7.4 7.4 0 0 1 15.5 3z" fill="#ffe680" stroke="#c99a00" stroke-width="1"/>
+    <circle cx="18" cy="6" r="1" fill="#fff"/><circle cx="21" cy="10" r="0.7" fill="#fff"/></symbol>
+  <symbol id="i-auto" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5" fill="#ffd23f" stroke="#2c3a78" stroke-width="1.4"/>
+    <path d="M12 2.5a9.5 9.5 0 0 1 0 19z" fill="#2c3a78"/></symbol>
 </svg>
 <div id="picker">
   <div id="backdrop" aria-hidden="true">
@@ -420,6 +479,8 @@
         <a href="https://github.com/crspytopgn/opensgolf#download">Downloads</a>
         <a href="https://github.com/crspytopgn/opensgolf">GitHub</a>
         <a class="coffee" href="https://buymeacoffee.com/crspytopgn">☕ Buy me a coffee</a>
+        <button type="button" class="theme" id="theme"><span class="vh">Colour theme: </span><span class="t-auto"><svg aria-hidden="true"><use href="#i-auto"/></svg>Auto</span><span
+          class="t-light"><svg aria-hidden="true"><use href="#i-sun"/></svg>Light</span><span class="t-dark"><svg aria-hidden="true"><use href="#i-moon"/></svg>Dark</span></button>
       </nav>
       <div class="row">
         <div class="titles">
@@ -778,6 +839,18 @@
   document.getElementById("rotateanyway").addEventListener("click", () => sgRotateDismiss());
   document.getElementById("backup").addEventListener("click", () => sgBackupSaves());
   document.getElementById("restore").addEventListener("change", e => { sgRestoreFiles(e.target.files).finally(() => { e.target.value = ""; }); });
+  // the theme button turns Auto (the device's scheme) → Light → Dark, kept in this browser for the head script to set early
+  const theme = document.getElementById("theme");
+  const sgThemeName = { auto: "Auto, following your device", light: "Light", dark: "Dark" };
+  const sgThemeNext = { auto: "light", light: "dark", dark: "auto" };
+  function sgThemeShow(mode) { theme.title = "Colour theme: " + sgThemeName[mode] + ". Click for " + sgThemeName[sgThemeNext[mode]].split(",")[0]; }
+  sgThemeShow(document.documentElement.getAttribute("data-theme") || "auto");
+  theme.addEventListener("click", () => {
+    const mode = sgThemeNext[document.documentElement.getAttribute("data-theme") || "auto"];
+    if (mode === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", mode);
+    try { if (mode === "auto") localStorage.removeItem("opensgolf-theme"); else localStorage.setItem("opensgolf-theme", mode); } catch (e) {}
+    sgThemeShow(mode);
+  });
   // links to a folded box (Your saved games, the packs) open it; the tab bar marks the section clicked
   document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener("click", () => {
     const t = document.getElementById(a.getAttribute("href").slice(1));
