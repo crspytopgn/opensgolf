@@ -33,7 +33,7 @@ impl App {
     /// Draws the course and everything on it. Camera as the original: ortho +-5000 depth, pitch about X, then yaw 45 degrees.
     pub fn render_world(&mut self, g: &mut Gfx) {
         // world units per drawable pixel: the zoom is in the 800 x 600 screen's pixels, so a bigger window shows the same view
-        let vscale = (self.draw_w / 800.0).min(self.draw_h / 600.0);
+        let vscale = crate::ui::view_scale(self.draw_w, self.draw_h);
         // the zoom and turn as shown: eased by Enhanced's smooth camera, else the camera's own (enhanced.rs)
         let upp = 2.0 / (self.view_zoom() * vscale);
         let (hw, hh) = (self.draw_w * upp * 0.5, self.draw_h * upp * 0.5);
@@ -112,7 +112,7 @@ impl App {
         let lifts = sg_core::pro::aim_lifts(p.distance, opt, zoom);
         let mv = self.mv;
         let (ux, uy, uz) = (mv[1], mv[5], mv[9]);
-        let vscale = (self.draw_w / 800.0).min(self.draw_h / 600.0);
+        let vscale = crate::ui::view_scale(self.draw_w, self.draw_h);
         let px = self.upp * vscale; // world units per 800 x 600 pixel
                                     // a ground point moved `up` pixels up the screen
         let lifted = |p: [f32; 3], up: f32| [p[0] + ux * up * px, p[1] + uy * up * px, p[2] + uz * up * px];
@@ -206,7 +206,7 @@ impl App {
                                                   // The sprites were rendered at 4 camera yaws, 90 degrees apart; 8 view sprites (people) face 45 degree steps.
         let quarter = ((self.view_rot() / 90.0).round() as i32 % 4 + 4) % 4;
         let s = SPRITE_UNITS_PER_PIXEL;
-        let px = self.upp * (self.draw_w / 800.0).min(self.draw_h / 600.0); // world units per 800 x 600 pixel
+        let px = self.upp * crate::ui::view_scale(self.draw_w, self.draw_h); // world units per 800 x 600 pixel
         let mut items: Vec<(f32, usize)> = Vec::new();
         // where each prop is drawn: between the last two ticks with Enhanced's smooth motion (enhanced.rs), else where it is
         let smooth = crate::enhanced::smooth_motion();
@@ -314,6 +314,8 @@ impl App {
             self.fx_cast_shadows(g, u, &items, &shown);
             // the evening's pools of lamp and window light on the ground (fx_night.rs)
             self.fx_light_pools(g, u);
+            // the grass the dawn's sprinklers water (fx_dawn.rs)
+            self.fx_sprinkler_wet(g, u);
         }
         let art_shadows = !crate::fx_shadow::hide_art_shadows();
         // the exe composites each sprite's shadow under its body when it loads them (0x43d740 draws NameShadow.flc, then
@@ -330,6 +332,10 @@ impl App {
             if crate::fx::active() { self.fx_lamp_quads(px).into_iter().map(|(k, v)| (k, lamp_tex, v)).collect() } else { Vec::new() };
         // and the Path styles and lamps extra's lamp posts (paths_lamps.rs)
         lamps.extend(self.lamp_quads(g.white, lamp_tex));
+        // Enhanced graphics only: the dawn's sprinklers, in the same order (fx_dawn.rs)
+        if crate::fx::active() {
+            lamps.extend(self.fx_sprinkler_quads(g.white));
+        }
         lamps.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
         let mut next_lamp = 0;
         for &(key, i) in &items {
@@ -400,7 +406,7 @@ impl App {
         let mv = self.mv;
         let (rx, ry, rz) = (mv[0], mv[4], mv[8]);
         let (ux, uy, uz) = (mv[1], mv[5], mv[9]);
-        let vscale = (self.draw_w / 800.0).min(self.draw_h / 600.0);
+        let vscale = crate::ui::view_scale(self.draw_w, self.draw_h);
         let px = self.upp * vscale; // world units per 800 x 600 pixel
         let side = (2.0 * self.exe_zoom() / 4.0).max(1.0f32);
         if self.ball_trail.len() != self.club.g.len() {
@@ -543,7 +549,7 @@ pub const COURSE_SIZE_RECT: Rect = Rect::new(14.0, 548.0, 300.0, 44.0);
 /// Its hover code.
 pub const COURSE_SIZE_HIT: i32 = 101;
 
-/// The game style button on Select Difficulty (the port's own, docs/PLAYING.md "Original game or OpenSGolf extras"):
+/// The Game box on Select Difficulty (the port's own, docs/PLAYING.md "Original game or OpenSGolf extras": the presets),
 /// a box right of the course size.
 /// It starts right of x 472, where the Impossible face's hit area (DIFF_CENTRES[3]) ends at this height.
 pub const STYLE_RECT: Rect = Rect::new(480.0, 548.0, 255.0, 44.0);
@@ -791,9 +797,12 @@ impl App {
         // and "Course editor..." (editor.rs)
         self.draw_editor_button(g, &s);
         if !self.toast.is_empty() && self.clock < self.toast_until {
-            let w = text_width(&self.toast, 18.0) + 24.0;
-            s.fill(g, 400.0 - w / 2.0, 560.0, w, 30.0, rgba(0.1, 0.1, 0.3, 0.9));
-            s.text_centered(g, 400.0, 581.0, &self.toast, 18.0, rgb(1.0, 1.0, 0.8));
+            // with bigger text (textsize.rs) the note grows up from the bottom, as wide as the screen at most
+            let size = crate::textsize::fit_px(18.0, 2.0, &self.toast, 780.0);
+            let w = text_width(&self.toast, size) + 24.0;
+            let h = 30.0 + (size - 18.0);
+            s.fill(g, 400.0 - w / 2.0, 590.0 - h, w, h, rgba(0.1, 0.1, 0.3, 0.9));
+            s.text_centered(g, 400.0, 581.0, &self.toast, size, rgb(1.0, 1.0, 0.8));
         }
         g.flush();
     }
@@ -842,17 +851,22 @@ impl App {
             let detail = trf("STR_COURSE_SIZE_DETAIL", &[("TILES", &n), ("YARDS", &(n * 25))]);
             s.text(g, r.x + 10.0, r.y + 37.0, &detail, 12.0, rgb(0.85, 0.85, 1.0));
         }
-        // the game style (the port's own): the original game or the OpenSGolf extras, one click apart
+        // the game's preset (the port's own, extras_ui.rs Preset): Original, Original + helpers, OpenSGolf or Custom, a
+        // click steps to the next
         {
             let r = STYLE_RECT;
             let lit = self.hover == STYLE_HIT;
             self.free_box_or_fill(g, &s, r, lit);
-            let (name, detail) = match self.game_style() {
-                crate::extras_ui::GameStyle::Original => ("STR_STYLE_ORIGINAL", "STR_STYLE_ORIGINAL_DETAIL"),
-                crate::extras_ui::GameStyle::Extras => ("STR_STYLE_EXTRAS", "STR_STYLE_EXTRAS_DETAIL"),
-                crate::extras_ui::GameStyle::Mix => ("STR_STYLE_MIX", "STR_STYLE_MIX_DETAIL"),
+            let p = self.game_style();
+            // Klepto ITC, the title screens' face, draws its plus sign as a bar: "Original & helpers" here
+            let name = trf("STR_STYLE_GAME", &[("PRESET", &tr(p.key()))]).replace('+', "&");
+            let detail = match p {
+                crate::extras_ui::Preset::Original => "STR_STYLE_ORIGINAL_DETAIL",
+                crate::extras_ui::Preset::Helpers => "STR_STYLE_HELPERS_DETAIL",
+                crate::extras_ui::Preset::OpenSGolf => "STR_STYLE_OPENSGOLF_DETAIL",
+                crate::extras_ui::Preset::Custom => "STR_STYLE_CUSTOM_DETAIL",
             };
-            s.text(g, r.x + 10.0, r.y + 19.0, tr(name), 17.0, if lit { rgb(1.0, 1.0, 0.6) } else { rgb(1.0, 1.0, 1.0) });
+            s.text(g, r.x + 10.0, r.y + 19.0, &name, 17.0, if lit { rgb(1.0, 1.0, 0.6) } else { rgb(1.0, 1.0, 1.0) });
             s.text(g, r.x + 10.0, r.y + 37.0, tr(detail), 12.0, rgb(0.85, 0.85, 1.0));
         }
         g.flush();

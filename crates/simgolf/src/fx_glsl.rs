@@ -289,9 +289,14 @@ vec3 frosty(vec3 c, float grass, vec4 lm) {
     float patchy = noise(w_pos.xz * 0.012) * 0.6 + noise(w_pos.xz * 0.05) * 0.4 + 0.3 * (1.0 - lm.g);
     // above 1 the frost's slot carries the snow (fx_winter.rs): 1 + 2 x snow
     float snow = max(fx2.z - 1.0, 0.0) * 0.5;
-    float f = min(fx2.z, 1.0) * gm * smoothstep(0.12, 0.8, patchy);
+    // a full frost lies as an even pale sheen; as the morning warms it melts back into the hollows and the shade, in
+    // patches, before it goes (the port's own)
+    float fr = min(fx2.z, 1.0);
+    float f = gm * smoothstep(0.92 - fr, 1.25 - fr, patchy) * smoothstep(0.0, 0.25, fr);
     float l = dot(c, vec3(0.299, 0.587, 0.114));
-    c = mix(c, vec3(0.84, 0.88, 0.92) * (0.55 + 0.6 * l), f * 0.42);
+    // rime: a fine grain of brighter crystals over the sheen
+    float rime = hash(floor(w_pos.xz * 0.7));
+    c = mix(c, vec3(0.84, 0.89, 0.94) * (0.58 + 0.6 * l), f * (0.30 + 0.14 * rime));
     if (snow > 0.0) {
         // under snow the grass is a dull winter green, pale and grey
         float lv = (1.0 - lm.a) * smoothstep(0.5, 0.85, up_n);

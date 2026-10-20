@@ -368,6 +368,7 @@ impl App {
     fn close_content(&mut self) {
         self.screen = Screen::Play;
         self.hover = -1;
+        self.return_to_prefs();
     }
 
     /// Switches a row: a mod on or off; a base set or translation chosen (a translation chosen again: none).

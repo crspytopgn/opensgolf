@@ -43,6 +43,7 @@ mod framerate;
 mod fx;
 mod fx_ball;
 mod fx_crowd;
+mod fx_dawn;
 mod fx_glsl;
 mod fx_heat;
 mod fx_life;
@@ -83,6 +84,7 @@ mod photo;
 mod player_panel;
 mod popup_ui;
 mod prefs_search;
+mod prefs_ui;
 mod pro_ui;
 mod profile_ui;
 mod render;
@@ -92,9 +94,11 @@ mod scenario_ui;
 mod scorecard_ui;
 mod screens_ui;
 mod share;
+mod showcase;
 mod staffview_ui;
 mod sysdiag;
 mod tags_ui;
+mod textsize;
 mod thoughts_ui;
 mod touch;
 mod tourney_ui;
@@ -382,6 +386,8 @@ struct Stage {
     /// A key just opened a name box (Shift+S the Save dialog): the character that key types comes next and is not the
     /// name's (it put an "S" in front of every typed save name).
     swallow_char: bool,
+    /// The click or tap that ended the showcase fly-over (showcase.rs): its button's release does nothing either.
+    showcase_up: bool,
     /// The wheel's turn not yet spent on a zoom step (in notches) and the clock of its last event.
     wheel: (f32, f64),
     pause_toggle: bool,
@@ -562,6 +568,12 @@ fn open_screen(app: &mut App, screen: Option<&str>) {
             if let Some(h) = std::env::var("SG_LANDING_HOLE").ok().and_then(|v| v.parse::<usize>().ok()) {
                 app.xs.insight.hole = h.clamp(1, 18);
                 app.xs.insight.fixed = true;
+            }
+            // SG_LANDING_SHOW=M[,W]: what it shows (0 shots, 1 landings, 2 waiting, 3 complaints), W 1 for the whole course
+            if let Ok(v) = std::env::var("SG_LANDING_SHOW") {
+                let v = ints(&v);
+                app.xs.insight.show = v.first().copied().unwrap_or(0).clamp(0, 3) as u8;
+                app.xs.insight.whole = v.get(1).is_some_and(|&w| w != 0);
             }
         }
         Some(s @ ("history" | "profile" | "pathview" | "tags" | "ticker" | "card")) if app.ui_ok => {
@@ -1008,6 +1020,10 @@ fn apply_edit_spec(app: &mut App, spec: &str) {
                         popup_ui::PopupKind::Search
                     }
                     8 => popup_ui::PopupKind::ResetOriginal,
+                    // M:9, M:10, M:11 Preferences' Graphics, Game files and More boxes (prefs_ui.rs)
+                    9 => popup_ui::PopupKind::PrefsGraphics,
+                    10 => popup_ui::PopupKind::PrefsFiles,
+                    11 => popup_ui::PopupKind::PrefsMore,
                     _ => popup_ui::PopupKind::LandOffer,
                 };
                 app.open_popup(kind);
@@ -1313,6 +1329,8 @@ impl Stage {
         extras::init(o.no_extras);
         // the player's keys (controls.rs)
         controls::init();
+        // the text size (textsize.rs; Preferences' Text size line)
+        textsize::init();
         // the effects (fx.rs) follow Enhanced's ticks; --fx / --fx-set / OPENSGOLF_FX turn them on for this run
         fx::configure(o.fx, o.fx_set.as_deref());
         if !app.load_theme(&mut g, app.theme) {
@@ -1587,6 +1605,7 @@ impl Stage {
             alt: false,
             ctrl_click: false,
             swallow_char: false,
+            showcase_up: false,
             wheel: (0.0, 0.0),
             pause_toggle: false,
             shown_version: 0,
@@ -1605,8 +1624,19 @@ impl Stage {
         }
     }
 
-    /// What a popup menu's choice does (docs/DECODE_MENUS.md 3, 4, 5).
+    /// What a popup menu's choice does; a box opened from Preferences (or one of its boxes) goes back to it when done
+    /// (prefs_ui.rs).
     fn popup_done(&mut self, r: popup_ui::PopupResult) {
+        let back = self.app.popup.as_ref().map(|p| p.back);
+        self.popup_choice(r);
+        let done = r != Some(usize::MAX) && self.app.screen != Screen::Popup && Some(self.app.screen) == back;
+        if done && self.app.notice.is_none() {
+            self.app.return_to_prefs();
+        }
+    }
+
+    /// What a popup menu's choice does (docs/DECODE_MENUS.md 3, 4, 5).
+    fn popup_choice(&mut self, r: popup_ui::PopupResult) {
         let Some(kind) = self.app.popup.as_ref().map(|p| p.kind) else { return };
         // the career's end takes any answer but the first (Esc too) as the main menu
         let r = if kind == popup_ui::PopupKind::CareerOver { Some(r.unwrap_or(1)) } else { r };
@@ -1622,6 +1652,8 @@ impl Stage {
         // the Enhanced graphics, Extras and search boxes' ticks, across their pages
         let pref = self.app.popup.as_ref().map(|p| p.pref.clone());
         let query = self.app.popup.as_ref().map(|p| p.query.clone()).unwrap_or_default();
+        // Preferences and its boxes: their options and ticks (prefs_ui.rs)
+        let (items, checks) = self.app.popup.as_ref().map(|p| (p.items.clone(), p.checks)).unwrap_or_default();
         self.app.close_popup();
         use popup_ui::PopupKind;
         match kind {
@@ -1693,7 +1725,10 @@ impl Stage {
                 }
                 3 => self.app.save_championship_pro(),
                 4 => self.app.open_rename(),
-                5 => self.app.open_popup(PopupKind::Prefs),
+                5 => {
+                    self.app.prefs_stack.clear();
+                    self.app.open_popup(PopupKind::Prefs);
+                }
                 6 => self.app.save_championship_course(),
                 7 => self.app.open_popup(PopupKind::Retire),
                 8 if extras::sharing() => self.app.share_course(),
@@ -1750,43 +1785,29 @@ impl Stage {
                     self.apply_extras(p.ex, p.ui);
                 }
             }
-            PopupKind::Prefs => {
-                let m = k as u32;
-                if m & 1 << popup_ui::PREFS_CONTENT != 0 {
-                    self.app.open_content();
+            // Preferences and its boxes (prefs_ui.rs): the ticks are put in use (as with OK), then the line chosen does its
+            // thing
+            PopupKind::Prefs | PopupKind::PrefsGraphics | PopupKind::PrefsFiles | PopupKind::PrefsMore => {
+                self.apply_pref_ticks(&items, checks);
+                if let Some(&line) = items.get(k) {
+                    self.prefs_line(kind, line);
                 }
-                self.app.show_thoughts = m & 1 != 0;
-                self.app.show_advisor = m & 2 != 0;
-                self.app.club.wildlife.enabled = m & 4 != 0;
-                if self.app.switch_hd(&mut self.g, m & 16 != 0) {
-                    self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
-                }
-                // the port's own Enhanced graphics tick: its master switch, the options under it kept
-                let mut enh = enhanced::settings();
-                enh.enabled = m & 1 << popup_ui::PREFS_ENHANCED_ON != 0;
-                if self.app.apply_enhanced(&mut self.g, enh) {
-                    self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
-                }
-                if m & 1 << popup_ui::PREFS_ENHANCED != 0 && m & 1 << popup_ui::PREFS_CONTENT == 0 {
-                    self.app.open_popup(PopupKind::Enhanced);
-                }
-                // the port's own Keyboard controls line (keys_ui.rs)
-                if m & 1 << popup_ui::PREFS_KEYS != 0 {
-                    let back = self.app.screen;
-                    self.app.open_keys(back);
-                }
-                // the port's own OpenSGolf extras line (extras_ui.rs, extras.rs)
-                if m & 1 << popup_ui::PREFS_EXTRAS != 0 {
-                    self.app.open_popup(PopupKind::Extras);
-                }
-                // the port's own Search line (prefs_search.rs), on no words
-                if m & 1 << popup_ui::PREFS_SEARCH != 0 {
-                    self.app.pref_query.clear();
-                    self.app.open_popup(PopupKind::Search);
-                }
-                let sound = m & 8 != 0;
-                if sound == self.app.mute {
-                    self.app.mute = !sound;
+            }
+        }
+    }
+
+    /// Preferences' and its boxes' ticks put in use (only the box's own: the others are as they were).
+    fn apply_pref_ticks(&mut self, items: &[prefs_ui::Line], checks: u32) {
+        use prefs_ui::Line;
+        let mut enh = enhanced::settings();
+        for (k, &l) in items.iter().enumerate() {
+            let on = checks & 1 << k != 0;
+            match l {
+                Line::Thoughts => self.app.show_thoughts = on,
+                Line::Advisor => self.app.show_advisor = on,
+                Line::Animals => self.app.club.wildlife.enabled = on,
+                Line::Sound if on == self.app.mute => {
+                    self.app.mute = !on;
                     if self.app.mute {
                         if let Some(mx) = &self.app.mixer {
                             mx.stop_all();
@@ -1796,19 +1817,78 @@ impl Stage {
                     }
                     self.app.music_screen = None;
                 }
-                // the port's own "Use my SimGolf files..." line, after the ticks are kept (gamefiles.rs)
-                if m & 1 << popup_ui::PREFS_FILES_FLAG != 0 {
-                    if let Some((a, _)) = self.app.files_option() {
-                        self.app.files_action_in_game(a);
+                Line::Hd => {
+                    if self.app.switch_hd(&mut self.g, on) {
+                        self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
                     }
                 }
+                // the port's own Enhanced graphics tick: its master switch, the options under it kept; pixel-perfect scaling
+                // (an Enhanced setting that counts in Classic too); and the bug fixes (kept with the Enhanced settings,
+                // though no Enhanced option: they count in Classic too)
+                Line::Enhanced => enh.enabled = on,
+                Line::PixelPerfect => enh.pixel_perfect = on,
+                Line::FixBugs => enh.fix_original_bugs = on,
+                // the port's own update check (kept with the interface extras' ticks)
+                Line::UpdateCheck => {
+                    let mut ui = extras::settings();
+                    if ui.update_check != on {
+                        ui.update_check = on;
+                        extras::set(ui);
+                        extras::save(&ui);
+                    }
+                }
+                _ => {}
             }
+        }
+        if self.app.apply_enhanced(&mut self.g, enh) {
+            self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
+        }
+    }
+
+    /// A line of Preferences or one of its boxes that does something (`from` the box it is in).
+    fn prefs_line(&mut self, from: popup_ui::PopupKind, line: prefs_ui::Line) {
+        use popup_ui::PopupKind;
+        use prefs_ui::Line;
+        match line {
+            Line::GameOptions => self.app.open_prefs_child(from, PopupKind::Extras),
+            Line::Graphics => self.app.open_prefs_child(from, PopupKind::PrefsGraphics),
+            Line::GameFiles => self.app.open_prefs_child(from, PopupKind::PrefsFiles),
+            Line::More => self.app.open_prefs_child(from, PopupKind::PrefsMore),
+            Line::EnhancedSettings => self.app.open_prefs_child(from, PopupKind::Enhanced),
+            // Search on no words
+            Line::Search => {
+                self.app.pref_query.clear();
+                self.app.open_prefs_child(from, PopupKind::Search);
+            }
+            Line::Controls => {
+                self.app.prefs_stack.push(from);
+                let back = self.app.screen;
+                self.app.open_keys(back);
+            }
+            Line::Content => {
+                self.app.prefs_stack.push(from);
+                self.app.open_content();
+            }
+            // "Use my SimGolf files..." (gamefiles.rs) and Check for updates now (update.rs) answer in a box over the game
+            Line::Files => {
+                self.app.prefs_stack.clear();
+                if let Some((a, _)) = self.app.files_option() {
+                    self.app.files_action_in_game(a);
+                }
+            }
+            Line::UpdateNow => {
+                self.app.prefs_stack.clear();
+                self.app.check_for_updates();
+            }
+            _ => {}
         }
     }
 
     /// The OpenSGolf extras chosen in Preferences: the gameplay ones become the game's (and the next game's) extras, the
     /// interface ones are put in use; both are saved.
     fn apply_extras(&mut self, ex: sg_core::extras::Extras, ui: extras::Settings) {
+        // a mix of the player's own is kept for the presets' Custom (extras_ui.rs)
+        extras_ui::remember_custom(&ex, &ui);
         self.app.set_extras(ex);
         extras::set(ui);
         extras::save(&ui);
@@ -1820,14 +1900,20 @@ impl Stage {
         }
     }
 
-    /// The search box's settings put in use and saved (prefs_search.rs): Enhanced graphics, the extras, the keys.
+    /// The search box's settings put in use and saved (prefs_search.rs): HD, Enhanced graphics, the extras, the keys.
     fn apply_prefs(&mut self, p: &prefs_search::Prefs) {
+        if self.app.switch_hd(&mut self.g, p.hd) {
+            self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
+        }
         if self.app.apply_enhanced(&mut self.g, p.enh) {
             self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
         }
         self.apply_extras(p.ex, p.ui);
         if p.keys != controls::settings() {
             controls::save(p.keys.clone());
+        }
+        if p.text != textsize::pct() {
+            textsize::save(p.text);
         }
     }
 
@@ -1872,6 +1958,82 @@ impl Stage {
             let (a, b) = app.terrain.tile_of(hx, hz);
             app.right_click_undo(a, b);
         }
+    }
+
+    /// The previews that follow the pointer on the course each frame: the tile under it, the tape's far end, the pro's aim
+    /// and the armed tool's ground point; a touch target (touch.rs) stands in for the pointer.
+    pub(crate) fn pointer_preview(&mut self) {
+        let app = &mut self.app;
+        let what = app.touch_target_for();
+        app.touch_target.sync(what);
+        let touch_hit = app.touch_target.active(what).then_some(app.touch_target.target);
+        if app.screen == Screen::Play {
+            let hit = match touch_hit {
+                Some(t) => t,
+                None => app.pick_ground(self.mouse.0, self.mouse.1),
+            };
+            app.hover_tile = hit.map(|(x, z)| app.terrain.tile_of(x, z));
+            // the measuring tape's far end follows the pointer (build_tools.rs)
+            app.tape_pointer(pin_world(app).or(hit));
+            let (vx, vy) = app.view.to_virtual(self.mouse.0, self.mouse.1);
+            match hit {
+                _ if app.auto_aim != 0 => {}
+                Some((x, z)) if touch_hit.is_some() && app.club.pro_aiming().is_some() => app.aim_pointer(x, z),
+                None if touch_hit.is_some() && app.club.pro_aiming().is_some() => app.aim = None,
+                // the aiming frame runs while the pointer is above the panel (mouse y < 480)
+                Some((x, z)) if app.club.pro_aiming().is_some() && vy < 452.0 && !(app.ui_ok && dock_hit(vx, vy) >= 0) => {
+                    app.aim_pointer(x, z)
+                }
+                _ if app.club.pro_aiming().is_none() => app.aim = None,
+                _ => {}
+            }
+        }
+        if app.edit {
+            let hit = match touch_hit {
+                Some(t) => t,
+                None => pin_world(app).or_else(|| app.pick_ground(self.mouse.0, self.mouse.1)),
+            };
+            app.has_hit = hit.is_some();
+            if let Some((x, z)) = hit {
+                app.hit_x = x;
+                app.hit_z = z;
+            }
+        }
+    }
+
+    /// A left press on the course with a tool armed, at ground point `hit` (also the touch Place button's, touch.rs).
+    fn course_press(&mut self, hit: Option<(f32, f32)>) {
+        // the port's own undo: the game as it is before a click on the course (undo.rs)
+        if self.app.screen == Screen::Play {
+            self.app.undo_press();
+        }
+        self.editing = true;
+        self.app.last_cell = -1;
+        self.app.has_hit = hit.is_some();
+        if let Some((hx, hz)) = hit {
+            self.app.hit_x = hx;
+            self.app.hit_z = hz;
+        }
+        // the terrain brush's rectangle (Shift) and fill (Alt), the port's own (build_tools.rs)
+        match self.app.brush_area_press(self.shift, self.alt) {
+            // with the drag to place extra a row kind starts a row instead (placed on release)
+            build_tools::AreaPress::None if self.app.row_press(self.shift) => {}
+            build_tools::AreaPress::None => self.app.apply_tool(self.shift, false),
+            build_tools::AreaPress::Rect => {}
+            build_tools::AreaPress::Filled => self.editing = false,
+        }
+    }
+
+    /// The left button let go: a rectangle or row under way is painted or placed, a drag ends and the undo step is kept.
+    fn course_release(&mut self) {
+        self.app.brush_area_release();
+        self.app.row_release();
+        if self.dragging {
+            self.app.drag_state(false, now());
+        }
+        self.dragging = false;
+        self.editing = false;
+        self.app.undo_release();
     }
 
     /// Returns true when the click was on the dock or an open panel.
@@ -2090,6 +2252,13 @@ impl Stage {
         // the player's keys (controls.rs): the key pressed becomes the default key of the action bound to it
         let aiming = self.app.club.pro_aiming().is_some();
         let Some((k, shift, act)) = controls::translate(k, self.shift, self.ctrl, aiming) else { return };
+        self.play_action(k, shift, act);
+    }
+
+    /// What a course screen key does, given as the original's (default) key, its Shift and the action it was bound to (the
+    /// touch buttons, touch.rs, come in here with their action whatever keys the player chose).
+    pub(crate) fn play_action(&mut self, k: KeyCode, shift: bool, act: Option<usize>) {
+        let aiming = self.app.club.pro_aiming().is_some();
         // the port's hidden Cheats box (cheats_ui.rs; Ctrl+Shift+C)
         if act == Some(controls::action("cheats")) {
             self.app.open_cheats();
@@ -2114,6 +2283,11 @@ impl Stage {
         let row = self.app.bt.row_from.is_some();
         if k == KeyCode::Escape && self.app.build_tools_cancel() {
             self.editing &= !row;
+            return;
+        }
+        // the port's own showcase fly-over (showcase.rs): Shift+O, a key the original leaves unused
+        if act == Some(controls::action("showcase")) {
+            self.app.toggle_showcase();
             return;
         }
         // the port's own: the whole interface hidden or shown again (u; controls_ui.rs)
@@ -2207,7 +2381,7 @@ impl Stage {
                 // the OpenSGolf extras' keys (extras.rs): People, the message history, name tags, the path view
                 KeyCode::G if extras::people() => app.open_people(),
                 KeyCode::M if extras::history() => app.open_history(),
-                KeyCode::H => app.toggle_name_tags(),
+                KeyCode::H if extras::name_tags() => app.toggle_name_tags(),
                 KeyCode::V if extras::path_help() => app.toggle_path_view(),
                 // the port's own comfort keys (comfort.rs, staffview_ui.rs): quick save, quick load, the staff areas
                 KeyCode::F5 => app.quick_save(),
@@ -2388,6 +2562,8 @@ impl Stage {
         enhanced::begin_frame();
         // OpenSGolf extras: People > Follow keeps the camera on its target (extras.rs)
         app.follow_tick();
+        // the port's own showcase fly-over moves the camera hole by hole (showcase.rs; nothing until it is used)
+        app.showcase_frame();
         app.camera_frame(app.clock);
         app.count_exe_frames();
         // the title screens set Klepto ITC (difficulty, the file lists and Pick A Pro, the theme packs); the rest of the game
@@ -2445,9 +2621,14 @@ impl Stage {
             if post {
                 app.fx_world_end(&mut self.g, target);
             }
-            app.draw_building_label(&mut self.g);
-            if app.great_shot.is_none() {
-                app.draw_cursor_overlay(&mut self.g);
+            if app.showcase.is_some() {
+                // the showcase fly-over: the course alone, with the hole's caption (showcase.rs)
+                app.draw_showcase_caption(&mut self.g);
+            } else {
+                app.draw_building_label(&mut self.g);
+                if app.great_shot.is_none() {
+                    app.draw_cursor_overlay(&mut self.g);
+                }
             }
             if app.hud_hidden() {
                 // the interface hidden with u (controls_ui.rs): only a note on how to bring it back
@@ -2532,6 +2713,10 @@ impl Stage {
         // the OpenSGolf extras' tab strip over the F1 to F10 reports (report_tabs.rs)
         self.app.draw_report_tabs(&mut self.g);
         self.app.draw_notice(&mut self.g);
+        // pixel-perfect scaling's border round the picture (ui.rs; nothing when it is off), under the touch layer
+        if self.app.photo.is_none() {
+            ui::pixel_border(&mut self.g, self.app.draw_w, self.app.draw_h);
+        }
         self.draw_touch_buttons();
         self.draw_osk();
         self.draw_gamepad_pointer();
@@ -2728,6 +2913,10 @@ impl Stage {
             // the pointer is tested against the interface as last drawn
             self.draw_frame(None);
         }
+        // SG_SHOWCASE=T: the showcase fly-over, T seconds in (showcase.rs)
+        self.app.showcase_test_hook();
+        // SG_TOUCH and SG_TAP: the touch layer's buttons and taps (touch.rs)
+        self.touch_test_hook();
         // SG_PRESS="u;Shift+F6;...": keys pressed after the clicks (names as settings.json's "controls" has them)
         for b in std::env::var("SG_PRESS").unwrap_or_default().split(';').filter_map(controls::Binding::parse) {
             let mods = KeyMods { shift: b.shift, ctrl: b.ctrl, ..Default::default() };
@@ -2814,30 +3003,8 @@ impl EventHandler for Stage {
             app.open_popup(popup_ui::PopupKind::CareerOver);
         }
         app.screen_audio();
-        if app.screen == Screen::Play {
-            let hit = app.pick_ground(self.mouse.0, self.mouse.1);
-            app.hover_tile = hit.map(|(x, z)| app.terrain.tile_of(x, z));
-            // the measuring tape's far end follows the pointer (build_tools.rs)
-            app.tape_pointer(pin_world(app).or(hit));
-            let (vx, vy) = app.view.to_virtual(self.mouse.0, self.mouse.1);
-            match hit {
-                _ if app.auto_aim != 0 => {}
-                // the aiming frame runs while the pointer is above the panel (mouse y < 480)
-                Some((x, z)) if app.club.pro_aiming().is_some() && vy < 452.0 && !(app.ui_ok && dock_hit(vx, vy) >= 0) => {
-                    app.aim_pointer(x, z)
-                }
-                _ if app.club.pro_aiming().is_none() => app.aim = None,
-                _ => {}
-            }
-        }
-        if app.edit {
-            let hit = pin_world(app).or_else(|| app.pick_ground(self.mouse.0, self.mouse.1));
-            app.has_hit = hit.is_some();
-            if let Some((x, z)) = hit {
-                app.hit_x = x;
-                app.hit_z = z;
-            }
-        }
+        self.pointer_preview();
+        let app = &mut self.app;
         if app.dirty {
             let t0 = now();
             app.rebuild_batches(&mut self.g);
@@ -2987,6 +3154,10 @@ impl EventHandler for Stage {
         sysdiag::event(sysdiag::Ev::Mouse);
         self.gamepad_mouse_moved(x, y);
         let (dx, dy) = (x - self.mouse.0, y - self.mouse.1);
+        // a mouse (not a finger) moved: hovering previews again (touch.rs)
+        if !self.by_finger() && dx * dx + dy * dy >= 16.0 {
+            self.app.touch_target.pointer_moved();
+        }
         self.mouse = (x, y);
         if self.app.photo.is_some() {
             self.photo_motion(x, y, dx, dy);
@@ -3116,6 +3287,11 @@ impl EventHandler for Stage {
         let button = if self.ctrl_click { MouseButton::Right } else { button };
         sysdiag::event(sysdiag::Ev::Click);
         self.mouse = (x, y);
+        // a click or a tap ends the showcase fly-over (showcase.rs), and does nothing else
+        if self.app.end_showcase() {
+            self.showcase_up = true;
+            return;
+        }
         // a notice (gamefiles.rs) takes the click
         if self.app.notice.is_some() {
             let (vx, vy) = self.app.view.to_virtual(x, y);
@@ -3270,6 +3446,10 @@ impl EventHandler for Stage {
         if ui_ok && button == MouseButton::Left && self.app.ticker_click(vx, vy) {
             return;
         }
+        // the landing map's legend: what it shows and for which holes (insight.rs)
+        if ui_ok && button == MouseButton::Left && self.app.landing_legend_click(vx, vy) {
+            return;
+        }
         if ui_ok && button == MouseButton::Left && self.app.card_click(vx, vy) {
             return;
         }
@@ -3306,6 +3486,11 @@ impl EventHandler for Stage {
         {
             return;
         }
+        // a finger's tap with the pro waiting or a building in hand sets the touch target instead (touch.rs): the Swing or
+        // Place button then acts on it
+        if button == MouseButton::Left && self.app.touch_target_for().is_some() && self.target_tap(x, y) {
+            return;
+        }
         if button == MouseButton::Left && self.app.club.pro_aiming().is_some() && !self.app.edit {
             if let Some((hx, hz)) = self.app.pick_ground(x, y) {
                 self.app.aim_pointer(hx, hz);
@@ -3326,27 +3511,9 @@ impl EventHandler for Stage {
             }
             return;
         }
-        // the port's own undo: the game as it is before a click on the course (undo.rs)
-        if button == MouseButton::Left && self.app.screen == Screen::Play && self.app.edit {
-            self.app.undo_press();
-        }
         if self.app.edit && button == MouseButton::Left {
-            self.editing = true;
-            self.app.last_cell = -1;
             let hit = self.app.pick_ground(x, y);
-            self.app.has_hit = hit.is_some();
-            if let Some((hx, hz)) = hit {
-                self.app.hit_x = hx;
-                self.app.hit_z = hz;
-            }
-            // the terrain brush's rectangle (Shift) and fill (Alt), the port's own (build_tools.rs)
-            match self.app.brush_area_press(self.shift, self.alt) {
-                // with the drag to place extra a row kind starts a row instead (placed on release)
-                build_tools::AreaPress::None if self.app.row_press(self.shift) => {}
-                build_tools::AreaPress::None => self.app.apply_tool(self.shift, false),
-                build_tools::AreaPress::Rect => {}
-                build_tools::AreaPress::Filled => self.editing = false,
-            }
+            self.course_press(hit);
         } else {
             self.dragging = true;
             // a drag of the view ends People > Follow
@@ -3362,6 +3529,9 @@ impl EventHandler for Stage {
 
     fn mouse_button_up_event(&mut self, button: MouseButton, x: f32, y: f32) {
         let button = if button == MouseButton::Left && std::mem::take(&mut self.ctrl_click) { MouseButton::Right } else { button };
+        if std::mem::take(&mut self.showcase_up) {
+            return;
+        }
         if self.app.photo.is_some() {
             self.photo_button(false, button, x, y);
             return;
@@ -3382,8 +3552,8 @@ impl EventHandler for Stage {
             return;
         }
         if button == MouseButton::Left {
-            self.app.brush_area_release();
-            self.app.row_release();
+            self.course_release();
+            return;
         }
         if self.dragging {
             self.app.drag_state(false, now());
@@ -3426,14 +3596,19 @@ impl EventHandler for Stage {
         self.app.ctrl_held = self.ctrl;
         self.alt = mods.alt || k == KeyCode::LeftAlt || k == KeyCode::RightAlt;
         self.app.bt.alt = self.alt;
+        // any key ends the showcase fly-over (showcase.rs), and does nothing else
+        if self.app.end_showcase() {
+            return;
+        }
         let typing = self.app.typing();
         self.key_down(k);
         self.swallow_char = !typing && self.app.typing();
     }
 
     fn files_dropped_event(&mut self) {
-        // the port's own Course sharing: shared courses, saved games and course codes dropped on the window (share.rs)
-        if !extras::sharing() {
+        // the port's own Course sharing, or Import and export saved games: shared courses, saved games and course codes
+        // dropped on the window (share.rs)
+        if !extras::sharing() && !extras::save_files() {
             return;
         }
         for i in 0..miniquad::window::dropped_file_count() {

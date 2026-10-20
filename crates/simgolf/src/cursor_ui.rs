@@ -340,7 +340,7 @@ impl App {
         let (rx, ry, rz, ux, uy, uz) = (mv[0], mv[4], mv[8], mv[1], mv[5], mv[9]);
         let s = sg_core::sprites::SPRITE_UNITS_PER_PIXEL;
         let y = self.terrain.height_at(x, z);
-        let px = dx * self.upp * (self.draw_w / 800.0).min(self.draw_h / 600.0);
+        let px = dx * self.upp * crate::ui::view_scale(self.draw_w, self.draw_h);
         let (x, y, z) = (x + rx * px, y + ry * px, z + rz * px);
         let (l, r, t, b) = (-ax * s, (w - ax) * s, ay * s, -(h - ay) * s);
         let col = [1.0, 1.0, 1.0, if look == Look::Ghost { 0.6 } else { 1.0 }];

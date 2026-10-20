@@ -38,12 +38,11 @@ STR_COURSE_SIZE_ORIGINAL                :Original
 STR_COURSE_SIZE_LARGE                   :Large
 STR_COURSE_SIZE_HUGE                    :Huge
 STR_COURSE_SIZE_GIANT                   :Giant
-STR_STYLE_ORIGINAL                      :Game: the original
-STR_STYLE_ORIGINAL_DETAIL               :Exactly as it was. Click for extras.
-STR_STYLE_EXTRAS                        :Game: OpenSGolf extras
-STR_STYLE_EXTRAS_DETAIL                 :Extras on. Click for the original.
-STR_STYLE_MIX                           :Game: your own mix
-STR_STYLE_MIX_DETAIL                    :From Preferences. Click for the original.
+STR_STYLE_GAME                          :Game: {PRESET}
+STR_STYLE_ORIGINAL_DETAIL               :Exactly as it was. Click to change.
+STR_STYLE_HELPERS_DETAIL                :Same play, with helpers and looks.
+STR_STYLE_OPENSGOLF_DETAIL              :Helpers plus light gameplay extras.
+STR_STYLE_CUSTOM_DETAIL                 :Your own mix from Preferences.
 
 ########################################################################################################################
 # Title screens: Load Previous Game, Select Championship Course, Pick A Pro, Select a Theme Pack
@@ -1306,20 +1305,60 @@ STR_MENU_PREFS_CONTENT                  : Content packs...
 # Preferences > Enhanced graphics (the port's own, not in the original; docs/ENHANCED.md). The options start with a space.
 STR_MENU_PREFS_ENHANCED_ON              : Enhanced graphics (off: Classic)
 STR_MENU_PREFS_ENHANCED                 : Enhanced graphics settings...
-# Preferences > Keyboard controls (the port's own screen listing every key)
-STR_MENU_PREFS_KEYS                     : Keyboard controls...
-# Preferences > OpenSGolf extras (the port's own optional gameplay changes, all off by default; docs/PLAYING.md). The
-# options start with a space.
-STR_MENU_PREFS_EXTRAS                   : OpenSGolf extras...
 # Preferences > Search (the port's own, prefs_search.rs): find an option on any page of the Preferences by its words
 STR_MENU_PREFS_SEARCH                   : Search options...
+# Preferences' text size line (the port's own, textsize.rs): a click steps normal, 125%, 150%
+STR_MENU_PREFS_TEXT_SIZE                : Text size: {SIZE}
+# Preferences' layout (the port's own, prefs_ui.rs): the original's four ticks, a divider, then one line per group of the
+# port's options, each opening a box (Text size steps at once). The options start with a space.
+STR_PREFS_DIVIDER                       :OpenSGolf
+STR_PREFS_GAME_OPTIONS                  : Game options...
+STR_PREFS_GRAPHICS                      : Graphics...
+STR_PREFS_CONTROLS                      : Controls and keys...
+STR_PREFS_GAME_FILES                    : Game files...
+STR_PREFS_MORE                          : More...
+STR_PREFS_GRAPHICS_TITLE                :Graphics
+STR_PREFS_FILES_TITLE                   :Game files
+STR_PREFS_MORE_TITLE                    :More
+STR_PREFS_UPDATE_NOW                    : Check for updates now (online)
+# The description at the foot of Preferences and its boxes, of the line pointed at or tapped; the hint with none
+STR_PREFS_HINT                          :Point at an OpenSGolf line, or tap it, to read what it does.
+STR_PREFS_HINT_GRAPHICS                 :With HD and Enhanced both off you play in Classic, the original's own graphics.
+STR_PREFS_TAP_AGAIN                     :{DESC} Tap again to open.
+STR_PREFS_DESC_GAME_OPTIONS             :Optional extras, all off at first: presets, gameplay changes, sandbox switches, looks, information and helpers.
+STR_PREFS_DESC_GRAPHICS                 :Classic (the original's), HD art or Enhanced graphics, pixel-perfect scaling and the Enhanced settings.
+STR_PREFS_DESC_CONTROLS                 :Every key the game takes, the Original or Modern controls, and Change keys to set your own.
+STR_PREFS_DESC_TEXT_SIZE                :Bigger text in the boxes, messages and tooltips. Each click steps: normal, 125%, 150%.
+STR_PREFS_DESC_GAME_FILES               :Your own SimGolf files or the free graphics, content packs (mods) and the language.
+STR_PREFS_DESC_MORE                     :Fixes for the original game's bugs, checking for updates, and a search of every option.
+STR_PREFS_DESC_HD                       :The game's art upscaled from an HD pack you make from your own copy (docs/HD.md); play is unchanged.
+STR_PREFS_DESC_ENHANCED                 :Sharp at any screen size and widescreen, with optional effects; play is unchanged. Off: Classic.
+STR_PREFS_DESC_PIXEL_PERFECT            :Scales the picture by whole sizes only, so every pixel stays the same size; counts in Classic too.
+STR_PREFS_DESC_ENHANCED_SETTINGS        :What Enhanced graphics does, page by page: display, effects, atmosphere, weather and water.
+STR_PREFS_DESC_FILES_MINE               :Plays on your own copy of SimGolf's files instead of the free graphics (the game starts again).
+STR_PREFS_DESC_FILES_FREE               :Plays on OpenSGolf's free graphics instead of your SimGolf files (the game starts again).
+STR_PREFS_DESC_CONTENT                  :The installed content packs (mods): switch them on or off and set their order; used from the next start.
+STR_PREFS_DESC_LANGUAGE                 :The game's language: each click steps to the next installed translation.
+STR_PREFS_DESC_FIX_BUGS                 :Mends glitches of the original game itself (docs/FIXES.md); on at first. Off: the game as it was in 2002.
+STR_PREFS_DESC_UPDATE_NOW               :Asks GitHub now whether a newer OpenSGolf is out, as the title menu's button does.
+STR_PREFS_DESC_SEARCH                   :Finds any option by its words, shows what differs from the original, or resets it all. Typing a letter here does it too.
+STR_TEXT_SIZE_NORMAL                    :normal
+STR_TEXT_SIZE_125                       :125%
+STR_TEXT_SIZE_150                       :150%
+# The search box's place of the text size line: Preferences itself
+STR_SEARCH_PLACE_PREFS                  :Preferences
 STR_SEARCH_TITLE                        :Search the Preferences (type to find)
 STR_SEARCH_FIND                         :Find: {QUERY}
 STR_SEARCH_HINT                         :(type a word, e.g. snow, pause or par)
 STR_SEARCH_CHANGED                      : Show only what differs from the original game
-# A found option: "{page}: {option}"; the pages of Enhanced graphics' master switch and of the keys
-STR_SEARCH_PLACE_ENHANCED               :Graphics
-STR_SEARCH_PLACE_KEYS                   :Keys
+# A found option: "{place}: {option}", the place being the Preferences line that leads to it (prefs_ui.rs)
+STR_SEARCH_PLACE_KEYS                   :Controls and keys
+STR_SEARCH_PLACE_GRAPHICS               :Graphics
+STR_SEARCH_PLACE_FILES                  :Game files
+STR_SEARCH_PLACE_MORE                   :More
+STR_SEARCH_PLACE_GAME_OPTIONS           :Game options
+# a box and the page in it (Graphics > Water, Game options > Gameplay)
+STR_SEARCH_PLACE_IN                     :{A} > {B}
 # a found option's category and its page or tag (Graphics · Water, Gameplay · Noticeable)
 STR_SEARCH_PLACE_TWO                    :{A} · {B}
 STR_SEARCH_KEY                          :{ACTION} ({KEY})
@@ -1332,7 +1371,7 @@ STR_RESET_ORIGINAL_YES                  : Yes, back to the original game.
 STR_RESET_ORIGINAL_NO                   : No, keep my choices.
 STR_EXTRAS_TITLE                        :OpenSGolf extras (not in the original)
 STR_EXTRAS_ROTATE                       : Tab turns placed buildings and the clubhouse
-STR_EXTRAS_CUT_CONTENT                  : Cut content: unused landmarks
+STR_EXTRAS_CUT_CONTENT                  : Cut content: unused landmarks (decoration only)
 STR_EXTRAS_HARDCORE                     : Hardcore economy
 STR_EXTRAS_MORE_STAFF                   : Higher staff limits
 STR_EXTRAS_ANIMALS                      : Buyable animals
@@ -1358,7 +1397,7 @@ STR_EXTRAS_HINT_TAGGED                  :Each tag says how much the game changes
 STR_EXTRAS_HINT_PLAIN                   :Point at an option, or tap it, to read what it does.
 # the foot of the box: what the option under the pointer (or last tapped) changes
 STR_EXTRAS_DESC_ROTATE                  :Tab turns a placed building or the clubhouse a quarter, or steps through the designs of the item in hand. Only the picture turns.
-STR_EXTRAS_DESC_CUT_CONTENT             :Fourteen landmarks the original never used join the landmark strip. Golfers enjoy the view; they have no special powers.
+STR_EXTRAS_DESC_CUT_CONTENT             :Experimental: decoration only, no landmark powers. Fourteen landmarks the original never used join the landmark strip; golfers enjoy the view.
 STR_EXTRAS_DESC_HARDCORE                :Tighter money and choosier golfers: higher wages, upkeep and land prices, more interest, lower fees and at most 12 staff.
 STR_EXTRAS_DESC_MORE_STAFF              :Your club may hire up to 40 employees instead of the original's 20.
 STR_EXTRAS_DESC_ANIMALS                 :Buy pairs of the theme's animals from the landmark strip. They stay near where you set them down and cheer golfers up.
@@ -1373,10 +1412,10 @@ STR_EXTRAS_DESC_PATHS                   :Draws every path in brick, gravel, dark
 STR_EXTRAS_DESC_MORE_VISITORS           :Touring pros and celebrities drop in now and then. They pay more, draw crowds and say what they thought of your course.
 STR_EXTRAS_DESC_PEOPLE                  :A sortable list of every golfer and employee, with golfer profiles and your pro's screens (Shift+G).
 STR_EXTRAS_DESC_HISTORY                 :Keeps every ticker message with its date, so you can read back what you missed (Shift+M).
-STR_EXTRAS_DESC_NAME_TAGS               :A small tag with the name of the golfer or employee under the pointer (Shift+H turns them off and on).
+STR_EXTRAS_DESC_NAME_TAGS               :A small tag with the name of the golfer or employee under the pointer (Shift+H hides and shows them).
 STR_EXTRAS_DESC_REPORT_TABS             :A strip of tabs over the F1 to F10 reports flips from one report to another without going back to the course.
 STR_EXTRAS_DESC_PATH_HELP               :Path view (Shift+V) marks paths that reach the clubhouse and buildings they miss; a Show button finds a closed building.
-STR_EXTRAS_DESC_LANDING_MAP             :Dots on the course show where the golfers' shots on a hole come to rest, with a count of where they ended (Shift+D).
+STR_EXTRAS_DESC_LANDING_MAP             :Dots on the course show where the golfers' shots on a hole come to rest; its legend switches to heat maps of where balls land, golfers wait and golfers complain (Shift+D).
 STR_EXTRAS_DESC_HOLE_COMMENTS           :The thoughts golfers had most often on each hole, this month, last month or this year (Shift+I).
 STR_EXTRAS_DESC_GRAPHS                  :Graphs of the club and each hole month by month: rounds, money, happiness, ratings and members (Shift+Y).
 STR_EXTRAS_DESC_LIVE_SCORECARDS         :An open golfer card shows the golfer's round so far, hole by hole, as the original shows your pro's.
@@ -1388,8 +1427,8 @@ STR_EXTRAS_DESC_SHARING                 :Copy a code for your course to send to 
 STR_EXTRAS_DESC_PAUSE_BACKGROUND        :The game pauses while its window is in the background and goes on when you come back.
 STR_EXTRAS_DESC_PAUSE_EVENTS            :The game pauses when a VIP arrives, a famous golfer challenges your pro, the SGA makes an offer or money runs short.
 STR_EXTRAS_DESC_UPDATE_CHECK            :Looks online for a newer OpenSGolf when the game starts, and offers it only if there is one.
-STR_EXTRAS_DESC_ZOOM_POINTER            :The mouse wheel and a pinch zoom towards the spot you point at, instead of the middle of the screen.
-STR_EXTRAS_DESC_DRAG_PLACE              :Drag with benches, flower beds and the like in hand to lay a straight row of them, with the cost shown as you go.
+STR_EXTRAS_DESC_ZOOM_POINTER            :The mouse wheel and a pinch zoom towards the spot you point at. Part of the Modern controls preset (Keyboard controls, Change keys).
+STR_EXTRAS_DESC_DRAG_PLACE              :Drag with benches, flower beds and the like in hand to lay a straight row of them. Part of the Modern controls preset (Change keys).
 STR_EXTRAS_DESC_TICKER_JUMP             :A click on a ticker message takes the camera to the golfer or place it is about.
 # Slower seasons: a click steps the calendar's speed (1x is the original's)
 STR_EXTRAS_SEASON_SPEED                 : Slower seasons: the calendar at {VALUE}
@@ -1437,7 +1476,6 @@ STR_ENHANCED_MSAA                       : Anti-aliasing
 STR_ENHANCED_SMOOTH_CAMERA              : Smooth camera: zoom, turns and panning
 STR_ENHANCED_SMOOTH_MOTION              : Smooth motion between game ticks
 STR_ENHANCED_PHOTO_MODE                 : Photo mode (the C key or the camera button)
-STR_ENHANCED_FIX_BUGS                   : Fix the original game's bugs (Classic too)
 STR_ENHANCED_FX_SCALER                  : Pixel-art scaling of sprites and pictures
 STR_ENHANCED_FX_SCALER_MODE             : Pixel-art scaler: {VALUE}
 STR_ENHANCED_FX_WATER                   : Animated water
@@ -1458,8 +1496,8 @@ STR_ENHANCED_FX_RAIN                    : Rain on some days
 STR_ENHANCED_FX_MIST                    : Morning mist in low ground
 STR_ENHANCED_FX_REFLECTIONS             : Reflections and sun glitter on the water
 STR_ENHANCED_FX_WIND                    : Wind: trees, palms and flags sway
-STR_ENHANCED_FX_EVENING_LIGHTS          : Lit windows, lamps and fireflies at dusk
-STR_ENHANCED_FX_SEASONS                 : Seasons: blossom, autumn colours, frost
+STR_ENHANCED_FX_EVENING_LIGHTS          : Lamps and fireflies at dusk
+STR_ENHANCED_FX_SEASONS                 : Seasons: blossom, autumn colours, dew
 STR_ENHANCED_FX_AFTER_RAIN              : Wet ground, puddles and rainbows
 STR_ENHANCED_FX_LIGHTNING               : Lightning in heavy rain
 STR_ENHANCED_FX_HEAT                    : Heat waves in the desert: bleached light, parched grass
@@ -2307,12 +2345,13 @@ STR_PROFILE_SAVED                       :Profile "{NAME}" saved.
 STR_PROFILE_DELETED                     :Profile "{NAME}" deleted.
 STR_PROFILE_LOADED                      :Profile "{NAME}" loaded: restart the game to play with it.
 STR_PROFILE_LOADED_MISSING              :Profile "{NAME}" loaded without the packs not installed: {MISSING}. Restart the game to play with it.
-# Loading a game saved with other content packs (content_profiles.rs). {SAVED} and {NOW} list packs as "id version".
-STR_SAVE_PACKS_DIFFER                   :This game was saved with the content packs {SAVED}; the game is now running with {NOW}. It may not play as it did.
-STR_SAVE_PACKS_MISSING                  :Not installed (or in another version): {MISSING}.
-STR_SAVE_PACKS_SWITCH                   :Switch to the save's packs (the game restarts and loads it)
-STR_SAVE_PACKS_SWITCH_LATER             :Switch to the save's packs (then restart and load it)
-STR_SAVE_PACKS_LOAD_ANYWAY              :Load it with the packs in use
+# Loading a game saved with other content packs (content_profiles.rs): plain words; the packs' ids and versions go to the
+# log only
+STR_SAVE_PACKS_DIFFER                   :This game was saved with other add-ons (mods or a translation) than the ones in use. It may play a little differently. Load it anyway?
+STR_SAVE_PACKS_MISSING                  :Some of them are not installed here.
+STR_SAVE_PACKS_SWITCH                   :Switch to what it was saved with (the game restarts and loads it)
+STR_SAVE_PACKS_SWITCH_LATER             :Switch to what it was saved with (then restart and load it)
+STR_SAVE_PACKS_LOAD_ANYWAY              :Load it anyway
 STR_SAVE_PACKS_CANCEL                   :Do not load it
 STR_SAVE_PACKS_SWITCHED                 :Switched to the saved game's content packs.
 STR_SAVE_PACKS_RESTART_YOURSELF         :The save's content packs are chosen. Restart the game (in a browser: reload the page), then load the game again.
@@ -2733,7 +2772,7 @@ STR_EXTRAS_LANDING_MAP                  : Landing map: where shots on a hole end
 STR_EXTRAS_HOLE_COMMENTS                : Comments by hole, this month and last (Shift+I)
 STR_EXTRAS_UPDATE_CHECK                 : Check for updates when the game starts (online)
 STR_EXTRAS_GRAPHS                       : History graphs: the club and each hole month by month (Shift+Y)
-STR_EXTRAS_ZOOM_POINTER                 : Zoom towards the pointer (the wheel keeps the ground under it)
+STR_EXTRAS_ZOOM_POINTER                 : Controls: zoom towards the pointer
 STR_MENU_SYSTEM_SHARE                   : Share course (copy a course code)
 STR_FILES_PASTE_CODE                    :Paste a course code
 STR_FILES_CHALLENGE                     :Challenge: beat {DESIGNER}'s record of {SCORE}
@@ -2748,7 +2787,6 @@ STR_FILES_PICK_SAVE_TITLE               :Import a saved game, shared course or c
 STR_FILES_EXPORT_TITLE                  :Export the saved game
 STR_TOAST_SAVE_EXPORTED                 :{NAME} exported: {FILE}
 STR_TOAST_SAVE_FOLDER                   :Saved games are files in {FOLDER}. Copy a save file (.sgs) there to load it.
-STR_TOAST_ORIGINAL_SAVE                 :{FILE} is a saved game of the original SimGolf. OpenSGolf cannot read those yet (their layout is not decoded); continue it in the original, or start the course again here.
 STR_TOAST_TOP10_IMPORTED                :The original's Top 10 Designers were added to yours ({COUNT} made the list).
 # A game date: "March 3, 2001"
 STR_EXTRAS_DATE                         :{MONTH} {DAY}, {YEAR}
@@ -2842,8 +2880,8 @@ STR_PATHVIEW_NO_PATH                    :No path
 STR_PATHVIEW_HOLE                       :Hole {HOLE} tee
 STR_PATHVIEW_ON                         :Path view on: Shift+V hides it.
 STR_PATHVIEW_OFF                        :Path view off.
-STR_TOAST_NAME_TAGS_ON                  :Name tags under the pointer on (Shift+H).
-STR_TOAST_NAME_TAGS_OFF                 :Name tags under the pointer off (Shift+H).
+STR_TOAST_NAME_TAGS_ON                  :Name tags shown (Shift+H hides them).
+STR_TOAST_NAME_TAGS_OFF                 :Name tags hidden (Shift+H shows them again).
 # The landing map (insight.rs): the legend in the upper right
 STR_LANDING_TITLE                       :Landing map (Shift+D)
 STR_LANDING_TITLE_HOLE                  :Landing map: hole {HOLE}
@@ -2859,6 +2897,21 @@ STR_LANDING_POINT                       :Point at a hole to see its shots.
 STR_LANDING_CLOSE                       :Shift+D hides the landing map.
 STR_LANDING_ON                          :Landing map on: point at a hole. Shift+D hides it.
 STR_LANDING_OFF                         :Landing map off.
+# The landing map's heat maps (insight.rs): the legend's tabs and key
+STR_LANDING_TITLE_COURSE                :Landing map: whole course
+STR_LANDING_SHOW_DOTS                   :Shots
+STR_LANDING_SHOW_LANDED                 :Landings
+STR_LANDING_SHOW_WAITING                :Waiting
+STR_LANDING_SHOW_COMPLAINTS             :Complaints
+STR_LANDING_THIS_HOLE                   :This hole
+STR_LANDING_WHOLE_COURSE                :Whole course
+STR_LANDING_NO_HOLES                    :No holes are open yet.
+STR_LANDING_FEW                         :few
+STR_LANDING_MANY                        :many
+STR_LANDING_HEAT_NONE                   :Nothing seen here yet: the map fills as golfers play.
+STR_LANDING_HEAT_LANDED                 :Where the last {COUNT} tee shots and approaches came to rest.
+STR_LANDING_HEAT_WAITING                :Where golfers stood waiting: {MINUTES} golfer-minutes in all.
+STR_LANDING_HEAT_COMPLAINTS             :Where golfers complained: {COUNT} complaints in all.
 # Comments by hole (insight.rs)
 STR_HOLECOMMENTS_TITLE                  :Comments by Hole
 STR_HOLECOMMENTS_THIS_MONTH             :This month ({MONTH})
@@ -3058,14 +3111,14 @@ STR_FILES_CHEATED                       :Cheats used
 STR_CUST_LEFT_HANDED                    :Left-handed
 # drag to place (an OpenSGolf extra, build_tools.rs): its tick on the Extras box's Interface page, and the row's count and
 # total cost shown by the pointer while dragging (the sandbox shows the count only)
-STR_EXTRAS_DRAG_PLACE                   : Drag to place: rows of benches, flower beds and the like
+STR_EXTRAS_DRAG_PLACE                   : Controls: drag to place rows of benches and the like
 STR_ROW_COST                            :{ITEMS} items: {MONEY}
 STR_ROW_ITEMS                           :{ITEMS} items
 # the Change keys screen's presets (controls.rs Preset): the buttons, and the line under them once one is clicked
 STR_CTL_PRESET_ORIGINAL                 :Original controls
 STR_CTL_PRESET_MODERN                   :Modern controls
-STR_CTL_PRESET_ORIGINAL_DONE            :Original controls: every key the original's; the WASD camera, zooming towards the pointer, drag to place and the smooth camera off.
-STR_CTL_PRESET_MODERN_DONE              :Modern controls: the WASD camera, zooming towards the pointer, drag to place and the smooth camera (with Enhanced graphics) on.
+STR_CTL_PRESET_ORIGINAL_DONE            :Original controls: every key the original's; the WASD camera, zooming towards the pointer, drag to place, right-drag panning and the smooth camera off.
+STR_CTL_PRESET_MODERN_DONE              :Modern controls: the WASD camera, zooming towards the pointer, drag to place, right-drag panning and the smooth camera (with Enhanced graphics) on.
 # Weather that matters (sg_core::weather, a gameplay extra): its line in the Extras box, the morning's forecast on the
 # ticker, and a thunderstorm holding play
 STR_EXTRAS_WEATHER                      : Weather that matters (rain, snow, heat, storms)
@@ -3191,9 +3244,91 @@ STR_NET_BUSY                            :{URL}: the server takes no more request
 STR_NET_HTTP                            :{URL}: the server answered HTTP {CODE}
 
 # Right-drag panning (OpenSGolf extras, issue #67)
-STR_EXTRAS_RIGHT_DRAG                   : Right-drag panning: drag with the right button to move the course
-STR_EXTRAS_DESC_RIGHT_DRAG              :Drag with the right button held to move the course, as OpenSGolf did before. A right click without dragging still undoes and puts tools away, as in the original.
+STR_EXTRAS_RIGHT_DRAG                   : Controls: right-drag moves the course
+STR_EXTRAS_DESC_RIGHT_DRAG              :Drag with the right button to move the course; a right click still undoes, as in the original. Part of the Modern controls preset (Change keys).
 
 # Random trees (OpenSGolf extras, issue #68)
 STR_EXTRAS_RANDOM_TREES                 : Random trees: each tree planted gets a random look
 STR_EXTRAS_DESC_RANDOM_TREES            :Every tree the woods, pine and palm brushes plant gets a random size (and pines a random species), and every scenic tree a random one of the seven, for a more natural course. The look under the pointer is the next one.
+
+# OpenSGolf extras: the presets, the Calendar line, the Info page's groups, the port's Preferences lines (0.5)
+STR_PRESET_ORIGINAL                     :Original
+STR_PRESET_HELPERS                      :Original + helpers
+STR_PRESET_OPENSGOLF                    :OpenSGolf
+STR_PRESET_CUSTOM                       :Custom
+STR_EXTRAS_PRESET                       : Preset: {VALUE}
+STR_PRESET_DESC_ORIGINAL                :Every OpenSGolf extra off: the game exactly as it was. Click for the next preset; your pauses and controls stay as you set them.
+STR_PRESET_DESC_HELPERS                 :Every helper and look on (People, reports, autosave, path styles...) and nothing that changes how the game plays.
+STR_PRESET_DESC_OPENSGOLF               :The helpers and looks, plus light gameplay extras: higher staff limits and buyable animals.
+STR_PRESET_DESC_CUSTOM                  :Your own mix of ticks. A click steps through the presets; Custom brings your own mix back.
+STR_EXTRAS_TAG_EXPERIMENTAL             :Experimental
+STR_EXTRAS_CALENDAR                     : Calendar: {VALUE}
+STR_EXTRAS_CALENDAR_NORMAL              :normal
+STR_EXTRAS_CALENDAR_HALF                :half speed
+STR_EXTRAS_CALENDAR_QUARTER             :quarter speed
+STR_EXTRAS_CALENDAR_STOPPED             :stopped
+STR_EXTRAS_DESC_CALENDAR                :Half or quarter speed: each year holds more golf while golfers, staff and bills keep their pace. Stopped: no month or year ever ends.
+STR_EXTRAS_GROUP_PEOPLE                 : People screen, name tags and live scorecards
+STR_EXTRAS_GROUP_REPORTS                : Extra reports: landing map, hole comments, graphs...
+STR_EXTRAS_GROUP_MESSAGES               : Message history and clickable ticker (Shift+M)
+STR_EXTRAS_SOME_ON                      :{LINE} (some on)
+STR_EXTRAS_DESC_GROUP_PEOPLE            :Every golfer and employee in a sortable list (Shift+G), a name tag under the pointer (Shift+H hides them) and the round so far under a golfer card.
+STR_EXTRAS_DESC_GROUP_REPORTS           :Landing map (Shift+D), comments by hole (Shift+I), history graphs (Shift+Y), the year in numbers after End of Year, and tabs over the F1 to F10 reports.
+STR_EXTRAS_DESC_GROUP_MESSAGES          :Keeps every ticker message to read back (Shift+M); a click on a ticker message takes the camera to the golfer or place it is about.
+STR_MENU_PREFS_FIX_BUGS                 : Fix the original game's bugs
+STR_MENU_PREFS_FIX_BUGS_NOTE            :Its own glitches only; play is otherwise the original's.
+STR_MENU_PREFS_UPDATE_CHECK             : Check for updates when the game starts (online)
+
+# Enhanced graphics' looks of 0.5 (the port's own, docs/ENHANCED.md): lit windows and dawn sprinklers (with the time of
+# day), winter frost, and pixel-perfect scaling (Display; it counts with Enhanced graphics off too)
+STR_ENHANCED_FX_WINDOW_LIGHTS           : Warm light in the buildings' windows at night
+STR_ENHANCED_FX_SPRINKLERS              : Sprinklers on the fairways and greens at dawn
+STR_ENHANCED_FX_FROST                   : Frost on cold mornings, melting by late morning
+STR_ENHANCED_PIXEL_PERFECT              : Pixel-perfect scaling: whole sizes only (Classic too)
+STR_FX_WINDOW_LIGHTS                    :Lit windows
+STR_FX_SPRINKLERS                       :Dawn sprinklers
+STR_FX_FROST                            :Morning frost
+
+# The showcase fly-over (the port's own, showcase.rs; docs/PLAYING.md)
+STR_CTL_SHOWCASE                        :Showcase: fly over the course hole by hole
+STR_SHOWCASE_NO_HOLES                   :The showcase needs an open hole to fly over.
+STR_TOUCH_SHOWCASE                      :Showcase
+STR_SHOWCASE_HOLE                       :Hole {HOLE}  -  Par {PAR}  -  {YARDS} yards
+
+# Saved games of the original SimGolf brought over (share.rs, sg_core::sve, issue #49)
+STR_TOAST_SVE_IMPORTED                  :{COURSE} from the original SimGolf was added to Load Previous Game as {NAME}.
+STR_TOAST_SVE_UNREADABLE                :{FILE} could not be read as a saved game of the original SimGolf ({WHY}). Nothing was added.
+STR_SVE_IMPORTED_SUFFIX                 :(imported)
+STR_SVE_PICKED_FILE                     :The file picked
+STR_SVE_IMPORTED_NOTE                   :Imported from the original: {CARRIED}. Not carried over: {DROPPED}.
+STR_SVE_PART_LAND                       :the land, terrain and elevation
+STR_SVE_PART_HOLES                      :the holes (tees, pins, par)
+STR_SVE_PART_BUILDINGS                  :buildings, paths and decorations
+STR_SVE_PART_MONEY                      :money and the yearly ledger
+STR_SVE_PART_DATE                       :the date
+STR_SVE_PART_DIFFICULTY                 :the difficulty
+STR_SVE_PART_PROPERTY                   :the property and its theme
+STR_SVE_PART_MEMBERS                    :the members
+STR_SVE_PART_PEOPLE                     :the people and your pro
+STR_SVE_PART_STAFF                      :the staff
+STR_SVE_PART_RECORDS                    :accomplishments, best rounds and history
+STR_SVE_LOST_GOLFERS                    :the golfers out on the course (new ones arrive)
+STR_SVE_LOST_HOLE_STATS                 :some hole statistics
+STR_SVE_LOST_WILDLIFE                   :animals and home residents (they come back)
+STR_SVE_LOST_STORIES                    :stories under way
+STR_SVE_LOST_TOURNAMENT                 :the tournament under way
+STR_SVE_LOST_HOLE_NAMES                 :the holes' names
+STR_SVE_LOST_OPTIONS                    :the original's Preferences
+# The Import and export saved games extra (extras.rs save_files; Load Previous Game's buttons, issue #49)
+STR_EXTRAS_SAVE_FILES                   : Import and export saved games (buttons in Load Previous Game)
+STR_EXTRAS_DESC_SAVE_FILES              :For moving your games to another device (computer, phone, tablet, browser): Load Previous Game gets Import a save file... and Export this save...
+# Loading a game saved with other graphics (content_profiles.rs save_packs_question): the base packs in plain words
+STR_SAVE_PACKS_ART_ORIGINAL             :the original SimGolf art
+STR_SAVE_PACKS_ART_FREE                 :the free graphics
+STR_SAVE_PACKS_ART_OTHER                :the graphics "{ID}"
+STR_SAVE_PACKS_DIFFER_ART               :This game was saved with {SAVED}; you're using {NOW}. It may look or play a little differently. Load it anyway?
+
+# Aiming the pro by touch (the port's own, touch.rs; docs/PLAYING.md)
+STR_TOUCH_SWING                         :Swing
+STR_TOUCH_AIM_LABEL                     :{YARDS} yds, {CLUB}
+STR_TOUCH_PLACE                         :Place

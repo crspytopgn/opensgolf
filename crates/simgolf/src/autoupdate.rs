@@ -33,10 +33,9 @@ use std::sync::{Arc, Mutex};
 
 /// OpenSGolf's release signing key: the ed25519 public key, as 64 hex digits, that `sgtool update-keygen` prints.
 ///
-/// TODO(owner): this is a PLACEHOLDER (all zeros). Replace it with the public key of the pair whose private half is the
-/// GitHub Actions secret OPENSGOLF_UPDATE_KEY (docs/RELEASING.md). Until then Update now refuses every release and offers
-/// the download page, so nothing unsigned can be installed.
-pub const PUBLIC_KEY_HEX: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+/// The public half of the release key; its private half is the GitHub Actions secret OPENSGOLF_UPDATE_KEY
+/// (docs/RELEASING.md). All zeros would be the placeholder, which refuses every release.
+pub const PUBLIC_KEY_HEX: &str = "abec305dfffe4c661d2d922f159624050f99c2e0e76421d015aac5893d210736";
 
 /// The test hook's variable: a public key (hex) used instead of [`PUBLIC_KEY_HEX`].
 pub const KEY_ENV: &str = "SG_UPDATE_KEY";
@@ -981,7 +980,8 @@ mod tests {
 
     #[test]
     fn keys_and_the_placeholder() {
-        assert_eq!(parse_key(PUBLIC_KEY_HEX), None, "the placeholder is no key");
+        assert_eq!(parse_key(&"0".repeat(64)), None, "the placeholder is no key");
+        assert!(parse_key(PUBLIC_KEY_HEX).is_some(), "the built-in release key");
         let kp = keys(3);
         let hex: String = kp.pk.iter().map(|b| format!("{b:02x}")).collect();
         assert_eq!(parse_key(&hex), Some(*kp.pk));

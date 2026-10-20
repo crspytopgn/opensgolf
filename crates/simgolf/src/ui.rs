@@ -216,6 +216,10 @@ impl Fnt {
     pub fn width(self, s: &str) -> f32 {
         Font::get(self.face).map(|f| f.width(s, self.px)).unwrap_or(s.len() as f32 * self.px * 0.5)
     }
+    /// The same face `k` times the size, to a whole pixel (the text size, textsize.rs; itself at 1).
+    pub fn scaled(self, k: f32) -> Fnt {
+        Fnt { face: self.face, px: crate::textsize::sized(self.px, k) }
+    }
 }
 
 // The start up set (0x45bd83), by font object.
@@ -529,6 +533,45 @@ impl View {
     }
 }
 
+/// How many window pixels one pixel of the 800 x 600 screen takes on a `w` x `h` drawable (the course's sprites and the
+/// interface alike): as many as fit, or with pixel-perfect scaling (the port's own, enhanced.rs) the most whole pixels
+/// that fit. A window smaller than 800 x 600 shrinks the picture either way.
+pub fn view_scale(w: f32, h: f32) -> f32 {
+    let s = (w / 800.0).min(h / 600.0);
+    if s >= 1.0 && crate::enhanced::pixel_perfect() {
+        s.floor()
+    } else {
+        s
+    }
+}
+
+/// Whether pixel-perfect scaling applies on a `w` x `h` drawable (it is on and the window holds the 800 x 600 picture).
+pub fn pixel_perfect_on(w: f32, h: f32) -> bool {
+    crate::enhanced::pixel_perfect() && w >= 800.0 && h >= 600.0
+}
+
+/// Pixel-perfect scaling (the port's own): the window round the picture, black in Classic and Enhanced's dark green frame
+/// with Enhanced graphics on. Nothing when it is off or the picture fills the window.
+pub fn pixel_border(g: &mut Gfx, w: f32, h: f32) {
+    if !pixel_perfect_on(w, h) {
+        return;
+    }
+    let s = Screen::new(w, h);
+    let (l, t, r, b) = s.extent();
+    if l > -0.5 && t > -0.5 && r < 800.5 && b < 600.5 {
+        return;
+    }
+    if crate::enhanced::settings().enabled {
+        crate::enhanced::backdrop(g, &s, false);
+        return;
+    }
+    let black = [0.0, 0.0, 0.0, 1.0];
+    s.fill(g, l, t, -l, b - t, black);
+    s.fill(g, 800.0, t, r - 800.0, b - t, black);
+    s.fill(g, 0.0, t, 800.0, -t, black);
+    s.fill(g, 0.0, 600.0, 800.0, b - 600.0, black);
+}
+
 /// A 2D drawing session over the 800x600 virtual screen.
 pub struct Screen {
     pub view: View,
@@ -542,8 +585,13 @@ pub struct Screen {
 impl Screen {
     /// Orthographic projection for 800x600 virtual units in a draw_w x draw_h drawable.
     pub fn new(draw_w: f32, draw_h: f32) -> Screen {
-        let scale = (draw_w / 800.0).min(draw_h / 600.0);
-        let view = View { scale, ox: (draw_w - 800.0 * scale) * 0.5, oy: (draw_h - 600.0 * scale) * 0.5 };
+        let scale = view_scale(draw_w, draw_h);
+        let (mut ox, mut oy) = ((draw_w - 800.0 * scale) * 0.5, (draw_h - 600.0 * scale) * 0.5);
+        if pixel_perfect_on(draw_w, draw_h) {
+            // whole window pixels, so every pixel of the art lands on the same number of them
+            (ox, oy) = (ox.floor(), oy.floor());
+        }
+        let view = View { scale, ox, oy };
         let proj = Mat4::ortho(-view.ox / scale, (draw_w - view.ox) / scale, (draw_h - view.oy) / scale, -view.oy / scale, -1.0, 1.0);
         Screen {
             view,
@@ -566,9 +614,18 @@ impl Screen {
         if !self.wide {
             return;
         }
+        self.shift.set(self.anchor_shift(a));
+    }
+
+    /// How far [`Self::anchor`] moves what follows (0, 0 in Classic), for hit tests that cannot wait for the frame's
+    /// rectangles (enhanced::unshift).
+    pub fn anchor_shift(&self, a: crate::enhanced::Anchor) -> (f32, f32) {
+        if !self.wide {
+            return (0.0, 0.0);
+        }
         let (dx, dy) = a.shift(self.extent());
         let k = self.view.scale;
-        self.shift.set(((dx * k).round() / k, (dy * k).round() / k));
+        ((dx * k).round() / k, (dy * k).round() / k)
     }
 
     /// One quad of the interface: corners (x0, y0) to (x1, y1) in 800x600 units, moved by the anchor in use.

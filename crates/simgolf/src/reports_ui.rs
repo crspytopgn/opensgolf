@@ -183,12 +183,17 @@ impl App {
         s.put_centered(g, F_INFO14, 598.0, 96.0, tr("STR_COMMENTS_FREQUENCY"), black());
         let rows = self.comment_rows();
         let y0 = 124.0;
+        // with bigger text (textsize.rs; the port's own) the rows grow with their words, as far as the report still ends on
+        // the screen, and each comment takes what fits before the hole column
+        let k = crate::textsize::k(((560.0 - y0 - 61.0) / (15.0 * rows.len().max(1) as f32)).max(1.0));
+        let pitch = (15.0 * k).round();
+        let (f, ty) = (F_INFO14.scaled(k), (2.0 * k).round());
         for (n, (_, line, hole, freq)) in rows.iter().enumerate() {
-            let y = y0 + 15.0 * n as f32;
+            let y = y0 + pitch * n as f32;
             if has {
-                s.image_part(g, im, 148.0, y, 148.0, 224.0, 505.0, 17.0);
+                s.image_scaled(g, im, (148.0, y, 505.0, pitch + 2.0), (148.0, 224.0, 505.0, 17.0));
             } else {
-                s.fill(g, 148.0, y, 505.0, 15.0, rgb(0.92, 0.9, 0.84));
+                s.fill(g, 148.0, y, 505.0, pitch, rgb(0.92, 0.9, 0.84));
             }
             let c = match line.tone {
                 sg_core::thoughts::Tone::Good => c15(0x1284),
@@ -197,11 +202,11 @@ impl App {
             };
             // 0x4546b0: the row piece's top is the header piece's height (102) plus 22 and the text's top that plus 24, so the
             // words sit 2 below the piece; the exe draws nothing in place of the rows when none was recorded
-            s.put(g, F_INFO14, 182.0, y + 2.0, &line.text, c);
-            s.put_centered(g, F_INFO14, 504.0, y + 2.0, &format!("{hole}"), c);
-            s.put_centered(g, F_INFO14, 598.0, y + 2.0, &format!("{freq}%"), c);
+            s.put(g, crate::textsize::fit(F_INFO14, k, &line.text, 300.0), 182.0, y + ty, &line.text, c);
+            s.put_centered(g, f, 504.0, y + ty, &format!("{hole}"), c);
+            s.put_centered(g, f, 598.0, y + ty, &format!("{freq}%"), c);
         }
-        let fy = y0 + 15.0 * rows.len() as f32;
+        let fy = y0 + pitch * rows.len() as f32;
         if has {
             s.image_part(g, im, 148.0, fy, 148.0, 321.0, 505.0, 61.0);
         }
@@ -231,7 +236,8 @@ impl App {
             (488.0, tr("STR_HISTOGRAPH_FUN")),
             (644.0, tr("STR_HISTOGRAPH_EVENT")),
         ] {
-            s.put_centered(g, F_INFO14, x, 542.0, t, black());
+            // with bigger text (textsize.rs) the legend and the scales grow as far as their room on the art holds
+            s.put_centered(g, crate::textsize::fit(F_INFO14, 1.5, t, 150.0), x, 542.0, t, black());
         }
         let skill_s = if self.club.ratings.skill > 2500 { 2 } else { 1 };
         let cash = self.club.cash;
@@ -248,9 +254,11 @@ impl App {
             let y = 0x202 as f32 - 50.0 * k as f32;
             // the skill scale in the exe's hundredths format (0x42dd50): 0.00 to 5.00, then 10.00 to 25.00 (doubled over 25.00)
             let lv = if k <= 5 { 100 * skill_s * k } else { skill_s * (500 * k - 2000) };
-            s.put_centered(g, F_INFO14, 77.0, y, &crate::info_ui::hundredths(lv), c15(0x4010));
+            let lv = crate::info_ui::hundredths(lv);
+            s.put_centered(g, crate::textsize::fit(F_INFO14, 1.5, &lv, 56.0), 77.0, y, &lv, c15(0x4010));
             let n = if k <= 5 { 10 * cdiv * k } else { cdiv * (50 * k - 200) };
-            s.put_centered(g, F_INFO14, 727.0, y, &format!("\u{a7}{n}k"), black());
+            let n = format!("\u{a7}{n}k");
+            s.put_centered(g, crate::textsize::fit(F_INFO14, 1.5, &n, 56.0), 727.0, y, &n, black());
         }
         let months = (self.club.date() >> 10) as usize;
         let step = (600 / (months as i32 + 1)).clamp(1, 4);
@@ -315,16 +323,22 @@ impl App {
         // figures right aligned on 256 + 75 j with tops 86 + 17 i and the total 24 below the last
         use crate::ui::{F_INFO14, F_INFO_TITLE};
         s.put(g, F_INFO_TITLE, 218.0, 21.0, tr("STR_FINANCE_TITLE"), black());
+        // with bigger text (textsize.rs) each label and figure as big as its cell on the art holds, at most 115% (the rows
+        // are 17 apart)
+        let cell = |t: &str, w: f32| crate::textsize::fit(F_INFO14, 1.15, t, w);
         for i in 0..sg_core::economy::LEDGER_COLUMNS {
-            s.put_centered(g, F_INFO14, 98.0, 87.0 + 17.0 * i as f32, sg_core::economy::ledger_label(i), black());
+            let l = sg_core::economy::ledger_label(i);
+            s.put_centered(g, cell(l, 160.0), 98.0, 87.0 + 17.0 * i as f32, l, black());
         }
-        s.put_centered(g, F_INFO14, 98.0, 87.0 + 136.0 + 7.0, tr("STR_FINANCE_TOTAL"), black());
+        let l = tr("STR_FINANCE_TOTAL");
+        s.put_centered(g, cell(l, 160.0), 98.0, 87.0 + 136.0 + 7.0, l, black());
         let last = self.econ.year_index().min(99);
         // eight columns fit the art (the exe draws a ninth off the screen)
         let first = last.saturating_sub(7);
         for (j, y) in (first..=last).enumerate() {
             let x = 75.0 * j as f32;
-            s.put_centered(g, F_INFO14, x + 222.0, 60.0, &format!("{}", 2001 + y), black());
+            let year = format!("{}", 2001 + y);
+            s.put_centered(g, cell(&year, 70.0), x + 222.0, 60.0, &year, black());
             let row = self.econ.ledger.get(y).copied().unwrap_or_default();
             let mut total = 0.0;
             for (i, v) in row.iter().enumerate() {
@@ -332,12 +346,12 @@ impl App {
                 if *v != 0.0 {
                     let t = crate::screens_ui::digits(*v as i64);
                     let c = if *v < 0.0 { c15(0x6000) } else { black() };
-                    s.put_right(g, F_INFO14, x + 256.0, 86.0 + 17.0 * i as f32, &t, c);
+                    s.put_right(g, cell(&t, 70.0), x + 256.0, 86.0 + 17.0 * i as f32, &t, c);
                 }
             }
             let t = crate::screens_ui::digits(total as i64);
             let c = if total < 0.0 { c15(0x6000) } else { black() };
-            s.put_right(g, F_INFO14, x + 256.0, 86.0 + 17.0 * 7.0 + 24.0, &t, c);
+            s.put_right(g, cell(&t, 70.0), x + 256.0, 86.0 + 17.0 * 7.0 + 24.0, &t, c);
         }
         self.ok_tick(g, &s, 726.0, 249.0, false);
         g.flush();
@@ -628,18 +642,30 @@ impl App {
         s.text_centered(g, 400.0, top(if tab == 1 { 48.0 } else { 58.0 }, 16.0), &name, 16.0, ink);
         s.text_centered(g, 400.0, top(15.0, 24.0), tr("STR_ROUTING_TITLE"), 24.0, ink);
         let row = |y: f32| top(y, 14.0);
+        // with bigger text (textsize.rs) the pages' words grow as far as their room on the art holds, at most 115% (the
+        // rows are 17 to 18 apart); the aura paragraph keeps its size, its lines filling the page's room
+        let fx = |t: &str, w: f32| crate::textsize::fit_px(14.0, 1.15, t, w);
         match tab {
             0 => {
-                s.text_centered(g, 400.0, row(85.0), tr("STR_ROUTING_COURSE_ROUTING"), 14.0, ink);
-                s.text_centered(g, 400.0, row(108.0), tr("STR_ROUTING_LEFT_CLICK"), 14.0, ink);
-                s.text_centered(g, 400.0, row(126.0), tr("STR_ROUTING_RIGHT_CLICK"), 14.0, ink);
+                {
+                    let t = tr("STR_ROUTING_COURSE_ROUTING");
+                    s.text_centered(g, 400.0, row(85.0), t, fx(t, 520.0), ink);
+                }
+                {
+                    let t = tr("STR_ROUTING_LEFT_CLICK");
+                    s.text_centered(g, 400.0, row(108.0), t, fx(t, 520.0), ink);
+                }
+                {
+                    let t = tr("STR_ROUTING_RIGHT_CLICK");
+                    s.text_centered(g, 400.0, row(126.0), t, fx(t, 520.0), ink);
+                }
                 for (x, t) in [
                     (71.0, tr("STR_ROUTING_HOLE")),
                     (132.0, tr("STR_ROUTING_PAR")),
                     (182.0, tr("STR_ROUTING_YDS")),
                     (239.0, tr("STR_ROUTING_TIME")),
                 ] {
-                    s.text_centered(g, x, row(85.0), t, 14.0, ink);
+                    s.text_centered(g, x, row(85.0), t, fx(t, 52.0), ink);
                 }
                 for (x, t) in [
                     (564.0, tr("STR_ROUTING_HOLE")),
@@ -647,14 +673,26 @@ impl App {
                     (680.0, tr("STR_ROUTING_YDS")),
                     (737.0, tr("STR_ROUTING_TIME")),
                 ] {
-                    s.text_centered(g, x, row(85.0), t, 14.0, ink);
+                    s.text_centered(g, x, row(85.0), t, fx(t, 52.0), ink);
                 }
             }
             2 => {
-                s.text_centered(g, 400.0, row(188.0), tr("STR_ROUTING_COURSE_AURA"), 14.0, ink);
-                s.text_centered(g, 400.0, row(85.0), tr("STR_ROUTING_AURA"), 14.0, ink);
-                s.text(g, 624.0, row(206.0), tr("STR_ROUTING_HAPPY"), 14.0, ink);
-                s.text(g, 136.0, row(206.0), tr("STR_ROUTING_UNHAPPY"), 14.0, ink);
+                {
+                    let t = tr("STR_ROUTING_COURSE_AURA");
+                    s.text_centered(g, 400.0, row(188.0), t, fx(t, 520.0), ink);
+                }
+                {
+                    let t = tr("STR_ROUTING_AURA");
+                    s.text_centered(g, 400.0, row(85.0), t, fx(t, 520.0), ink);
+                }
+                {
+                    let t = tr("STR_ROUTING_HAPPY");
+                    s.text(g, 624.0, row(206.0), t, fx(t, 160.0), ink);
+                }
+                {
+                    let t = tr("STR_ROUTING_UNHAPPY");
+                    s.text(g, 136.0, row(206.0), t, fx(t, 150.0), ink);
+                }
                 // the paragraph wrapped to 300 pixels from (250, 110) (0x478530); the line pitch is a PLACEHOLDER
                 let text = tr("STR_ROUTING_AURA_TEXT");
                 for (i, l) in wrap_text(text, 14.0, 300.0).iter().enumerate() {
@@ -662,9 +700,18 @@ impl App {
                 }
             }
             3 => {
-                s.text_centered(g, 400.0, row(188.0), tr("STR_ROUTING_HOME_SITE_VALUE"), 14.0, ink);
-                s.text(g, 631.0, row(206.0), tr("STR_ROUTING_HIGH"), 14.0, ink);
-                s.text(g, 142.0, row(206.0), tr("STR_ROUTING_LOW"), 14.0, ink);
+                {
+                    let t = tr("STR_ROUTING_HOME_SITE_VALUE");
+                    s.text_centered(g, 400.0, row(188.0), t, fx(t, 520.0), ink);
+                }
+                {
+                    let t = tr("STR_ROUTING_HIGH");
+                    s.text(g, 631.0, row(206.0), t, fx(t, 155.0), ink);
+                }
+                {
+                    let t = tr("STR_ROUTING_LOW");
+                    s.text(g, 142.0, row(206.0), t, fx(t, 150.0), ink);
+                }
                 let inc = [
                     tr("STR_ROUTING_INCREASE"),
                     tr("STR_ROUTING_INCREASE_WATER"),
@@ -681,8 +728,8 @@ impl App {
                 ];
                 for (i, (a, b)) in inc.iter().zip(dec.iter()).enumerate() {
                     let y = [86.0, 104.0, 121.0, 138.0, 156.0][i];
-                    s.text(g, 51.0, row(y), a, 14.0, ink);
-                    s.text(g, 494.0, row(y), b, 14.0, ink);
+                    s.text(g, 51.0, row(y), a, fx(a, 430.0), ink);
+                    s.text(g, 494.0, row(y), b, fx(b, 290.0), ink);
                 }
             }
             _ => {}

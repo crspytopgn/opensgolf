@@ -294,7 +294,8 @@ miniquad_add_plugin({
         // picture is kept under picked/ and its name handed over when the game asks (-1 until one is picked).
         env.sg_pick_file = function () { sgPickFile(); };
         // Load Previous Game's Import a save file (files_ui.rs): the same picker for a saved game, shared course, course
-        // code or the original's top10.sve; the game reads it from picked/ and files it as a dropped file (share.rs)
+        // code or the original's top10.sve and saved games; the game reads it from picked/ and files it as a dropped file
+        // (share.rs)
         env.sg_pick_save = function () { sgPickFile(".sgs,.sgch,.txt,.sve"); };
         env.sg_pick_poll = function (dst, cap) {
             if (sgPicked === null) return -1;
@@ -632,7 +633,7 @@ async function sgZipSaves(buf) {
 }
 
 // "Restore saves...": backups (.zip) and single files (.sgs saved games, .sgch championship courses, .pro pros, the
-// original's top10.sve, settings.json). A backup's files replace those of the same name; a single file never replaces one.
+// original's top10.sve and saved games (.sve), settings.json). A backup's files replace those of the same name; a single file never replaces one.
 async function sgRestoreFiles(fileList) {
     const files = Array.from(fileList || []);
     if (files.length === 0) return;
@@ -671,8 +672,10 @@ async function sgRestoreFiles(fileList) {
                 "? (Import a save file... on the game's Load Previous Game adds it to yours instead.)")) continue;
             path = "top10.sve";
         } else if (low.endsWith(".sve")) {
-            original.push(f.name);
-            continue;
+            // a saved game of the original SimGolf: the game reads it into a game of its own when Load Previous Game opens
+            // (crates/simgolf/src/share.rs, import_original_folder)
+            path = sgFreeName("Saved Games/", f.name, bytes);
+            if (path !== null && path !== "") original.push(f.name);
         } else if (low.endsWith(".sgs") && sgIsSave(bytes)) {
             path = sgFreeName("Saved Games/", f.name, bytes);
         } else if ((low.endsWith(".sgch") && sgIsSave(bytes)) || low.endsWith(".pro")) {
@@ -695,7 +698,7 @@ async function sgRestoreFiles(fileList) {
     }
     if (same > 0) say.push(sgPlural(same, "file") + " already in this browser.");
     if (full > 0) say.push(sgPlural(full, "file") + " did not fit in this browser's storage; delete old saves in the game and try again.");
-    if (original.length > 0) say.push(original.join(", ") + ": saved games of the original SimGolf, which OpenSGolf cannot read yet (their layout is not decoded).");
+    if (original.length > 0) say.push(original.join(", ") + ": saved games of the original SimGolf; they are brought over as \"(imported)\" games when you open Load Previous Game.");
     if (unknown.length > 0) say.push(unknown.join(", ") + ": not a saved game or a backup (left out).");
     sgSaveStatus(say.join(" ") || "Nothing to restore.");
     sgSaveCount();
@@ -728,6 +731,9 @@ function sgStart() {
     // the page under the game must not scroll (Safari moves a fixed canvas with it while its bars slide)
     document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
+    // black round the game where it does not fill the view (an upright phone after "Play anyway", sgCanvasRect)
+    document.documentElement.style.background = "#000";
+    document.body.style.background = "#000";
     sgFitCanvas();
     canvas.focus();
     // the sound output (see sgStartAudio)
@@ -745,22 +751,63 @@ function sgFitCanvas() {
     if (!c || c.style.display !== "block") return;
     const vv = window.visualViewport;
     const w = vv ? vv.width : window.innerWidth, h = vv ? vv.height : window.innerHeight;
+    // a phone or tablet held upright: the "turn sideways" card, and after "Play anyway" the game in a 4:3 band (files.js)
+    const touch = sgTouchDevice();
+    sgRotateCard(sgPortraitAsk(touch, w, h, sgRotateDismissed()));
+    const r = sgCanvasRect(touch, w, h, vv ? vv.offsetLeft : 0, vv ? vv.offsetTop : 0);
     const css = (k, v) => { if (c.style[k] !== v) c.style[k] = v; };
-    css("width", Math.round(w) + "px");
-    css("height", Math.round(h) + "px");
-    css("left", Math.round(vv ? vv.offsetLeft : 0) + "px");
-    css("top", Math.round(vv ? vv.offsetTop : 0) + "px");
+    css("width", r.width + "px");
+    css("height", r.height + "px");
+    css("left", r.left + "px");
+    css("top", r.top + "px");
     // gl.js's own resize (it listens to the window's resize only, which Safari does not send for its bars)
     if (typeof resize === "function" && typeof wasm_exports !== "undefined" && wasm_exports.resize) resize(c, wasm_exports.resize);
 }
+// Sized again a few times after a turn: iOS Safari reports the new size late (the first resize after a turn can still
+// carry the old one, and a bar sliding away does not always send an event).
+function sgFitSoon() {
+    sgFitCanvas();
+    for (const ms of [100, 300, 700, 1200]) setTimeout(sgFitCanvas, ms);
+}
 if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", sgFitCanvas);
+    window.visualViewport.addEventListener("resize", sgFitSoon);
     window.visualViewport.addEventListener("scroll", sgFitCanvas);
 }
-window.addEventListener("resize", sgFitCanvas);
-// (the new size comes a moment after the turn on older iOS, and a bar sliding away does not always send an event)
-window.addEventListener("orientationchange", () => { sgFitCanvas(); setTimeout(sgFitCanvas, 300); });
+window.addEventListener("resize", sgFitSoon);
+window.addEventListener("orientationchange", sgFitSoon);
+if (window.screen && screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener("change", sgFitSoon);
 setInterval(sgFitCanvas, 500);
+
+// A phone or tablet: a coarse pointer (a finger), or an iPad, which says it is a Mac but has a touch screen. A desktop with
+// a touch screen keeps its fine pointer (the mouse) and is not one.
+function sgTouchDevice() {
+    try {
+        if (window.matchMedia && matchMedia("(pointer: coarse)").matches) return true;
+    } catch (e) {}
+    return navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent);
+}
+
+// "Play anyway" holds for the tab's session (sessionStorage, which a private window may refuse: then for the page).
+let sgRotateAnyway = false;
+function sgRotateDismissed() {
+    if (sgRotateAnyway) return true;
+    try { return sessionStorage.getItem("sg_rotate_anyway") === "1"; } catch (e) { return false; }
+}
+function sgRotateDismiss() {
+    sgRotateAnyway = true;
+    try { sessionStorage.setItem("sg_rotate_anyway", "1"); } catch (e) {}
+    sgFitSoon();
+    const c = document.getElementById("glcanvas");
+    if (c) c.focus();
+}
+// Shows or hides the "turn your device sideways" card (index.html #rotate). It lies over the game, so no tap reaches it.
+function sgRotateCard(show) {
+    const el = document.getElementById("rotate");
+    if (!el || el.hidden === !show) return;
+    el.hidden = !show;
+    // (no keys to the game under it either)
+    if (show && document.activeElement && document.activeElement.blur) document.activeElement.blur();
+}
 
 // No game folder: the game finds no original files under game/ and plays on the free base set (opensgolf-free), which it
 // draws itself.
@@ -1650,7 +1697,9 @@ let sgKbd = null;
 let sgKbdWanted = false;
 for (const type of ["touchend", "pointerup"]) {
     window.addEventListener(type, () => {
-        if (sgKbdWanted && sgKbd && document.activeElement !== sgKbd) {
+        // (not for a tap on the "turn sideways" card over the game)
+        const card = document.getElementById("rotate");
+        if (sgKbdWanted && sgKbd && document.activeElement !== sgKbd && !(card && !card.hidden)) {
             sgKbd.value = " ";
             sgKbd.focus();
         }

@@ -213,15 +213,17 @@ fn top_c(s: &Ui, g: &mut Gfx, x: f32, y: f32, t: &str, size: f32, c: [f32; 4]) {
 /// The Course sharing extra's *Paste a course code* button on the championship course list (share.rs).
 const PASTE_RECT: Rect = Rect::new(414.0, 520.0, 176.0, 36.0);
 
-/// The Course sharing extra's *Import a save file...* and *Export this save...* buttons on Load Previous Game, where the
-/// course list has its paste button (the port's own: saved games to and from files the player keeps, issue #49).
+/// The Import and export saved games extra's *Import a save file...* and *Export this save...* buttons on Load Previous
+/// Game, where the course list has its paste button (the port's own: saved games to and from files the player keeps,
+/// issue #49).
 const IMPORT_RECT: Rect = Rect::new(414.0, 500.0, 176.0, 28.0);
 const EXPORT_RECT: Rect = Rect::new(414.0, 534.0, 176.0, 28.0);
 
-/// Whether Load Previous Game shows the Import and Export buttons: with the Course sharing extra, where the player can
-/// reach the files (not on Android, whose save folder is the app's own).
+/// Whether Load Previous Game shows the Import and Export buttons: with the Import and export saved games extra (up to
+/// 0.4.9 part of Course sharing), where the player can reach the files (not on Android, whose save folder is the app's
+/// own).
 fn file_buttons(kind: ListKind) -> bool {
-    kind == ListKind::Load && crate::extras::sharing() && !cfg!(target_os = "android")
+    kind == ListKind::Load && crate::extras::save_files() && !cfg!(target_os = "android")
 }
 
 /// The Save pictures extra's map of a course: one cell per tile (a cell per 2 x 2 tiles, or more, on large maps), coloured
@@ -364,6 +366,8 @@ impl App {
     pub fn open_files(&mut self, kind: ListKind, from_game: bool) {
         let files = match kind {
             ListKind::Load => {
+                // the original SimGolf's saved games put in the folder become games of the port's own (share.rs)
+                self.import_original_folder();
                 let mut v = list(&saved_games_dir(), "sgs");
                 // the single save of earlier versions of the port
                 if sg_core::fsutil::exists(self.game_file()) {
@@ -871,7 +875,7 @@ impl App {
         }
         // what Import, Export or the paste button have to say: this screen has no ticker (only with the port's buttons on
         // it, so the original's screen is unchanged)
-        if (file_buttons(f.kind) || f.kind == ListKind::Course && crate::extras::sharing())
+        if (file_buttons(f.kind) || f.kind == ListKind::Course && crate::extras::sharing() || self.sve_toast)
             && !self.toast.is_empty()
             && self.clock < self.toast_until
         {
@@ -892,7 +896,8 @@ impl App {
     }
 
     /// Load Previous Game's *Import a save file...*: the system's file picker (desktop) or the page's (browser), for a
-    /// saved game (.sgs), a shared course (.sgch), a text file with a course code, or the original's top10.sve; what is
+    /// saved game (.sgs), a shared course (.sgch), a text file with a course code, or the original's top10.sve and saved
+    /// games (.sve); what is
     /// picked goes where a file dropped on the window goes (share.rs). Test hook: SG_PICK_SAVE=FILE picks FILE.
     pub fn pick_save_file(&mut self) {
         if let Some(p) = std::env::var_os("SG_PICK_SAVE") {
@@ -916,15 +921,43 @@ impl App {
                 f.picking = true;
             }
         }
-        #[cfg(not(any(feature = "picker", target_arch = "wasm32")))]
+        #[cfg(target_os = "android")]
+        {
+            // Android's own picker (android.rs), answered later in poll_save_pick
+            if crate::android::pick_save_file() {
+                if let Some(f) = self.title.files.as_mut() {
+                    f.picking = true;
+                }
+            }
+        }
+        #[cfg(not(any(feature = "picker", target_arch = "wasm32", target_os = "android")))]
         {
             // no picker in this build: the player copies the file into the folder
             self.show_toast(&trf("STR_TOAST_SAVE_FOLDER", &[("FOLDER", &saved_games_dir().display())]));
         }
     }
 
-    /// Each frame while the browser's picker is open: a file it has read (web/opensgolf.js keeps it under picked/).
+    /// Each frame while the browser's picker is open: a file it has read (web/opensgolf.js keeps it under picked/). On
+    /// Android: the file its picker copied (android.rs), told apart by its bytes, as Android does not say its name.
     fn poll_save_pick(&mut self) {
+        #[cfg(target_os = "android")]
+        {
+            let state = crate::android::import_state();
+            let (what, arg) = state.split_once(':').unwrap_or((state.as_str(), ""));
+            let dest = crate::android::picked_save_path();
+            if what == "picking" || what == "copying" || (what == "zip" && Path::new(arg) != dest) {
+                return;
+            }
+            if let Some(f) = self.title.files.as_mut() {
+                f.picking = false;
+            }
+            if what == "zip" {
+                if let Some(b) = sg_core::fsutil::read_file(&dest) {
+                    sg_core::fsutil::remove_file(&dest);
+                    self.import_unnamed(&b);
+                }
+            }
+        }
         #[cfg(target_arch = "wasm32")]
         {
             let mut buf = [0u8; 512];

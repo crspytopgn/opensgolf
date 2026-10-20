@@ -52,7 +52,7 @@ Downloads for every system ([all releases](https://github.com/crspytopgn/opensgo
 | Linux on ARM | [AppImage](https://github.com/crspytopgn/opensgolf/releases/latest/download/opensgolf-linux-arm64.AppImage) · [tar.gz](https://github.com/crspytopgn/opensgolf/releases/latest/download/opensgolf-linux-arm64.tar.gz) | 64-bit systems, for example a Raspberry Pi 4 or 5. |
 | Android | [opensgolf-android.apk](https://github.com/crspytopgn/opensgolf/releases/latest/download/opensgolf-android.apk) | Open the file on the phone and install it. |
 | Steam Deck | [Linux AppImage](https://github.com/crspytopgn/opensgolf/releases/latest/download/opensgolf-linux-x86_64.AppImage) | Add it to Steam as a non-Steam game; it starts full screen in Game Mode and plays with the Deck's controls. |
-| iPhone and iPad | [Browser version](https://crspytopgn.github.io/opensgolf/) | Works by touch in Safari. |
+| iPhone and iPad | [Browser version](https://crspytopgn.github.io/opensgolf/) | Works by touch in Safari; hold it sideways. |
 
 Every download is a real app that runs offline; the browser version is there for devices without one (iPhone and iPad)
 or for a quick try. Controllers (Xbox, PlayStation, Switch, Steam Deck) work on Windows, macOS, Linux and in the browser.
@@ -86,31 +86,43 @@ With its default settings OpenSGolf plays like the original, apart from these:
 - **Fixes for the original's own bugs**, such as gaps at waterfalls, costs charged twice and the golfer list picking the
   wrong golfer ([docs/FIXES.md](docs/FIXES.md)). On by default; they can be turned off in the preferences.
 - **Modern systems and screens:** saving anywhere, undo for building and terrain (Ctrl+Z), full screen (F11), game
-  speeds ×2 and ×4, remappable keys, touch controls, controllers and a frame-rate cap.
+  speeds ×2 and ×4, remappable keys, touch controls (aim or place with a finger, then Swing or Place), controllers and a
+  frame-rate cap.
 - **Building tools:** a measuring tape in yards (the ' key) and, with a terrain brush, Shift+drag for a rectangle and
   Alt+click to fill a region, with the cost shown before you commit.
 
-Optional, and off by default (Start New Game has a one-click switch between *the original* and *OpenSGolf extras*):
+Optional, and off by default. Start New Game has a one-click choice of preset: *Original*, *Original + helpers* (screens,
+helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a few light gameplay extras) or your own
+*Custom* mix; each option says whether it changes the looks, helps, or changes the gameplay:
 
 - **Enhanced graphics** for 4K and widescreen: sharp scaling, water (depth, waves with the wind, shorelines, rain rings,
   reeds, ducks, swans, jumping fish, frozen ponds), light, weather by each place's climate, seasons, late-winter snow,
-  desert heat waves, birds of prey, butterflies and falling leaves, grass tufts, tournament crowds and a photo mode
-  ([docs/ENHANCED.md](docs/ENHANCED.md)).
+  desert heat waves, birds of prey, butterflies and falling leaves, grass tufts, tournament crowds, lit windows at night,
+  dawn sprinklers, morning frost, pixel-perfect whole-number scaling (Classic too) and a photo mode
+  ([docs/ENHANCED.md](docs/ENHANCED.md)); a showcase fly-over of the course hole by hole (Shift+O).
 - **Bigger courses:** Large, Huge and Giant, up to 128 × 128 tiles.
-- **OpenSGolf extras:** a Hardcore economy, turning buildings, cut content restored as landmarks, animals to buy, higher
-  staff limits, setting a hole's par, left-handed golfers (and a left-handed pro), weather that matters (rain, snow,
-  heat waves and thunderstorms change how balls roll and who comes out to play), path styles and lamp posts, more
-  visitors (touring pros and invented celebrities, moddable through data/visitors.toml), slower seasons (the calendar at
-  1/2x or 1/4x), sandbox switches (pause the calendar, freeze golfer happiness, unlock everything), a search over every
+- **Preferences, sorted:** the original's four ticks first, then one line per group of the port's own options (Game
+  options, Graphics, Controls and keys, Text size, Game files, More), each describing itself at the box's foot.
+- **OpenSGolf extras:** gameplay extras (a Hardcore economy, animals to buy, higher staff limits, setting a hole's par,
+  left-handed golfers (and a left-handed pro), weather that matters (rain, snow, heat waves and thunderstorms change how
+  balls roll and who comes out to play), more visitors (touring pros and invented celebrities, moddable through
+  data/visitors.toml), the calendar at half or quarter speed or stopped, sandbox switches (freeze golfer happiness, unlock
+  everything), and, experimental, cut content restored as decorative landmarks), looks (turning buildings, path styles
+  and lamp posts, random trees), a search over every
   Preferences option with a reset to the original, and interface extras such as a People screen, message history,
   autosave (the last three kept), a map of each saved course, pausing in the background or on big news, and course
   sharing: copy a course code, a friend pastes it and tries to beat your course record.
 - **A hidden Cheats box** (Ctrl+Shift+C): add or take away money, force a VIP visit, buy all the land, the sandbox
   switches. A game in which a cheat was used says so on the Load list, and its course record is no shared challenge.
+- **Saved games of the original SimGolf** (`.sve`) come over as games of the port's own: course, holes, buildings, money,
+  date, members, people and staff ([docs/PLAYING.md](docs/PLAYING.md#saved-games-where-they-are-backups-and-imports)).
 - **Quick save and quick load** (Shift+F5, Shift+F9) and a **staff areas** view (Shift+A) that shows every employee's
   work ring and the fairways and greens no groundskeeper reaches.
-- **Golfer insight** (interface extras): a landing map of where golfers' shots on each hole end up (Shift+D), and each
-  hole's most frequent golfer comments this month, last month and this year (Shift+I).
+- **Golfer insight** (interface extras): a landing map of where golfers' shots on each hole end up (Shift+D), with heat
+  maps of where balls land, golfers wait and golfers complain, for a hole or the whole course, and each hole's most
+  frequent golfer comments this month, last month and this year (Shift+I).
+- **Text size** (Preferences): normal, 125% or 150% text in the message window, pop-up boxes, tooltips, name tags,
+  touch labels and the port's own pages, the boxes growing with it and staying on screen.
 - **History graphs** (interface extra): the club's and each hole's months as line graphs on the Histograph's page:
   rounds, revenue, costs, profit, cash, happiness, ratings and members, and each hole's plays, strokes over par,
   happiness and fees (Shift+Y).
@@ -126,7 +138,7 @@ Optional, and off by default (Start New Game has a one-click switch between *the
   tree a random one of the seven.
 - **Updates from the title menu:** *Check for updates*, then *Update now* downloads the new version, checks its signature
   and installs it in place (Windows, macOS, Linux, Android); on Windows and with the Linux .tar.gz it downloads only the
-  programs and the pack files that changed. An interface extra checks once at each start. Only GitHub is contacted, and
+  programs and the pack files that changed. A Preferences tick (Preferences → More) checks once at each start. Only GitHub is contacted, and
   only then.
 - **Content packs and game scripts** that change prices, buildings, terrain, golfers, text, art and sounds, add scenarios,
   and can be downloaded from inside the game ([docs/MODDING.md](docs/MODDING.md)).
@@ -200,7 +212,7 @@ to be downloaded. It is simple placeholder art meant to grow through contributio
 
 * The game uses it by itself when it finds no SimGolf files (no `--game` folder, or one without them), and says so.
 * `--base opensgolf-free` picks it for a run even with your copy present (`--base original` the reverse); Preferences >
-  Content packs picks it for good.
+  Game files > Content packs picks it for good.
 * In the browser: **Play with free graphics** on the start page.
 * `sgtool freeset DIR` writes all 5,465 files to a folder (about 82 MB, which is why they are made at run time rather than
   committed).
@@ -256,12 +268,12 @@ GitHub Pages.
 ### Enhanced graphics and HD
 
 **Enhanced graphics** is the port's own option for 4K and widescreen monitors and its shader effects; it changes no art,
-and **Classic stays the default and byte-identical** with it off. Turn it on in System Functions → Preferences, or with
+and **Classic stays the default and byte-identical** with it off. Turn it on in System Functions → Preferences → Graphics, or with
 `--enhanced` / `--classic-render` (`--fx` for just the effects). See [docs/ENHANCED.md](docs/ENHANCED.md).
 
 An opt-in **HD mode** draws the game's art upscaled ×4 (or ×2) with an AI upscaler such as Real-ESRGAN. The upscaled art is a
 derivative of EA's art, so you make the pack yourself from your own copy with `tools/hd_pack/hd_pack.py`. It is never
-shipped, downloaded from this project, or to be shared. Turn it on in Preferences (*HD graphics*), with `--hd` / `--classic`,
+shipped, downloaded from this project, or to be shared. Turn it on in Preferences → Graphics (*HD graphics*), with `--hd` / `--classic`,
 or `--hd-pack DIR`. See [docs/HD.md](docs/HD.md).
 
 ### How it was made

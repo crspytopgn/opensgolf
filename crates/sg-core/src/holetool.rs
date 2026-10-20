@@ -126,22 +126,27 @@ impl Club {
         true
     }
 
+    /// Whether the hole being built has what [`Self::open_hole`] needs: a tee and a green (and the forward tee in two-tee
+    /// games) on a hole number from 1 to 18.
+    pub fn can_open_hole(&self) -> bool {
+        let h = self.next_hole;
+        if !(1..19).contains(&h) {
+            return false;
+        }
+        let hr = &self.holes[h as usize];
+        hr.back.0 != 0 && hr.pin.0 != 0 && (!self.two_tees() || hr.fwd.0 != 0)
+    }
+
     /// Opens the hole being built (0x40e720): it needs a tee and a green (and the forward tee in two-tee games). Sets the
     /// length when the layout pass did not, the par from it, the heading from the forward tee to the pin, clears the hole's
     /// statistics, and moves on to the first hole number without a par. Returns the hole opened.
     pub fn open_hole(&mut self, c: &mut Course) -> Option<usize> {
+        if !self.can_open_hole() {
+            self.out.push(Event::Sound { slot: REFUSED, at: None, delay: 0 });
+            return None;
+        }
         let h = self.next_hole;
-        if !(1..19).contains(&h) {
-            self.out.push(Event::Sound { slot: REFUSED, at: None, delay: 0 });
-            return None;
-        }
         let hu = h as usize;
-        let two = self.two_tees();
-        let hr = &self.holes[hu];
-        if hr.back.0 == 0 || hr.pin.0 == 0 || (two && hr.fwd.0 == 0) {
-            self.out.push(Event::Sound { slot: REFUSED, at: None, delay: 0 });
-            return None;
-        }
         self.top_rounds = [0; 10];
         self.top_names = Default::default();
         self.out.push(Event::Sound { slot: OPENED, at: None, delay: 0 });
@@ -573,15 +578,18 @@ mod tests {
         let mut rng = ExeRng::from_clock(1);
         assert!(cl.paint_hole_tile(&mut c, 10, 10, t::FAIRWAY, t::TEE, false));
         c.ty[idx(10, 10)] = t::TEE;
+        assert!(!cl.can_open_hole());
         assert!(cl.open_hole(&mut c).is_none(), "a hole needs a green");
         assert!(cl.paint_hole_tile(&mut c, 10, 25, t::FAIRWAY, t::GREEN, false));
         c.ty[idx(10, 25)] = t::GREEN;
+        assert!(cl.can_open_hole());
         assert_eq!(c.flags[idx(10, 25)] & (f::LOW | f::CUP), 1 | f::CUP);
         cl.layout(&mut c, &mut rng);
         assert!(cl.game & game::LAYOUT != 0);
         assert_eq!(cl.open_hole(&mut c), Some(1));
         assert!(cl.holes[1].par >= 3, "15 tiles is a par 4 or so, got {}", cl.holes[1].par);
         assert_eq!(cl.next_hole, 2);
+        assert!(!cl.can_open_hole(), "hole 2 has no tee yet");
         // painting over the tee closes the hole again
         assert!(cl.paint_hole_tile(&mut c, 10, 10, t::TEE, t::ROUGH, false));
         assert_eq!(cl.holes[1].par, 0);

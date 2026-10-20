@@ -256,6 +256,7 @@ impl App {
     fn close_keys(&mut self) {
         self.screen = self.keys_back;
         self.hover = -1;
+        self.return_to_prefs();
     }
 
     fn keys_turn(&mut self, forward: bool) {

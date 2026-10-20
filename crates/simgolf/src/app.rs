@@ -94,8 +94,11 @@ pub struct Prop {
     pub hidden: bool,
     /// Scenery regenerated from the terrain after edits.
     pub tree: bool,
-    /// A tree on this tile (x, y) that shows its growth counter while the tile grows.
+    /// A ball washer on this tile (x, y) that plays its frames while a golfer washes (the tile's counter).
     pub grow_tile: Option<(i32, i32)>,
+    /// A newly planted tree, scenic tree or flower bed on this tile (x, y) that shows its growth as its frame
+    /// (`App::sprouts`); true for the sprite whose last frame ends the growing (the tree or the bed piece).
+    pub sprout: Option<(i32, i32, bool)>,
     /// A flag or tee marker, rebuilt from the hole records every update.
     pub decor: bool,
     /// A celebrity resident (index into Club::residents).
@@ -145,6 +148,7 @@ impl Default for Prop {
             hidden: false,
             tree: false,
             grow_tile: None,
+            sprout: None,
             decor: false,
             resident: None,
             ambient: false,
@@ -360,6 +364,10 @@ pub struct SaveGame {
     /// none, and they load without asking).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub packs: Option<crate::content_profiles::SavedPacks>,
+    /// A game brought over from a saved game of the original SimGolf (share.rs, sg_core::sve): what came over and what did
+    /// not, told to the player when the game is loaded. The game's own saves do not write it again.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub imported: Option<String>,
 }
 
 const SAVE_MAGIC: &[u8] = b"SIMGOLF-NATIVE-SAVE\n";
@@ -404,6 +412,81 @@ pub fn is_save(data: &[u8]) -> bool {
     data.starts_with(SAVE_MAGIC)
 }
 
+/// A game read from a saved game of the original SimGolf (sg_core::sve) as a save of the port's own, at the original's
+/// size. The people of the save keep their own heads; a custom portrait (head 19 and up) is the theme pack's when the same
+/// person is in it, else the person's stock head. What came over and what did not goes in `imported`.
+pub fn original_save(g: sg_core::sve::Game, game_dir: &Path) -> SaveGame {
+    let _size = sg_core::mapsize::scoped(sg_core::mapsize::ORIGINAL);
+    let pack = THEME_PACKS
+        .iter()
+        .find(|p| p.replace(' ', "_").eq_ignore_ascii_case(&g.theme_pack.replace(' ', "_")))
+        .copied()
+        .unwrap_or("Standard")
+        .replace(' ', "_");
+    let mut club = g.club;
+    let theirs = sg_core::roster::load(game_dir, &pack);
+    for (i, p) in club.roster.iter_mut().enumerate() {
+        if p.head.is_some_and(|h| h >= 19) {
+            match theirs.get(i).filter(|q| q.name == p.name && q.portrait.is_some()) {
+                Some(q) => {
+                    p.head = q.head;
+                    p.portrait = q.portrait.clone();
+                }
+                None => p.head = None,
+            }
+        }
+    }
+    let terrain = g.land.to_terrain();
+    let mut staff_tiles = TileState::new(terrain.w, terrain.h);
+    let n = land::mn();
+    for a in 0..n {
+        for b in 0..n {
+            let i = (a * n + b) as usize;
+            let t = (b * terrain.w + a) as usize;
+            staff_tiles.flags[t] |= g.weeds[i] & (staff::WEEDS | staff::WORKED);
+            if g.land.flags[i] & land::flag::CREEK != 0 {
+                staff_tiles.flags[t] |= staff::SEEDS_WEEDS;
+            }
+        }
+    }
+    let mut rng = ExeRng::from_clock(g.tick ^ g.course_id as u32);
+    let noise = g.noise.unwrap_or_else(|| Noise::new(&mut rng));
+    let mut bought = vec![-1; sg_core::data::properties().len()];
+    if let Some(b) = bought.get_mut(g.land.slot.property) {
+        *b = (g.tick >> 13) as i32;
+    }
+    let list = |keys: &[&'static str]| keys.iter().map(|k| tr(k)).collect::<Vec<_>>().join(", ");
+    let note = trf("STR_SVE_IMPORTED_NOTE", &[("CARRIED", &list(&g.carried)), ("DROPPED", &list(&g.dropped))]);
+    SaveGame {
+        version: 1,
+        size: sg_core::mapsize::ORIGINAL,
+        // the exe's theme (0 Parkland, 1 Desert, 2 Tropical, 3 Links) as the port's theme index (`App::exe_theme`)
+        theme: [0, 2, 3, 1][g.theme.min(3) as usize],
+        course_name: g.course_name,
+        difficulty: g.difficulty,
+        terrain,
+        land: Some(g.land),
+        club,
+        course: g.course,
+        econ: g.econ,
+        exe_rng: rng,
+        noise,
+        employees: g.employees,
+        staff_tiles,
+        game_tick: g.tick,
+        hole_stats: Vec::new(),
+        theme_pack: pack,
+        course_id: Some(g.course_id & 0xffff),
+        bought,
+        goals: Default::default(),
+        scripts: Default::default(),
+        extras: Default::default(),
+        shared: false,
+        packs: None,
+        imported: Some(note),
+    }
+}
+
 pub fn read_save_bytes(data: &[u8], name: &str) -> Result<SaveGame, String> {
     let body = data.strip_prefix(SAVE_MAGIC).ok_or_else(|| trf("STR_ERROR_NOT_A_SAVED_GAME", &[("FILE", &name)]))?;
     let json = miniz_oxide::inflate::decompress_to_vec_zlib(body).map_err(|e| format!("{name}: {e:?}"))?;
@@ -444,6 +527,8 @@ pub struct App {
     pub enh: crate::enhanced::EnhState,
     /// Enhanced graphics' photo mode while it is open (photo.rs); always None in Classic.
     pub photo: Option<Box<crate::photo::Photo>>,
+    /// The showcase fly-over while it is under way (showcase.rs; the port's own, Classic too).
+    pub showcase: Option<crate::showcase::Showcase>,
     pub batches: Vec<Batch>,
     pub path_batches: Vec<Batch>,
     /// Paths not joined to the clubhouse, drawn as mud tracks (manual p. 18).
@@ -517,6 +602,8 @@ pub struct App {
     pub aim: Option<sg_core::pro::AimPreview>,
     /// The pro was waiting for the player's aim at the last tick (a new shot drops an armed tool, pro_after_tick).
     pub was_aiming: bool,
+    /// Aiming by touch (touch.rs, the port's own): the target a finger set, shot with the Swing touch button.
+    pub touch_target: crate::touch::TouchTarget,
     /// The first 'n' while the pro plays asks; a second one within this game tick cancels the round.
     pub cancel_until: u32,
     /// Scripted runs: 1 the pro aims each full shot at the pin by himself, 2 he only shows that aim (for stills).
@@ -598,6 +685,9 @@ pub struct App {
     /// Preferences > Keyboard controls (keys_ui.rs): the page shown and the screen to go back to.
     pub keys_page: usize,
     pub keys_back: Screen,
+    /// The Preferences boxes to go back to (prefs_ui.rs): a box, screen or search opened from Preferences or one of its
+    /// boxes returns to it when done.
+    pub prefs_stack: Vec<crate::popup_ui::PopupKind>,
     /// The OpenSGolf extras' state (extras.rs).
     pub xs: crate::extras::State,
     /// Quick save and load, the comfort pauses and the staff areas (comfort.rs).
@@ -688,6 +778,9 @@ pub struct App {
     pub course_size: i32,
     pub toast: String,
     pub toast_until: f64,
+    /// The toast is about the original's saved games found in the Saved Games folder (share.rs): the Load list shows it
+    /// even without the port's buttons.
+    pub sve_toast: bool,
     /// A message in the game's box over the screen, with an OK or a question's two options (gamefiles.rs).
     pub notice: Option<crate::gamefiles::Notice>,
     /// "Check for updates" on the title menu: the request under way (update.rs).
@@ -789,10 +882,23 @@ pub struct App {
     /// come at the display's refresh rate (60 to 144 a second), which would run them two to five times too fast.
     pub exe_steps: u32,
     pub exe_frame: u64,
+    /// Trees, scenic trees and flower beds planted and still growing, by tile: the frames drawn since planting. The exe
+    /// keeps this as the tile's counter 0x578804 under flag 0x4000 and advances it in its drawing (sg_core::decor::
+    /// sprout_frame); the port keeps a copy for the drawing only, so the simulation's tiles stay as they were.
+    pub sprouts: HashMap<(i32, i32), u32>,
+    /// The game tick the sprouts were last advanced at.
+    pub sprout_tick: u32,
 }
 
 /// The exe's frame: one per game tick (sg_core::flight::TICK_MS).
 pub const EXE_FRAME_S: f64 = sg_core::flight::TICK_MS as f64 / 1000.0;
+
+/// Test hook for stills of planting: SG_SPROUT=k holds every tree, scenic tree and flower bed planted in this run at its
+/// growth frame k (App::sprouts).
+fn sprout_hold() -> Option<u32> {
+    static HOLD: std::sync::OnceLock<Option<u32>> = std::sync::OnceLock::new();
+    *HOLD.get_or_init(|| std::env::var("SG_SPROUT").ok().and_then(|v| v.parse().ok()))
+}
 
 pub fn now() -> f64 {
     miniquad::date::now()
@@ -821,6 +927,7 @@ impl App {
             fx: Default::default(),
             enh: Default::default(),
             photo: None,
+            showcase: None,
             batches: Vec::new(),
             path_batches: Vec::new(),
             mud_batches: Vec::new(),
@@ -868,6 +975,7 @@ impl App {
             skill_dialog: None,
             aim: None,
             was_aiming: false,
+            touch_target: Default::default(),
             cancel_until: 0,
             auto_aim: 0,
             pro_slot: -1,
@@ -888,6 +996,7 @@ impl App {
             content: Default::default(),
             keys_page: 0,
             keys_back: Screen::Play,
+            prefs_stack: Vec::new(),
             xs: Default::default(),
             comfort: Default::default(),
             ctl: Default::default(),
@@ -967,6 +1076,7 @@ impl App {
             course_size: sg_core::mapsize::ORIGINAL,
             toast: String::new(),
             toast_until: 0.0,
+            sve_toast: false,
             notice: None,
             update_check: None,
             update_auto: false,
@@ -1024,6 +1134,8 @@ impl App {
             clock: 0.0,
             exe_steps: 0,
             exe_frame: 0,
+            sprouts: HashMap::new(),
+            sprout_tick: 0,
         }
     }
 
@@ -1044,6 +1156,7 @@ impl App {
     pub fn show_toast(&mut self, msg: &str) {
         self.toast = msg.to_string();
         self.toast_until = self.clock + 3.0;
+        self.sve_toast = false;
         self.post_message(msg, 1, crate::message_ui::NOBODY);
     }
 
@@ -1678,7 +1791,8 @@ impl App {
                 if !(13..=15).contains(&ty[i]) {
                     continue;
                 }
-                let grown = !self.tile_growing(a, b);
+                // a weed on the tile shows the tree grown (the weed branch 0x41404e drops the counter before the tree)
+                let grown = !self.sprouting(a, b) || self.staff_weed(a, b);
                 for d in sg_core::decor::trees(&ty, var[i], flags[i] & 0x100 != 0, a, b, theme, grown, &field) {
                     draws.push((a, b, grown, d));
                 }
@@ -1689,7 +1803,10 @@ impl App {
             let Some(bi) = body else { continue };
             let (cx, cz) = self.terrain.tile_centre(a, b);
             let n = self.sprites[bi].s.frames_per_view;
-            let frame = d.frame.unwrap_or(n - 1).min(n - 1);
+            let frame = match self.sprouts.get(&(a, b)) {
+                Some(&c) if !grown => sg_core::decor::sprout_frame(c, n, true).0,
+                _ => d.frame.unwrap_or(n - 1).min(n - 1),
+            };
             self.props.push(Prop {
                 tree: true,
                 x: cx + d.da * TILE_SIZE,
@@ -1698,7 +1815,7 @@ impl App {
                 shadow,
                 frame,
                 facing: d.view,
-                grow_tile: if grown { None } else { Some((a, b)) },
+                sprout: if grown { None } else { Some((a, b, true)) },
                 ..Default::default()
             });
         }
@@ -1771,28 +1888,81 @@ impl App {
         a < t.w && b < t.h && t.flags.get((b * t.w + a) as usize).is_some_and(|f| f & staff::WORKED != 0)
     }
 
-    /// Newly planted trees show their growth counter as the frame and stop growing at their last frame.
+    /// A weed stands on this tile (the staff's tile flags).
+    fn staff_weed(&self, a: i32, b: i32) -> bool {
+        let t = &self.staff_tiles;
+        a < t.w && b < t.h && t.flags.get((b * t.w + a) as usize).is_some_and(|f| f & staff::WEEDS != 0)
+    }
+
+    /// A tree, scenic tree or flower bed planted on this tile is still growing (`sprouts`).
+    fn sprouting(&self, a: i32, b: i32) -> bool {
+        self.sprouts.contains_key(&(a, b))
+    }
+
+    /// A tree, scenic tree or flower bed was just planted on this tile: it starts growing from its first frame (the exe sets
+    /// the tile's flag 0x4000 and its counter to 0, 0x420608 for the brushes).
+    pub(crate) fn start_sprout(&mut self, a: i32, b: i32) {
+        self.sprouts.insert((a, b), 0);
+    }
+
+    /// Newly planted trees, scenic trees and flower beds grow by a frame for each frame the exe would have drawn: its 87 ms
+    /// frames on the clock, which go on while the game is paused (the tile loop 0x413da3 runs on every pass of the main
+    /// loop; only the tick stops), or the game's ticks when they come faster (the fast mode draws a frame per tick). The
+    /// last frame of the tree or bed piece ends the growing (sg_core::decor::sprout_frame), and the plants are then drawn
+    /// again as grown ones, exactly as they are drawn after a load.
     fn update_tree_growth(&mut self) {
-        let mut done = Vec::new();
-        for p in self.props.iter_mut().filter(|p| p.tree) {
-            let (Some((a, b)), Some(bi)) = (p.grow_tile, p.body) else { continue };
-            let t = &self.staff_tiles;
-            let i = (b * t.w + a) as usize;
-            let n = self.sprites[bi].s.frames_per_view;
-            if t.flags.get(i).is_some_and(|f| f & staff::WORKED != 0) {
-                let c = t.counter[i] as i32;
-                p.frame = c.min(n - 1);
-                if c >= n - 1 {
-                    done.push(i);
-                    p.grow_tile = None;
-                }
-            } else {
-                p.frame = n - 1;
-                p.grow_tile = None;
+        let ticks = self.game_tick.wrapping_sub(self.sprout_tick);
+        self.sprout_tick = self.game_tick;
+        let hold = sprout_hold();
+        if !self.sprouts.is_empty() {
+            let steps = self.exe_steps.max(ticks.min(1000));
+            for c in self.sprouts.values_mut() {
+                *c = hold.unwrap_or(c.saturating_add(steps));
             }
         }
-        for i in done {
-            self.staff_tiles.flags[i] &= !staff::WORKED;
+        let mut done: Vec<(i32, i32)> = Vec::new();
+        let (mut trees, mut objects) = (false, false);
+        for pi in 0..self.props.len() {
+            let p = &self.props[pi];
+            let (Some((a, b, lead)), Some(bi), tree) = (p.sprout, p.body, p.tree) else { continue };
+            let n = self.sprites[bi].s.frames_per_view;
+            let (frame, grown) = match self.sprouts.get(&(a, b)) {
+                Some(&c) => {
+                    let (f, g) = sg_core::decor::sprout_frame(c, n, hold.is_some() || self.tile_on_screen(a, b).is_some());
+                    (f, g && hold.is_none() && lead)
+                }
+                None => (n - 1, true),
+            };
+            self.props[pi].frame = frame;
+            if grown {
+                done.push((a, b));
+                trees |= tree;
+                objects |= !tree;
+            }
+        }
+        for (a, b) in done {
+            self.sprouts.remove(&(a, b));
+            // the exe drops the tile's flag 0x4000 when a tree reaches its last frame (0x4142cd), which ends the weeds'
+            // growing counter's mark too; nothing else reads it on a tile without a weed
+            let t = &mut self.staff_tiles;
+            if a < t.w && b < t.h {
+                if let Some(f) = t.flags.get_mut((b * t.w + a) as usize) {
+                    if *f & staff::WEEDS == 0 {
+                        *f &= !staff::WORKED;
+                    }
+                }
+            }
+        }
+        // a plant whose tile was painted over before it was drawn
+        if hold.is_none() {
+            self.sprouts.retain(|_, c| *c <= 0x40);
+        }
+        if trees {
+            self.refresh_trees();
+        }
+        if objects {
+            self.props.retain(|p| !p.object);
+            self.add_land_objects();
         }
         // a ball washer plays its frames while a golfer washes (0x463180 case 3: the tile's counter while the tile is
         // flagged and the counter is short of the frame count, frame 0 otherwise)
@@ -1845,6 +2015,8 @@ impl App {
     /// Scenery: trees on Woods tiles, the placed buildings, a clubhouse, and the pool of golfers.
     pub fn populate_props(&mut self) {
         self.props.clear();
+        // trees on a course just generated or loaded stand grown
+        self.sprouts.clear();
         const CLUB: [[&str; 2]; 4] = [
             ["Bldgs/Park/clubL2", "Bldgs/Park/clubL2_base"],
             ["Bldgs/links/clubL2", "Bldgs/links/clubL2_dirt"],
@@ -2222,6 +2394,45 @@ impl App {
         self.club.view_close = self.exe_zoom() > 3.0;
         self.club.show_snapshots = self.show_snapshots;
         self.club.tick(&mut self.course, &mut self.exe_rng, tick);
+        // test hook: SG_GOLFER_LOG=N prints the golfers every N game ticks (how many play, queue and are frozen, their moods
+        // and a hash of where they all are), to compare runs with and without the weather
+        static GOLFER_LOG: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+        let every = *GOLFER_LOG.get_or_init(|| std::env::var("SG_GOLFER_LOG").ok().and_then(|v| v.parse().ok()).unwrap_or(0));
+        if every > 0 && tick.is_multiple_of(every) {
+            println!("{}", self.golfer_log_line(tick));
+        }
+        // test hook: SG_STUCK_LOG=T prints every golfer who has been on one hole for T game ticks or more (each further T)
+        static STUCK_LOG: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+        let long = *STUCK_LOG.get_or_init(|| std::env::var("SG_STUCK_LOG").ok().and_then(|v| v.parse().ok()).unwrap_or(0));
+        if long > 0 {
+            for (i, g) in self.club.g.iter().take(golf::SLOTS).enumerate() {
+                let on = tick.wrapping_sub(g.hole_tick);
+                if (1..19).contains(&g.hole) && on >= long && on.is_multiple_of(long) {
+                    let bt = self.course.ty.get(((g.bx >> 10) * sg_core::course::n() + (g.by >> 10)).max(0) as usize);
+                    println!(
+                        "stuck tick {tick} golfer {i} partner {} hole {} for {on} strokes {} sub {} pause {} flags {:#x} anim {} \
+                         at ({},{}) ball ({},{}) tile {:?} speed {} mood {} partner_hole {} partner_strokes {} partner_sub {}",
+                        g.partner,
+                        g.hole,
+                        g.strokes,
+                        g.sub,
+                        g.pause,
+                        g.flags,
+                        g.anim,
+                        g.x >> 10,
+                        g.y >> 10,
+                        g.bx >> 10,
+                        g.by >> 10,
+                        bt,
+                        g.speed,
+                        g.mood,
+                        self.club.g[i ^ 1].hole,
+                        self.club.g[i ^ 1].strokes,
+                        self.club.g[i ^ 1].sub,
+                    );
+                }
+            }
+        }
         sg_core::ratings::pass(&mut self.club, self.difficulty);
         self.pro_after_tick();
         self.board_tick();
@@ -2337,6 +2548,10 @@ impl App {
                     if crate::extras::hole_comments() {
                         self.tally_thought(g, id, arg);
                     }
+                    // the landing map's heat map of complaints (insight.rs)
+                    if crate::extras::landing_map() {
+                        self.heat_thought(g, id, arg);
+                    }
                 }
                 golf::Event::GreatShot { g, partner, text, bad, pts } => self.great_shot_event(g, partner, text, bad, &pts),
             }
@@ -2381,6 +2596,28 @@ impl App {
     }
 
     /// The sizes of the collections that could grow over a long game, for the performance log (perf.rs).
+    /// The `SG_GOLFER_LOG` line of tick `tick`: the weather the simulation plays (Weather that matters), the golfers on
+    /// the holes, queued and pausing, their moods, the quits so far, the cash and a hash of every golfer's place.
+    fn golfer_log_line(&self, tick: u32) -> String {
+        let c = &self.club;
+        let live = || c.g.iter().take(golf::SLOTS).filter(|g| g.hole != 0);
+        let on = live().filter(|g| (1..19).contains(&g.hole)).count();
+        let queued = live().filter(|g| g.hole == -1).count();
+        let pausing = live().filter(|g| (1..19).contains(&g.hole) && g.pause < 0).count();
+        let low = live().filter(|g| g.mood < 0).count();
+        let mood: i32 = live().map(|g| g.mood).sum();
+        let quits: i32 = c.holes.iter().map(|h| h.quits).sum();
+        let pos =
+            c.g.iter().take(golf::SLOTS).fold(0u64, |h, g| {
+                (h ^ ((g.x as u32 as u64) << 32 | g.y as u32 as u64) ^ g.hole as u32 as u64).wrapping_mul(0x100_0000_01b3)
+            });
+        let w = c.today.map(|t| format!("rain {:.2} storm {}", t.rain, t.storm as u8)).unwrap_or_else(|| "off".into());
+        format!(
+            "golfers tick {tick} weather {w} on {on} queued {queued} pausing {pausing} mood {mood} low {low} quits {quits} cash {} pos {pos:016x}",
+            c.cash
+        )
+    }
+
     pub fn perf_sizes(&self) -> String {
         let c = &self.club;
         let lazy: usize = self.sprites.iter().map(|s| s.tex.iter().filter(|t| t.is_some()).count()).sum();
@@ -2727,6 +2964,7 @@ impl App {
             },
             packs: self.saved_packs(),
             shared: false,
+            imported: None,
         };
         encode_save(&save, level)
     }
@@ -2748,7 +2986,8 @@ impl App {
 
     /// `load_save`; with `keep_art` (undo.rs) a save of the theme already loaded keeps its textures and only rebuilds the
     /// course's meshes and props.
-    pub fn load_save_with(&mut self, g: &mut Gfx, s: SaveGame, keep_art: bool) -> Result<(), String> {
+    pub fn load_save_with(&mut self, g: &mut Gfx, mut s: SaveGame, keep_art: bool) -> Result<(), String> {
+        let imported = s.imported.take();
         // the save's course size (older saves: the original's), before anything reads the map
         sg_core::mapsize::set(s.size);
         self.course_size = sg_core::mapsize::n();
@@ -2817,6 +3056,10 @@ impl App {
         self.econ.free = self.editor.is_some();
         if self.editor.is_some() {
             self.scen.host = Default::default();
+        }
+        // a game brought over from the original's saved game says what came over (share.rs)
+        if let Some(note) = imported {
+            self.post_message(&note, 1, crate::message_ui::NOBODY);
         }
         Ok(())
     }
@@ -3144,6 +3387,12 @@ impl App {
         if let Some((slot, _)) = sg_core::decor::tree_sound(new) {
             self.ui_sound(slot);
         }
+        // a planted tree grows from its first frame (update_tree_growth)
+        if (13..=15).contains(&new) {
+            self.start_sprout(x, y);
+        } else {
+            self.sprouts.remove(&(x, y));
+        }
         // the Random trees extra (OpenSGolf extras): the next tree this brush plants takes a random look of its kind, any
         // of the variant byte's twelve (v % 3 the size, (v / 3) & 1 a pine's species; decor::trees), drawn from the
         // looks' own generator so the game's is untouched; the brush's look under the pointer shows it
@@ -3200,9 +3449,16 @@ impl App {
             return false;
         }
         let Some(land) = self.land.as_mut() else { return false };
+        let new_bed = land.flags.get((x * land::mn() + y) as usize).is_some_and(|f| f & 0x1000 == 0);
         if land.place_tile_item(x, y, kind, variant, theme).is_err() {
             return false;
         }
+        // a scenic tree and a new flower bed grow from their first frame (the building tool sets flag 0x4000 and the
+        // counter to 0; update_tree_growth)
+        if kind == land::K_WILLOW || (kind == land::K_FLOWERS && new_bed) {
+            self.start_sprout(x, y);
+        }
+        let Some(land) = self.land.as_mut() else { return false };
         let i = self.terrain.tile_index(x, y);
         if (kind == land::K_PATH || kind == land::K_BENCH || kind == land::K_BRIDGE) && self.terrain.path_kind[i] == 0 {
             self.terrain.path_kind[i] = self.path_kind.max(1) as u8;
@@ -3215,6 +3471,8 @@ impl App {
             land::K_BENCH => self.ui_sound(262),
             land::K_FLOWERS => self.ui_sound(148),
             land::K_BRIDGE => self.ui_sound(263),
+            // the scenic tree plays the broadleaf's planting sound as it starts growing (0x412c9c: slot 0x93, volume 100)
+            land::K_WILLOW => self.ui_sound(0x93),
             _ => {}
         }
         // the Random trees extra (OpenSGolf extras): the next scenic tree is a random one of the seven, as picking the
@@ -4223,7 +4481,7 @@ impl App {
                         draws.push((a, b, d));
                     }
                 } else if land.ty[i] == land::T_ELM && f & 0x100 != 0 {
-                    let grown = !self.tile_growing(a, b);
+                    let grown = !self.sprouting(a, b);
                     for d in sg_core::decor::ornamental(land.var[i], a, b, grown, &field) {
                         draws.push((a, b, d));
                     }
@@ -4235,8 +4493,7 @@ impl App {
                             .then(|| (land.var[j], course.level_table.get(j).copied().unwrap_or(0)))
                     };
                     let weedy = course.flags.get(i).is_some_and(|f| f & sg_core::course::f::WEED != 0);
-                    let t = &self.staff_tiles;
-                    let growth = self.tile_growing(a, b).then(|| t.counter[(b * t.w + a) as usize] as i32);
+                    let growth = self.sprouts.get(&(a, b)).map(|&c| c as i32);
                     let rot = ((self.rot / 90.0).round() as i32).rem_euclid(4);
                     for d in sg_core::decor::flower_bed(a, b, &bed, weedy, growth, &|a, b| course.raw_corner(a, b), rot) {
                         draws.push((a, b, d));
@@ -4251,6 +4508,12 @@ impl App {
             if (0x1a2..=0x1b3).contains(&d.sprite) && self.props.len() > n {
                 self.props[n].flat = true;
                 self.props[n].bed = Some((d.sprite, d.pal, a, b));
+            }
+            // a scenic tree or flower bed still growing shows its counter (update_tree_growth); the tree or the bed piece
+            // ends it, a gazebo or topiary in the bed follows
+            if d.frame.is_some() && self.props.len() > n && self.sprouting(a, b) {
+                let lead = d.sprite != 0x1b4 && d.sprite != 0x1b5;
+                self.props[n].sprout = Some((a, b, lead));
             }
         }
         let big_course = self.hole_numbers.len() > 10;
