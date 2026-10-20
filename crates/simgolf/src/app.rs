@@ -94,8 +94,11 @@ pub struct Prop {
     pub hidden: bool,
     /// Scenery regenerated from the terrain after edits.
     pub tree: bool,
-    /// A tree on this tile (x, y) that shows its growth counter while the tile grows.
+    /// A ball washer on this tile (x, y) that plays its frames while a golfer washes (the tile's counter).
     pub grow_tile: Option<(i32, i32)>,
+    /// A newly planted tree, scenic tree or flower bed on this tile (x, y) that shows its growth as its frame
+    /// (`App::sprouts`); true for the sprite whose last frame ends the growing (the tree or the bed piece).
+    pub sprout: Option<(i32, i32, bool)>,
     /// A flag or tee marker, rebuilt from the hole records every update.
     pub decor: bool,
     /// A celebrity resident (index into Club::residents).
@@ -145,6 +148,7 @@ impl Default for Prop {
             hidden: false,
             tree: false,
             grow_tile: None,
+            sprout: None,
             decor: false,
             resident: None,
             ambient: false,
@@ -791,10 +795,23 @@ pub struct App {
     /// come at the display's refresh rate (60 to 144 a second), which would run them two to five times too fast.
     pub exe_steps: u32,
     pub exe_frame: u64,
+    /// Trees, scenic trees and flower beds planted and still growing, by tile: the frames drawn since planting. The exe
+    /// keeps this as the tile's counter 0x578804 under flag 0x4000 and advances it in its drawing (sg_core::decor::
+    /// sprout_frame); the port keeps a copy for the drawing only, so the simulation's tiles stay as they were.
+    pub sprouts: HashMap<(i32, i32), u32>,
+    /// The game tick the sprouts were last advanced at.
+    pub sprout_tick: u32,
 }
 
 /// The exe's frame: one per game tick (sg_core::flight::TICK_MS).
 pub const EXE_FRAME_S: f64 = sg_core::flight::TICK_MS as f64 / 1000.0;
+
+/// Test hook for stills of planting: SG_SPROUT=k holds every tree, scenic tree and flower bed planted in this run at its
+/// growth frame k (App::sprouts).
+fn sprout_hold() -> Option<u32> {
+    static HOLD: std::sync::OnceLock<Option<u32>> = std::sync::OnceLock::new();
+    *HOLD.get_or_init(|| std::env::var("SG_SPROUT").ok().and_then(|v| v.parse().ok()))
+}
 
 pub fn now() -> f64 {
     miniquad::date::now()
@@ -1027,6 +1044,8 @@ impl App {
             clock: 0.0,
             exe_steps: 0,
             exe_frame: 0,
+            sprouts: HashMap::new(),
+            sprout_tick: 0,
         }
     }
 
@@ -1681,7 +1700,8 @@ impl App {
                 if !(13..=15).contains(&ty[i]) {
                     continue;
                 }
-                let grown = !self.tile_growing(a, b);
+                // a weed on the tile shows the tree grown (the weed branch 0x41404e drops the counter before the tree)
+                let grown = !self.sprouting(a, b) || self.staff_weed(a, b);
                 for d in sg_core::decor::trees(&ty, var[i], flags[i] & 0x100 != 0, a, b, theme, grown, &field) {
                     draws.push((a, b, grown, d));
                 }
@@ -1692,7 +1712,10 @@ impl App {
             let Some(bi) = body else { continue };
             let (cx, cz) = self.terrain.tile_centre(a, b);
             let n = self.sprites[bi].s.frames_per_view;
-            let frame = d.frame.unwrap_or(n - 1).min(n - 1);
+            let frame = match self.sprouts.get(&(a, b)) {
+                Some(&c) if !grown => sg_core::decor::sprout_frame(c, n, true).0,
+                _ => d.frame.unwrap_or(n - 1).min(n - 1),
+            };
             self.props.push(Prop {
                 tree: true,
                 x: cx + d.da * TILE_SIZE,
@@ -1701,7 +1724,7 @@ impl App {
                 shadow,
                 frame,
                 facing: d.view,
-                grow_tile: if grown { None } else { Some((a, b)) },
+                sprout: if grown { None } else { Some((a, b, true)) },
                 ..Default::default()
             });
         }
@@ -1774,28 +1797,81 @@ impl App {
         a < t.w && b < t.h && t.flags.get((b * t.w + a) as usize).is_some_and(|f| f & staff::WORKED != 0)
     }
 
-    /// Newly planted trees show their growth counter as the frame and stop growing at their last frame.
+    /// A weed stands on this tile (the staff's tile flags).
+    fn staff_weed(&self, a: i32, b: i32) -> bool {
+        let t = &self.staff_tiles;
+        a < t.w && b < t.h && t.flags.get((b * t.w + a) as usize).is_some_and(|f| f & staff::WEEDS != 0)
+    }
+
+    /// A tree, scenic tree or flower bed planted on this tile is still growing (`sprouts`).
+    fn sprouting(&self, a: i32, b: i32) -> bool {
+        self.sprouts.contains_key(&(a, b))
+    }
+
+    /// A tree, scenic tree or flower bed was just planted on this tile: it starts growing from its first frame (the exe sets
+    /// the tile's flag 0x4000 and its counter to 0, 0x420608 for the brushes).
+    pub(crate) fn start_sprout(&mut self, a: i32, b: i32) {
+        self.sprouts.insert((a, b), 0);
+    }
+
+    /// Newly planted trees, scenic trees and flower beds grow by a frame for each frame the exe would have drawn: its 87 ms
+    /// frames on the clock, which go on while the game is paused (the tile loop 0x413da3 runs on every pass of the main
+    /// loop; only the tick stops), or the game's ticks when they come faster (the fast mode draws a frame per tick). The
+    /// last frame of the tree or bed piece ends the growing (sg_core::decor::sprout_frame), and the plants are then drawn
+    /// again as grown ones, exactly as they are drawn after a load.
     fn update_tree_growth(&mut self) {
-        let mut done = Vec::new();
-        for p in self.props.iter_mut().filter(|p| p.tree) {
-            let (Some((a, b)), Some(bi)) = (p.grow_tile, p.body) else { continue };
-            let t = &self.staff_tiles;
-            let i = (b * t.w + a) as usize;
-            let n = self.sprites[bi].s.frames_per_view;
-            if t.flags.get(i).is_some_and(|f| f & staff::WORKED != 0) {
-                let c = t.counter[i] as i32;
-                p.frame = c.min(n - 1);
-                if c >= n - 1 {
-                    done.push(i);
-                    p.grow_tile = None;
-                }
-            } else {
-                p.frame = n - 1;
-                p.grow_tile = None;
+        let ticks = self.game_tick.wrapping_sub(self.sprout_tick);
+        self.sprout_tick = self.game_tick;
+        let hold = sprout_hold();
+        if !self.sprouts.is_empty() {
+            let steps = self.exe_steps.max(ticks.min(1000));
+            for c in self.sprouts.values_mut() {
+                *c = hold.unwrap_or(c.saturating_add(steps));
             }
         }
-        for i in done {
-            self.staff_tiles.flags[i] &= !staff::WORKED;
+        let mut done: Vec<(i32, i32)> = Vec::new();
+        let (mut trees, mut objects) = (false, false);
+        for pi in 0..self.props.len() {
+            let p = &self.props[pi];
+            let (Some((a, b, lead)), Some(bi), tree) = (p.sprout, p.body, p.tree) else { continue };
+            let n = self.sprites[bi].s.frames_per_view;
+            let (frame, grown) = match self.sprouts.get(&(a, b)) {
+                Some(&c) => {
+                    let (f, g) = sg_core::decor::sprout_frame(c, n, hold.is_some() || self.tile_on_screen(a, b).is_some());
+                    (f, g && hold.is_none() && lead)
+                }
+                None => (n - 1, true),
+            };
+            self.props[pi].frame = frame;
+            if grown {
+                done.push((a, b));
+                trees |= tree;
+                objects |= !tree;
+            }
+        }
+        for (a, b) in done {
+            self.sprouts.remove(&(a, b));
+            // the exe drops the tile's flag 0x4000 when a tree reaches its last frame (0x4142cd), which ends the weeds'
+            // growing counter's mark too; nothing else reads it on a tile without a weed
+            let t = &mut self.staff_tiles;
+            if a < t.w && b < t.h {
+                if let Some(f) = t.flags.get_mut((b * t.w + a) as usize) {
+                    if *f & staff::WEEDS == 0 {
+                        *f &= !staff::WORKED;
+                    }
+                }
+            }
+        }
+        // a plant whose tile was painted over before it was drawn
+        if hold.is_none() {
+            self.sprouts.retain(|_, c| *c <= 0x40);
+        }
+        if trees {
+            self.refresh_trees();
+        }
+        if objects {
+            self.props.retain(|p| !p.object);
+            self.add_land_objects();
         }
         // a ball washer plays its frames while a golfer washes (0x463180 case 3: the tile's counter while the tile is
         // flagged and the counter is short of the frame count, frame 0 otherwise)
@@ -1848,6 +1924,8 @@ impl App {
     /// Scenery: trees on Woods tiles, the placed buildings, a clubhouse, and the pool of golfers.
     pub fn populate_props(&mut self) {
         self.props.clear();
+        // trees on a course just generated or loaded stand grown
+        self.sprouts.clear();
         const CLUB: [[&str; 2]; 4] = [
             ["Bldgs/Park/clubL2", "Bldgs/Park/clubL2_base"],
             ["Bldgs/links/clubL2", "Bldgs/links/clubL2_dirt"],
@@ -3147,6 +3225,12 @@ impl App {
         if let Some((slot, _)) = sg_core::decor::tree_sound(new) {
             self.ui_sound(slot);
         }
+        // a planted tree grows from its first frame (update_tree_growth)
+        if (13..=15).contains(&new) {
+            self.start_sprout(x, y);
+        } else {
+            self.sprouts.remove(&(x, y));
+        }
         // the Random trees extra (OpenSGolf extras): the next tree this brush plants takes a random look of its kind, any
         // of the variant byte's twelve (v % 3 the size, (v / 3) & 1 a pine's species; decor::trees), drawn from the
         // looks' own generator so the game's is untouched; the brush's look under the pointer shows it
@@ -3203,9 +3287,16 @@ impl App {
             return false;
         }
         let Some(land) = self.land.as_mut() else { return false };
+        let new_bed = land.flags.get((x * land::mn() + y) as usize).is_some_and(|f| f & 0x1000 == 0);
         if land.place_tile_item(x, y, kind, variant, theme).is_err() {
             return false;
         }
+        // a scenic tree and a new flower bed grow from their first frame (the building tool sets flag 0x4000 and the
+        // counter to 0; update_tree_growth)
+        if kind == land::K_WILLOW || (kind == land::K_FLOWERS && new_bed) {
+            self.start_sprout(x, y);
+        }
+        let Some(land) = self.land.as_mut() else { return false };
         let i = self.terrain.tile_index(x, y);
         if (kind == land::K_PATH || kind == land::K_BENCH || kind == land::K_BRIDGE) && self.terrain.path_kind[i] == 0 {
             self.terrain.path_kind[i] = self.path_kind.max(1) as u8;
@@ -3218,6 +3309,8 @@ impl App {
             land::K_BENCH => self.ui_sound(262),
             land::K_FLOWERS => self.ui_sound(148),
             land::K_BRIDGE => self.ui_sound(263),
+            // the scenic tree plays the broadleaf's planting sound as it starts growing (0x412c9c: slot 0x93, volume 100)
+            land::K_WILLOW => self.ui_sound(0x93),
             _ => {}
         }
         // the Random trees extra (OpenSGolf extras): the next scenic tree is a random one of the seven, as picking the
@@ -4226,7 +4319,7 @@ impl App {
                         draws.push((a, b, d));
                     }
                 } else if land.ty[i] == land::T_ELM && f & 0x100 != 0 {
-                    let grown = !self.tile_growing(a, b);
+                    let grown = !self.sprouting(a, b);
                     for d in sg_core::decor::ornamental(land.var[i], a, b, grown, &field) {
                         draws.push((a, b, d));
                     }
@@ -4238,8 +4331,7 @@ impl App {
                             .then(|| (land.var[j], course.level_table.get(j).copied().unwrap_or(0)))
                     };
                     let weedy = course.flags.get(i).is_some_and(|f| f & sg_core::course::f::WEED != 0);
-                    let t = &self.staff_tiles;
-                    let growth = self.tile_growing(a, b).then(|| t.counter[(b * t.w + a) as usize] as i32);
+                    let growth = self.sprouts.get(&(a, b)).map(|&c| c as i32);
                     let rot = ((self.rot / 90.0).round() as i32).rem_euclid(4);
                     for d in sg_core::decor::flower_bed(a, b, &bed, weedy, growth, &|a, b| course.raw_corner(a, b), rot) {
                         draws.push((a, b, d));
@@ -4254,6 +4346,12 @@ impl App {
             if (0x1a2..=0x1b3).contains(&d.sprite) && self.props.len() > n {
                 self.props[n].flat = true;
                 self.props[n].bed = Some((d.sprite, d.pal, a, b));
+            }
+            // a scenic tree or flower bed still growing shows its counter (update_tree_growth); the tree or the bed piece
+            // ends it, a gazebo or topiary in the bed follows
+            if d.frame.is_some() && self.props.len() > n && self.sprouting(a, b) {
+                let lead = d.sprite != 0x1b4 && d.sprite != 0x1b5;
+                self.props[n].sprout = Some((a, b, lead));
             }
         }
         let big_course = self.hole_numbers.len() > 10;

@@ -609,7 +609,11 @@ In a game, Shift+C (or System Functions, *Save course for Championship*) saves y
 - **Wildlife:** when you retype the land, an animal whose habitat and theme fit a tile next to it may move in with a young one (elk, cranes, flamingos, sheep, crocodiles, snakes, gila monsters, roadrunners, ducks). They wander, graze or drink, stay in their habitat and run from golfers and low balls; a golfer who startles one is pleased on the easier difficulties. Which kind lives where is our choice (the exe's table is data). A hot-air balloon, a sailboat, a bird of prey and a blimp pass over now and then.
 - **Water:** a ball in the water splashes; ripples line the shores, rocks and coral sit in the shallows, and scenic water has dolphins or a fountain.
 - **Celebrity homes:** a home site bought by a celebrity becomes one of two celebrity houses, and the celebrity walks about the lot and now and then does a signature move.
-- Test hooks: `a:x,y,kind` places an animal, `y:x,y` makes a celebrity home.
+- **Planting:** as in the original, a tree, scenic tree or flower bed you plant springs up from a sprig to full size in
+  about a second (its picture's own growth frames, shadow too), also while the game is paused; one planted out of sight is
+  grown when you look. The tree is there for the golfers and the ball from the click.
+- Test hooks: `a:x,y,kind` places an animal, `y:x,y` makes a celebrity home, `SG_SPROUT=k` holds everything planted in
+  the run at growth frame k (stills of the growth, e.g. with `--edit "B:20,20,22,21,13"`).
 
 ## The clubhouse and the records
 
