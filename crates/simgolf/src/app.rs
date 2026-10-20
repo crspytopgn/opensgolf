@@ -2390,6 +2390,45 @@ impl App {
         self.club.view_close = self.exe_zoom() > 3.0;
         self.club.show_snapshots = self.show_snapshots;
         self.club.tick(&mut self.course, &mut self.exe_rng, tick);
+        // test hook: SG_GOLFER_LOG=N prints the golfers every N game ticks (how many play, queue and are frozen, their moods
+        // and a hash of where they all are), to compare runs with and without the weather
+        static GOLFER_LOG: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+        let every = *GOLFER_LOG.get_or_init(|| std::env::var("SG_GOLFER_LOG").ok().and_then(|v| v.parse().ok()).unwrap_or(0));
+        if every > 0 && tick.is_multiple_of(every) {
+            println!("{}", self.golfer_log_line(tick));
+        }
+        // test hook: SG_STUCK_LOG=T prints every golfer who has been on one hole for T game ticks or more (each further T)
+        static STUCK_LOG: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+        let long = *STUCK_LOG.get_or_init(|| std::env::var("SG_STUCK_LOG").ok().and_then(|v| v.parse().ok()).unwrap_or(0));
+        if long > 0 {
+            for (i, g) in self.club.g.iter().take(golf::SLOTS).enumerate() {
+                let on = tick.wrapping_sub(g.hole_tick);
+                if (1..19).contains(&g.hole) && on >= long && on.is_multiple_of(long) {
+                    let bt = self.course.ty.get(((g.bx >> 10) * sg_core::course::n() + (g.by >> 10)).max(0) as usize);
+                    println!(
+                        "stuck tick {tick} golfer {i} partner {} hole {} for {on} strokes {} sub {} pause {} flags {:#x} anim {} \
+                         at ({},{}) ball ({},{}) tile {:?} speed {} mood {} partner_hole {} partner_strokes {} partner_sub {}",
+                        g.partner,
+                        g.hole,
+                        g.strokes,
+                        g.sub,
+                        g.pause,
+                        g.flags,
+                        g.anim,
+                        g.x >> 10,
+                        g.y >> 10,
+                        g.bx >> 10,
+                        g.by >> 10,
+                        bt,
+                        g.speed,
+                        g.mood,
+                        self.club.g[i ^ 1].hole,
+                        self.club.g[i ^ 1].strokes,
+                        self.club.g[i ^ 1].sub,
+                    );
+                }
+            }
+        }
         sg_core::ratings::pass(&mut self.club, self.difficulty);
         self.pro_after_tick();
         self.board_tick();
@@ -2553,6 +2592,28 @@ impl App {
     }
 
     /// The sizes of the collections that could grow over a long game, for the performance log (perf.rs).
+    /// The `SG_GOLFER_LOG` line of tick `tick`: the weather the simulation plays (Weather that matters), the golfers on
+    /// the holes, queued and pausing, their moods, the quits so far, the cash and a hash of every golfer's place.
+    fn golfer_log_line(&self, tick: u32) -> String {
+        let c = &self.club;
+        let live = || c.g.iter().take(golf::SLOTS).filter(|g| g.hole != 0);
+        let on = live().filter(|g| (1..19).contains(&g.hole)).count();
+        let queued = live().filter(|g| g.hole == -1).count();
+        let pausing = live().filter(|g| (1..19).contains(&g.hole) && g.pause < 0).count();
+        let low = live().filter(|g| g.mood < 0).count();
+        let mood: i32 = live().map(|g| g.mood).sum();
+        let quits: i32 = c.holes.iter().map(|h| h.quits).sum();
+        let pos =
+            c.g.iter().take(golf::SLOTS).fold(0u64, |h, g| {
+                (h ^ ((g.x as u32 as u64) << 32 | g.y as u32 as u64) ^ g.hole as u32 as u64).wrapping_mul(0x100_0000_01b3)
+            });
+        let w = c.today.map(|t| format!("rain {:.2} storm {}", t.rain, t.storm as u8)).unwrap_or_else(|| "off".into());
+        format!(
+            "golfers tick {tick} weather {w} on {on} queued {queued} pausing {pausing} mood {mood} low {low} quits {quits} cash {} pos {pos:016x}",
+            c.cash
+        )
+    }
+
     pub fn perf_sizes(&self) -> String {
         let c = &self.club;
         let lazy: usize = self.sprites.iter().map(|s| s.tex.iter().filter(|t| t.is_some()).count()).sum();

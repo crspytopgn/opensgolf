@@ -1275,9 +1275,20 @@ impl App {
         }
     }
 
-    /// After a frame: a photo that does not wait is let go once drawn.
+    /// After a frame: a photo that does not wait is let go once drawn. The port's own: a photo that cannot be drawn (the
+    /// interface hidden with u, the showcase fly-over, Enhanced graphics' photo mode) is let go at once, as if clicked
+    /// away (the player's pro's words go to the ticker instead), since a held photo nobody can see would hold the whole
+    /// game, every golfer standing where he is, with nothing on screen to say why.
     pub fn great_shot_frame(&mut self) {
-        if self.great_shot.as_ref().is_some_and(|gs| gs.shown && !gs.held) {
+        let unseen = !self.ui_ok || self.hud_hidden() || self.photo.is_some();
+        let Some(gs) = self.great_shot.as_ref() else { return };
+        if gs.shown && !gs.held {
+            self.great_shot_release();
+        } else if !gs.shown && unseen && self.screen == crate::app::Screen::Play {
+            if gs.held && gs.g as i32 == self.club.gary {
+                let (text, g) = (gs.text.clone(), gs.g as i32);
+                self.post_message(&text, 1, g);
+            }
             self.great_shot_release();
         }
     }
