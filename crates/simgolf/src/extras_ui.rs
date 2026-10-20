@@ -98,11 +98,12 @@ impl Tag {
         }
     }
 
-    /// The pill's fill and edge (15-bit colours, muted as the original's palette is): green, amber, red, slate.
+    /// The pill's fill and edge (15-bit colours, muted as the original's palette is): green, amber, red, slate, each dark
+    /// enough for its white words to read (about 5 to 1 or better).
     pub fn colours(self) -> (u32, u32) {
         match self {
-            Tag::Light => (0x1a48, 0x0d03),
-            Tag::Noticeable => (0x6204, 0x3922),
+            Tag::Light => (0x11e6, 0x0d03),
+            Tag::Noticeable => (0x4d62, 0x3922),
             Tag::Big => (0x58c6, 0x3063),
             Tag::Experimental => (0x4153, 0x20c9),
         }

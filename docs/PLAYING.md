@@ -1188,6 +1188,15 @@ Enhanced graphics' sharp text the bigger text is rasterised at the screen's own 
 drawn bigger. Test hook: `SG_TEXT_SIZE=125` or `150` uses a size for
 one run without saving it.
 
+The port's own boxes (OpenSGolf extras, Enhanced graphics, Search and the port's yes/no questions) are drawn for
+reading, always, while keeping the original's colours: their title keeps the original's pale yellow (white in a question)
+inside a dark edge, the page shown and the banner under the tabs are in dark navy ink on the pale blue, the other tabs are
+white over a dark shadow on a darker blue (pale yellow under the pointer), the tag pills are darker with a dark shadow
+under their words, and the foot's descriptions and hints (and the note under Preferences' bug fixes) are in dark navy and
+dark teal. The original's own boxes (Preferences, System Functions, Information and the game's questions) are drawn as
+the original drew them: the pale yellow 0x7ff0 title over its one-pixel dark red shadow on the lavender 0x4e79 fill is
+the exe's own look (docs/SCREENSHOT_NOTES.md, *Generic popup*).
+
 ## Language
 
 The game is in English unless a translation is installed (docs/TRANSLATING.md): then System Functions > Preferences has a
