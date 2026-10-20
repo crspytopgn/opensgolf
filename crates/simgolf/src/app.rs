@@ -2317,6 +2317,11 @@ impl App {
                     }
                 }
                 golf::Event::Thought { g, id, arg } => {
+                    // test hook: SG_THOUGHTS=1 prints every golfer thought as it is raised, with the golfer's mood
+                    if std::env::var_os("SG_THOUGHTS").is_some() {
+                        let line = self.club.thought(&self.course, id, arg & 0x3fff, g);
+                        println!("thought golfer {g} type {id:#x} arg {arg} mood {}: {}", self.club.g[g].mood, line.text);
+                    }
                     if crate::extras::people() {
                         self.keep_thought(g, id, arg);
                     }
@@ -2743,6 +2748,9 @@ impl App {
         }
         self.terrain = s.terrain;
         self.land = s.land;
+        if let Some(l) = &self.land {
+            l.green_looks_to(&mut self.terrain);
+        }
         self.course_name = s.course_name;
         self.difficulty = s.difficulty;
         self.course_id = s.course_id;
@@ -2883,6 +2891,13 @@ impl App {
     /// warning sounds once a stroke.
     pub fn paint_tiles(&mut self, tiles: &[(i32, i32)]) {
         let pe = &PAINT[self.paint_idx];
+        // the green brush's byte: a plain or a tricky green (Tab)
+        let want = if pe.ty == 1 {
+            self.paint_brush_variant();
+            self.green_brush_byte()
+        } else {
+            pe.vbyte
+        };
         self.ensure_land();
         if let Some(land) = self.land.as_mut() {
             land.sync_from_terrain(&self.terrain);
@@ -2914,7 +2929,7 @@ impl App {
                 warned = true;
                 self.ui_sound(24); // a warning only: wetlands and marsh are dear to clear
             }
-            if old == new && pe.vbyte == self.terrain.variation[self.terrain.tile_index(x, y)] as i32 {
+            if old == new && want == self.terrain.variation[self.terrain.tile_index(x, y)] as i32 {
                 continue; // nothing to change, nothing charged
             }
             let cup = self.course.flags.get(sg_core::course::idx(x, y)).is_some_and(|&f| f & sg_core::course::f::CUP != 0);
@@ -2950,8 +2965,18 @@ impl App {
                     continue;
                 }
             }
+            // the green brush over a green only turns it plain or tricky: the exe sets the variant byte at 0x420561 and
+            // leaves before the charge and the new-tile bookkeeping, since the type stays the same
+            if old == new && new == 1 {
+                let ti = self.terrain.tile_index(x, y);
+                self.terrain.variation[ti] = want as u8;
+                if let Some(l) = self.land.as_mut() {
+                    l.var[li] = want as u8;
+                }
+                continue;
+            }
             // tees use this byte as their look
-            let vb = if pe.ty == 0 { ((x * 7 + y * 13) as u32 % 5) as i32 } else { pe.vbyte };
+            let vb = if pe.ty == 0 { ((x * 7 + y * 13) as u32 % 5) as i32 } else { want };
             self.econ.spend_to(economy::LEDGER_BUILD_COURSE, cost as f64 * Economy::UNIT);
             let hb = (self.club.next_hole as usize).min(18);
             if !self.econ.free {
@@ -3050,17 +3075,37 @@ impl App {
         self.refresh_trees();
     }
 
-    /// The exe's bookkeeping for a tile painted to a new type (0x420561..): weeds go, the tile starts its growth counter, and
-    /// its variant byte becomes the brush's variant (tees 0, greens 0 or 0xff), which sizes a planted tree.
-    fn painted_tile(&mut self, x: i32, y: i32, new: u8) {
-        let v = match self.paint_variant {
+    /// The brush's variant (0x5a34f0): rolled when the brush is first used (the green always starts at 0, 0x41eaa0), one up
+    /// with each Tab.
+    fn paint_brush_variant(&mut self) -> i32 {
+        match self.paint_variant {
             Some((k, v)) if k == self.paint_idx => v,
             _ => {
-                let v = self.exe_rng.below(3);
+                let v = if PAINT[self.paint_idx].ty == 1 { 0 } else { self.exe_rng.below(3) };
                 self.paint_variant = Some((self.paint_idx, v));
                 v
             }
+        }
+    }
+
+    /// The variant byte the green brush gives a green (0x420561): 0xff for the tricky green (an odd variant, Tab), else 0.
+    /// Terrain.dll draws a green whose byte has bit 0x80 with the TrickyGreen textures, and the golfers read the same bit.
+    pub(crate) fn green_brush_byte(&self) -> i32 {
+        let v = match self.paint_variant {
+            Some((k, v)) if k == self.paint_idx => v,
+            _ => 0,
         };
+        if v & 1 != 0 {
+            0xff
+        } else {
+            0
+        }
+    }
+
+    /// The exe's bookkeeping for a tile painted to a new type (0x420561..): weeds go, the tile starts its growth counter, and
+    /// its variant byte becomes the brush's variant (tees 0, greens 0 or 0xff), which sizes a planted tree.
+    fn painted_tile(&mut self, x: i32, y: i32, new: u8) {
+        let v = self.paint_brush_variant();
         self.ensure_land();
         self.retyped.push((x, y));
         if let Some(land) = self.land.as_mut() {

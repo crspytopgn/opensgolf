@@ -310,12 +310,16 @@ impl App {
                 }
             }
         }
-        if old as i32 == pe.ty && pe.vbyte == self.terrain.variation[ti] as i32 {
+        let want = if pe.ty == 1 { self.green_brush_byte() } else { pe.vbyte };
+        if old as i32 == pe.ty && want == self.terrain.variation[ti] as i32 {
             return None;
         }
         let cup = self.course.flags.get(sg_core::course::idx(x, y)).is_some_and(|&f| f & sg_core::course::f::CUP != 0);
         if self.club.game & golf::game::TOURNAMENT != 0 && (old == 0 || cup) {
             return None;
+        }
+        if old as i32 == pe.ty && pe.ty == 1 {
+            return Some(0); // a green turned plain or tricky costs nothing (0x420561)
         }
         Some(Economy::terrain_clear_units(old as i32) + Economy::terrain_cost_units(pe.ty))
     }
