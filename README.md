@@ -101,6 +101,8 @@ helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a fe
   dawn sprinklers, morning frost, pixel-perfect whole-number scaling (Classic too) and a photo mode
   ([docs/ENHANCED.md](docs/ENHANCED.md)); a showcase fly-over of the course hole by hole (Shift+O).
 - **Bigger courses:** Large, Huge and Giant, up to 128 × 128 tiles.
+- **Preferences, sorted:** the original's four ticks first, then one line per group of the port's own options (Game
+  options, Graphics, Controls and keys, Text size, Game files, More), each describing itself at the box's foot.
 - **OpenSGolf extras:** gameplay extras (a Hardcore economy, animals to buy, higher staff limits, setting a hole's par,
   left-handed golfers (and a left-handed pro), weather that matters (rain, snow, heat waves and thunderstorms change how
   balls roll and who comes out to play), more visitors (touring pros and invented celebrities, moddable through
@@ -136,7 +138,7 @@ helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a fe
   tree a random one of the seven.
 - **Updates from the title menu:** *Check for updates*, then *Update now* downloads the new version, checks its signature
   and installs it in place (Windows, macOS, Linux, Android); on Windows and with the Linux .tar.gz it downloads only the
-  programs and the pack files that changed. A Preferences tick checks once at each start. Only GitHub is contacted, and
+  programs and the pack files that changed. A Preferences tick (Preferences → More) checks once at each start. Only GitHub is contacted, and
   only then.
 - **Content packs and game scripts** that change prices, buildings, terrain, golfers, text, art and sounds, add scenarios,
   and can be downloaded from inside the game ([docs/MODDING.md](docs/MODDING.md)).
@@ -210,7 +212,7 @@ to be downloaded. It is simple placeholder art meant to grow through contributio
 
 * The game uses it by itself when it finds no SimGolf files (no `--game` folder, or one without them), and says so.
 * `--base opensgolf-free` picks it for a run even with your copy present (`--base original` the reverse); Preferences >
-  Content packs picks it for good.
+  Game files > Content packs picks it for good.
 * In the browser: **Play with free graphics** on the start page.
 * `sgtool freeset DIR` writes all 5,465 files to a folder (about 82 MB, which is why they are made at run time rather than
   committed).
@@ -266,12 +268,12 @@ GitHub Pages.
 ### Enhanced graphics and HD
 
 **Enhanced graphics** is the port's own option for 4K and widescreen monitors and its shader effects; it changes no art,
-and **Classic stays the default and byte-identical** with it off. Turn it on in System Functions → Preferences, or with
+and **Classic stays the default and byte-identical** with it off. Turn it on in System Functions → Preferences → Graphics, or with
 `--enhanced` / `--classic-render` (`--fx` for just the effects). See [docs/ENHANCED.md](docs/ENHANCED.md).
 
 An opt-in **HD mode** draws the game's art upscaled ×4 (or ×2) with an AI upscaler such as Real-ESRGAN. The upscaled art is a
 derivative of EA's art, so you make the pack yourself from your own copy with `tools/hd_pack/hd_pack.py`. It is never
-shipped, downloaded from this project, or to be shared. Turn it on in Preferences (*HD graphics*), with `--hd` / `--classic`,
+shipped, downloaded from this project, or to be shared. Turn it on in Preferences → Graphics (*HD graphics*), with `--hd` / `--classic`,
 or `--hd-pack DIR`. See [docs/HD.md](docs/HD.md).
 
 ### How it was made

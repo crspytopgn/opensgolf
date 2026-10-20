@@ -125,7 +125,7 @@ pub const GROUPS: [(&str, &str, &[usize]); 3] = [
 /// The option of `OPTION_KEYS` that is the cut content (shown only with the original game's files, `show_cut_content`).
 const CUT: usize = 1;
 
-/// The interface extra that is the update check: a plain Preferences line (popup_ui PREFS_UPDATE_CHECK), not in the box.
+/// The interface extra that is the update check: a tick of Preferences > More (prefs_ui.rs), not in the box.
 #[cfg(test)]
 const UPDATE_CHECK: usize = 12;
 

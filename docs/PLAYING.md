@@ -18,7 +18,7 @@ followed down up to two levels):
 5. `game` in the folder it was started from.
 
 With none found it plays on the free base set (opensgolf-free), and the first time the title screen says so next to its
-**Use my SimGolf files...** button (top left). That button, and the same line at the end of Preferences, asks whether the
+**Use my SimGolf files...** button (top left). That button, and the same line in Preferences > *Game files...*, asks whether the
 files are a .zip, a CD image (.iso, .cdr), or a folder (installed, or the CD itself), then opens the system's own picker for it (Windows and macOS
 dialogs, the desktop's XDG portal on Linux, Android's file picker). A .zip is unpacked into `game` in the save folder, by the
 browser version's rules: the game folder is the one holding `Flics`, at any depth; `__MACOSX`, `._` files, videos and
@@ -28,7 +28,7 @@ is refused with a message naming what is not there, a folder the system does not
 so; a good one is saved and OpenSGolf starts again on the original files (a
 real restart, so the original's art, sounds, fonts and tables load exactly as on a normal start; from Preferences during a
 game it asks first, as anything not saved is lost). On the original files the button reads **Use the free graphics**, which
-saves the free set as the base set (Preferences > Content's choice) and starts again. The browser version has its own
+saves the free set as the base set (Preferences > Game files > Content packs' choice) and starts again. The browser version has its own
 picker on the page and no such button; on Android the files are copied into the app (see Android below).
 The native importer also accepts ISO 9660/Joliet images of the SimGolf CD, including a .zip containing one .iso. It reads
 game files directly or unpacks the CD's InstallShield 6–16 `data1.hdr`/`data*.cab` archives, including sounds and voices.
@@ -108,8 +108,8 @@ GitHub for OpenSGolf's newest release and says whether you have it. When a newer
   browser, to download and install it as the first time.
 - **Not now**.
 
-Privacy: only GitHub is contacted, and only when you click the button (or with the Preferences' *Check for updates when
-the game starts* ticked, once at start): one request to `api.github.com` for the newest release, and with Update now the
+Privacy: only GitHub is contacted, and only when you click the button or Preferences > More's *Check for updates now*
+(or with More's *Check for updates when the game starts* ticked, once at start): one request to `api.github.com` for the newest release, and with Update now the
 downloads of `SHA256SUMS`, its signature and the package from GitHub's release files (for an update of only what
 changed, also the pack file list and the changed pack files from `raw.githubusercontent.com`). When the game's own HTTPS
 client cannot connect (an antivirus that scans HTTPS or a company proxy, whose certificate only the system knows), it
@@ -171,7 +171,7 @@ browser or another device does not have them, so back them up. On the start page
   Game opens; see below). A single file never replaces a save of the same name: it is added as "Name (2)". The games are
   then in Load Previous Game.
 
-**In the game**, with the Import and export saved games extra on (System Functions > Preferences > OpenSGolf extras,
+**In the game**, with the Import and export saved games extra on (System Functions > Preferences > Game options,
 Helpers; not in the original; up to 0.4.9 it was part of Course sharing, so settings from then with Course sharing on
 have it on),
 Load Previous Game has two buttons of the port's own under the list: **Import a save file...** (the system's file
@@ -336,9 +336,37 @@ graphics as they are. The box says **Custom** whenever your ticks are no preset 
 graphics on). The choice is saved and is what new games start with. The same choice is the first line of the extras box
 (below), so you can change it later, also during a game.
 
+## Preferences
+
+System Functions > Preferences starts with the original's own four ticks, exactly as the original has them: **Show
+golfers' thoughts**, **Advisor and first-time messages**, **Ambient animals** and **Sound**. Under a divider headed
+*OpenSGolf* come the port's own lines, one per group, each opening a box of its own (the port's, drawn for reading):
+
+- **Game options...**: the OpenSGolf extras box (presets, gameplay, sandbox, looks, info, helpers; see the next section).
+- **Graphics...**: *HD graphics* and *Enhanced graphics* (two ticks, each off by default; with both off you play in
+  Classic, the original's own graphics; they can be on together), *Pixel-perfect scaling* (also on Enhanced graphics'
+  Display page; it counts in Classic too) and *Enhanced graphics settings...* (see *Enhanced graphics* below).
+- **Controls and keys...**: the Keyboard controls screen, with *Change keys...* and the *Original* and *Modern controls*
+  presets (see *Changing the keys*).
+- **Text size: normal**: steps the text size at once (see *Text size*).
+- **Game files...**: *Use my SimGolf files...* or *Use the free graphics* (not in the browser; see *Your own SimGolf
+  files*), *Content packs...*, and *Language:* when a translation is installed.
+- **More...**: *Fix the original game's bugs* (on by default; docs/FIXES.md), *Check for updates when the game starts*
+  (off by default), *Check for updates now* (where the title menu has its button), and *Search options...*.
+
+The foot of Preferences and of each box says in a sentence what the OpenSGolf line under the pointer does (on a touch
+screen the line last tapped; a line that opens something opens on the second tap, the first showing what it does; ticks
+and the Text size and Language lines act on the first tap). Typing a letter or digit in Preferences or one of its boxes
+opens Search on it. Ticks change nothing until the box's OK (Enter, or the tick); Esc leaves them as they were. A box
+opened from Preferences (Graphics, Game files, More, Game options, the Enhanced graphics settings, Search, the keys and
+Content packs screens) goes back to the box it was opened from when you close it. The settings are the same ones as
+before, kept under the same names in `settings.json`. Test hooks: `--edit "M:2"` opens Preferences, `M:9`, `M:10` and
+`M:11` its Graphics, Game files and More boxes (`SG_POPUP_MOUSE=x,y` leaves the pointer on a line, to show its
+description).
+
 ## OpenSGolf extras (optional, not in the original)
 
-Preferences (System Functions, Preferences) has an **OpenSGolf extras...** line. It opens a box of optional changes,
+Preferences (System Functions, Preferences) has a **Game options...** line. It opens a box of optional changes,
 all off unless you tick them. Its first line is **Preset: Original / Original + helpers / OpenSGolf / Custom** (a click
 steps to the next, as the Game box does; it says Custom whenever the ticks are no preset, and the foot of the box
 describes the preset in use while the pointer is on it). Below it the options are sorted by kind on five pages (tabs
@@ -359,15 +387,15 @@ along its top; a click on a tab, Left and Right or Tab turn them). A banner unde
   and under the *Controls:* name the three ticks the Change keys' *Original* and *Modern controls* presets set: drag to
   place, zoom towards the pointer, right-drag panning; also further down)
 
-*Check for updates when the game starts* and *Fix the original game's bugs* are plain Preferences lines, not in this box
-(see *The title menu* and docs/FIXES.md).
+*Check for updates when the game starts* and *Fix the original game's bugs* are ticks of Preferences > More, not in this
+box (see *The title menu* and docs/FIXES.md).
 
 Each line on the Gameplay and Sandbox pages carries a coloured tag at its right end saying how much it changes the game:
 green **Light touch** (buyable animals, left-handed golfers), amber **Noticeable** (higher staff limits, set par, weather
 that matters, more visitors, the calendar), red **Big change** (hardcore economy, freeze golfer happiness, unlock all) or
 slate **Experimental** (the cut content). The foot of the box describes the line under the pointer in a sentence (on a
-touch screen the line last tapped); with none, it says how to read the box. Preferences > Search lists every option with
-its page and tag ("Gameplay · Noticeable: Weather that matters..."), and typing a tag's words (*big change*) finds the
+touch screen the line last tapped); with none, it says how to read the box. Preferences > More > Search lists every option with
+its place and tag ("Game options > Gameplay · Noticeable: Weather that matters..."), and typing a tag's words (*big change*) finds the
 options so tagged. With every extra off the game plays exactly as the original. What you tick on the Gameplay, Sandbox
 and Looks pages applies to the game you are playing, is saved with that game (a save made with everything off is
 unchanged), and is what new games start with (kept in settings.json under `extras`). Which page a line is on changes
@@ -567,18 +595,20 @@ land, 5 to 7 the sandbox switches), `--edit "C:0,1"` opens it; `SG_PRESS="Ctrl+S
 
 ## Searching the Preferences
 
-Preferences has a **Search options...** line, and typing a letter or digit while Preferences is open does the same: a
-box that finds an option on any of the Preferences' pages by its words. Type to narrow the list (each word you type must
+Preferences > More has a **Search options...** line, and typing a letter or digit while Preferences or one of its boxes is
+open does the same: a box that finds an option in any of the Preferences' boxes by its words. Type to narrow the list (each word you type must
 start a word of the option or of its page's name, in any order and any case; Backspace takes back a letter); it shows up
-to ten options at once with the page each is on (an Enhanced graphics page, an extras page, *Graphics* for Enhanced
-graphics itself, *Preferences* for the bug fixes and the update check, *Keys* for the keyboard controls), and how many more there are. A click on a found option ticks or
+to ten options at once with where each is, by the Preferences line that leads to it (*Graphics* for HD and Enhanced
+graphics, *Graphics > Water* for an Enhanced graphics page, *Game options > Gameplay* for an extras page, *More* for the
+bug fixes and the update check, *Controls and keys* for the keyboard controls, *Preferences* for the text size), and how
+many more there are; a box's name finds what is in it (*more*). A click on a found option ticks or
 unticks it, or steps a setting with choices, as on its own page; a click on a key opens Change keys with that action
 waiting for its new key. **Show only what differs from the original game** keeps the options that are not as a new player
 has them. **Reset everything to the original game...** asks first, then puts every option back: every gameplay and
 interface extra off, Enhanced graphics off with all its options at their defaults (the bug fixes on, as they are by
-default and as the *Original* preset leaves them), and every key back to the original's. The
+default and as the *Original* preset leaves them), HD graphics off, and every key back to the original's. The
 search box opens again afterwards on the same words. As in the other Preferences boxes nothing changes until its OK
-(Enter, or the tick); Esc leaves everything as it was.
+(Enter, or the tick); Esc leaves everything as it was. Either way it goes back to the Preferences box it was opened from.
 
 Test hooks: `--edit "M:7"` opens the search box (`SG_PREFS_SEARCH="words"` types them first, `SG_PREFS_CHANGED=1` ticks
 *Show only what differs*), `--edit "M:8"` its reset question.
@@ -587,7 +617,7 @@ Test hooks: `--edit "M:7"` opens the search box (`SG_PREFS_SEARCH="words"` types
 
 The lower left of the course screen now shows the game's own dock art (Interface/3mainLowerLeft.pcx). The three big round buttons open panels along the bottom: **Build Course** (terrain brushes, paths, raise and lower, each with its cost), **Add Buildings** (the amenities for the theme) and **People** (click to hire, right click to fire a club pro, ranger, groundskeeper or soda vendor). Click an item, then click the map. On a Mac, Ctrl+click is a right click (in the app and in the browser), as is a two-finger click on a trackpad with *Secondary click* on. The small buttons zoom, rotate, open the course report, pause, and save the course. The keys are the original's (its F8 screen lists them): g f r s t w p b pick the green/tee, fairway, rough, sand, trees, water, path and bench tools (v the ravine), e the elevation tools, = and - raise and lower the ground under the pointer (Tab steps the elevation brush), h opens the hole being built; z and x zoom between the original's three levels, PageUp and Home turn the view a quarter (0 turns it back), the arrows scroll four tiles, 1 to 9 and Shift+1 to 9 jump to holes 1 to 18; Space drops the tool; Shift+P pause, Shift+T trees, Shift+N names, Shift+R routing map, Shift+W world map, Shift+J begin a tournament, Shift+C save the course for championship play, Shift+S and Shift+L save and load. The original has no game speed control; the port's own ] cycles normal, x2 and x4. With Enhanced graphics on, the port's own c (a key the original leaves unused) opens photo mode (see *Photo mode* below).
 
-System Functions → Preferences → *Keyboard controls...* (the port's own screen) lists every key the game takes, grouped:
+System Functions → Preferences → *Controls and keys...* (the port's own screen) lists every key the game takes, grouped:
 moving around the course, time, building, holes and messages, reports and maps, your pro and the golfers, saving and
 loading, pictures, and the keys that work everywhere, with the browser's and the Mac's stand-ins. Its pages turn with the
 Previous and Next buttons, Left and Right (or PageUp, PageDown, Space), or a click or tap in the box; Esc, Enter, the tick
@@ -644,7 +674,7 @@ The port's own additions to the interface, none of them in the original (crates/
 names). They only add a screen, a tag, a strip, a button or a save: helpers (and one look, random trees), none of them
 changes how the game plays. A new player starts with them off; the *Original + helpers* and *OpenSGolf* presets turn
 them on in one click (the two pauses and the three controls ticks excepted, which stay as you set them), and System
-Functions, Preferences, *OpenSGolf extras...* ticks them on its Info and Helpers pages (the Info page by groups) and
+Functions, Preferences, *Game options...* ticks them on its Info and Helpers pages (the Info page by groups) and
 Looks page (kept in `settings.json` under `ui_extras`, one tick each; a tick missing there reads as off, and so do they
 all when settings.json has no `ui_extras` at all, as in settings from before the extras or written only by other
 screens), and `--no-extras` turns them all off for one run. With every tick off the game draws and plays exactly as before (the stills of every report, panel and menu
@@ -748,7 +778,7 @@ compare pixel for pixel with the build before the extras).
   warns about debt at the end of the year (the year-end report follows when the game goes on), or the cash goes below
   zero (not in Sandbox Mode). The news is where the original puts it, on the ticker or the report; *Paused for big news*
   under the Paused caption. Unpause as usual (Shift+P or the dock's pause button).
-- **Check for updates when the game starts** (a plain Preferences line, not in the extras box; off, and the presets leave
+- **Check for updates when the game starts** (a tick of Preferences > More, not in the extras box; off, and the presets leave
   it as you set it: it goes online, which is yours to choose): the title menu's *Check for updates* (see *The title menu*), once in the background when the game
   starts. It says nothing unless a newer version is out; then a box offers **Update now**, **Skip this version** (that
   version is not offered at start again, a newer one is; kept in `settings.json` as `update_skip`) or **Not now**. Only
@@ -838,7 +868,7 @@ The port's own camera helpers (crates/simgolf/src/views.rs); nothing changes unt
   Shift+Alt+1 to 4 go back to a bookmark and Ctrl+Shift+1 to 4 keep one (for keyboards whose F keys need Fn).
 - **Middle button drag**: dragging with the middle mouse button moves the course whatever tool is held (with the smooth
   camera it coasts on when let go).
-- **Zoom towards the pointer**: an OpenSGolf extra (Preferences, *OpenSGolf extras...*, Helpers page, *Controls: zoom
+- **Zoom towards the pointer**: an OpenSGolf extra (Preferences, *Game options...*, Helpers page, *Controls: zoom
   towards the pointer*), off by default and part of the *Modern controls* preset: see *OpenSGolf extras* above.
 - **The right button** is the original's: on the course a right click with a building, path or amenity tool in hand,
   a message showing, a golfer's card open or an employee being moved only puts that away; with an elevation tool it
@@ -884,7 +914,7 @@ tile x,y to the pointer (`SG_CURSOR_TILE`) and `SG_AREA=f` holds Alt (with `SG_P
 
 ### Random trees
 
-An OpenSGolf extra (Preferences, *OpenSGolf extras...*, Looks page: only which picture each tree gets changes), off by
+An OpenSGolf extra (Preferences, *Game options...*, Looks page: only which picture each tree gets changes), off by
 default and on in the *Original + helpers* and *OpenSGolf* presets; ticks saved before it read as off. In the original a tree brush keeps one look while it is in hand (picked at
 random when you pick the brush, Tab steps it) and the scenic tree tool one of its seven trees until you choose another.
 With **Random trees** on, every tree the woods, pine and palm brushes plant, by a click, a painted stroke, a rectangle or
@@ -915,7 +945,7 @@ F keys (Shift + Alt + 6 is Shift+F6). A Mac keyboard has no PageUp or Home: **fn
 (turn the view), or use the dock's turn buttons. In the browser a screenshot (Shift+F6), a SimFoto and a great shot's
 photo (F10) are downloaded; saved games and the accomplishment snapshots stay in the browser's storage.
 
-Content packs (mods, docs/MODDING.md): System Functions, Preferences, *Content packs...* lists the installed packs; switch them on or off and order the mods there (Up and Down, or PageUp and PageDown on the picked row). The choices are saved in `settings.json` at once and take effect the next time the game starts. `--screen content` opens the screen for stills. *Save profile...* keeps the current choices under a name and *Profiles...* lists the saved ones to load (the choices then take effect at the next start) or delete. A game saved with other packs than the ones in use asks before it loads from *Load Previous Game*, in plain words ("This game was saved with the original SimGolf art; you're using the free graphics", or other add-ons; the packs' ids and versions go to the log): switch to the save's packs (the desktop game starts again on them and loads the save; on Android and in a browser restart or reload, then load it), load it anyway, or not load it (docs/MODDING.md 2).
+Content packs (mods, docs/MODDING.md): System Functions, Preferences, *Game files...*, *Content packs...* lists the installed packs; switch them on or off and order the mods there (Up and Down, or PageUp and PageDown on the picked row). The choices are saved in `settings.json` at once and take effect the next time the game starts. `--screen content` opens the screen for stills. *Save profile...* keeps the current choices under a name and *Profiles...* lists the saved ones to load (the choices then take effect at the next start) or delete. A game saved with other packs than the ones in use asks before it loads from *Load Previous Game*, in plain words ("This game was saved with the original SimGolf art; you're using the free graphics", or other add-ons; the packs' ids and versions go to the log): switch to the save's packs (the desktop game starts again on them and loads the save; on Android and in a browser restart or reload, then load it), load it anyway, or not load it (docs/MODDING.md 2).
 
 Scenarios (docs/MODDING.md 5): with a scenario pack installed, *Start New Game* first offers a free game (the original's
 way on: Select Difficulty, then a property) or one of the scenarios, each with its goals; a scenario that names no
@@ -934,7 +964,7 @@ scenario pack (Moderate when it names no difficulty), `--screen scenarios` (from
 The port's own (crates/simgolf/src/controls.rs and controls_ui.rs), in the browser and on the desktop alike. With nothing
 changed every key does what it did before.
 
-* **Change keys.** System Functions → Preferences → *Keyboard controls...* → *Change keys...* lists every action of the
+* **Change keys.** System Functions → Preferences → *Controls and keys...* → *Change keys...* lists every action of the
   course screen with its key: the original's (tools, screens, the F keys, the shot shapes while your pro aims) and the
   port's own (game speed, photo mode, hiding the interface, the measuring tape, the course editor's box, the hidden Cheats
   box). Click an action, then press its new key, with or without Shift (and Ctrl); Esc (or a click) while it waits keeps
@@ -1081,7 +1111,7 @@ assets and read player packs from the external files folder).
 
 ## Enhanced graphics
 
-System Functions → Preferences → the *Enhanced graphics* tick, or *Enhanced graphics settings...* for the details (the port's own, not in the original; docs/ENHANCED.md) turns on a
+System Functions → Preferences → *Graphics...* → the *Enhanced graphics* tick, or *Enhanced graphics settings...* for the details (the port's own, not in the original; docs/ENHANCED.md) turns on a
 way of drawing the game for large and wide screens: sharp text, smooth interface art (with smooth outlines for the colour-keyed buttons, icons and sprites instead of stair steps), the HUD at the window's corners on a
 wide window, sharper and anti-aliased course, a smooth camera and smooth motion. Each part has its own tick; Classic stays
 the default. With the smooth camera the mouse wheel and a pinch zoom continuously between the three levels (z, x and the
@@ -1092,7 +1122,7 @@ effects, cast shadows, the balls' trail and impacts, grass tufts, sharpening, cr
 which a click steps through low, medium and high), *Atmosphere* (sky, time of day and its length, evening lights, cloud
 shadows, haze, reflections and the post-processing), *Weather* (rain, wet ground, lightning, heat, winter, mist, wind,
 seasons) and *Water* (the water's own options). The master switch heads every page. *Fix the original game's bugs* is
-not here but a plain Preferences line (it counts in Classic too; docs/FIXES.md). `--enhanced` and `--classic-render`
+not here but a tick of Preferences > More (it counts in Classic too; docs/FIXES.md). `--enhanced` and `--classic-render`
 switch it for one run. Test hooks: `--edit M:5` opens the screen (`M:5,P` on page P, 0 to 4);
 `SG_POINTER=x,y` moves the pointer and `SG_CLICK=x,y[;x,y...]` clicks, in window pixels, after the first frame of a
 scripted still (for checking where clicks land on a wide window).
@@ -1193,7 +1223,7 @@ System Functions > Preferences has a **Text size:** line (the port's own helper;
 *normal*, *125%* and *150%*, at once, and it is remembered (`"text_size"` in `settings.json`; normal writes nothing and
 draws exactly as before; Search options finds it as *Text size*). Bigger text grows the message window and its notes
 (taller, the same width), the notes at the bottom of the title screens, every pop-up box (Information, System Functions,
-Preferences and its Enhanced graphics, OpenSGolf extras and Search boxes, the questions and notices, with their tabs,
+Preferences and its Graphics, Game files, More, Enhanced graphics, OpenSGolf extras and Search boxes, the questions and notices, with their tabs,
 banners, tags and descriptions), the tooltips, the name tags, the touch buttons' names and the on-screen keyboard's keys,
 the path view, staff areas and landing map legends, comments by hole, the message history, the People screen and the F2
 Player Comments report. A box that would leave the 800 x 600 screen grows only as far as it fits (the Preferences and
@@ -1206,18 +1236,20 @@ Enhanced graphics' sharp text the bigger text is rasterised at the screen's own 
 drawn bigger. Test hook: `SG_TEXT_SIZE=125` or `150` uses a size for
 one run without saving it.
 
-The port's own boxes (OpenSGolf extras, Enhanced graphics, Search and the port's yes/no questions) are drawn for
+The port's own boxes (OpenSGolf extras, Enhanced graphics, Search, Preferences' Graphics, Game files and More, and the
+port's yes/no questions) are drawn for
 reading, always, while keeping the original's colours: their title keeps the original's pale yellow (white in a question)
 inside a dark edge, the page shown and the banner under the tabs are in dark navy ink on the pale blue, the other tabs are
 white over a dark shadow on a darker blue (pale yellow under the pointer), the tag pills are darker with a dark shadow
 under their words, and the foot's descriptions and hints (and the note under Preferences' bug fixes) are in dark navy and
-dark teal. The original's own boxes (Preferences, System Functions, Information and the game's questions) are drawn as
+dark teal; Preferences' *OpenSGolf* divider and the descriptions at its foot are in the same dark navy. The original's
+own boxes (Preferences, System Functions, Information and the game's questions) are drawn as
 the original drew them: the pale yellow 0x7ff0 title over its one-pixel dark red shadow on the lavender 0x4e79 fill is
 the exe's own look (docs/SCREENSHOT_NOTES.md, *Generic popup*).
 
 ## Language
 
-The game is in English unless a translation is installed (docs/TRANSLATING.md): then System Functions > Preferences has a
+The game is in English unless a translation is installed (docs/TRANSLATING.md): then System Functions > Preferences > Game files has a
 `Language:` line that switches to the next language and remembers it (`"language"` in `settings.json`). Test hooks:
 `--lang CODE` uses a language for one run, `--lang-file FILE` lays a translation file over the English, and the
 environment variable `SG_TEXTLOG=FILE` writes every text drawn or posted to the message window to FILE, each once.

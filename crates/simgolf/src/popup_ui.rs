@@ -42,6 +42,13 @@ pub enum PopupKind {
     ResetOriginal,
     /// The hidden Cheats box (the port's own, cheats_ui.rs): a list of cheats, open until Done.
     Cheats,
+    /// Preferences > Graphics (the port's own, prefs_ui.rs): HD, Enhanced, pixel-perfect, Enhanced graphics settings.
+    PrefsGraphics,
+    /// Preferences > Game files (the port's own, prefs_ui.rs): your SimGolf files or the free graphics, Content packs,
+    /// Language.
+    PrefsFiles,
+    /// Preferences > More (the port's own, prefs_ui.rs): the bug fixes, the update checks, Search.
+    PrefsMore,
 }
 
 #[derive(Clone, Debug)]
@@ -51,7 +58,7 @@ pub struct Popup {
     pub lines: Vec<String>,
     /// Option bits that are greyed out.
     pub disabled: u32,
-    /// Checkbox bits (Prefs).
+    /// Checkbox bits (Preferences and its boxes, by option).
     pub checks: u32,
     /// The option lit by the pointer or the keys: none at first (0x46d6e0 starts at -1), the one under the pointer, or the
     /// last one the Up and Down keys reached (kept while the pointer is off the options).
@@ -61,16 +68,19 @@ pub struct Popup {
     pub top: f32,
     /// The screen the popup came from.
     pub back: Screen,
-    /// Preferences: the option of the port's "Use my SimGolf files..." line (gamefiles.rs), when it is shown.
-    pub files_line: Option<usize>,
+    /// Preferences and its boxes (prefs_ui.rs): the options, in order, and what they depend on.
+    pub items: Vec<crate::prefs_ui::Line>,
+    pub ctx: crate::prefs_ui::Ctx,
+    /// Preferences and its boxes on a touch screen: the line tapped once, whose second tap opens it (prefs_ui::opens).
+    pub armed: Option<usize>,
     /// Enhanced graphics and the OpenSGolf extras: the page (tab) shown. Those boxes and the search box keep the settings as
     /// ticked so far in `pref` (put in use by OK).
     pub page: u8,
     pub pref: crate::prefs_search::Prefs,
     /// The tab under the pointer.
     pub tab_hover: Option<u8>,
-    /// The Extras box: the option last under the pointer or tapped, whose description shows at the box's foot on a touch
-    /// screen (no pointer hovers there).
+    /// The Extras box and Preferences' boxes: the option last under the pointer or tapped, whose description shows at the
+    /// box's foot on a touch screen (no pointer hovers there).
     pub last_pick: Option<usize>,
     /// The search box: the words typed, "Show only changed", and the options found.
     pub query: String,
@@ -195,11 +205,18 @@ fn is_note(l: &str) -> bool {
     l.starts_with('\t')
 }
 
+/// Whether a line is Preferences' divider between the original's ticks and the port's lines (prefs_ui::DIVIDER).
+fn is_divider(l: &str) -> bool {
+    l.starts_with(crate::prefs_ui::DIVIDER)
+}
+
 /// A line's width in the box's font `f` (an option with its leading space; a note in its own font at the same text size,
-/// from where an option's text starts).
+/// from where an option's text starts; the divider with room for its rules).
 fn line_width(l: &str, f: crate::ui::Fnt) -> f32 {
     if is_note(l) {
         f.width(" ") + note_font(f).width(&l[1..])
+    } else if is_divider(l) {
+        f.width(&l[1..]) + 64.0
     } else {
         f.width(l)
     }
@@ -348,6 +365,10 @@ impl App {
                     s.put(g, note_font(f), r.x + 36.0 + f.width(" "), y + tk.round(), &l[1..], c15(OWN_TEAL));
                     continue;
                 }
+                if is_divider(l) {
+                    draw_divider(g, s, f, &r, y + ty, &l[1..], c15(OWN_INK));
+                    continue;
+                }
                 let c = if b.checks.is_some() { c15(0x7ff0) } else { white };
                 if b.own {
                     put_edged(g, s, f, cx, y, l, c);
@@ -426,6 +447,10 @@ impl App {
             let Some(k) = opts.iter().position(|&o| o == i) else {
                 if is_note(l) {
                     s.put(g, note_font(f), r.x + 36.0 + f.width(" "), y + tk.round(), &l[1..], INK);
+                    continue;
+                }
+                if is_divider(l) {
+                    draw_divider(g, s, f, &r, y + ty, &l[1..], INK);
                     continue;
                 }
                 if i == 0 {
@@ -609,26 +634,20 @@ impl Popup {
             lines: self.lines.clone(),
             cx: self.cx,
             top: self.top,
-            checks: matches!(self.kind, PopupKind::Prefs | PopupKind::Enhanced | PopupKind::Extras | PopupKind::Search)
-                .then_some(self.checks),
+            checks: (crate::prefs_ui::is_prefs_box(self.kind)
+                || matches!(self.kind, PopupKind::Enhanced | PopupKind::Extras | PopupKind::Search))
+            .then_some(self.checks),
             disabled: self.disabled,
             plain: match self.kind {
-                PopupKind::Prefs => {
-                    1 << PREFS_CONTENT
-                        | 1 << PREFS_ENHANCED
-                        | 1 << PREFS_KEYS
-                        | 1 << PREFS_EXTRAS
-                        | 1 << PREFS_SEARCH
-                        | 1 << PREFS_TEXT_SIZE
-                        | 1 << PREFS_LANGUAGE
-                        | self.files_line.map_or(0, |k| 1 << k)
-                }
+                k if crate::prefs_ui::is_prefs_box(k) => crate::prefs_ui::plain_bits(&self.items),
                 PopupKind::Enhanced => crate::enhanced::popup_plain(self.page),
                 PopupKind::Extras => crate::extras_ui::popup_plain(self.page),
                 PopupKind::Search => crate::prefs_search::popup_plain(&self.hits),
                 _ => 0,
             },
             min_w: match self.kind {
+                // Preferences' boxes: wide enough for their descriptions at the foot
+                k if crate::prefs_ui::is_prefs_box(k) => PREFS_MIN_W,
                 PopupKind::Enhanced => crate::enhanced::popup_widest(&self.pref.enh),
                 PopupKind::Extras => crate::extras_ui::popup_widest(&self.pref.ex, &self.pref.ui),
                 PopupKind::Search => crate::prefs_search::LINE_W,
@@ -686,35 +705,14 @@ impl Popup {
     }
 }
 
-/// The option of the Preferences list that opens Preferences > Content.
-pub const PREFS_CONTENT: usize = 5;
-/// The option of the Preferences list that switches Enhanced graphics on and off (its master switch, enhanced.rs).
-pub const PREFS_ENHANCED_ON: usize = 6;
-/// The option of the Preferences list that opens Preferences > Enhanced graphics (enhanced.rs).
-pub const PREFS_ENHANCED: usize = 7;
-/// The option of the Preferences list that opens Preferences > Keyboard controls (keys_ui.rs).
-pub const PREFS_KEYS: usize = 8;
-/// The option of the Preferences list that opens Preferences > OpenSGolf extras (extras_ui.rs, extras.rs).
-pub const PREFS_EXTRAS: usize = 9;
-/// The option of the Preferences list that opens Preferences > Search (prefs_search.rs).
-pub const PREFS_SEARCH: usize = 10;
-/// The Preferences' "Fix the original game's bugs" tick (enhanced.rs `fix_original_bugs`, docs/FIXES.md; the port's own,
-/// on by default, Classic too), with a note under it (no option).
-pub const PREFS_FIX_BUGS: usize = 11;
-/// The Preferences' "Check for updates when the game starts" tick (extras.rs `update_check`; the port's own, off by default).
-pub const PREFS_UPDATE_CHECK: usize = 12;
-/// The Preferences' option that steps the text size (the port's own, textsize.rs).
-pub const PREFS_TEXT_SIZE: usize = 13;
-/// The Preferences' option that switches the language (shown only when there is a translation to switch to).
-const PREFS_LANGUAGE: usize = 14;
+/// What Preferences and its boxes return for their OK (an option that does something returns its index).
+pub const BOX_OK: usize = usize::MAX - 1;
+/// The narrowest Preferences and its boxes are drawn, so their foot holds a description in two lines.
+const PREFS_MIN_W: f32 = 440.0;
 /// What the search box returns: OK; a found key (its action after this) to change on Change keys; Reset to original.
 pub const SEARCH_OK: usize = 0;
 pub const SEARCH_RESET: usize = 1;
 pub const SEARCH_KEY: usize = 2;
-/// The bit of a Preferences result that asks for the "Use my SimGolf files..." line's action (gamefiles.rs), after the
-/// ticks are applied.
-pub const PREFS_FILES_FLAG: usize = 20;
-
 /// What a popup returned: an option index (counted from the first option line), or None when cancelled.
 pub type PopupResult = Option<usize>;
 
@@ -735,14 +733,12 @@ impl App {
                 [tr(career).to_string(), trf("STR_RETIRE_PLANS", &[("PRO", &self.pro_name()), ("HIS", &his)])]
             }
         };
-        // the language line (docs/TRANSLATING.md), only when there is more than English to choose from
-        let languages = if kind == PopupKind::Prefs { crate::language::available().len() } else { 0 };
-        let language =
-            if languages > 1 { trf("STR_MENU_PREFS_LANGUAGE", &[("LANGUAGE", &crate::language::current_name())]) } else { String::new() };
-        let text_size = trf("STR_MENU_PREFS_TEXT_SIZE", &[("SIZE", &tr(crate::textsize::name_key(crate::textsize::pct())))]);
+        // Preferences and its boxes (prefs_ui.rs): the files line, the language line (docs/TRANSLATING.md, only when there is
+        // more than English to choose from) and the update check depend on the build and what is installed
+        let ctx = self.prefs_ctx();
+        let prefs_lines =
+            if crate::prefs_ui::is_prefs_box(kind) { crate::prefs_ui::lines(kind, &ctx, crate::textsize::pct()) } else { Vec::new() };
         let set_par_lines: [String; 2];
-        // the port's note under the bug fixes' tick (a line starting with a tab: `is_note`)
-        let fix_note = format!("\t{}", tr("STR_MENU_PREFS_FIX_BUGS_NOTE"));
         let cheat_lines: Vec<String>;
         let (mut lines, disabled, cx, mut top): (Vec<&str>, u32, f32, f32) = match kind {
             PopupKind::Retire => (
@@ -794,37 +790,12 @@ impl App {
                 // one line higher with the sharing line, so the box stays on the screen
                 if crate::extras::sharing() { 308.0 } else { 340.0 },
             ),
-            PopupKind::Prefs => (
-                vec![
-                    tr("STR_MENU_PREFS_TITLE"),
-                    tr("STR_MENU_PREFS_THOUGHTS"),
-                    tr("STR_MENU_PREFS_ADVISOR"),
-                    tr("STR_MENU_PREFS_ANIMALS"),
-                    tr("STR_MENU_PREFS_SOUND"),
-                    tr("STR_MENU_PREFS_HD"),
-                    // the port's own: Preferences > Content (docs/MODDING.md)
-                    tr("STR_MENU_PREFS_CONTENT"),
-                    // the port's own: Enhanced graphics on or off, and its settings (docs/ENHANCED.md)
-                    tr("STR_MENU_PREFS_ENHANCED_ON"),
-                    tr("STR_MENU_PREFS_ENHANCED"),
-                    // the port's own: Preferences > Keyboard controls (keys_ui.rs)
-                    tr("STR_MENU_PREFS_KEYS"),
-                    // the port's own: Preferences > OpenSGolf extras (extras_ui.rs, extras.rs)
-                    tr("STR_MENU_PREFS_EXTRAS"),
-                    // the port's own: Preferences > Search (prefs_search.rs)
-                    tr("STR_MENU_PREFS_SEARCH"),
-                    // the port's own: the bug fixes (docs/FIXES.md) with a note under them, and the update check
-                    tr("STR_MENU_PREFS_FIX_BUGS"),
-                    fix_note.as_str(),
-                    tr("STR_MENU_PREFS_UPDATE_CHECK"),
-                    // the port's own: the text size (textsize.rs)
-                    text_size.as_str(),
-                ],
-                0,
-                400.0,
-                // higher with the port's lines, so the box keeps clear of the bottom of the screen
-                128.0,
-            ),
+            // the original's four ticks, then the port's lines (prefs_ui.rs); higher than the original's place with the port's
+            // lines, so the box keeps clear of the bottom of the screen
+            PopupKind::Prefs => (prefs_lines.iter().map(|l| l.as_str()).collect(), 0, 400.0, 128.0),
+            PopupKind::PrefsGraphics | PopupKind::PrefsFiles | PopupKind::PrefsMore => {
+                (prefs_lines.iter().map(|l| l.as_str()).collect(), 0, 400.0, 176.0)
+            }
             // filled in below from extras_ui's pages (Gameplay, Sandbox, Looks, Info, Helpers), with the preset line over the
             // tabs, the banner under them and the description at the foot; the tallest page keeps its OK tick on an
             // 800 x 600 screen
@@ -867,15 +838,6 @@ impl App {
                 150.0,
             ),
         };
-        if languages > 1 {
-            lines.push(&language);
-        }
-        // the port's own: "Use my SimGolf files..." or "Use the free graphics" (gamefiles.rs), last
-        let files = if kind == PopupKind::Prefs { self.files_option().map(|(_, l)| format!(" {l}")) } else { None };
-        let files_line = files.as_ref().map(|_| lines.iter().filter(|l| l.starts_with(' ')).count());
-        if let Some(f) = &files {
-            lines.push(f);
-        }
         let enh = crate::enhanced::settings();
         // the Enhanced graphics box opens on its first page; its lines are made by refresh below
         // the port's own: the goals of a scenario or of the packs' scripts (docs/MODDING.md 5), after the original's lines
@@ -899,18 +861,8 @@ impl App {
                 }
             }
         }
-        let checks = if kind == PopupKind::Prefs {
-            self.show_thoughts as u32
-                | (self.show_advisor as u32) << 1
-                | (self.club.wildlife.enabled as u32) << 2
-                | (!self.mute as u32) << 3
-                | (self.hd.enabled as u32) << 4
-                | (crate::enhanced::settings().enabled as u32) << PREFS_ENHANCED_ON
-                | (crate::enhanced::fix_bugs() as u32) << PREFS_FIX_BUGS
-                | (crate::extras::update_check() as u32) << PREFS_UPDATE_CHECK
-        } else {
-            0
-        };
+        let items = crate::prefs_ui::items(kind, &ctx);
+        let checks = items.iter().enumerate().fold(0, |m, (k, &l)| m | (self.prefs_tick(l) as u32) << k);
         let back = if self.screen == Screen::Popup { self.popup.as_ref().map(|p| p.back).unwrap_or(Screen::Play) } else { self.screen };
         self.popup = Some(Popup {
             kind,
@@ -922,7 +874,9 @@ impl App {
             cx,
             top,
             back,
-            files_line,
+            items,
+            ctx,
+            armed: None,
             page: 0,
             pref: crate::prefs_search::Prefs {
                 enh,
@@ -930,6 +884,7 @@ impl App {
                 ui: crate::extras::settings(),
                 keys: crate::controls::settings(),
                 text: crate::textsize::pct(),
+                hd: self.hd.enabled,
             },
             tab_hover: None,
             last_pick: None,
@@ -980,6 +935,9 @@ impl App {
         if p.kind == PopupKind::Extras {
             self.draw_extras_tags(g, &s, &p, &b);
         }
+        if crate::prefs_ui::is_prefs_box(p.kind) {
+            self.draw_prefs_foot(g, &s, &p, &b);
+        }
         g.flush();
     }
 
@@ -1015,12 +973,21 @@ impl App {
             let lit = p.sel == Some(k);
             put_dark_shadow(g, s, pf, x + pw * 0.5, y + 1.0, label, c15(if lit { 0x7fff } else { 0x7bde }), true);
         }
-        // the foot: a rule over it, then the text in up to two lines, left of the OK tick
-        let n = b.lines.len();
-        let y0 = tops[n - crate::extras_ui::FOOT_LINES] + 10.0;
-        s.fill(g, r.x + 16.0, y0, r.w - 32.0, 1.0, c15(0x3dd4));
         let shown = p.sel.or(if self.xs.touched { p.last_pick } else { None });
         let (text, desc) = crate::extras_ui::foot_text(p.page, shown, &p.pref.ex, &p.pref.ui);
+        self.draw_foot(g, s, b, crate::extras_ui::FOOT_LINES, text, desc);
+    }
+
+    /// The description at the foot of the Extras box and of Preferences and its boxes (the port's own): a rule over it, then
+    /// the text in up to two lines, left of the OK tick, in dark ink (a hint in dark teal) on the lavender.
+    fn draw_foot(&self, g: &mut Gfx, s: &Ui, b: &ChoiceBox, foot_lines: usize, text: &str, desc: bool) {
+        use crate::info_ui::c15;
+        let r = b.rect();
+        let tops = b.line_tops();
+        let tk = b.k();
+        let n = b.lines.len();
+        let y0 = tops[n - foot_lines] + 10.0;
+        s.fill(g, r.x + 16.0, y0, r.w - 32.0, 1.0, c15(0x3dd4));
         let w = r.w - 20.0 - 60.0;
         // with bigger text (textsize.rs) the foot steps down from its size to the original's until two lines hold it
         let fonts: Vec<crate::ui::Fnt> = FOOT_FONTS.iter().flat_map(|&f| [f.scaled(tk), f.scaled((tk + 1.0) / 2.0), f]).collect();
@@ -1039,6 +1006,15 @@ impl App {
             };
             s.put(g, f, r.x + 20.0, y, l, ink);
         }
+    }
+
+    /// Preferences and its boxes' foot (prefs_ui.rs): what the line under the pointer (on a touch screen the line last
+    /// tapped) does, or the box's hint.
+    fn draw_prefs_foot(&self, g: &mut Gfx, s: &Ui, p: &Popup, b: &ChoiceBox) {
+        let shown = p.sel.or(if self.xs.touched { p.last_pick } else { None });
+        let armed = shown.is_some() && p.armed == shown;
+        let (text, desc) = crate::prefs_ui::foot_text(p.kind, &p.ctx, shown, armed);
+        self.draw_foot(g, s, b, crate::prefs_ui::FOOT_LINES, &text, desc);
     }
 
     /// The Enhanced graphics and Extras boxes' tabs (the port's own): the page shown in dark ink on the box's paler blue,
@@ -1113,7 +1089,10 @@ impl App {
                 p.refresh();
             }
             KeyCode::Enter | KeyCode::KpEnter | KeyCode::Space => {
-                if p.sel.is_none() && !matches!(p.kind, PopupKind::Prefs | PopupKind::Enhanced | PopupKind::Extras | PopupKind::Search) {
+                if p.sel.is_none()
+                    && !crate::prefs_ui::is_prefs_box(p.kind)
+                    && !matches!(p.kind, PopupKind::Enhanced | PopupKind::Extras | PopupKind::Search)
+                {
                     return Some(None);
                 }
                 return Some(self.popup_accept(None));
@@ -1173,58 +1152,42 @@ impl App {
     /// Accepting an option: a greyed one refuses with the error sound and keeps the popup open (None result is not
     /// returned then; the caller sees the same popup); a checkbox list toggles until OK.
     fn popup_accept(&mut self, pick: Option<usize>) -> PopupResult {
+        let touched = self.xs.touched;
         let p = self.popup.as_mut()?;
         let k = pick.or(p.sel).unwrap_or(0);
-        if p.kind == PopupKind::Prefs {
-            // "Use my SimGolf files...": the ticks so far are kept, as with OK, then the line's action runs
-            if p.files_line.is_some_and(|f| f == k && (pick.is_some() || p.sel == Some(k))) {
-                return Some((p.checks | 1 << PREFS_FILES_FLAG) as usize);
+        if crate::prefs_ui::is_prefs_box(p.kind) {
+            use crate::prefs_ui::Line;
+            let line = p.items.get(k).copied().filter(|_| pick.is_some() || p.sel.is_some());
+            let Some(line) = line else { return Some(BOX_OK) };
+            if crate::prefs_ui::is_tick(line) {
+                if pick.is_some() {
+                    p.checks ^= 1 << k;
+                    return Some(usize::MAX); // toggled, stay open
+                }
+                // Enter on a tick: OK
+                return Some(BOX_OK);
             }
-            if pick == Some(PREFS_TEXT_SIZE) {
-                // the next text size, at once: the box is rebuilt at it with the ticks and the lit line kept
-                let (checks, sel, keyed) = (p.checks, p.sel, p.keyed);
-                crate::textsize::cycle();
-                self.open_popup(PopupKind::Prefs);
+            if matches!(line, Line::TextSize | Line::Language) {
+                // the next text size or language, at once: the box is rebuilt at it with the ticks and the lit line kept
+                let (kind, checks, sel, keyed, last) = (p.kind, p.checks, p.sel, p.keyed, p.last_pick);
+                if line == Line::TextSize {
+                    crate::textsize::cycle();
+                } else {
+                    crate::language::cycle();
+                }
+                self.open_popup(kind);
                 if let Some(p) = self.popup.as_mut() {
-                    (p.checks, p.sel, p.keyed) = (checks, sel, keyed);
+                    (p.checks, p.sel, p.keyed, p.last_pick) = (checks, sel, keyed, last);
                 }
                 return Some(usize::MAX);
             }
-            if pick == Some(PREFS_LANGUAGE) {
-                // the next language, at once: the box is rebuilt in it with the ticks kept
-                let checks = p.checks;
-                crate::language::cycle();
-                self.open_popup(PopupKind::Prefs);
-                if let Some(p) = self.popup.as_mut() {
-                    p.checks = checks;
-                }
+            // on a touch screen a line that opens something shows what it does on the first tap and opens on the second
+            if pick.is_some() && touched && crate::prefs_ui::opens(line) && p.armed != Some(k) {
+                p.armed = Some(k);
                 return Some(usize::MAX);
             }
-            // the Content packs line opens its screen (the ticks so far are kept, as with OK)
-            if k == PREFS_CONTENT && (pick.is_some() || p.sel == Some(k)) {
-                return Some((p.checks | 1 << PREFS_CONTENT) as usize);
-            }
-            // so does the Enhanced graphics line
-            if k == PREFS_ENHANCED && (pick.is_some() || p.sel == Some(k)) {
-                return Some((p.checks | 1 << PREFS_ENHANCED) as usize);
-            }
-            // and the Keyboard controls line
-            if k == PREFS_KEYS && (pick.is_some() || p.sel == Some(k)) {
-                return Some((p.checks | 1 << PREFS_KEYS) as usize);
-            }
-            // and the OpenSGolf extras line
-            if k == PREFS_EXTRAS && (pick.is_some() || p.sel == Some(k)) {
-                return Some((p.checks | 1 << PREFS_EXTRAS) as usize);
-            }
-            // and the Search line
-            if k == PREFS_SEARCH && (pick.is_some() || p.sel == Some(k)) {
-                return Some((p.checks | 1 << PREFS_SEARCH) as usize);
-            }
-            if pick.is_some() {
-                p.checks ^= 1 << k;
-                return Some(usize::MAX); // toggled, stay open
-            }
-            return Some(p.checks as usize);
+            // the ticks so far are kept, as with OK, then the line's action runs (main.rs)
+            return Some(k);
         }
         if p.kind == PopupKind::Extras {
             if let Some(l) = pick.and_then(|k| crate::extras_ui::box_lines(p.page).get(k).copied()) {
@@ -1305,6 +1268,18 @@ fn draw_banner(g: &mut Gfx, s: &Ui, b: &ChoiceBox, text: &str, free: bool, head:
     s.fill(g, x0 - 1.0, y - 1.0, x1 - x0 + 2.0, h + 2.0, c15(0x7fff));
     s.fill(g, x0, y, x1 - x0, h, c15(0x5ade));
     s.put_centered(g, f, (x0 + x1) * 0.5, y + ty, text, c15(OWN_INK));
+}
+
+/// Preferences' divider (prefs_ui::DIVIDER; the port's own): its words centred on the box in dark ink, with a rule either
+/// side at the middle of the letters.
+fn draw_divider(g: &mut Gfx, s: &Ui, f: crate::ui::Fnt, r: &Rect, y: f32, t: &str, c: [f32; 4]) {
+    let cx = r.x + (r.w / 2.0).trunc();
+    let half = (f.width(t) / 2.0).floor();
+    s.put(g, f, cx - half, y, t, c);
+    let ry = y + (f.px * 0.55).round();
+    let (x0, x1) = (r.x + 20.0, r.x + r.w - 20.0);
+    s.fill(g, x0, ry, (cx - half - 10.0 - x0).max(0.0), 2.0, c);
+    s.fill(g, cx + half + 10.0, ry, (x1 - cx - half - 10.0).max(0.0), 2.0, c);
 }
 
 /// A light label of the port's own over a dark shadow one pixel below and right (`OWN_EDGE`; the exe's shadowed calls use

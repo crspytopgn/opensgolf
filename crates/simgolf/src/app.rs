@@ -685,6 +685,9 @@ pub struct App {
     /// Preferences > Keyboard controls (keys_ui.rs): the page shown and the screen to go back to.
     pub keys_page: usize,
     pub keys_back: Screen,
+    /// The Preferences boxes to go back to (prefs_ui.rs): a box, screen or search opened from Preferences or one of its
+    /// boxes returns to it when done.
+    pub prefs_stack: Vec<crate::popup_ui::PopupKind>,
     /// The OpenSGolf extras' state (extras.rs).
     pub xs: crate::extras::State,
     /// Quick save and load, the comfort pauses and the staff areas (comfort.rs).
@@ -993,6 +996,7 @@ impl App {
             content: Default::default(),
             keys_page: 0,
             keys_back: Screen::Play,
+            prefs_stack: Vec::new(),
             xs: Default::default(),
             comfort: Default::default(),
             ctl: Default::default(),

@@ -1305,15 +1305,43 @@ STR_MENU_PREFS_CONTENT                  : Content packs...
 # Preferences > Enhanced graphics (the port's own, not in the original; docs/ENHANCED.md). The options start with a space.
 STR_MENU_PREFS_ENHANCED_ON              : Enhanced graphics (off: Classic)
 STR_MENU_PREFS_ENHANCED                 : Enhanced graphics settings...
-# Preferences > Keyboard controls (the port's own screen listing every key)
-STR_MENU_PREFS_KEYS                     : Keyboard controls...
-# Preferences > OpenSGolf extras (the port's own optional gameplay changes, all off by default; docs/PLAYING.md). The
-# options start with a space.
-STR_MENU_PREFS_EXTRAS                   : OpenSGolf extras...
 # Preferences > Search (the port's own, prefs_search.rs): find an option on any page of the Preferences by its words
 STR_MENU_PREFS_SEARCH                   : Search options...
 # Preferences' text size line (the port's own, textsize.rs): a click steps normal, 125%, 150%
 STR_MENU_PREFS_TEXT_SIZE                : Text size: {SIZE}
+# Preferences' layout (the port's own, prefs_ui.rs): the original's four ticks, a divider, then one line per group of the
+# port's options, each opening a box (Text size steps at once). The options start with a space.
+STR_PREFS_DIVIDER                       :OpenSGolf
+STR_PREFS_GAME_OPTIONS                  : Game options...
+STR_PREFS_GRAPHICS                      : Graphics...
+STR_PREFS_CONTROLS                      : Controls and keys...
+STR_PREFS_GAME_FILES                    : Game files...
+STR_PREFS_MORE                          : More...
+STR_PREFS_GRAPHICS_TITLE                :Graphics
+STR_PREFS_FILES_TITLE                   :Game files
+STR_PREFS_MORE_TITLE                    :More
+STR_PREFS_UPDATE_NOW                    : Check for updates now (online)
+# The description at the foot of Preferences and its boxes, of the line pointed at or tapped; the hint with none
+STR_PREFS_HINT                          :Point at an OpenSGolf line, or tap it, to read what it does.
+STR_PREFS_HINT_GRAPHICS                 :With HD and Enhanced both off you play in Classic, the original's own graphics.
+STR_PREFS_TAP_AGAIN                     :{DESC} Tap again to open.
+STR_PREFS_DESC_GAME_OPTIONS             :Optional extras, all off at first: presets, gameplay changes, sandbox switches, looks, information and helpers.
+STR_PREFS_DESC_GRAPHICS                 :Classic (the original's), HD art or Enhanced graphics, pixel-perfect scaling and the Enhanced settings.
+STR_PREFS_DESC_CONTROLS                 :Every key the game takes, the Original or Modern controls, and Change keys to set your own.
+STR_PREFS_DESC_TEXT_SIZE                :Bigger text in the boxes, messages and tooltips. Each click steps: normal, 125%, 150%.
+STR_PREFS_DESC_GAME_FILES               :Your own SimGolf files or the free graphics, content packs (mods) and the language.
+STR_PREFS_DESC_MORE                     :Fixes for the original game's bugs, checking for updates, and a search of every option.
+STR_PREFS_DESC_HD                       :The game's art upscaled from an HD pack you make from your own copy (docs/HD.md); play is unchanged.
+STR_PREFS_DESC_ENHANCED                 :Sharp at any screen size and widescreen, with optional effects; play is unchanged. Off: Classic.
+STR_PREFS_DESC_PIXEL_PERFECT            :Scales the picture by whole sizes only, so every pixel stays the same size; counts in Classic too.
+STR_PREFS_DESC_ENHANCED_SETTINGS        :What Enhanced graphics does, page by page: display, effects, atmosphere, weather and water.
+STR_PREFS_DESC_FILES_MINE               :Plays on your own copy of SimGolf's files instead of the free graphics (the game starts again).
+STR_PREFS_DESC_FILES_FREE               :Plays on OpenSGolf's free graphics instead of your SimGolf files (the game starts again).
+STR_PREFS_DESC_CONTENT                  :The installed content packs (mods): switch them on or off and set their order; used from the next start.
+STR_PREFS_DESC_LANGUAGE                 :The game's language: each click steps to the next installed translation.
+STR_PREFS_DESC_FIX_BUGS                 :Mends glitches of the original game itself (docs/FIXES.md); on at first. Off: the game as it was in 2002.
+STR_PREFS_DESC_UPDATE_NOW               :Asks GitHub now whether a newer OpenSGolf is out, as the title menu's button does.
+STR_PREFS_DESC_SEARCH                   :Finds any option by its words, shows what differs from the original, or resets it all. Typing a letter here does it too.
 STR_TEXT_SIZE_NORMAL                    :normal
 STR_TEXT_SIZE_125                       :125%
 STR_TEXT_SIZE_150                       :150%
@@ -1323,9 +1351,14 @@ STR_SEARCH_TITLE                        :Search the Preferences (type to find)
 STR_SEARCH_FIND                         :Find: {QUERY}
 STR_SEARCH_HINT                         :(type a word, e.g. snow, pause or par)
 STR_SEARCH_CHANGED                      : Show only what differs from the original game
-# A found option: "{page}: {option}"; the pages of Enhanced graphics' master switch and of the keys
-STR_SEARCH_PLACE_ENHANCED               :Graphics
-STR_SEARCH_PLACE_KEYS                   :Keys
+# A found option: "{place}: {option}", the place being the Preferences line that leads to it (prefs_ui.rs)
+STR_SEARCH_PLACE_KEYS                   :Controls and keys
+STR_SEARCH_PLACE_GRAPHICS               :Graphics
+STR_SEARCH_PLACE_FILES                  :Game files
+STR_SEARCH_PLACE_MORE                   :More
+STR_SEARCH_PLACE_GAME_OPTIONS           :Game options
+# a box and the page in it (Graphics > Water, Game options > Gameplay)
+STR_SEARCH_PLACE_IN                     :{A} > {B}
 # a found option's category and its page or tag (Graphics · Water, Gameplay · Noticeable)
 STR_SEARCH_PLACE_TWO                    :{A} · {B}
 STR_SEARCH_KEY                          :{ACTION} ({KEY})

@@ -84,6 +84,7 @@ mod photo;
 mod player_panel;
 mod popup_ui;
 mod prefs_search;
+mod prefs_ui;
 mod pro_ui;
 mod profile_ui;
 mod render;
@@ -1019,6 +1020,10 @@ fn apply_edit_spec(app: &mut App, spec: &str) {
                         popup_ui::PopupKind::Search
                     }
                     8 => popup_ui::PopupKind::ResetOriginal,
+                    // M:9, M:10, M:11 Preferences' Graphics, Game files and More boxes (prefs_ui.rs)
+                    9 => popup_ui::PopupKind::PrefsGraphics,
+                    10 => popup_ui::PopupKind::PrefsFiles,
+                    11 => popup_ui::PopupKind::PrefsMore,
                     _ => popup_ui::PopupKind::LandOffer,
                 };
                 app.open_popup(kind);
@@ -1619,8 +1624,19 @@ impl Stage {
         }
     }
 
-    /// What a popup menu's choice does (docs/DECODE_MENUS.md 3, 4, 5).
+    /// What a popup menu's choice does; a box opened from Preferences (or one of its boxes) goes back to it when done
+    /// (prefs_ui.rs).
     fn popup_done(&mut self, r: popup_ui::PopupResult) {
+        let back = self.app.popup.as_ref().map(|p| p.back);
+        self.popup_choice(r);
+        let done = r != Some(usize::MAX) && self.app.screen != Screen::Popup && Some(self.app.screen) == back;
+        if done && self.app.notice.is_none() {
+            self.app.return_to_prefs();
+        }
+    }
+
+    /// What a popup menu's choice does (docs/DECODE_MENUS.md 3, 4, 5).
+    fn popup_choice(&mut self, r: popup_ui::PopupResult) {
         let Some(kind) = self.app.popup.as_ref().map(|p| p.kind) else { return };
         // the career's end takes any answer but the first (Esc too) as the main menu
         let r = if kind == popup_ui::PopupKind::CareerOver { Some(r.unwrap_or(1)) } else { r };
@@ -1636,6 +1652,8 @@ impl Stage {
         // the Enhanced graphics, Extras and search boxes' ticks, across their pages
         let pref = self.app.popup.as_ref().map(|p| p.pref.clone());
         let query = self.app.popup.as_ref().map(|p| p.query.clone()).unwrap_or_default();
+        // Preferences and its boxes: their options and ticks (prefs_ui.rs)
+        let (items, checks) = self.app.popup.as_ref().map(|p| (p.items.clone(), p.checks)).unwrap_or_default();
         self.app.close_popup();
         use popup_ui::PopupKind;
         match kind {
@@ -1707,7 +1725,10 @@ impl Stage {
                 }
                 3 => self.app.save_championship_pro(),
                 4 => self.app.open_rename(),
-                5 => self.app.open_popup(PopupKind::Prefs),
+                5 => {
+                    self.app.prefs_stack.clear();
+                    self.app.open_popup(PopupKind::Prefs);
+                }
                 6 => self.app.save_championship_course(),
                 7 => self.app.open_popup(PopupKind::Retire),
                 8 if extras::sharing() => self.app.share_course(),
@@ -1764,52 +1785,29 @@ impl Stage {
                     self.apply_extras(p.ex, p.ui);
                 }
             }
-            PopupKind::Prefs => {
-                let m = k as u32;
-                if m & 1 << popup_ui::PREFS_CONTENT != 0 {
-                    self.app.open_content();
+            // Preferences and its boxes (prefs_ui.rs): the ticks are put in use (as with OK), then the line chosen does its
+            // thing
+            PopupKind::Prefs | PopupKind::PrefsGraphics | PopupKind::PrefsFiles | PopupKind::PrefsMore => {
+                self.apply_pref_ticks(&items, checks);
+                if let Some(&line) = items.get(k) {
+                    self.prefs_line(kind, line);
                 }
-                self.app.show_thoughts = m & 1 != 0;
-                self.app.show_advisor = m & 2 != 0;
-                self.app.club.wildlife.enabled = m & 4 != 0;
-                if self.app.switch_hd(&mut self.g, m & 16 != 0) {
-                    self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
-                }
-                // the port's own Enhanced graphics tick: its master switch, the options under it kept; and the bug fixes
-                // (kept with the Enhanced settings, though no Enhanced option: they count in Classic too)
-                let mut enh = enhanced::settings();
-                enh.enabled = m & 1 << popup_ui::PREFS_ENHANCED_ON != 0;
-                enh.fix_original_bugs = m & 1 << popup_ui::PREFS_FIX_BUGS != 0;
-                // the port's own update check (kept with the interface extras' ticks)
-                let mut ui = extras::settings();
-                if ui.update_check != (m & 1 << popup_ui::PREFS_UPDATE_CHECK != 0) {
-                    ui.update_check = !ui.update_check;
-                    extras::set(ui);
-                    extras::save(&ui);
-                }
-                if self.app.apply_enhanced(&mut self.g, enh) {
-                    self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
-                }
-                if m & 1 << popup_ui::PREFS_ENHANCED != 0 && m & 1 << popup_ui::PREFS_CONTENT == 0 {
-                    self.app.open_popup(PopupKind::Enhanced);
-                }
-                // the port's own Keyboard controls line (keys_ui.rs)
-                if m & 1 << popup_ui::PREFS_KEYS != 0 {
-                    let back = self.app.screen;
-                    self.app.open_keys(back);
-                }
-                // the port's own OpenSGolf extras line (extras_ui.rs, extras.rs)
-                if m & 1 << popup_ui::PREFS_EXTRAS != 0 {
-                    self.app.open_popup(PopupKind::Extras);
-                }
-                // the port's own Search line (prefs_search.rs), on no words
-                if m & 1 << popup_ui::PREFS_SEARCH != 0 {
-                    self.app.pref_query.clear();
-                    self.app.open_popup(PopupKind::Search);
-                }
-                let sound = m & 8 != 0;
-                if sound == self.app.mute {
-                    self.app.mute = !sound;
+            }
+        }
+    }
+
+    /// Preferences' and its boxes' ticks put in use (only the box's own: the others are as they were).
+    fn apply_pref_ticks(&mut self, items: &[prefs_ui::Line], checks: u32) {
+        use prefs_ui::Line;
+        let mut enh = enhanced::settings();
+        for (k, &l) in items.iter().enumerate() {
+            let on = checks & 1 << k != 0;
+            match l {
+                Line::Thoughts => self.app.show_thoughts = on,
+                Line::Advisor => self.app.show_advisor = on,
+                Line::Animals => self.app.club.wildlife.enabled = on,
+                Line::Sound if on == self.app.mute => {
+                    self.app.mute = !on;
                     if self.app.mute {
                         if let Some(mx) = &self.app.mixer {
                             mx.stop_all();
@@ -1819,13 +1817,70 @@ impl Stage {
                     }
                     self.app.music_screen = None;
                 }
-                // the port's own "Use my SimGolf files..." line, after the ticks are kept (gamefiles.rs)
-                if m & 1 << popup_ui::PREFS_FILES_FLAG != 0 {
-                    if let Some((a, _)) = self.app.files_option() {
-                        self.app.files_action_in_game(a);
+                Line::Hd => {
+                    if self.app.switch_hd(&mut self.g, on) {
+                        self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
                     }
                 }
+                // the port's own Enhanced graphics tick: its master switch, the options under it kept; pixel-perfect scaling
+                // (an Enhanced setting that counts in Classic too); and the bug fixes (kept with the Enhanced settings,
+                // though no Enhanced option: they count in Classic too)
+                Line::Enhanced => enh.enabled = on,
+                Line::PixelPerfect => enh.pixel_perfect = on,
+                Line::FixBugs => enh.fix_original_bugs = on,
+                // the port's own update check (kept with the interface extras' ticks)
+                Line::UpdateCheck => {
+                    let mut ui = extras::settings();
+                    if ui.update_check != on {
+                        ui.update_check = on;
+                        extras::set(ui);
+                        extras::save(&ui);
+                    }
+                }
+                _ => {}
             }
+        }
+        if self.app.apply_enhanced(&mut self.g, enh) {
+            self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
+        }
+    }
+
+    /// A line of Preferences or one of its boxes that does something (`from` the box it is in).
+    fn prefs_line(&mut self, from: popup_ui::PopupKind, line: prefs_ui::Line) {
+        use popup_ui::PopupKind;
+        use prefs_ui::Line;
+        match line {
+            Line::GameOptions => self.app.open_prefs_child(from, PopupKind::Extras),
+            Line::Graphics => self.app.open_prefs_child(from, PopupKind::PrefsGraphics),
+            Line::GameFiles => self.app.open_prefs_child(from, PopupKind::PrefsFiles),
+            Line::More => self.app.open_prefs_child(from, PopupKind::PrefsMore),
+            Line::EnhancedSettings => self.app.open_prefs_child(from, PopupKind::Enhanced),
+            // Search on no words
+            Line::Search => {
+                self.app.pref_query.clear();
+                self.app.open_prefs_child(from, PopupKind::Search);
+            }
+            Line::Controls => {
+                self.app.prefs_stack.push(from);
+                let back = self.app.screen;
+                self.app.open_keys(back);
+            }
+            Line::Content => {
+                self.app.prefs_stack.push(from);
+                self.app.open_content();
+            }
+            // "Use my SimGolf files..." (gamefiles.rs) and Check for updates now (update.rs) answer in a box over the game
+            Line::Files => {
+                self.app.prefs_stack.clear();
+                if let Some((a, _)) = self.app.files_option() {
+                    self.app.files_action_in_game(a);
+                }
+            }
+            Line::UpdateNow => {
+                self.app.prefs_stack.clear();
+                self.app.check_for_updates();
+            }
+            _ => {}
         }
     }
 
@@ -1845,8 +1900,11 @@ impl Stage {
         }
     }
 
-    /// The search box's settings put in use and saved (prefs_search.rs): Enhanced graphics, the extras, the keys.
+    /// The search box's settings put in use and saved (prefs_search.rs): HD, Enhanced graphics, the extras, the keys.
     fn apply_prefs(&mut self, p: &prefs_search::Prefs) {
+        if self.app.switch_hd(&mut self.g, p.hd) {
+            self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
+        }
         if self.app.apply_enhanced(&mut self.g, p.enh) {
             self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
         }
