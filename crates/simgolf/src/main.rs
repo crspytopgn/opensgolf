@@ -1838,6 +1838,9 @@ impl Stage {
         if p.keys != controls::settings() {
             controls::save(p.keys.clone());
         }
+        if p.text != textsize::pct() {
+            textsize::save(p.text);
+        }
     }
 
     fn open_report(&mut self) {

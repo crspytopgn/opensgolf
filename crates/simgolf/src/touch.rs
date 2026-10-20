@@ -763,11 +763,8 @@ impl App {
     /// The left edge of the legends up at the top right: x 566, or the landing map's when bigger text has widened it
     /// (textsize.rs).
     fn legend_left(&self) -> f32 {
-        if self.xs.insight.map && crate::extras::landing_map() {
-            self.landing_legend().r.x.min(LEGEND_LEFT)
-        } else {
-            LEGEND_LEFT
-        }
+        let (k, _, _) = self.legend_place(self.legend_below());
+        (790.0 - (224.0 * k).round()).min(LEGEND_LEFT)
     }
 
     /// Whether a name is being typed (rename, save, Customise Golfer).

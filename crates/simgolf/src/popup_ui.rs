@@ -849,6 +849,7 @@ impl App {
                 ex: self.extras_shown(),
                 ui: crate::extras::settings(),
                 keys: crate::controls::settings(),
+                text: crate::textsize::pct(),
             },
             tab_hover: None,
             last_pick: None,

@@ -366,6 +366,9 @@ pub struct State {
     pub prev: Vec<(i32, i32, i32)>,
 }
 
+/// The landing map legend's height at normal size.
+pub const LEGEND_H: f32 = 186.0;
+
 /// The landing map's legend as laid out for the text size: the box, its factor, the four What tabs, the two Where tabs
 /// and the top of its key.
 pub struct Legend {
@@ -696,17 +699,10 @@ impl App {
     /// The legend's place in the upper right (under the path view's legend when both are up), its tabs, and the text
     /// size it is drawn at (textsize.rs: the box grows with its text, leftwards and down).
     pub fn landing_legend(&self) -> Legend {
-        let k = crate::textsize::scale();
-        let below = self.xs.path_view && crate::extras::path_help();
-        let (w, h) = ((224.0 * k).round(), (186.0 * k).round());
-        let mut y: f32 = if below { 244.0 } else { 140.0 };
-        // a message grown taller by bigger text would cover the legend's top: it moves down under the message
-        if k > 1.0 {
-            if let Some(t) = self.ticker_rect().filter(|t| t.x + t.w > 790.0 - w) {
-                y = y.max(t.y + t.h + 4.0);
-            }
-        }
-        let r = Rect::new(790.0 - w, y.min(600.0 - h - 4.0), w, h);
+        // under the path view's legend when both are up, as big as the pair still fits above the dock's panel
+        let (k, _, y) = self.legend_place(LEGEND_H);
+        let (w, h) = ((224.0 * k).round(), (LEGEND_H * k).round());
+        let r = Rect::new(790.0 - w, y, w, h);
         let (tw, th) = (((w - 24.0) / 2.0).floor(), (14.0 * k).round());
         let tab = |col: usize, row: usize| {
             Rect::new(r.x + 10.0 + (tw + 4.0) * col as f32, r.y + (28.0 * k).round() + (th + 4.0) * row as f32, tw, th)
@@ -752,7 +748,7 @@ impl App {
         let (x, y, w, h) = (r.x, r.y, r.w, r.h);
         self.art.trans_fill(g, s, x, y, w, h, true);
         let (white, yellow, grey) = (c15(0x7fff), c15(0x7ff0), c15(0x6318));
-        let small = crate::textsize::big(F_ARIAL10);
+        let small = F_ARIAL10.scaled(k);
         let line = (14.0 * k).round();
         let room = w - 20.0;
         let hole = self.xs.insight.hole;

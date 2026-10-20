@@ -69,7 +69,12 @@ pub fn init() {
 
 /// Preferences' line: the next size, in use at once and saved (normal is saved by taking the key away).
 pub fn cycle() {
-    set(next(pct()));
+    save(next(pct()));
+}
+
+/// A size in use at once and saved (Preferences' line and its search box).
+pub fn save(p: u32) {
+    set(p);
     let mut v = settings_json();
     if let Some(o) = v.as_object_mut() {
         if pct() == 100 {

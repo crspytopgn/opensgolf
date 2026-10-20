@@ -1084,15 +1084,19 @@ The **Weather** page and the newer Atmosphere options (docs/ENHANCED.md has the 
 
 System Functions > Preferences has a **Text size:** line (the port's own helper; not in the original): each click steps
 *normal*, *125%* and *150%*, at once, and it is remembered (`"text_size"` in `settings.json`; normal writes nothing and
-draws exactly as before). Bigger text grows the message window and its notes (taller, the same width), the notes at the
-bottom of the title screens, every pop-up box (Information, System Functions, Preferences and its Enhanced graphics,
-OpenSGolf extras and Search boxes, the questions and notices, with their tabs, banners, tags and descriptions), the
-tooltips, the name tags, the touch buttons' names and the on-screen keyboard's keys, the landing map's legend, comments by
-hole and the F2 Player Comments report. A box that would leave the 800 x 600 screen grows only as far as it fits (the
-tallest Extras pages stay nearly normal) and moves in from the edges. The original's fixed art panels cannot grow: on
-the golfer card the name and lines grow as far as their room allows (its thoughts at most 125%), and the tables of the
-F1, F3, F4 and F5 reports keep their size. With Enhanced graphics' sharp text the bigger text is rasterised at the
-screen's own size; in Classic it is the same font drawn bigger. Test hook: `SG_TEXT_SIZE=125` or `150` uses a size for
+draws exactly as before; Search options finds it as *Text size*). Bigger text grows the message window and its notes
+(taller, the same width), the notes at the bottom of the title screens, every pop-up box (Information, System Functions,
+Preferences and its Enhanced graphics, OpenSGolf extras and Search boxes, the questions and notices, with their tabs,
+banners, tags and descriptions), the tooltips, the name tags, the touch buttons' names and the on-screen keyboard's keys,
+the path view, staff areas and landing map legends, comments by hole, the message history, the People screen and the F2
+Player Comments report. A box that would leave the 800 x 600 screen grows only as far as it fits (the Preferences and
+Extras boxes reach about 125%) and moves in from the edges; the legends at the top right grow only as far as they still end
+above the dock's panel (with the path view and the landing map up together, hardly at all), and move down under a
+message the bigger text made taller. The original's fixed art panels cannot grow, so their words grow only as far as
+their room holds: the golfer card (its thoughts at most 125%), the F1 Course Report, F3 Histograph and F4 Financial
+Report cells (115% where the rows are tight), the F5 routing pages' headings, and the People list's rows (120%). With
+Enhanced graphics' sharp text the bigger text is rasterised at the screen's own size; in Classic it is the same font
+drawn bigger. Test hook: `SG_TEXT_SIZE=125` or `150` uses a size for
 one run without saving it.
 
 ## Language

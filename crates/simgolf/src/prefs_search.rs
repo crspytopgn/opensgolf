@@ -17,6 +17,8 @@ pub struct Prefs {
     pub ex: Extras,
     pub ui: extras::Settings,
     pub keys: controls::Settings,
+    /// The text size in percent (textsize.rs; 100 the original's).
+    pub text: u32,
 }
 
 impl Prefs {
@@ -29,6 +31,7 @@ impl Prefs {
             ex: Extras::default(),
             ui: extras::Settings::ALL_OFF,
             keys: controls::Settings::default(),
+            text: 100,
         }
     }
 }
@@ -44,6 +47,8 @@ pub enum Hit {
     Extra(ExtrasLine),
     /// controls::ACTIONS[i]'s key.
     Key(usize),
+    /// The Preferences' text size line (textsize.rs).
+    TextSize,
 }
 
 /// The most found options the box lists at once (more: "type more to narrow").
@@ -54,7 +59,7 @@ pub const LINE_W: f32 = 600.0;
 
 /// Every option, in the Preferences' order: Enhanced graphics, the extras' pages, the keys.
 pub fn all() -> Vec<Hit> {
-    let mut v = vec![Hit::EnhancedOn];
+    let mut v = vec![Hit::TextSize, Hit::EnhancedOn];
     for page in 0..enhanced::PAGES.len() as u8 {
         v.extend(enhanced::OPTIONS.iter().enumerate().filter(|(_, o)| o.page == page).map(|(i, _)| Hit::Enhanced(i)));
     }
@@ -80,6 +85,7 @@ pub fn place(h: Hit) -> String {
             }
         }
         Hit::Key(_) => tr("STR_SEARCH_PLACE_KEYS").to_string(),
+        Hit::TextSize => tr("STR_SEARCH_PLACE_PREFS").to_string(),
     }
 }
 
@@ -99,6 +105,10 @@ pub fn text(h: Hit, p: &Prefs) -> (String, bool) {
             let key = p.keys.binding(i).map(controls::Binding::label).unwrap_or_else(|| "-".into());
             (trf("STR_SEARCH_KEY", &[("ACTION", &tr(controls::ACTIONS[i].text)), ("KEY", &key)]), false)
         }
+        Hit::TextSize => {
+            let size = tr(crate::textsize::name_key(p.text));
+            (trf("STR_MENU_PREFS_TEXT_SIZE", &[("SIZE", &size)]).trim().to_string(), p.text != 100)
+        }
     }
 }
 
@@ -110,6 +120,7 @@ pub fn changed(h: Hit, p: &Prefs) -> bool {
         Hit::Enhanced(i) => (enhanced::OPTIONS[i].get)(&p.enh) != (enhanced::OPTIONS[i].get)(&o.enh),
         Hit::Extra(l) => crate::extras_ui::line_text(l, &p.ex, &p.ui).1 != crate::extras_ui::line_text(l, &o.ex, &o.ui).1,
         Hit::Key(i) => p.keys.keys_of(i).collect::<Vec<_>>() != o.keys.keys_of(i).collect::<Vec<_>>(),
+        Hit::TextSize => p.text != o.text,
     }
 }
 
@@ -121,7 +132,7 @@ pub fn plain(h: Hit) -> bool {
         Hit::Enhanced(i) => !enhanced::OPTIONS[i].choices.is_empty(),
         Hit::Extra(ExtrasLine::Game(i)) => Extras::choices(i) > 2,
         Hit::Extra(ExtrasLine::Ui(_)) => false,
-        Hit::Key(_) => true,
+        Hit::Key(_) | Hit::TextSize => true,
     }
 }
 
@@ -150,6 +161,7 @@ pub fn toggle(h: Hit, p: &mut Prefs) {
         }
         Hit::Extra(l) => crate::extras_ui::toggle_line(l, &mut p.ex, &mut p.ui),
         Hit::Key(_) => {}
+        Hit::TextSize => p.text = crate::textsize::next(p.text),
     }
 }
 
@@ -241,6 +253,7 @@ mod tests {
         // words in any order and case, each must be there
         assert_eq!(search("CALENDAR pause", false, &p), vec![Hit::Extra(ExtrasLine::Game(7))]);
         assert!(search("zoom", false, &p).contains(&Hit::Key(controls::action("zoom_in"))));
+        assert_eq!(search("text size", false, &p), vec![Hit::TextSize]);
         assert!(search("no such option at all", false, &p).is_empty());
         // words are matched from their start
         assert!(!search("rain", false, &p)
@@ -283,6 +296,12 @@ mod tests {
         assert!(p.ui.people && !p.ui.history);
         toggle(Hit::EnhancedOn, &mut p);
         assert!(p.enh.enabled);
+        // the text size steps through its sizes and back
+        for want in [125, 150, 100] {
+            toggle(Hit::TextSize, &mut p);
+            assert_eq!(p.text, want);
+        }
+        assert!(plain(Hit::TextSize));
         assert!(plain(speed) && plain(Hit::Key(0)) && !plain(Hit::EnhancedOn));
         assert!(plain(Hit::Extra(ExtrasLine::Game(sg_core::extras::PATHS))) && !plain(Hit::Extra(ExtrasLine::Game(9))));
     }

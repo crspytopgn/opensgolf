@@ -1318,6 +1318,8 @@ STR_MENU_PREFS_TEXT_SIZE                : Text size: {SIZE}
 STR_TEXT_SIZE_NORMAL                    :normal
 STR_TEXT_SIZE_125                       :125%
 STR_TEXT_SIZE_150                       :150%
+# The search box's place of the text size line: Preferences itself
+STR_SEARCH_PLACE_PREFS                  :Preferences
 STR_SEARCH_TITLE                        :Search the Preferences (type to find)
 STR_SEARCH_FIND                         :Find: {QUERY}
 STR_SEARCH_HINT                         :(type a word, e.g. snow, pause or par)
