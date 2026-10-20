@@ -453,6 +453,14 @@ fn open_screen(app: &mut App, screen: Option<&str>) {
         }
         Some("report") if app.ui_ok => app.screen = Screen::Report,
         Some("pair") if app.ui_ok => app.screen = Screen::Pair,
+        // the title's new-game chooser after a game has been played (#66: nothing played before is locked there)
+        Some("property") if app.ui_ok => {
+            app.world_move = false;
+            app.deal_offer(app.sandbox_choice);
+            app.screen = Screen::Property;
+        }
+        // F6's world map, moving the club (the properties bought in this game show "Already purchased")
+        Some("world") if app.ui_ok => app.open_world_map(),
         // the great-shot SimFoto (0x407e00) of the player's pro, or of the first golfer on screen with the partner
         Some("greatshot") => app.test_great_shot = true,
         Some("board") if app.ui_ok => {

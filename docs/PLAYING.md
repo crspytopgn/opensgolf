@@ -1024,3 +1024,9 @@ The game is in English unless a translation is installed (docs/TRANSLATING.md): 
 `Language:` line that switches to the next language and remembers it (`"language"` in `settings.json`). Test hooks:
 `--lang CODE` uses a language for one run, `--lang-file FILE` lays a translation file over the English, and the
 environment variable `SG_TEXTLOG=FILE` writes every text drawn or posted to the message window to FILE, each once.
+
+**New game after a game (issue #66).** As in the original, the property chooser of Start New Game offers every property
+the starting funds cover, whatever you played before: a new game deals a fresh list with nothing purchased. "Already
+purchased" (and the year bought) shows only on F6's world map, for the properties bought in the game in play. On a larger
+course size the chooser shows and compares the grown starting funds (the four cheapest slots fit, as on the original's
+map). Test hooks: `--load-game F --screen property` opens Start New Game's chooser after that game, `--screen world` F6's.
