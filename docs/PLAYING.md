@@ -1024,3 +1024,10 @@ The game is in English unless a translation is installed (docs/TRANSLATING.md): 
 `Language:` line that switches to the next language and remembers it (`"language"` in `settings.json`). Test hooks:
 `--lang CODE` uses a language for one run, `--lang-file FILE` lays a translation file over the English, and the
 environment variable `SG_TEXTLOG=FILE` writes every text drawn or posted to the message window to FILE, each once.
+
+Golfers name what they look at in their scenery comments as the original does: the tile's stored location splits as
+`loc % 50, loc / 50` (0x469b00), and a landmark is called by its short name (0x4074a0 with 0), so the eyesore water
+tower, radio antenna and oil pump the land generator puts down are "an ugly water tower" and so on. That they are ugly is
+the original's: landmark types 16 to 18 raise the ugly-object comment (event 20, mood -1) when a walking golfer glances
+at them or a shot's scan sees them; trees, hazard trees included, are never looked at. Test hook: `SG_THOUGHTS=1` prints
+every golfer thought as it is raised, with the golfer's mood.

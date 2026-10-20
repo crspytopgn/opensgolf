@@ -2317,6 +2317,11 @@ impl App {
                     }
                 }
                 golf::Event::Thought { g, id, arg } => {
+                    // test hook: SG_THOUGHTS=1 prints every golfer thought as it is raised, with the golfer's mood
+                    if std::env::var_os("SG_THOUGHTS").is_some() {
+                        let line = self.club.thought(&self.course, id, arg & 0x3fff, g);
+                        println!("thought golfer {g} type {id:#x} arg {arg} mood {}: {}", self.club.g[g].mood, line.text);
+                    }
                     if crate::extras::people() {
                         self.keep_thought(g, id, arg);
                     }
