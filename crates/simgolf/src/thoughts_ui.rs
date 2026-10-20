@@ -15,13 +15,17 @@ impl App {
 
     /// Screen point (virtual 800x600) of a world position, on screen or not.
     pub fn screen_of_world(&self, wx: f32, wz: f32) -> Option<(f32, f32)> {
+        let (sx, sy) = self.pixel_of_world(wx, wz);
+        Some(self.view.to_virtual_raw(sx, sy))
+    }
+
+    /// Drawable pixel of a world position on the ground, on screen or not (pick_ground's way back).
+    pub fn pixel_of_world(&self, wx: f32, wz: f32) -> (f32, f32) {
         let h = self.terrain.height_at(wx, wz);
         let m = self.mv;
         let ex = m[0] * wx + m[4] * h + m[8] * wz + m[12];
         let ey = m[1] * wx + m[5] * h + m[9] * wz + m[13];
-        let sx = ex / self.upp + self.draw_w * 0.5;
-        let sy = self.draw_h * 0.5 - ey / self.upp;
-        Some(self.view.to_virtual_raw(sx, sy))
+        (ex / self.upp + self.draw_w * 0.5, self.draw_h * 0.5 - ey / self.upp)
     }
 
     /// The exe's floating thought text (0x416a15, specs thoughts.md 3.1): only at the closest zoom, `zoom * 10` pixels above

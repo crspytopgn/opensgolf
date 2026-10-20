@@ -1902,6 +1902,82 @@ impl Stage {
         }
     }
 
+    /// The previews that follow the pointer on the course each frame: the tile under it, the tape's far end, the pro's aim
+    /// and the armed tool's ground point; a touch target (touch.rs) stands in for the pointer.
+    pub(crate) fn pointer_preview(&mut self) {
+        let app = &mut self.app;
+        let what = app.touch_target_for();
+        app.touch_target.sync(what);
+        let touch_hit = app.touch_target.active(what).then_some(app.touch_target.target);
+        if app.screen == Screen::Play {
+            let hit = match touch_hit {
+                Some(t) => t,
+                None => app.pick_ground(self.mouse.0, self.mouse.1),
+            };
+            app.hover_tile = hit.map(|(x, z)| app.terrain.tile_of(x, z));
+            // the measuring tape's far end follows the pointer (build_tools.rs)
+            app.tape_pointer(pin_world(app).or(hit));
+            let (vx, vy) = app.view.to_virtual(self.mouse.0, self.mouse.1);
+            match hit {
+                _ if app.auto_aim != 0 => {}
+                Some((x, z)) if touch_hit.is_some() && app.club.pro_aiming().is_some() => app.aim_pointer(x, z),
+                None if touch_hit.is_some() && app.club.pro_aiming().is_some() => app.aim = None,
+                // the aiming frame runs while the pointer is above the panel (mouse y < 480)
+                Some((x, z)) if app.club.pro_aiming().is_some() && vy < 452.0 && !(app.ui_ok && dock_hit(vx, vy) >= 0) => {
+                    app.aim_pointer(x, z)
+                }
+                _ if app.club.pro_aiming().is_none() => app.aim = None,
+                _ => {}
+            }
+        }
+        if app.edit {
+            let hit = match touch_hit {
+                Some(t) => t,
+                None => pin_world(app).or_else(|| app.pick_ground(self.mouse.0, self.mouse.1)),
+            };
+            app.has_hit = hit.is_some();
+            if let Some((x, z)) = hit {
+                app.hit_x = x;
+                app.hit_z = z;
+            }
+        }
+    }
+
+    /// A left press on the course with a tool armed, at ground point `hit` (also the touch Place button's, touch.rs).
+    fn course_press(&mut self, hit: Option<(f32, f32)>) {
+        // the port's own undo: the game as it is before a click on the course (undo.rs)
+        if self.app.screen == Screen::Play {
+            self.app.undo_press();
+        }
+        self.editing = true;
+        self.app.last_cell = -1;
+        self.app.has_hit = hit.is_some();
+        if let Some((hx, hz)) = hit {
+            self.app.hit_x = hx;
+            self.app.hit_z = hz;
+        }
+        // the terrain brush's rectangle (Shift) and fill (Alt), the port's own (build_tools.rs)
+        match self.app.brush_area_press(self.shift, self.alt) {
+            // with the drag to place extra a row kind starts a row instead (placed on release)
+            build_tools::AreaPress::None if self.app.row_press(self.shift) => {}
+            build_tools::AreaPress::None => self.app.apply_tool(self.shift, false),
+            build_tools::AreaPress::Rect => {}
+            build_tools::AreaPress::Filled => self.editing = false,
+        }
+    }
+
+    /// The left button let go: a rectangle or row under way is painted or placed, a drag ends and the undo step is kept.
+    fn course_release(&mut self) {
+        self.app.brush_area_release();
+        self.app.row_release();
+        if self.dragging {
+            self.app.drag_state(false, now());
+        }
+        self.dragging = false;
+        self.editing = false;
+        self.app.undo_release();
+    }
+
     /// Returns true when the click was on the dock or an open panel.
     fn dock_click(&mut self, vx: f32, vy: f32, right: bool) -> bool {
         let app = &mut self.app;
@@ -2869,30 +2945,8 @@ impl EventHandler for Stage {
             app.open_popup(popup_ui::PopupKind::CareerOver);
         }
         app.screen_audio();
-        if app.screen == Screen::Play {
-            let hit = app.pick_ground(self.mouse.0, self.mouse.1);
-            app.hover_tile = hit.map(|(x, z)| app.terrain.tile_of(x, z));
-            // the measuring tape's far end follows the pointer (build_tools.rs)
-            app.tape_pointer(pin_world(app).or(hit));
-            let (vx, vy) = app.view.to_virtual(self.mouse.0, self.mouse.1);
-            match hit {
-                _ if app.auto_aim != 0 => {}
-                // the aiming frame runs while the pointer is above the panel (mouse y < 480)
-                Some((x, z)) if app.club.pro_aiming().is_some() && vy < 452.0 && !(app.ui_ok && dock_hit(vx, vy) >= 0) => {
-                    app.aim_pointer(x, z)
-                }
-                _ if app.club.pro_aiming().is_none() => app.aim = None,
-                _ => {}
-            }
-        }
-        if app.edit {
-            let hit = pin_world(app).or_else(|| app.pick_ground(self.mouse.0, self.mouse.1));
-            app.has_hit = hit.is_some();
-            if let Some((x, z)) = hit {
-                app.hit_x = x;
-                app.hit_z = z;
-            }
-        }
+        self.pointer_preview();
+        let app = &mut self.app;
         if app.dirty {
             let t0 = now();
             app.rebuild_batches(&mut self.g);
@@ -3042,6 +3096,10 @@ impl EventHandler for Stage {
         sysdiag::event(sysdiag::Ev::Mouse);
         self.gamepad_mouse_moved(x, y);
         let (dx, dy) = (x - self.mouse.0, y - self.mouse.1);
+        // a mouse (not a finger) moved: hovering previews again (touch.rs)
+        if !self.by_finger() && dx * dx + dy * dy >= 16.0 {
+            self.app.touch_target.pointer_moved();
+        }
         self.mouse = (x, y);
         if self.app.photo.is_some() {
             self.photo_motion(x, y, dx, dy);
@@ -3370,6 +3428,11 @@ impl EventHandler for Stage {
         {
             return;
         }
+        // a finger's tap with the pro waiting or a building in hand sets the touch target instead (touch.rs): the Swing or
+        // Place button then acts on it
+        if button == MouseButton::Left && self.app.touch_target_for().is_some() && self.target_tap(x, y) {
+            return;
+        }
         if button == MouseButton::Left && self.app.club.pro_aiming().is_some() && !self.app.edit {
             if let Some((hx, hz)) = self.app.pick_ground(x, y) {
                 self.app.aim_pointer(hx, hz);
@@ -3390,27 +3453,9 @@ impl EventHandler for Stage {
             }
             return;
         }
-        // the port's own undo: the game as it is before a click on the course (undo.rs)
-        if button == MouseButton::Left && self.app.screen == Screen::Play && self.app.edit {
-            self.app.undo_press();
-        }
         if self.app.edit && button == MouseButton::Left {
-            self.editing = true;
-            self.app.last_cell = -1;
             let hit = self.app.pick_ground(x, y);
-            self.app.has_hit = hit.is_some();
-            if let Some((hx, hz)) = hit {
-                self.app.hit_x = hx;
-                self.app.hit_z = hz;
-            }
-            // the terrain brush's rectangle (Shift) and fill (Alt), the port's own (build_tools.rs)
-            match self.app.brush_area_press(self.shift, self.alt) {
-                // with the drag to place extra a row kind starts a row instead (placed on release)
-                build_tools::AreaPress::None if self.app.row_press(self.shift) => {}
-                build_tools::AreaPress::None => self.app.apply_tool(self.shift, false),
-                build_tools::AreaPress::Rect => {}
-                build_tools::AreaPress::Filled => self.editing = false,
-            }
+            self.course_press(hit);
         } else {
             self.dragging = true;
             // a drag of the view ends People > Follow
@@ -3449,8 +3494,8 @@ impl EventHandler for Stage {
             return;
         }
         if button == MouseButton::Left {
-            self.app.brush_area_release();
-            self.app.row_release();
+            self.course_release();
+            return;
         }
         if self.dragging {
             self.app.drag_state(false, now());

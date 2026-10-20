@@ -3294,3 +3294,8 @@ STR_SAVE_PACKS_ART_ORIGINAL             :the original SimGolf art
 STR_SAVE_PACKS_ART_FREE                 :the free graphics
 STR_SAVE_PACKS_ART_OTHER                :the graphics "{ID}"
 STR_SAVE_PACKS_DIFFER_ART               :This game was saved with {SAVED}; you're using {NOW}. It may look or play a little differently. Load it anyway?
+
+# Aiming the pro by touch (the port's own, touch.rs; docs/PLAYING.md)
+STR_TOUCH_SWING                         :Swing
+STR_TOUCH_AIM_LABEL                     :{YARDS} yds, {CLUB}
+STR_TOUCH_PLACE                         :Place

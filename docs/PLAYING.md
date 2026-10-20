@@ -1036,10 +1036,28 @@ the game also draws its own keyboard across the bottom of the screen while a nam
 **Cancel** (Esc), because Safari on an iPad raises its keyboard only for some taps and a name box closes only with those
 keys (issue #50).
 
+**Aiming your pro and placing buildings by touch.** With a mouse the shot's aim (and a building's footprint) follows the
+pointer and a click shoots (or places); a finger cannot hover, so with a finger the two are apart. While your pro waits
+for your shot, or with a building, home site, landmark or single garden item (bench, flower bed, willow, bridge, ball
+washer) in hand: a tap on the course sets the target there and shows the same preview the pointer shows (the aim line and
+tile with the panel's club and distance, plus a plate with the distance and club above the spot; or the footprint, name and
+price); drag one finger to move it (a target under the finger is lifted a fingertip and a half above it, one elsewhere
+moves with the finger as on a trackpad, and a thin line joins finger and target); lifting the finger does nothing. Then
+press the round **Swing** button (left of the touch buttons' foot) or **Place** (the tick, left of Turn) to shoot or place
+there: the same shot or placement a click on that spot makes. Tapping elsewhere just moves the target. The shot shapes stay
+on the Player panel's ovals; two fingers still move, zoom and turn the view, and holding a finger still is still the right
+click. Paths and the terrain brushes (tees and greens among them) paint directly as before, as does a row kind with the
+Drag to place extra. Moving a mouse puts hovering back.
+
 Test hooks (scripted stills): `SG_TOUCH=1` counts the screen as touched, so the touch buttons show; `SG_TAP="x,y;hold:x,y;
 down:x,y;key:B;..."` taps, holds for a long press or puts a finger down and leaves it (a pressed button), at window
 pixels and through the same path a finger takes, or presses a key (the names `settings.json` uses), after `SG_CLICK` and
-before `SG_PRESS`; each step prints the button it pressed and the speed, turn, open holes, Shift and tool.
+before `SG_PRESS`; each step prints the button it pressed and the speed, turn, open holes, Shift and tool. More `SG_TAP`
+steps for the touch target: `drag:x0,y0,x1,y1` drags one finger and lifts it, `slide:x0,y0,x1,y1` leaves it down at the
+end (a still while dragging), `click:x,y` is a mouse click (to compare), `frames:N` draws N frames with the previews
+updated (the aim's lock runs out after 10), `run:S` plays S seconds (the shot after Swing) and `pro` centres the view on
+your pro's ball; they print the target, the aim, the pro's hole, strokes and ball, and the cash. `--edit "j:0,3"` starts a
+practice round left for you to aim.
 
 ### Android
 

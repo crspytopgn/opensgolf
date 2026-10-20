@@ -602,6 +602,8 @@ pub struct App {
     pub aim: Option<sg_core::pro::AimPreview>,
     /// The pro was waiting for the player's aim at the last tick (a new shot drops an armed tool, pro_after_tick).
     pub was_aiming: bool,
+    /// Aiming by touch (touch.rs, the port's own): the target a finger set, shot with the Swing touch button.
+    pub touch_target: crate::touch::TouchTarget,
     /// The first 'n' while the pro plays asks; a second one within this game tick cancels the round.
     pub cancel_until: u32,
     /// Scripted runs: 1 the pro aims each full shot at the pin by himself, 2 he only shows that aim (for stills).
@@ -970,6 +972,7 @@ impl App {
             skill_dialog: None,
             aim: None,
             was_aiming: false,
+            touch_target: Default::default(),
             cancel_until: 0,
             auto_aim: 0,
             pro_slot: -1,
