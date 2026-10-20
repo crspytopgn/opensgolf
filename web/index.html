@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<meta name="theme-color" content="#1e63b8">
+<meta name="theme-color" content="#1f6b3f">
 <meta name="description" content="OpenSGolf: Sid Meier's SimGolf, remastered. A free, open-source, fan-made golf resort game you can play right in your browser, with your own SimGolf files or free graphics.">
 <title>OpenSGolf: SimGolf, remastered, in your browser</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%232f8f4e'/%3E%3Crect x='30' y='12' width='3' height='34' fill='%23fff'/%3E%3Cpath d='M33 12l16 6-16 6z' fill='%23e8423b'/%3E%3Ccircle cx='24' cy='46' r='6' fill='%23fff'/%3E%3C/svg%3E">
@@ -12,12 +12,13 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap">
 <style>
-  /* The page's look: an early-2000s game site (a centred "site" panel over a sky and a golf course, gel buttons, glossy
-     section bars), the port's own, drawn here in CSS and SVG; none of the original's box art, logos or pictures. */
+  /* The page's look: an early-2000s game site (a centred "site" panel on a quiet green backdrop, gel buttons, glossy
+     section bars, a CD to load the game from), the port's own, drawn here in CSS and SVG; none of the original's box art, logos or pictures. */
   :root {
     --head: "Baloo 2", "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif;
     --ui: Verdana, Tahoma, "DejaVu Sans", Geneva, sans-serif;
-    --sky1: #1b5cae; --sky2: #3d8ad8; --sky3: #a9d4f3;
+    --bg1: #1f6b3f; --bg2: #164a42; --bg3: #102a4f;
+    --glow: rgba(150, 225, 160, 0.30); --dimple-lo: rgba(0, 20, 10, 0.16); --dimple-hi: rgba(255, 255, 255, 0.05);
     --panel: #f5f9ee;
     --panel-edge: #ffffff;
     --ink: #1c2a1f;
@@ -38,7 +39,8 @@
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --sky1: #0c1838; --sky2: #23386c; --sky3: #6c6894;
+      --bg1: #0f2a1b; --bg2: #0b1d1f; --bg3: #070f22;
+      --glow: rgba(90, 170, 110, 0.16); --dimple-lo: rgba(0, 0, 0, 0.22); --dimple-hi: rgba(255, 255, 255, 0.025);
       --panel: #142019;
       --panel-edge: #2c4434;
       --ink: #e9f2e6;
@@ -56,38 +58,26 @@
     }
   }
   * { box-sizing: border-box; }
-  html { background: var(--sky1); scroll-behavior: smooth; }
+  html { background: var(--bg3); scroll-behavior: smooth; }
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   html, body { margin: 0; padding: 0; min-height: 100%; }
-  body { min-height: 100vh; color: var(--ink); font: 14px/1.55 var(--ui); background: var(--sky1); }
+  body { min-height: 100vh; color: var(--ink); font: 14px/1.55 var(--ui); background: var(--bg2); }
   /* the game: fixed over the whole window once it starts (the page below is hidden then) */
   /* (100dvh: iPad and iPhone Safari's 100vh is the height with their bars hidden, which put the bottom of the game, the
      dock and the panels, under the bars; opensgolf.js sgFitCanvas sizes it to the visible area as the bars come and go) */
   #glcanvas { display: none; position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; height: 100dvh; outline: none; touch-action: none;
     -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; background: #000; }
 
-  /* the backdrop behind the site: sky, drifting clouds and a course (inside #picker, so it goes with the page) */
+  /* the backdrop behind the site: deep green into navy, a faint dimple tile like a golf ball's and a soft light behind
+     the panel; still and low in contrast, so the panel is what the eye finds (inside #picker, so it goes with the page) */
   #backdrop { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
-    background: linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 38%, var(--sky3) 70%, var(--sky3) 100%); }
-  #backdrop .land { position: absolute; left: 0; bottom: 0; width: 100%; height: 48vh; min-height: 240px; }
-  .cloud { position: absolute; left: 0; width: 200px; height: 56px; border-radius: 56px; background: #fff; opacity: 0.92;
-    box-shadow: inset 0 -10px 18px rgba(120, 150, 190, 0.35); animation: sg-drift 160s linear infinite; }
-  .cloud::before, .cloud::after { content: ""; position: absolute; background: #fff; border-radius: 50%;
-    box-shadow: inset 0 -8px 14px rgba(120, 150, 190, 0.25); }
-  .cloud::before { width: 92px; height: 92px; left: 30px; top: -48px; }
-  .cloud::after { width: 70px; height: 70px; left: 104px; top: -32px; }
-  .cloud.c1 { top: 9%; animation-duration: 170s; animation-delay: -30s; }
-  .cloud.c2 { top: 22%; animation-duration: 210s; animation-delay: -120s; opacity: 0.85; }
-  .cloud.c3 { top: 4%; animation-duration: 190s; animation-delay: -95s; }
-  .cloud.c4 { top: 33%; animation-duration: 240s; animation-delay: -180s; opacity: 0.8; }
-  .cloud.c5 { top: 15%; animation-duration: 200s; animation-delay: -10s; opacity: 0.88; }
-  @keyframes sg-drift { from { transform: translateX(-260px) scale(var(--s, 1)); } to { transform: translateX(calc(100vw + 60px)) scale(var(--s, 1)); } }
-  .cloud.c2 { --s: 0.7; } .cloud.c4 { --s: 0.55; } .cloud.c5 { --s: 0.85; }
-  @media (prefers-color-scheme: dark) { .cloud { opacity: 0.18 !important; } }
-  @media (prefers-reduced-motion: reduce) {
-    .cloud { animation: none; }
-    .cloud.c1 { left: 4%; } .cloud.c2 { left: 70%; } .cloud.c3 { left: 84%; } .cloud.c4 { left: 22%; } .cloud.c5 { left: 50%; }
-  }
+    background:
+      radial-gradient(ellipse 760px 620px at 50% 340px, var(--glow), transparent 72%),
+      radial-gradient(circle at 45% 40%, var(--dimple-lo) 0 1.4px, var(--dimple-hi) 1.9px 2.3px, transparent 2.8px) 0 0 / 16px 14px,
+      radial-gradient(circle at 45% 40%, var(--dimple-lo) 0 1.4px, var(--dimple-hi) 1.9px 2.3px, transparent 2.8px) 8px 7px / 16px 14px,
+      linear-gradient(180deg, var(--bg1) 0%, var(--bg2) 48%, var(--bg3) 100%); }
+  #backdrop::after { content: ""; position: absolute; inset: 0;
+    background: radial-gradient(ellipse 120% 90% at 50% 40%, transparent 55%, rgba(0, 0, 0, 0.35) 100%); }
 
   /* the site panel: fixed width, centred, bevelled */
   .site { position: relative; z-index: 1; max-width: 800px; margin: 24px auto 40px; background: var(--panel);
@@ -194,6 +184,57 @@
     animation: sg-shine 4.5s ease-in-out 1.5s infinite; pointer-events: none; }
   @keyframes sg-shine { 0% { left: -60%; } 30%, 100% { left: 130%; } }
   @media (prefers-reduced-motion: reduce) { .card.primary .btn:not(.ghost)::after { animation: none; display: none; } }
+  /* the CD (the port's own drawing, no box art or logos): a silver disc with a rainbow sheen and our own printed label,
+     in a drive tray. Clicking it opens the game folder picker; files dropped on it load like the buttons'; it spins while
+     the files are read or unpacked (.loading, set by the page script below) */
+  .tray { display: flex; align-items: center; gap: 18px; padding: 14px 18px; border-radius: 14px; color: #e9f0ec;
+    background: linear-gradient(180deg, #4b555c 0%, #2c3338 8%, #232a2f 60%, #1b2125 100%);
+    border: 1px solid #0d1114; box-shadow: inset 0 2px 6px rgba(0,0,0,0.6), inset 0 -1px 0 rgba(255,255,255,0.12), 0 1px 0 rgba(255,255,255,0.6); }
+  .tray .side2 { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+  .tray .actions { margin: 0; padding: 0; }
+  .tray .hint { margin: 0; font-size: 12.5px; color: #c7d3cc; }
+  .tray .hint b { color: var(--gold); font: 700 15px/1.2 var(--head); display: block; }
+  .cd { --cd: 184px; position: relative; flex: 0 0 auto; width: calc(var(--cd) + 12px); height: calc(var(--cd) + 12px); padding: 6px;
+    border: 0; border-radius: 50%; background: radial-gradient(circle, #101417 0 60%, #1a2024 70%, #2a3238 100%); cursor: pointer;
+    box-shadow: inset 0 3px 8px rgba(0,0,0,0.8), 0 1px 0 rgba(255,255,255,0.15); -webkit-tap-highlight-color: transparent; }
+  .cd:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+  .cd .lift { position: relative; display: block; width: var(--cd); height: var(--cd); border-radius: 50%;
+    transition: transform 0.25s cubic-bezier(.3,1.6,.5,1), filter 0.25s ease; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.6)); }
+  .cd:hover .lift, .cd:focus-visible .lift, .cd.over .lift { transform: translateY(-7px) rotate(-4deg) scale(1.03);
+    filter: drop-shadow(0 12px 10px rgba(0,0,0,0.55)); }
+  .cd:active .lift { transform: translateY(-2px) scale(0.99); }
+  .cd.over { box-shadow: inset 0 3px 8px rgba(0,0,0,0.8), 0 0 0 3px var(--gold), 0 0 18px rgba(255, 210, 63, 0.6); }
+  /* the disc: silver, brushed round; the hole in the middle cut out with a mask */
+  .cd .disc, .cd .sheen { position: absolute; inset: 0; border-radius: 50%;
+    -webkit-mask: radial-gradient(circle, transparent 0 10.5%, #000 11%); mask: radial-gradient(circle, transparent 0 10.5%, #000 11%); }
+  .cd .disc { background:
+      radial-gradient(circle, transparent 0 21%, rgba(255,255,255,0.75) 21.5% 22.3%, transparent 22.8% 98%, rgba(120,130,140,0.9) 99%),
+      radial-gradient(circle, rgba(230,240,246,0.55) 0 21%, transparent 21.2%),
+      conic-gradient(from 0deg, #f7f9fa, #b4bfc6, #eef2f4, #9fabb3, #f9fbfc, #aeb9c0, #e9eef1, #a5b0b8, #f7f9fa); }
+  .cd .disc svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  /* the light on it stays still while the disc turns: two rainbow wedges and a white glint, on the shiny rim and hub */
+  .cd .sheen { pointer-events: none; mix-blend-mode: screen; opacity: 0.85; background:
+      conic-gradient(from 300deg, transparent 0deg, rgba(255,60,160,0.35) 16deg, rgba(255,210,40,0.4) 32deg, rgba(60,255,140,0.35) 48deg,
+        rgba(40,170,255,0.4) 64deg, rgba(170,70,255,0.3) 80deg, transparent 96deg 180deg, rgba(255,60,160,0.3) 196deg,
+        rgba(255,210,40,0.35) 212deg, rgba(60,255,140,0.3) 228deg, rgba(40,170,255,0.35) 244deg, rgba(170,70,255,0.25) 260deg, transparent 276deg),
+      linear-gradient(135deg, rgba(255,255,255,0.6) 0%, transparent 32%, transparent 68%, rgba(255,255,255,0.22) 100%); }
+  /* (on the bare silver, the rim and the clear hub, the rainbow shows strongest) */
+  .cd .sheen.rim { mix-blend-mode: normal; opacity: 1; background:
+      conic-gradient(from 290deg, transparent 0deg, #ff4fa8 18deg, #ffd23a 36deg, #4ff59a 54deg, #3fb2ff 72deg, #b46bff 90deg, transparent 110deg 170deg,
+        #ff4fa8 188deg, #ffd23a 206deg, #4ff59a 224deg, #3fb2ff 242deg, #b46bff 260deg, transparent 280deg);
+    -webkit-mask: radial-gradient(circle closest-side, transparent 0 15%, rgba(0,0,0,0.4) 16% 21%, transparent 22% 76.5%, rgba(0,0,0,0.5) 77.5% 98%, transparent 99%);
+    mask: radial-gradient(circle closest-side, transparent 0 15%, rgba(0,0,0,0.4) 16% 21%, transparent 22% 76.5%, rgba(0,0,0,0.5) 77.5% 98%, transparent 99%); }
+  .cd .sheen.glint { mix-blend-mode: normal; opacity: 1; background: linear-gradient(125deg, transparent 30%, rgba(255,255,255,0.32) 44%, transparent 52%); }
+  .cd.loading .disc { animation: sg-spin 0.9s linear infinite; }
+  .cd.loading { cursor: progress; }
+  .cd.loading .lift { transform: none; }
+  @keyframes sg-spin { to { transform: rotate(360deg); } }
+  @keyframes sg-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) {
+    .cd .lift { transition: none; }
+    .cd.loading .disc { animation: none; }
+    .cd.loading .sheen { animation: sg-pulse 1.6s ease-in-out infinite; }
+  }
   .linkish { color: var(--link); font: 13px var(--ui); background: none; border: 0; padding: 4px 0; cursor: pointer; text-decoration: underline; min-height: 32px; }
 
   .remember { display: flex; align-items: center; gap: 10px; margin: 12px 2px 0; color: var(--ink-soft); cursor: pointer; min-height: 32px; }
@@ -310,6 +351,7 @@
     .site { margin: 0; border-radius: 0; border: 0; box-shadow: none; }
     .cols { grid-template-columns: minmax(0, 1fr); }
     .shot { width: 150px; height: 104px; }
+    .cd { --cd: 150px; }
     .side { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0 14px; }
     body { font-size: 15px; }
     details .body, .help ul, .feature p, .card .note { font-size: 14px; }
@@ -328,6 +370,9 @@
     .cols { padding: 14px 12px; }
     .features { grid-template-columns: minmax(0, 1fr); }
     .btn { flex: 1 1 auto; }
+    .tray { flex-direction: column; padding: 14px 12px; text-align: center; }
+    .tray .side2 { width: 100%; }
+    .cd { --cd: 138px; }
     .strip p { font-size: 13px; }
   }
 </style>
@@ -367,45 +412,6 @@
 </svg>
 <div id="picker">
   <div id="backdrop" aria-hidden="true">
-    <div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div><div class="cloud c4"></div><div class="cloud c5"></div>
-    <svg class="land" viewBox="0 0 1600 400" preserveAspectRatio="xMidYMax slice">
-      <defs>
-        <pattern id="mow1" width="90" height="90" patternUnits="userSpaceOnUse" patternTransform="rotate(-28)">
-          <rect width="45" height="90" fill="#4cae59"/><rect x="45" width="45" height="90" fill="#43a24f"/></pattern>
-        <pattern id="mow2" width="110" height="110" patternUnits="userSpaceOnUse" patternTransform="rotate(22)">
-          <rect width="55" height="110" fill="#2f8a3e"/><rect x="55" width="55" height="110" fill="#289035"/></pattern>
-        <linearGradient id="lake" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fc0ec"/><stop offset="1" stop-color="#2d84c2"/></linearGradient>
-      </defs>
-      <path d="M0 215C180 175 360 190 560 198C760 206 920 150 1110 165C1300 180 1450 150 1600 172V400H0Z" fill="#79b48a"/>
-      <!-- a white clubhouse on the far hill -->
-      <g transform="translate(1040 104)">
-        <rect x="0" y="34" width="190" height="34" fill="#f4f3ec"/>
-        <path d="M-8 36L20 16h150l28 20z" fill="#7c8faa"/>
-        <rect x="70" y="10" width="50" height="58" fill="#fbfaf4"/>
-        <path d="M64 12L95 -8 126 12z" fill="#6c809c"/>
-        <rect x="88" y="-26" width="14" height="22" fill="#fbfaf4"/><path d="M85 -26L95 -36 105 -26z" fill="#6c809c"/>
-        <g fill="#9db3c9"><rect x="12" y="42" width="9" height="11"/><rect x="30" y="42" width="9" height="11"/><rect x="48" y="42" width="9" height="11"/>
-          <rect x="132" y="42" width="9" height="11"/><rect x="150" y="42" width="9" height="11"/><rect x="168" y="42" width="9" height="11"/>
-          <rect x="80" y="20" width="9" height="11"/><rect x="101" y="20" width="9" height="11"/></g>
-        <g fill="#fff"><rect x="78" y="44" width="4" height="24"/><rect x="88" y="44" width="4" height="24"/><rect x="98" y="44" width="4" height="24"/><rect x="108" y="44" width="4" height="24"/></g>
-        <path d="M72 42h46" stroke="#d7d4c8" stroke-width="3"/>
-      </g>
-      <g fill="#2e7a3b"><circle cx="1010" cy="168" r="16"/><circle cx="1028" cy="160" r="20"/><circle cx="1262" cy="166" r="18"/><circle cx="1284" cy="172" r="14"/>
-        <circle cx="70" cy="200" r="26"/><circle cx="104" cy="190" r="32"/><circle cx="140" cy="202" r="24"/><circle cx="1450" cy="168" r="24"/><circle cx="1490" cy="160" r="30"/><circle cx="1530" cy="170" r="22"/></g>
-      <g fill="#3f9450"><circle cx="98" cy="182" r="14"/><circle cx="1484" cy="152" r="13"/><circle cx="1024" cy="152" r="9"/></g>
-      <path d="M0 262C250 214 520 238 770 248C1010 258 1220 220 1600 244V400H0Z" fill="url(#mow1)"/>
-      <ellipse cx="560" cy="300" rx="190" ry="27" fill="#256f9e"/>
-      <ellipse cx="560" cy="298" rx="182" ry="23" fill="url(#lake)"/>
-      <path d="M440 292h80M600 300h90M500 306h60" stroke="#e6f6ff" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
-      <path d="M915 318c18-20 70-24 102-12 22 8 52 4 62 16 10 14-24 26-62 24-28-2-46 6-74 2-30-4-40-16-28-30z" fill="#d9bf78"/>
-      <path d="M922 318c18-17 66-20 96-9 22 8 50 4 58 15 8 11-22 22-58 20-27-2-45 6-72 2-27-4-36-14-24-28z" fill="#f1dda2"/>
-      <path d="M0 336C300 300 620 344 900 340C1150 336 1360 300 1600 322V400H0Z" fill="url(#mow2)"/>
-      <ellipse cx="1240" cy="304" rx="96" ry="18" fill="#6dcd71"/>
-      <ellipse cx="1262" cy="306" rx="5" ry="2" fill="#173d1d"/>
-      <rect x="1260" y="240" width="3.5" height="66" fill="#fff"/>
-      <path d="M1263.5 241l34 12-34 12z" fill="#e8423b"/>
-      <rect y="384" width="1600" height="16" fill="#25803a"/>
-    </svg>
   </div>
 
   <div class="site" id="top">
@@ -474,16 +480,43 @@
                 new. Or the SimGolf CD: an image of it (<code>.iso</code>, or a Mac's <code>.cdr</code>), a .zip of either, or the
                 CD itself picked as a folder; it is unpacked here, nothing to install. The files are read in this tab only;
                 nothing is uploaded.</p>
+              <div class="tray">
+                <button type="button" class="cd" id="cd" aria-label="Insert your SimGolf: choose the game folder. You can also drop the folder, a .zip or a CD image here.">
+                  <span class="lift" aria-hidden="true">
+                    <span class="disc"><svg viewBox="0 0 200 200">
+                      <defs>
+                        <radialGradient id="cdlabel" cx="0.4" cy="0.3" r="0.8"><stop offset="0" stop-color="#3fae55"/><stop offset="0.6" stop-color="#1f7532"/><stop offset="1" stop-color="#145a24"/></radialGradient>
+                        <path id="cdtop" d="M46 100a54 54 0 0 1 108 0"/>
+                        <path id="cdbot" d="M39 100a61 61 0 0 0 122 0"/>
+                      </defs>
+                      <!-- the printed label: a ring between the clear hub and the shiny rim -->
+                      <path d="M100 24a76 76 0 1 1 0 152a76 76 0 1 1 0-152zM100 56a44 44 0 1 0 0 88a44 44 0 1 0 0-88z" fill="url(#cdlabel)" fill-rule="evenodd"/>
+                      <path d="M100 24a76 76 0 1 1 0 152a76 76 0 1 1 0-152z" fill="none" stroke="#0e4a1c" stroke-width="1.2"/>
+                      <circle cx="100" cy="100" r="44" fill="none" stroke="#0e4a1c" stroke-width="1"/>
+                      <text font-family="'Baloo 2', 'Arial Rounded MT Bold', sans-serif" font-weight="800" font-size="24" fill="#ffd23f" stroke="#6b4400" stroke-width="0.8"
+                        letter-spacing="0.5" text-anchor="middle"><textPath href="#cdtop" startOffset="50%">Open<tspan fill="#fff">S</tspan>Golf</textPath></text>
+                      <text font-family="Verdana, Tahoma, sans-serif" font-weight="bold" font-size="8.6" fill="#fff" letter-spacing="1.1"
+                        text-anchor="middle"><textPath href="#cdbot" startOffset="50%">INSERT YOUR SIMGOLF</textPath></text>
+                      <g transform="translate(160 104)"><ellipse cx="0" cy="6" rx="10" ry="3" fill="#58c27a"/><rect x="-1" y="-12" width="2" height="18" fill="#fff"/><path d="M1 -12l10 3.6-10 3.6z" fill="#e8423b"/></g>
+                      <ellipse cx="40" cy="106" rx="9" ry="3" fill="#58c27a"/><circle cx="40" cy="101" r="5" fill="#fff"/><circle cx="38.6" cy="99.6" r="0.9" fill="#c8d2cc"/><circle cx="41.4" cy="100" r="0.9" fill="#c8d2cc"/>
+                    </svg></span>
+                    <span class="sheen"></span><span class="sheen rim"></span><span class="sheen glint"></span>
+                  </span>
+                </button>
+                <div class="side2">
+                  <p class="hint"><b>Insert your SimGolf</b>Click the disc, or drop your game folder, a .zip or a CD image onto it.</p>
+                  <div class="actions">
+                    <label class="btn">Choose game folder<input id="folder" type="file" webkitdirectory directory multiple></label>
+                    <label class="btn ghost">Or a .zip or CD image<input id="zip" type="file" accept=".zip,.iso,.cdr,.dmg"></label>
+                  </div>
+                </div>
+              </div>
               <p class="tip"><svg aria-hidden="true"><use href="#i-sound"/></svg><strong>Want the original sounds and music?</strong> Use the SimGolf CD or an image of it
                 (<code>.iso</code>), or a full installed copy. Some downloaded copies of SimGolf have the art but leave the sounds
                 out: their <code>Sounds</code> and <code>SimsFX</code> folders are empty. The game still plays with those, using
                 the free OpenSGolf sounds instead.</p>
               <p class="note">Zips made with Windows, 7-Zip or a Mac's archivers (Deflate64, BZip2, LZMA) are unpacked
                 here even where the iPad's Files app cannot. After loading, the page says what it found.</p>
-              <div class="actions">
-                <label class="btn">Choose game folder<input id="folder" type="file" webkitdirectory directory multiple></label>
-                <label class="btn ghost">Or a .zip or CD image<input id="zip" type="file" accept=".zip,.iso,.cdr,.dmg"></label>
-              </div>
             </section>
 
             <section class="card">
@@ -698,8 +731,45 @@
 <script src="files.js"></script>
 <script src="opensgolf.js"></script>
 <script>
-  document.getElementById("folder").addEventListener("change", e => sgLoadFolder(e.target.files));
-  document.getElementById("zip").addEventListener("change", e => sgLoadZip(e.target.files[0]));
+  // the CD spins while the player's files are read or unpacked, and stops when the game starts or the page says why not
+  const cd = document.getElementById("cd");
+  function sgSpin(job) {
+    cd.classList.add("loading"); cd.setAttribute("aria-busy", "true");
+    return Promise.resolve(job).finally(() => { cd.classList.remove("loading"); cd.removeAttribute("aria-busy"); });
+  }
+  document.getElementById("folder").addEventListener("change", e => sgSpin(sgLoadFolder(e.target.files)));
+  document.getElementById("zip").addEventListener("change", e => sgSpin(sgLoadZip(e.target.files[0])));
+  cd.addEventListener("click", () => { if (!cd.classList.contains("loading")) document.getElementById("folder").click(); });
+  // files dropped on the CD: one file goes the .zip or CD image way, a folder (or several files) the game folder way, its
+  // files given the paths a picked folder has
+  async function sgDropped(dt) {
+    const roots = Array.from(dt.items || []).map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+    if (roots.length === 1 && roots[0].isFile || !roots.length) return sgLoadZip(dt.files[0]);
+    const files = [];
+    const walk = async ent => {
+      if (ent.isFile) {
+        const f = await new Promise((ok, fail) => ent.file(ok, fail));
+        Object.defineProperty(f, "webkitRelativePath", { value: ent.fullPath.replace(/^\//, "") });
+        files.push(f);
+      } else if (ent.isDirectory) {
+        const r = ent.createReader();
+        for (;;) {
+          const batch = await new Promise((ok, fail) => r.readEntries(ok, fail));
+          if (!batch.length) break;
+          for (const c of batch) await walk(c);
+        }
+      }
+    };
+    sgStatus("Reading the dropped files...");
+    for (const r of roots) await walk(r);
+    return sgLoadFolder(files);
+  }
+  ["dragenter", "dragover"].forEach(t => cd.addEventListener(t, e => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; cd.classList.add("over"); }));
+  cd.addEventListener("dragleave", () => cd.classList.remove("over"));
+  cd.addEventListener("drop", e => {
+    e.preventDefault(); cd.classList.remove("over");
+    if (!cd.classList.contains("loading") && e.dataTransfer.files.length) sgSpin(sgDropped(e.dataTransfer).catch(err => sgStatus("Could not read the dropped files: " + err.message)));
+  });
   document.getElementById("hdfolder").addEventListener("change", e => sgLoadHdFolder(e.target.files));
   document.getElementById("hdzip").addEventListener("change", e => sgLoadHdZip(e.target.files[0]));
   document.getElementById("packfolder").addEventListener("change", e => sgLoadPackFolder(e.target.files));
