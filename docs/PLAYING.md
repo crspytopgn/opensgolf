@@ -96,19 +96,34 @@ GitHub for OpenSGolf's newest release and says whether you have it. When a newer
   the box then says why and offers the download page. Anything else that goes wrong (no internet, a folder the game may
   not write to such as `/Applications` for a standard user, a copy not installed from a release package) leaves your
   version as it was and offers the download page too.
+  **Only what changed** (the port's own, GitHub issue #65): on Windows and with the Linux `.tar.gz` the game first
+  compares its `packs` folder with the new release's signed list of pack files (`opensgolf-packs.sha256`), then
+  downloads the release's program-only package (`opensgolf-windows-bin.zip`, `opensgolf-linux-x86_64-bin.tar.gz`, ...:
+  the programs, `lang` and the documents, without `packs`) and only the pack files that differ, each checked against
+  the signed list. When nothing in `packs` changed, `packs` is not touched at all. When more than a quarter of the pack
+  files changed, or the release has no such files, or any of it fails, the whole package is downloaded as before. The
+  AppImage, the Mac's `OpenSGolf.app` (a signed app is replaced whole) and Android always take the whole package. Your
+  saves, settings and SimGolf files are never touched: they are not in the game's folder.
 - **Open the download page**: the release page (https://github.com/crspytopgn/opensgolf/releases/latest) in the system's
   browser, to download and install it as the first time.
 - **Not now**.
 
 Privacy: only GitHub is contacted, and only when you click the button (or with the *Check for updates when the game
 starts* extra ticked, once at start): one request to `api.github.com` for the newest release, and with Update now the
-downloads of `SHA256SUMS`, its signature and the package from GitHub's release files. GitHub sees your IP address and
+downloads of `SHA256SUMS`, its signature and the package from GitHub's release files (for an update of only what
+changed, also the pack file list and the changed pack files from `raw.githubusercontent.com`). When the game's own HTTPS
+client cannot connect (an antivirus that scans HTTPS or a company proxy, whose certificate only the system knows), it
+tries once more with the system's `curl` (in Windows 10 and later, macOS and Linux); without curl the first error stands.
+No internet or GitHub's limit of 60 requests an hour is one line in the log for the check at start, and a short message
+for a click on the button. GitHub sees your IP address and
 `OpenSGolf/<version>` as the program asking, as for any web page; nothing about you or your games is sent. The browser
 version is always the newest, so it has no such button, nor has a build without the `net` feature. Test hooks:
 `SG_UPDATE_URL=file:///path/latest.json` checks at start against a saved answer (`{"tag_name":"v0.4.0"}`, with an
 `assets` list of `name` and `browser_download_url` for Update now; `file://` and local `http://` addresses work) instead
 of GitHub; `SG_UPDATE_KEY=HEX` checks signatures against that public key instead of the built-in one; `SG_UPDATE_NOW=1`
-chooses Update now as soon as a newer version is found.
+chooses Update now as soon as a newer version is found; `SG_UPDATE_RAW=file:///dir` fetches the changed pack files of
+an update of only what changed from `dir/packs/...` instead of the release's tag on GitHub (with a saved answer listing
+local `-bin` packages, `opensgolf-packs.sha256`, `SHA256SUMS` and a signature made with `sgtool update-sign`).
 
 For scripted runs (any of `--png`, `--course`, `--edit`, `--golfer`, `--sandbox`, `--follow`) the game skips the menu and opens on the demo course; `--screen menu|property|play` forces a screen. Add `--theme Desert` for another look there. `--property NAME` (or 0..15) starts a new game on that property straight away, and `--clock MS` fixes the value the exe's random generator is seeded from, so the same land comes back every run.
 
