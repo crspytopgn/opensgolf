@@ -64,6 +64,8 @@
   .tagline { margin: 8px 0 0; font-size: clamp(16px, 2.6vw, 20px); max-width: 640px; text-shadow: 0 2px 10px rgba(0,0,0,0.6); }
   .fan { margin: 10px 0 0; color: #cfe0d2; font-size: 13px; text-shadow: 0 1px 6px rgba(0,0,0,0.7); }
   .card .note { margin: 8px 0 0; color: var(--muted); font-size: 14px; }
+  .card .tip { margin: 10px 0 0; padding: 10px 12px; border-left: 4px solid var(--accent); background: rgba(244, 211, 94, 0.1);
+    border-radius: 6px; font-size: 15px; }
 
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 26px; }
   .card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 22px;
@@ -200,9 +202,11 @@
             new. Or the SimGolf CD: an image of it (<code>.iso</code>, or a Mac's <code>.cdr</code>), a .zip of either, or the
             CD itself picked as a folder; it is unpacked here, nothing to install. The files are read in this tab only;
             nothing is uploaded.</p>
-          <p class="note">If your copy's <code>Sounds</code> and <code>SimsFX</code> folders are empty (some downloaded
-            copies leave the sounds out), the game still plays, with the free OpenSGolf sounds; a full installed copy or the
-            CD has the original's. Zips made with Windows, 7-Zip or a Mac's archivers (Deflate64, BZip2, LZMA) are unpacked
+          <p class="tip"><strong>Want the original sounds and music?</strong> Use the SimGolf CD or an image of it
+            (<code>.iso</code>), or a full installed copy. Some downloaded copies of SimGolf have the art but leave the sounds
+            out: their <code>Sounds</code> and <code>SimsFX</code> folders are empty. The game still plays with those, using
+            the free OpenSGolf sounds instead.</p>
+          <p class="note">Zips made with Windows, 7-Zip or a Mac's archivers (Deflate64, BZip2, LZMA) are unpacked
             here even where the iPad's Files app cannot. After loading, the page says what it found.</p>
           <div class="actions">
             <label class="btn">Choose game folder<input id="folder" type="file" webkitdirectory directory multiple></label>

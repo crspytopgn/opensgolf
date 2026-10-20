@@ -1695,11 +1695,17 @@ function sgFilesSummary(paths, skipped = [], found = null, bad = null) {
     if (used === 0) {
         problem = true;
         say.push(skippedSounds.length ? "So there are no sounds from your files: the free OpenSGolf sounds play instead."
-            : "Sounds: none in your files (the Sounds and SimsFX folders are empty), so the free OpenSGolf sounds play. A " +
-              "full installed copy of the game or the CD has them.");
+            : "Sounds: none in your files (the Sounds and SimsFX folders are empty), so the free OpenSGolf sounds play. " +
+              "For the original sounds, use the SimGolf CD or its .iso, or a full installed copy.");
     } else if (sounds === 0) {
         problem = true;
-        say.push("Your files have no Sounds folder (only the Sims' voices): the free OpenSGolf sounds play for the rest.");
+        say.push("Your files have no Sounds folder (only the Sims' voices): the free OpenSGolf sounds play for the rest. " +
+            "For the original sounds, use the SimGolf CD or its .iso, or a full installed copy.");
+    } else if (used < 100) {
+        // a full copy has about 320 sound files; a downloaded copy with the sounds left out keeps a stray one or two
+        problem = true;
+        say.push("Only " + sgPlural(used, "sound") + " in your files (some downloaded copies leave the sounds out): the free " +
+            "OpenSGolf sounds play for the rest. For the original sounds, use the SimGolf CD or its .iso, or a full installed copy.");
     }
     if (bad && bad.n > 0) {
         problem = true;
