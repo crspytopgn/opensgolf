@@ -14,6 +14,9 @@
 //!   (held clear of the finger, with its distance and club beside it); lifting the finger does not shoot. A round **Swing**
 //!   button then takes the shot at the target, exactly the shot a click there takes. Two fingers still move the camera and
 //!   a long press is still a right click; the shot shapes stay on the Player panel.
+//! * Looking round while aiming (the port's own, issue #75): a one-finger drag moves the target only when it starts on or
+//!   near it; a drag anywhere else on the course pans the view (it never shoots), a target dragged to the screen's edge
+//!   scrolls the view, a small round button centres the view on the pro's ball, and the first touch aim shows a short hint.
 //! * When a name is typed (rename, save) the phone's keyboard is raised: through the page in a browser (web/opensgolf.js),
 //!   through miniquad on Android.
 
@@ -44,6 +47,8 @@ enum Mode {
     Spent,
     /// One finger moving the pro's aim target (TouchTarget).
     Aim,
+    /// One finger panning the course while a touch target is set (a drag away from the target; nothing is clicked).
+    Pan,
 }
 
 /// A finger: its id, where it went down and where it is now.
@@ -76,11 +81,45 @@ pub struct Touch {
     flash: Option<(Btn, f64)>,
     /// The mouse events under way come from a finger (the click a tap makes, a drag): the course aims instead of shooting.
     feeding: bool,
+    /// The look-around hint has been shown (once a run, the first time the pro is aimed by touch).
+    hinted: bool,
+    /// The clock at the last edge scroll of a dragged target (the next step's time is measured from it).
+    edge_at: f64,
 }
 
 /// How far above the finger a target it picks up is held, in device-independent pixels (a fingertip and a half), so the
 /// finger does not hide it.
 const AIM_LIFT: f32 = 64.0;
+/// How near the target a one-finger drag must start to move it, in device-independent pixels (the ring and the plate above
+/// it, with room for a fingertip); a drag that starts further away pans the view.
+const AIM_GRAB: f32 = 80.0;
+/// The band along the course's edges, in device-independent pixels, where a dragged target scrolls the view.
+const EDGE_BAND: f32 = 48.0;
+/// The edge scroll's top speed, in screen heights a second (at the very edge).
+const EDGE_SPEED: f32 = 0.9;
+
+/// Whether a one-finger drag starting at `finger` moves the target (drawn at `target_px`, None when there is none or it is
+/// off the screen) rather than panning the view: only when it starts within `grab` of it.
+fn grabs_target(finger: (f32, f32), target_px: Option<(f32, f32)>, grab: f32) -> bool {
+    target_px.is_some_and(|t| (t.0 - finger.0).hypot(t.1 - finger.1) <= grab)
+}
+
+/// How hard a dragged target at `p` pushes the view towards each edge of the course's area `(left, top, right, bottom)`:
+/// -1 to 1 on each axis (negative left and up), 0 outside the band of `band` pixels along the edges, growing to 1 at the
+/// edge and past it.
+fn edge_push(p: (f32, f32), area: (f32, f32, f32, f32), band: f32) -> (f32, f32) {
+    let (l, t, r, b) = area;
+    let side = |v: f32, lo: f32, hi: f32| {
+        if v < lo + band {
+            -((lo + band - v) / band).min(1.0)
+        } else if v > hi - band {
+            ((v - (hi - band)) / band).min(1.0)
+        } else {
+            0.0
+        }
+    };
+    (side(p.0, l, r), side(p.1, t, b))
+}
 
 /// What a touch target is for: the pro's aim, or the building tool's next placement (with its kind).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -229,11 +268,13 @@ enum Btn {
     Swing,
     /// Placing by touch: the building at the target. Bigger, to the left of Turn.
     Place,
+    /// Aiming by touch: the view back on the pro's ball (issue #75). Above Swing, shown all the time the pro waits.
+    Centre,
 }
 /// The column's buttons: those before Swing.
 #[cfg(test)]
 const COLUMN: usize = 5;
-const BUTTONS: [Btn; 7] = [Btn::Speed, Btn::Message, Btn::Turn, Btn::OpenHole, Btn::Showcase, Btn::Swing, Btn::Place];
+const BUTTONS: [Btn; 8] = [Btn::Speed, Btn::Message, Btn::Turn, Btn::OpenHole, Btn::Showcase, Btn::Swing, Btn::Place, Btn::Centre];
 
 impl Btn {
     fn action(self) -> &'static str {
@@ -244,7 +285,7 @@ impl Btn {
             Btn::OpenHole => "open_hole",
             Btn::Showcase => "showcase",
             // no key: the original shoots with a click (touch_button_press)
-            Btn::Swing | Btn::Place => "",
+            Btn::Swing | Btn::Place | Btn::Centre => "",
         }
     }
     fn label(self) -> &'static str {
@@ -256,6 +297,7 @@ impl Btn {
             Btn::Showcase => "STR_TOUCH_SHOWCASE",
             Btn::Swing => "STR_TOUCH_SWING",
             Btn::Place => "STR_TOUCH_PLACE",
+            Btn::Centre => "STR_TOUCH_CENTRE",
         }
     }
 }
@@ -303,6 +345,13 @@ fn swing_centre(r: f32, right: f32) -> (f32, f32) {
 fn place_centre(r: f32, right: f32) -> (f32, f32) {
     let (x, y) = button_centre(2, r, right);
     (x - r - 14.0 - big_radius(r), y)
+}
+
+/// The Centre button's centre: above Swing, level with its right side.
+fn centre_centre(r: f32, right: f32) -> (f32, f32) {
+    let (x, y) = swing_centre(r, right);
+    let rs = big_radius(r);
+    (x + rs - r, y - rs - 14.0 - r)
 }
 
 /// Whether (vx, vy) is on the button centred at `c`.
@@ -356,8 +405,11 @@ impl Stage {
                     2 => {
                         // a second finger ends whatever the first was doing
                         self.touch.held = None;
-                        // a target being dragged stays where it is
+                        // a target being dragged stays where it is, a one-finger pan ends
                         self.app.touch_target.drag_end();
+                        if self.touch.mode == Mode::Pan {
+                            self.app.drag_state(false, now);
+                        }
                         if self.touch.mode == Mode::Mouse {
                             let p = self.touch.fingers[0].2;
                             self.mouse_button_up_event(MouseButton::Left, p.0, p.1);
@@ -371,6 +423,7 @@ impl Stage {
             }
             TouchPhase::Moved => {
                 let Some(f) = self.touch.fingers.iter_mut().find(|f| f.0 == id) else { return };
+                let prev = f.2;
                 f.2 = (x, y);
                 let start = f.1;
                 if self.touch.held.is_some() && self.touch_button_at(x, y) != self.touch.held {
@@ -379,14 +432,24 @@ impl Stage {
                 match self.touch.mode {
                     Mode::Pending => {
                         let (dx, dy) = (x - start.0, y - start.1);
-                        if dx * dx + dy * dy > SLOP * SLOP * self.app.dpi * self.app.dpi && self.targets_here(start) {
-                            // the pro's aim: the drag moves the target, and nothing is clicked
+                        let far = dx * dx + dy * dy > SLOP * SLOP * self.app.dpi * self.app.dpi;
+                        if far && self.targets_here(start) {
                             let px = self.app.touch_target.target.map(|(wx, wz)| self.app.pixel_of_world(wx, wz));
                             let on_screen = px.filter(|p| (0.0..self.app.draw_w).contains(&p.0) && (0.0..self.app.draw_h).contains(&p.1));
-                            self.app.touch_target.drag_start(start, on_screen, AIM_LIFT * self.app.dpi);
-                            self.touch.mode = Mode::Aim;
-                            self.target_drag(x, y);
-                        } else if dx * dx + dy * dy > SLOP * SLOP * self.app.dpi * self.app.dpi {
+                            if grabs_target(start, on_screen, AIM_GRAB * self.app.dpi) {
+                                // the drag moves the target, and nothing is clicked
+                                self.app.touch_target.drag_start(start, on_screen, AIM_LIFT * self.app.dpi);
+                                self.touch.mode = Mode::Aim;
+                                self.touch.edge_at = now;
+                                self.target_drag(x, y);
+                            } else {
+                                // away from the target (or before one is set): the view pans, and nothing is clicked
+                                // (a left press would shoot; issue #75)
+                                self.app.drag_state(true, now);
+                                self.touch.mode = Mode::Pan;
+                                self.finger_pan(x - start.0, y - start.1);
+                            }
+                        } else if far {
                             self.mouse_motion_event(start.0, start.1);
                             self.mouse_button_down_event(MouseButton::Left, start.0, start.1);
                             self.touch.mode = Mode::Mouse;
@@ -395,6 +458,7 @@ impl Stage {
                     }
                     Mode::Mouse => self.mouse_motion_event(x, y),
                     Mode::Aim => self.target_drag(x, y),
+                    Mode::Pan => self.finger_pan(x - prev.0, y - prev.1),
                     Mode::Gesture if self.touch.fingers.len() >= 2 => self.gesture(),
                     _ => {}
                 }
@@ -418,6 +482,7 @@ impl Stage {
                     Mode::Mouse => self.mouse_button_up_event(MouseButton::Left, x, y),
                     // lifting the finger leaves the target where it is: the Swing button shoots
                     Mode::Aim => self.app.touch_target.drag_end(),
+                    Mode::Pan => self.app.drag_state(false, now),
                     _ => {}
                 }
                 if self.touch.lowering && was == Mode::Mouse {
@@ -432,6 +497,40 @@ impl Stage {
                 }
             }
         }
+    }
+
+    /// One finger panning the view while a touch target is set: the course follows the finger as a mouse drag moves it
+    /// (main.rs mouse_motion_event), with the smooth camera's inertia.
+    fn finger_pan(&mut self, dx: f32, dy: f32) {
+        let k = self.app.upp;
+        let sin_p = (pitch_for(self.app.draw_w, self.app.draw_h).to_radians()).sin() as f32;
+        self.app.xs.follow = None;
+        self.app.drag_pan(-dx * k, dy * k / sin_p, self.app.clock);
+    }
+
+    /// A target dragged into the band along the course's edges scrolls the view that way, faster nearer the edge, and stays
+    /// under the finger (it moves over the ground): long shots can be aimed past the screen. Called every frame.
+    fn edge_scroll(&mut self) {
+        let now = self.app.clock;
+        let dt = (now - self.touch.edge_at).clamp(0.0, 0.05) as f32;
+        self.touch.edge_at = now;
+        if self.touch.mode != Mode::Aim || dt <= 0.0 {
+            return;
+        }
+        let Some(finger) = self.touch.fingers.first().map(|f| f.2) else { return };
+        let Some(p) = self.app.touch_target.drag_point(finger) else { return };
+        let a = &self.app;
+        // the course's area: the window above the dock's panel (y 452 of the 800 x 600 screen)
+        let bottom = (a.view.oy + 452.0 * a.view.scale).min(a.draw_h);
+        let (px, py) = edge_push(p, (0.0, 0.0, a.draw_w, bottom), EDGE_BAND * a.dpi);
+        if px == 0.0 && py == 0.0 {
+            return;
+        }
+        let step = EDGE_SPEED * a.draw_h * dt;
+        let sin_p = (pitch_for(a.draw_w, a.draw_h).to_radians()).sin() as f32;
+        let k = a.upp;
+        self.app.pan(px * step * k, -py * step * k / sin_p);
+        self.target_drag(finger.0, finger.1);
     }
 
     /// Two fingers: the midpoint pans the course, a pinch past a third more or less steps the zoom, a twist past 50
@@ -472,6 +571,12 @@ impl Stage {
 
     /// Called every frame: a finger held still long enough becomes a right click; the phone keyboard follows the name boxes.
     pub(crate) fn touch_update(&mut self) {
+        self.edge_scroll();
+        // the first touch aim: how to look round (once a run; issue #75)
+        if !self.touch.hinted && self.app.touch_target.active(Some(TargetFor::Aim)) && self.app.touch_target_for() == Some(TargetFor::Aim) {
+            self.touch.hinted = true;
+            self.app.show_toast(tr("STR_TOUCH_LOOK_HINT"));
+        }
         if self.touch.mode == Mode::Pending && self.app.clock - self.touch.started > LONG_PRESS {
             let p = self.touch.fingers.first().map(|f| f.1);
             match p {
@@ -610,6 +715,7 @@ impl Stage {
         match BUTTONS[i] {
             Btn::Swing => (swing_centre(r, right), big_radius(r)),
             Btn::Place => (place_centre(r, right), big_radius(r)),
+            Btn::Centre => (centre_centre(r, right), r),
             _ => (button_centre(i, r, right), r),
         }
     }
@@ -617,11 +723,11 @@ impl Stage {
     /// Whether button `b` is there to press: the column with the interface up, Swing whenever a touch aim is set (the
     /// interface hidden with u still aims).
     fn button_shown(&self, b: Btn) -> bool {
-        if matches!(b, Btn::Swing | Btn::Place) {
+        if matches!(b, Btn::Swing | Btn::Place | Btn::Centre) {
             let a = &self.app;
             let what = a.touch_target_for();
             let mine = match what {
-                Some(TargetFor::Aim) => b == Btn::Swing,
+                Some(TargetFor::Aim) => b == Btn::Swing || b == Btn::Centre,
                 Some(TargetFor::Place(_)) => b == Btn::Place,
                 None => false,
             };
@@ -635,7 +741,8 @@ impl Stage {
                 && a.popup.is_none()
                 && !a.typing()
                 && mine
-                && a.touch_target.ready(what);
+                // Centre whenever the pro waits for a touch aim, the others once their target is set
+                && if b == Btn::Centre { a.touch_target.active(what) } else { a.touch_target.ready(what) };
         }
         self.touch_buttons_shown() && self.app.touch_button_wanted(b)
     }
@@ -665,6 +772,10 @@ impl Stage {
     fn touch_button_press(&mut self, b: Btn) {
         if matches!(b, Btn::Swing | Btn::Place) {
             self.confirm();
+            return;
+        }
+        if b == Btn::Centre {
+            self.app.centre_on_pro();
             return;
         }
         let i = crate::controls::action(b.action());
@@ -768,6 +879,9 @@ impl Stage {
             // frames:N draws N frames with the previews updated (the aim's lock runs out after 10)
             if let Some(n) = t.strip_prefix("frames:").and_then(|v| v.parse::<u32>().ok()) {
                 for _ in 0..n {
+                    // a thirtieth of a second each (the clock stands still in a scripted run): a target held at the edge
+                    // scrolls the view
+                    self.app.clock += 1.0 / 30.0;
                     self.touch_update();
                     self.pointer_preview();
                     self.draw_frame(None);
@@ -793,6 +907,61 @@ impl Stage {
                     (self.app.cam_x, self.app.cam_z) = self.app.units_to_world(gg.bx, gg.by);
                 }
                 self.draw_frame(None);
+                continue;
+            }
+            // pan2:x0,y0,x1,y1 moves two fingers (80 pixels apart, side by side) from x0,y0 to x1,y1 and lifts them
+            if let Some(p) = t.strip_prefix("pan2:") {
+                let v = crate::ints(p);
+                let [x0, y0, x1, y1] = v[..] else { continue };
+                let (x0, y0, x1, y1) = (x0 as f32, y0 as f32, x1 as f32, y1 as f32);
+                let cam = (self.app.cam_x, self.app.cam_z);
+                self.touch(TouchPhase::Started, 1, x0 - 40.0, y0);
+                self.touch(TouchPhase::Started, 2, x0 + 40.0, y0);
+                for k in 1..=8 {
+                    let f = k as f32 / 8.0;
+                    let (x, y) = (x0 + (x1 - x0) * f, y0 + (y1 - y0) * f);
+                    self.touch(TouchPhase::Moved, 1, x - 40.0, y);
+                    self.touch(TouchPhase::Moved, 2, x + 40.0, y);
+                }
+                self.touch(TouchPhase::Ended, 2, x1 + 40.0, y1);
+                self.touch(TouchPhase::Ended, 1, x1 - 40.0, y1);
+                self.draw_frame(None);
+                println!("two fingers moved the view by {:.1},{:.1}", self.app.cam_x - cam.0, self.app.cam_z - cam.1);
+                self.touch_target_report("pan2");
+                continue;
+            }
+            // lift takes the finger left down by slide: off the screen
+            if t == "lift" {
+                if let Some(&(id, _, (x, y))) = self.touch.fingers.first() {
+                    self.touch(TouchPhase::Ended, id, x, y);
+                }
+                self.draw_frame(None);
+                self.touch_target_report("lift");
+                continue;
+            }
+            // btn:centre / btn:swing taps that touch button where it is drawn
+            if let Some(name) = t.strip_prefix("btn:") {
+                let Some(i) = BUTTONS.iter().position(|b| format!("{b:?}").eq_ignore_ascii_case(name)) else { continue };
+                let s = Ui::new(self.app.draw_w, self.app.draw_h);
+                let (dx, dy) = s.anchor_shift(crate::enhanced::Anchor::Right);
+                let ((cx, cy), _) = self.slot(i);
+                let v = s.view;
+                let (x, y) = ((cx + dx) * v.scale + v.ox, (cy + dy) * v.scale + v.oy);
+                let cam = (self.app.cam_x, self.app.cam_z);
+                self.touch(TouchPhase::Started, 1, x, y);
+                let held = self.touch.held;
+                self.touch(TouchPhase::Ended, 1, x, y);
+                for _ in 0..4 {
+                    self.touch_update();
+                    self.pointer_preview();
+                    self.draw_frame(None);
+                }
+                println!(
+                    "touch btn:{name} at {x:.0},{y:.0}: {held:?} pressed, the view moved by {:.1},{:.1}",
+                    self.app.cam_x - cam.0,
+                    self.app.cam_z - cam.1
+                );
+                self.touch_target_report("btn");
                 continue;
             }
             // drag:x0,y0,x1,y1 puts a finger down, moves it in steps and lifts it; slide: leaves it down at the end
@@ -866,11 +1035,13 @@ impl Stage {
             .or((a.club.gary >= 0).then_some(a.club.gary as usize))
             .map(|g| (a.club.g[g].hole, a.club.g[g].strokes, a.club.g[g].bx, a.club.g[g].by));
         println!(
-            "touch target after {step}: for {:?}, tile {tile:?}, dragging {}, aim {aim:?}, pro (hole, strokes, ball) {strokes:?}, objects {}, cash {:.0}",
+            "touch target after {step}: for {:?}, tile {tile:?}, dragging {}, aim {aim:?}, pro (hole, strokes, ball) {strokes:?}, objects {}, cash {:.0}, view at {:.0},{:.0}",
             a.touch_target_for(),
             a.touch_target.dragging(),
             a.land.as_ref().map_or(0, |l| l.objects.len()),
-            a.econ.cash
+            a.econ.cash,
+            a.cam_x,
+            a.cam_z
         );
     }
 
@@ -924,6 +1095,7 @@ impl Stage {
                 Btn::OpenHole => icon_flag(g, &s, cx, cy, r, ink, lit),
                 Btn::Showcase => icon_film(g, &s, cx, cy, r, ink),
                 Btn::Place => icon_tick(g, &s, cx, cy, r, ink),
+                Btn::Centre => icon_centre(g, &s, cx, cy, r, ink),
                 // its name on its face: the one button that acts on the game, it says what it does
                 Btn::Swing => {
                     let name = tr(b.label());
@@ -1171,7 +1343,33 @@ fn icon_film(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4]) {
     });
 }
 
+/// The Centre button's picture: a ball in a sight (a ring with four ticks).
+fn icon_centre(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4]) {
+    shaded(g, ink, |g, dx, dy, c| {
+        let (x, y) = (cx + dx, cy + dy);
+        ring(g, s, x, y, r * 0.36, r * 0.46, |_| c);
+        ring(g, s, x, y, 0.0, r * 0.14, |_| c);
+        let (a, b, w) = (r * 0.3, r * 0.62, r * 0.05);
+        s.fill(g, x - b, y - w, b - a, 2.0 * w, c);
+        s.fill(g, x + a, y - w, b - a, 2.0 * w, c);
+        s.fill(g, x - w, y - b, 2.0 * w, b - a, c);
+        s.fill(g, x - w, y + a, 2.0 * w, b - a, c);
+    });
+}
+
 impl App {
+    /// The touch Centre button (issue #75): the view on the ball of the pro waiting for the player's shot; it ends People >
+    /// Follow and any scroll under way. False when the pro is not waiting.
+    pub fn centre_on_pro(&mut self) -> bool {
+        let Some(gi) = self.club.pro_aiming() else { return false };
+        let gg = &self.club.g[gi];
+        (self.cam_x, self.cam_z) = self.units_to_world(gg.bx, gg.by);
+        self.xs.follow = None;
+        self.enh.pan_left = (0.0, 0.0);
+        self.enh.pan_vel = (0.0, 0.0);
+        true
+    }
+
     /// What a touch target would be for now (TouchTarget): the pro's aim while he waits for the player's shot; the building
     /// tool's placement of a building, home site, landmark or single garden item (a stray tap there costs money). Paths and
     /// the terrain brushes (tees and greens among them) paint, so a finger stays direct on them, as it does for a row kind
@@ -1203,7 +1401,7 @@ impl App {
             Btn::OpenHole => self.club.can_open_hole(),
             Btn::Showcase => self.club.holes.iter().skip(1).take(18).any(|h| h.par != 0),
             // shown on their own terms (Stage::button_shown)
-            Btn::Swing | Btn::Place => false,
+            Btn::Swing | Btn::Place | Btn::Centre => false,
         }
     }
 
@@ -1322,6 +1520,50 @@ mod tests {
                 }
                 // Place stands level with Turn, which turns what it places
                 assert_eq!(place_centre(r, right).1, button_centre(2, r, right).1);
+            }
+        }
+    }
+
+    #[test]
+    fn a_drag_moves_the_target_only_from_near_it_and_pans_the_view_elsewhere() {
+        // issue #75: on or near the target (its ring and plate) the drag aims, anywhere else it looks round
+        let t = Some((400.0, 200.0));
+        assert!(grabs_target((400.0, 200.0), t, 80.0));
+        assert!(grabs_target((400.0, 270.0), t, 80.0) && grabs_target((450.0, 250.0), t, 80.0));
+        assert!(!grabs_target((400.0, 290.0), t, 80.0) && !grabs_target((100.0, 100.0), t, 80.0));
+        // no target yet, or one off the screen: the drag pans (a tap sets the target)
+        assert!(!grabs_target((400.0, 200.0), None, 80.0));
+    }
+
+    #[test]
+    fn a_target_at_the_edge_scrolls_the_view_that_way_harder_nearer_the_edge() {
+        let area = (0.0, 0.0, 800.0, 450.0);
+        // in the middle, and just inside the band: nothing
+        assert_eq!(edge_push((400.0, 200.0), area, 48.0), (0.0, 0.0));
+        assert_eq!(edge_push((48.0, 48.0), area, 48.0), (0.0, 0.0));
+        // half way into the band, at the edge, and past it (a target lifted above the top)
+        assert_eq!(edge_push((24.0, 200.0), area, 48.0), (-0.5, 0.0));
+        assert_eq!(edge_push((800.0, 200.0), area, 48.0), (1.0, 0.0));
+        assert_eq!(edge_push((400.0, -30.0), area, 48.0), (0.0, -1.0));
+        assert_eq!(edge_push((400.0, 426.0), area, 48.0), (0.0, 0.5));
+        // a corner pushes both ways
+        assert_eq!(edge_push((0.0, 0.0), area, 48.0), (-1.0, -1.0));
+    }
+
+    #[test]
+    fn centre_sits_above_swing_clear_of_the_column_and_the_gauges() {
+        for px in [0.3, 0.65, 1.0, 1.37, 1.71, 2.4, 3.6] {
+            let r = button_radius(px);
+            let big = big_radius(r);
+            for right in [800.0, LEGEND_LEFT] {
+                let (x, y) = centre_centre(r, right);
+                let (sx, sy) = swing_centre(r, right);
+                let col_left = button_centre(0, r, right).0 - r - HIT_PAD;
+                // no press is on both Centre and Swing
+                assert!(sy - big - HIT_PAD >= y + r + HIT_PAD, "centre over swing at {px}");
+                assert!(x + r + HIT_PAD < col_left && x - r > 0.0, "centre at {px}");
+                assert!(y - r - HIT_PAD > 164.0, "centre under the gauges at {px}: {y}");
+                assert!(x <= sx + big);
             }
         }
     }

@@ -912,6 +912,11 @@ fn apply_edit_spec(app: &mut App, spec: &str) {
                 // the pro's round: j:0 practice, j:1 the match; scripted runs aim every full shot at the pin (j:0,1 only
                 // shows the aim; j:0,3 leaves the aiming to the player)
                 let ui = std::mem::replace(&mut app.ui_ok, false);
+                // j:1,a,1 brings a challenge first (famous pro 0), so a match can be scripted on any course
+                if at(0) == 1 && v.len() >= 3 && at(2) == 1 && !app.club.pros.is_empty() {
+                    app.club.game |= sg_core::pro::CHALLENGE;
+                    app.club.challenge_pro = 0;
+                }
                 app.auto_aim = match v.get(1).map(|_| at(1)) {
                     Some(1) => 2,
                     Some(3) => 0,
