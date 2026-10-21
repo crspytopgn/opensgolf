@@ -3332,3 +3332,5 @@ STR_SAVE_PACKS_DIFFER_ART               :This game was saved with {SAVED}; you'r
 STR_TOUCH_SWING                         :Swing
 STR_TOUCH_AIM_LABEL                     :{YARDS} yds, {CLUB}
 STR_TOUCH_PLACE                         :Place
+STR_TOUCH_CENTRE                        :Centre on my pro
+STR_TOUCH_LOOK_HINT                     :Drag the course to look round, drag the target to aim. Two fingers move the view.

@@ -57,7 +57,7 @@ copies leave them out), only the Sims' voices in `SimsFX`, or lacks more than a 
 when the game starts and the ticker on every start (sg_core::mixer `shortfall`; the console or log has a `sound:` line
 with the counts). The browser page also sums up what it found after loading the files, in large type on the start page
 (and again there on the next visit, as "Last time: ...") and over the game once (20 seconds, or until tapped when
-something is missing): "OpenSGolf 0.5.0. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
+something is missing): "OpenSGolf 0.5.1. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
 big). Art ✓, music: N, Sims' voices: N." The console's `files:` line adds the compression methods the zip used.
 Deflate64 (Windows' own zipper, for big files such as the sounds), BZip2, LZMA and PPMd (7-Zip's, Keka's and The
 Unarchiver's stronger settings), which iPad's Files app cannot unpack (it shows such folders empty), are read by the
@@ -1071,8 +1071,15 @@ pointer and a click shoots (or places); a finger cannot hover, so with a finger 
 for your shot, or with a building, home site, landmark or single garden item (bench, flower bed, willow, bridge, ball
 washer) in hand: a tap on the course sets the target there and shows the same preview the pointer shows (the aim line and
 tile with the panel's club and distance, plus a plate with the distance and club above the spot; or the footprint, name and
-price); drag one finger to move it (a target under the finger is lifted a fingertip and a half above it, one elsewhere
-moves with the finger as on a trackpad, and a thin line joins finger and target); lifting the finger does nothing. Then
+price); drag it with one finger to move it (a drag that starts on the target lifts it a fingertip and a half above the
+finger, one that starts just beside it moves it along as on a trackpad, and a thin line joins finger and target); lifting
+the finger does nothing. A one-finger drag that starts anywhere else on the course (or before a target is set) moves the
+view instead, as two fingers do, so you can look round the hole without shooting; drag the target into the band along the
+screen's edges and the view scrolls that way (faster nearer the edge) with the target held under your finger, for long
+shots. While your pro waits, a small round button with a sight (above Swing) puts the view back on his ball, and the first
+time you aim by touch the ticker says how to look round (issue #75). With a mouse the view moves while he waits as at any
+other time: the arrow keys, a middle-button drag (or a right-button drag with that extra), the wheel or z / x to zoom and
+the turn keys. Then
 press the round **Swing** button (left of the touch buttons' foot) or **Place** (the tick, left of Turn) to shoot or place
 there: the same shot or placement a click on that spot makes. Tapping elsewhere just moves the target. The shot shapes stay
 on the Player panel's ovals; two fingers still move, zoom and turn the view, and holding a finger still is still the right
@@ -1085,9 +1092,12 @@ pixels and through the same path a finger takes, or presses a key (the names `se
 before `SG_PRESS`; each step prints the button it pressed and the speed, turn, open holes, Shift and tool. More `SG_TAP`
 steps for the touch target: `drag:x0,y0,x1,y1` drags one finger and lifts it, `slide:x0,y0,x1,y1` leaves it down at the
 end (a still while dragging), `click:x,y` is a mouse click (to compare), `frames:N` draws N frames with the previews
-updated (the aim's lock runs out after 10), `run:S` plays S seconds (the shot after Swing) and `pro` centres the view on
-your pro's ball; they print the target, the aim, the pro's hole, strokes and ball, and the cash. `--edit "j:0,3"` starts a
-practice round left for you to aim.
+updated (the aim's lock runs out after 10, and each moves the clock on a thirtieth of a second, so a target held at the
+edge scrolls), `run:S` plays S seconds (the shot after Swing) and `pro` centres the view on your pro's ball; `pan2:x0,y0,x1,y1`
+moves two fingers side by side and prints how far the view went, `lift` lifts the finger a `slide` left down, and
+`btn:centre` / `btn:swing` tap that touch button where it is drawn; they print the target, the aim, the pro's hole, strokes
+and ball, the cash and the view's position. `--edit "j:0,3"` starts a practice round left for you to aim, `j:1,3,1` a match
+(the challenge brought first by famous pro 0).
 
 ### Android
 
