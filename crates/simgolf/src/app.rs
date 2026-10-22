@@ -4278,18 +4278,34 @@ impl App {
                 self.staff_clips[k][m] = (body, shadow);
             }
         }
-        // The player's pro uses a golfer's clips: walk, stand and the happy gesture.
-        for (m, name) in ["Male/MaleKLS_NormalWalk", "Male/MaleKLS_Sq", "Male/MaleKLS_Happy"].iter().enumerate() {
-            let body = self.sprite_for(&format!("{name}.flc"), false, None);
-            let shadow = self.sprite_for(&format!("{name}Shadow.flc"), true, None);
-            self.staff_clips[8][m] = (body, shadow);
-        }
+        self.owner_clips();
         let weed = match self.theme {
             2 => "Flowers/OilSlick.flc",
             3 => "Flowers/DryGrass.flc",
             _ => "Flowers/dandelion_01.flc",
         };
         self.weed_sprite = self.sprite_for(weed, false, None);
+    }
+
+    /// The player's pro uses a golfer's clips: walk, stand and the happy gesture. Those of MaleKLS until the record has been
+    /// edited on the Customise screen; then the body chosen there, as the pro's golfer on the course (issue #79).
+    fn owner_clips(&mut self) {
+        match self.club.roster.first().filter(|p| p.fixed != 0).map(crate::cust_ui::person_look) {
+            Some(look) => {
+                for (m, base) in [0x00, 0x0a, 0x1e].into_iter().enumerate() {
+                    if let found @ (Some(_), _) = self.golfer_clip(base + look as i32) {
+                        self.staff_clips[8][m] = found;
+                    }
+                }
+            }
+            None => {
+                for (m, name) in ["Male/MaleKLS_NormalWalk", "Male/MaleKLS_Sq", "Male/MaleKLS_Happy"].iter().enumerate() {
+                    let body = self.sprite_for(&format!("{name}.flc"), false, None);
+                    let shadow = self.sprite_for(&format!("{name}Shadow.flc"), true, None);
+                    self.staff_clips[8][m] = (body, shadow);
+                }
+            }
+        }
     }
 
     /// The clip set and state of an employee: (set, state) into staff_clips (state 0 walking, 1 standing, 2 working).
@@ -4309,6 +4325,7 @@ impl App {
     /// One game tick of the employees' animation, as the exe's: two frames a tick walking, one otherwise; a finished action
     /// clip goes back to standing.
     fn staff_animate(&mut self) {
+        self.owner_clips();
         for i in 0..self.employees.len() {
             let e = self.employees[i];
             if !e.active {
@@ -4327,6 +4344,7 @@ impl App {
     /// Points the employee props at the employees: clip by job and state, frame advanced like the exe's (two a frame when
     /// walking), facing from the employee's direction.
     pub fn update_staff_props(&mut self) {
+        self.owner_clips();
         let want = self.employees.len();
         let have = self.props.iter().filter(|p| p.employee.is_some()).count();
         for i in have..want {
