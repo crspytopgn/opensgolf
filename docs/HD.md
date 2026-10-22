@@ -1,7 +1,8 @@
 # HD graphics (optional)
 
 SimGolf's art was drawn for 800×600. On today's screens the port scales it up, and it gets soft. **HD mode** draws the same
-art upscaled ×4 (or ×2), for example by an AI upscaler such as Real-ESRGAN, plus trilinear filtering and anti-aliasing.
+art upscaled ×4 (or ×2), by the game's built-in pixel-art upscaler (xBRZ) or an AI upscaler such as Real-ESRGAN, plus
+trilinear filtering and anti-aliasing.
 Everything stays where it was: the layouts, the sprite cuts and the click areas are the classic ones.
 
 **Classic is the default and is never changed by HD.** With HD off, the game runs exactly the code it ran before HD
@@ -13,17 +14,40 @@ PNGs byte for byte). HD is opt-in, and switching back to Classic restores the cl
 The game's art belongs to Electronic Arts and the port reads it at run time from your own copy. An upscaled pack is a
 derivative of that art, so:
 
-- you make it **yourself, locally, from your own copy** with `tools/hd_pack`;
+- you make it **yourself, locally, from your own copy**, in the game (Preferences → Graphics → *Make HD graphics from my
+  SimGolf files...*) or with `tools/hd_pack`;
 - it is **never** committed to this repository, bundled with a release, put into `web/dist`, or offered for download by
   this project; `.gitignore` excludes `HD/` and pack folders;
 - **do not share or upload your pack.**
 
-The repository ships only the pack tool and the loader. The upscaler is a separate download you get yourself
-(Real-ESRGAN ncnn-vulkan, BSD-3-Clause, <https://github.com/xinntao/Real-ESRGAN/releases>).
+The repository ships only the pack makers and the loader. The game's own upscaler is built in (xBRZ, see the README's
+licence section); the AI upscaler is a separate download you get yourself if you want it (Real-ESRGAN ncnn-vulkan,
+BSD-3-Clause, <https://github.com/xinntao/Real-ESRGAN/releases>). The game never downloads anything for HD.
 
 ## Making a pack
 
-See [tools/hd_pack/README.md](../tools/hd_pack/README.md). In short:
+**In the game (one click).** With your SimGolf files in use, System Functions → Preferences → Graphics → *Make HD graphics
+from my SimGolf files...*. The game says how many pictures, how much space and how long, then makes the pack in the
+background while you play, shows how far it is (the box can be closed; the Preferences line shows the percentage), can be
+stopped and carries on later where it stopped, and switches HD on when it is done. The choices:
+
+| | scale | upscaler | size | time (4 cores) |
+|---|---|---|---|---|
+| desktop, Android: *Make it* | ×4 | xBRZ (built in) | about 0.8 GB | about a minute |
+| desktop, Android: *Make a smaller one* | ×2 | xBRZ | about 0.4 GB | about half a minute |
+| desktop with realesrgan-ncnn-vulkan on PATH or next to the game | ×4 | Real-ESRGAN (colours) + xBRZ (transparency) | about 1.6 GB | tens of minutes to hours |
+| browser | ×2 | xBRZ, a few pictures a frame | about 0.4 GB | several minutes |
+
+Natively the pack goes to `<save folder>/HD` (or `--hd-pack DIR`); in a browser the page keeps it in its storage with the
+game files (IndexedDB, as a picked pack). The built-in maker writes exactly what `hd_pack.py` writes (the same files, sizes
+and manifest; `method` is `xbrz`), so everything below holds for either. xBRZ is made for pixel art: edges and outlines stay crisp and diagonals smooth, colour keys
+become real transparency before scaling (an outline never takes the magenta), and clear pixels carry the nearest opaque
+colour so filtering adds no fringes. Real-ESRGAN invents more detail but softens the drawing; try both.
+
+Test hook: `opensgolf --game <folder> --make-hd [--hd-pack DIR] [--hd-scale 2|4] [--hd-method xbrz|realesrgan]` makes the
+pack without a window and says how long it took (docs/PLAYING.md lists the rest).
+
+**With the script.** See [tools/hd_pack/README.md](../tools/hd_pack/README.md). In short:
 
 ```sh
 pip install Pillow
@@ -82,6 +106,6 @@ The code is in `crates/simgolf/src/hd.rs`.
   show there instead). Some files contain both 255,0,255 and 248,0,248, and the pack treats both as transparent.
 - Palette variants of sprites are made by adding the palette change, spread smoothly, to the default-palette upscale. This
   is close to, but not exactly, an upscale of the variant.
-- A ×4 pack is large (about 1.6 GB on disk), and HD sprites need much more video memory than classic ones. Use `--scale 2`
-  on small GPUs and in browsers.
-- The quality depends on the upscaler. The Lanczos path is for testing only.
+- A ×4 pack is large (about 0.8 GB on disk with xBRZ, 1.6 GB with Real-ESRGAN or Lanczos), and HD sprites need much more
+  video memory than classic ones. Use ×2 on small GPUs and in browsers.
+- The quality depends on the upscaler. The Lanczos path of hd_pack.py is for testing only.

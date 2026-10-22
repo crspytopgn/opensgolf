@@ -29,6 +29,7 @@ pub mod fsutil;
 pub mod geom;
 pub mod golfer;
 pub mod gsm;
+pub mod hdgen;
 pub mod heightmap;
 pub mod holetool;
 pub mod homes;
@@ -71,6 +72,7 @@ pub mod visitors;
 pub mod wav;
 pub mod weather;
 pub mod wildlife;
+pub mod xbrz;
 pub mod zip;
 
 pub use assets::{Indexed, Rgba};

@@ -26,6 +26,8 @@ pub enum Line {
     More,
     // Preferences > Graphics
     Hd,
+    /// Make HD graphics from my SimGolf files... (hd_make.rs)
+    MakeHd,
     Enhanced,
     PixelPerfect,
     EnhancedSettings,
@@ -50,6 +52,8 @@ pub struct Ctx {
     pub languages: bool,
     /// This build can check for updates itself (update.rs AVAILABLE: Check for updates now).
     pub update_now: bool,
+    /// What the Make HD graphics line offers (hd_make.rs; none on the free graphics).
+    pub make_hd: Option<crate::hd_make::Offer>,
 }
 
 /// The rows at the foot of each box kept for the description (as the Extras box's, extras_ui::FOOT_LINES).
@@ -72,7 +76,9 @@ pub fn items(kind: PopupKind, c: &Ctx) -> Vec<Line> {
     use Line::*;
     match kind {
         PopupKind::Prefs => vec![Thoughts, Advisor, Animals, Sound, GameOptions, Graphics, Controls, TextSize, GameFiles, More],
-        PopupKind::PrefsGraphics => vec![Hd, Enhanced, PixelPerfect, EnhancedSettings],
+        PopupKind::PrefsGraphics => {
+            [Hd].into_iter().chain(c.make_hd.map(|_| MakeHd)).chain([Enhanced, PixelPerfect, EnhancedSettings]).collect()
+        }
         PopupKind::PrefsFiles => c.files.map(|_| Files).into_iter().chain([Content]).chain(c.languages.then_some(Language)).collect(),
         PopupKind::PrefsMore => [FixBugs, UpdateCheck].into_iter().chain(c.update_now.then_some(UpdateNow)).chain([Search]).collect(),
         _ => Vec::new(),
@@ -106,6 +112,15 @@ pub fn label(l: Line, c: &Ctx, text: u32) -> String {
         GameFiles => "STR_PREFS_GAME_FILES",
         More => "STR_PREFS_MORE",
         Hd => "STR_MENU_PREFS_HD",
+        MakeHd => {
+            use crate::hd_make::Offer;
+            return match c.make_hd {
+                Some(Offer::Running(p)) => trf("STR_PREFS_MAKE_HD_RUNNING", &[("PCT", &p)]),
+                Some(Offer::Again) => tr("STR_PREFS_MAKE_HD_AGAIN").to_string(),
+                Some(Offer::Resume) => tr("STR_PREFS_MAKE_HD_RESUME").to_string(),
+                _ => tr("STR_PREFS_MAKE_HD").to_string(),
+            };
+        }
         Enhanced => "STR_MENU_PREFS_ENHANCED_ON",
         PixelPerfect => "STR_ENHANCED_PIXEL_PERFECT",
         EnhancedSettings => "STR_MENU_PREFS_ENHANCED",
@@ -168,6 +183,7 @@ pub fn desc_key(l: Line, c: &Ctx) -> Option<&'static str> {
         GameFiles => "STR_PREFS_DESC_GAME_FILES",
         More => "STR_PREFS_DESC_MORE",
         Hd => "STR_PREFS_DESC_HD",
+        MakeHd => "STR_PREFS_DESC_MAKE_HD",
         Enhanced => "STR_PREFS_DESC_ENHANCED",
         PixelPerfect => "STR_PREFS_DESC_PIXEL_PERFECT",
         EnhancedSettings => "STR_PREFS_DESC_ENHANCED_SETTINGS",
@@ -206,7 +222,7 @@ pub fn foot_text(kind: PopupKind, c: &Ctx, k: Option<usize>, armed: bool) -> (St
 pub fn place_key(l: Line) -> &'static str {
     use Line::*;
     match l {
-        Hd | Enhanced | PixelPerfect | EnhancedSettings => "STR_SEARCH_PLACE_GRAPHICS",
+        Hd | MakeHd | Enhanced | PixelPerfect | EnhancedSettings => "STR_SEARCH_PLACE_GRAPHICS",
         Files | Content | Language => "STR_SEARCH_PLACE_FILES",
         FixBugs | UpdateCheck | UpdateNow | Search => "STR_SEARCH_PLACE_MORE",
         _ => "STR_SEARCH_PLACE_PREFS",
@@ -220,6 +236,7 @@ impl crate::app::App {
             files: self.files_option().map(|(a, l)| (l, a == crate::gamefiles::Action::Free)),
             languages: crate::language::available().len() > 1,
             update_now: crate::update::AVAILABLE,
+            make_hd: self.hd_make_offer(),
         }
     }
 
@@ -259,7 +276,12 @@ mod tests {
     use super::*;
     use Line::*;
 
-    const ALL: Ctx = Ctx { files: Some(("Use my SimGolf files...", false)), languages: true, update_now: true };
+    const ALL: Ctx = Ctx {
+        files: Some(("Use my SimGolf files...", false)),
+        languages: true,
+        update_now: true,
+        make_hd: Some(crate::hd_make::Offer::Make),
+    };
 
     #[test]
     fn preferences_keeps_the_originals_four_first_then_the_divider() {
@@ -287,6 +309,11 @@ mod tests {
     fn every_box_has_every_line_and_a_description() {
         let none = Ctx::default();
         assert_eq!(items(PopupKind::PrefsGraphics, &none), [Hd, Enhanced, PixelPerfect, EnhancedSettings]);
+        // Make HD graphics only with the original files in use
+        assert_eq!(items(PopupKind::PrefsGraphics, &ALL), [Hd, MakeHd, Enhanced, PixelPerfect, EnhancedSettings]);
+        let running = Ctx { make_hd: Some(crate::hd_make::Offer::Running(42)), ..ALL };
+        assert!(label(MakeHd, &running, 100).contains("42"));
+        assert!(opens(MakeHd));
         // no files line in a browser, the language only with a translation, the update check now only where it can ask
         assert_eq!(items(PopupKind::PrefsFiles, &none), [Content]);
         assert_eq!(items(PopupKind::PrefsFiles, &ALL), [Files, Content, Language]);

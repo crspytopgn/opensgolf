@@ -62,6 +62,7 @@ mod gfx;
 mod glass_ui;
 mod graphs;
 mod hd;
+mod hd_make;
 mod history_ui;
 mod holemarks;
 mod homes_ui;
@@ -158,6 +159,15 @@ struct Options {
     /// --hd / --classic: the graphics mode for this run (else the saved choice).
     hd: Option<bool>,
     hd_pack: Option<PathBuf>,
+    /// --make-hd: make the HD pack from the game folder and exit (hd_make.rs), with --hd-scale N, --hd-method
+    /// xbrz|realesrgan, --hd-only TEXT (sources whose path holds it), --hd-step (the browser's way, a step at a time) and
+    /// --hd-resume (keep what an earlier run made).
+    make_hd: bool,
+    hd_scale: u32,
+    hd_method: Option<String>,
+    hd_only: Option<String>,
+    hd_step: bool,
+    hd_resume: bool,
     fx: bool,
     fx_set: Option<String>,
     /// --enhanced / --classic-render: Enhanced graphics on or off for this run (else the saved choice; enhanced.rs).
@@ -190,6 +200,7 @@ const RIGHT_DRAG_SLOP: f32 = 5.0;
 const USAGE: &str = "usage: opensgolf [--game DIR] [--theme T] [--seed N] [--size WxH] [--zoom Z] [--rot DEG] [--center TX,TY] [--png FILE] \
 [--time S] [--follow] [--golfer NAME] [--sandbox] [--course-size N] [--cash N] [--difficulty 0-3] [--screen menu|property|play|report] [--course FILE] [--save FILE] \
 [--edit SPEC] [--panel N] [--mute] [--sound-log] [--clock MS] [--property N|NAME] [--hd | --classic] [--hd-pack DIR] \
+[--make-hd [--hd-scale 2|4] [--hd-method xbrz|realesrgan] [--hd-only TEXT] [--hd-step] [--hd-resume]] \
 [--enhanced | --classic-render] [--no-extras] [--fullscreen] [--fx] [--fx-set LIST] \
 [--lang CODE] [--lang-file FILE] [--base original|opensgolf-free|ID] [--scenario ID] \
 [--editor] [--edit-scenario ID] [--editor-set SPEC] [--heightmap FILE] [--save-scenario ID]";
@@ -244,6 +255,12 @@ fn parse_args() -> Options {
         property: None,
         hd: None,
         hd_pack: None,
+        make_hd: false,
+        hd_scale: 4,
+        hd_method: None,
+        hd_only: None,
+        hd_step: false,
+        hd_resume: false,
         fx: false,
         fx_set: None,
         enhanced: None,
@@ -312,6 +329,12 @@ fn parse_args() -> Options {
             "--hd" => o.hd = Some(true),
             "--classic" => o.hd = Some(false),
             "--hd-pack" => o.hd_pack = Some(PathBuf::from(next())),
+            "--make-hd" => o.make_hd = true,
+            "--hd-scale" => o.hd_scale = next().parse().ok().filter(|s| sg_core::xbrz::FACTORS.contains(s)).unwrap_or(4),
+            "--hd-method" => o.hd_method = Some(next()),
+            "--hd-only" => o.hd_only = Some(next()),
+            "--hd-step" => o.hd_step = true,
+            "--hd-resume" => o.hd_resume = true,
             "--fx" => o.fx = true,
             "--fx-set" => o.fx_set = Some(next()),
             "--fx-list" => {
@@ -686,6 +709,8 @@ fn open_screen(app: &mut App, screen: Option<&str>) {
                 }
             }
         }
+        // Preferences > Graphics > Make HD graphics from my SimGolf files...: its question (hd_make.rs)
+        Some("hd-make") if app.ui_ok => app.hd_make_open(),
         Some(s) if app.ui_ok => {
             app.test_title_screen(s, true);
         }
@@ -1885,6 +1910,10 @@ impl Stage {
                 self.app.prefs_stack.clear();
                 self.app.check_for_updates();
             }
+            Line::MakeHd => {
+                self.app.prefs_stack.clear();
+                self.app.hd_make_open();
+            }
             _ => {}
         }
     }
@@ -2984,6 +3013,15 @@ impl EventHandler for Stage {
         self.app.extras_test_hook();
         // "Use my SimGolf files...": a .zip being unpacked or a folder being copied (gamefiles.rs)
         self.app.poll_import();
+        // "Make HD graphics from my SimGolf files..." under way, and HD switched on once the pack is made (hd_make.rs)
+        if self.app.poll_hd_make() {
+            if self.app.hd.enabled {
+                self.app.switch_hd(&mut self.g, false);
+            }
+            if self.app.switch_hd(&mut self.g, true) {
+                self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
+            }
+        }
         // "Check for updates": the answer from GitHub (update.rs), and "Update now" under way (autoupdate.rs)
         self.app.poll_update_check();
         #[cfg(all(not(target_arch = "wasm32"), feature = "net"))]
@@ -3875,6 +3913,36 @@ fn attach_console() {
     }
 }
 
+/// The --make-hd test hook (hd_make.rs).
+#[cfg(not(target_arch = "wasm32"))]
+fn make_hd_cli(o: &Options) -> i32 {
+    let method = match o.hd_method.as_deref() {
+        None | Some("xbrz") => hd_make::Method::Xbrz,
+        #[cfg(not(target_os = "android"))]
+        Some("realesrgan") => match hd_make::esrgan::find() {
+            Some(exe) => hd_make::Method::Esrgan(exe),
+            None => {
+                eprintln!("realesrgan-ncnn-vulkan not found on PATH or next to the game");
+                return 1;
+            }
+        },
+        Some(m) => {
+            eprintln!("--hd-method {m}: xbrz or realesrgan");
+            return 1;
+        }
+    };
+    let spec = hd_make::Spec {
+        game: o.game_dir.clone(),
+        out: o.hd_pack.clone().unwrap_or_else(|| app::save_dir().join("HD")),
+        scale: o.hd_scale,
+        method,
+        resume: o.hd_resume,
+        only: o.hd_only.clone(),
+        threads: std::thread::available_parallelism().map_or(1, |n| n.get()),
+    };
+    hd_make::cli(spec, o.hd_step)
+}
+
 fn main() {
     #[cfg(windows)]
     attach_console();
@@ -3883,6 +3951,10 @@ fn main() {
     #[cfg(target_os = "android")]
     android::init();
     let mut o = parse_args();
+    #[cfg(not(target_arch = "wasm32"))]
+    if o.make_hd {
+        std::process::exit(make_hd_cli(&o));
+    }
     // the text's language first: the window's title is already text
     match &o.lang_file {
         Some(f) => _ = language::apply_file(f),

@@ -344,8 +344,9 @@ golfers' thoughts**, **Advisor and first-time messages**, **Ambient animals** an
 
 - **Game options...**: the OpenSGolf extras box (presets, gameplay, sandbox, looks, info, helpers; see the next section).
 - **Graphics...**: *HD graphics* and *Enhanced graphics* (two ticks, each off by default; with both off you play in
-  Classic, the original's own graphics; they can be on together), *Pixel-perfect scaling* (also on Enhanced graphics'
-  Display page; it counts in Classic too) and *Enhanced graphics settings...* (see *Enhanced graphics* below).
+  Classic, the original's own graphics; they can be on together), *Make HD graphics from my SimGolf files...* (with the
+  original files in use; see *Making HD graphics* below), *Pixel-perfect scaling* (also on Enhanced graphics' Display
+  page; it counts in Classic too) and *Enhanced graphics settings...* (see *Enhanced graphics* below).
 - **Controls and keys...**: the Keyboard controls screen, with *Change keys...* and the *Original* and *Modern controls*
   presets (see *Changing the keys*).
 - **Text size: normal**: steps the text size at once (see *Text size*).
@@ -363,6 +364,28 @@ Content packs screens) goes back to the box it was opened from when you close it
 before, kept under the same names in `settings.json`. Test hooks: `--edit "M:2"` opens Preferences, `M:9`, `M:10` and
 `M:11` its Graphics, Game files and More boxes (`SG_POPUP_MOUSE=x,y` leaves the pointer on a line, to show its
 description).
+
+### Making HD graphics
+
+HD graphics (docs/HD.md) draw the game's own art upscaled. With your SimGolf files in use (not on the free graphics),
+Preferences > Graphics has **Make HD graphics from my SimGolf files...**: the game makes the HD pack itself, from your
+files, on this computer, phone or browser, with nothing to install or download. It first says how many pictures, how much
+disk space and about how long it takes, and offers 4 times the size (about 0.8 GB, a minute or two on a four-core
+computer) or twice the size (about 0.4 GB); a browser makes twice the size (several minutes) and keeps it with your game
+files. With **realesrgan-ncnn-vulkan** on your PATH or next to the game, a desktop also offers it, for the best quality
+(the AI upscaler hd_pack.py uses; slow without a strong graphics card; never downloaded by the game). Otherwise the
+pictures are upscaled with the built-in xBRZ pixel-art upscaler.
+
+While the pack is made a box shows how far it is: *Keep playing* closes it (the game plays on; the Preferences line shows
+the percentage and brings the box back), *Stop* stops it. A pack stopped, or cut short by closing the game, carries on
+where it stopped (*Finish making HD graphics...*, keeping the pictures done). When it is done HD graphics are switched
+on; the HD graphics tick switches them off again. With a pack there already the line reads *Make HD graphics again...*
+and replaces it. The pack is made from EA's art: keep it to yourself. Nothing changes unless you choose the line.
+
+Test hooks: `--make-hd` makes the pack from the `--game` folder into `--hd-pack DIR` (else `<save folder>/HD`) and exits,
+saying how long it took (`--hd-scale 2|4`, default 4; `--hd-method xbrz|realesrgan`; `--hd-only TEXT` only the sources
+whose path holds TEXT; `--hd-step` works the browser's way, a step at a time on one thread; `--hd-resume` keeps what an
+earlier run made); `--screen hd-make` opens the line's question.
 
 ## OpenSGolf extras (optional, not in the original)
 
