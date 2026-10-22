@@ -546,6 +546,8 @@ pub struct App {
     pub dpi: f32,
     pub sprites: Vec<GlSprite>,
     pub sprite_index: HashMap<String, Option<usize>>,
+    /// Sprites drawn from a content pack's high-resolution or person's sheet, by sprite index (packart.rs).
+    pub pack_art: HashMap<usize, sg_core::hires::SheetSprite>,
     pub props: Vec<Prop>,
     pub show_props: bool,
     /// Seconds, drives animation.
@@ -943,6 +945,7 @@ impl App {
             dpi: 1.0,
             sprites: Vec::new(),
             sprite_index: HashMap::new(),
+            pack_art: HashMap::new(),
             props: Vec::new(),
             show_props: true,
             time: 0.0,
@@ -1357,6 +1360,12 @@ impl App {
         if let Some(t) = self.textures.get(path) {
             return *t;
         }
+        if crate::packart::active() {
+            if let Some(t) = crate::packart::terrain_texture(g, path) {
+                self.textures.insert(path.to_path_buf(), Some(t));
+                return Some(t);
+            }
+        }
         if crate::hd::active() {
             if let Some(t) = crate::hd::texture(g, path) {
                 self.textures.insert(path.to_path_buf(), Some(t));
@@ -1748,6 +1757,7 @@ impl App {
         let pal_path = pal.map(|p| self.game_path(&format!("Flics/{p}")));
         let r = match load_sprite(&path, shadow, pal_path.as_deref()) {
             Ok(s) => {
+                let s = self.pack_sheet(&path, pal_path.as_deref(), s);
                 let n = s.frames.len();
                 if crate::hd::active() && !shadow {
                     if let Some(h) = crate::hd::sprite(&path, pal_path.as_deref(), &s) {
@@ -2122,6 +2132,7 @@ impl App {
         }
         self.sprite_index.clear();
         self.hd.sprites.clear();
+        self.pack_art.clear();
         for (_, t) in self.red_tex.drain() {
             g.ctx.delete_texture(t);
         }

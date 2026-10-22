@@ -53,8 +53,8 @@ the size and looks the same, which helps when moving a 4x pack between machines.
 If HD is chosen and no pack is found, the game says how to make one and stays Classic.
 
 Content packs (docs/MODDING.md) sit above the HD pack: when an enabled mod replaces a picture, terrain texture or sprite,
-the mod's file is used, loaded the classic way, and the HD pack's upscale of the original is not. Everything else is as
-described here.
+the mod's file is used, loaded the classic way (or at its own resolution for a high-resolution pack of your own art,
+docs/MODDING.md section 11), and the HD pack's upscale of the original is not. Everything else is as described here.
 
 ## What changes in HD
 

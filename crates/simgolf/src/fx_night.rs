@@ -196,7 +196,8 @@ impl App {
     /// The glow of a building frame's lit windows, cached (None when it has none, or it is not a building). The texture is
     /// padded by GLOW_PAD pixels each way.
     pub(crate) fn fx_window_glow(&mut self, g: &mut Gfx, si: usize, frame_index: usize, classic: TextureId) -> Option<TextureId> {
-        if self.fx.atmos.night <= 0.0 || crate::hd::active() || self.fx_kind(si) != crate::fx_nature::Kind::Building {
+        if self.fx.atmos.night <= 0.0 || crate::hd::active() || self.pack_hires(si) || self.fx_kind(si) != crate::fx_nature::Kind::Building
+        {
             return None;
         }
         if let Some(&(src, t)) = self.fx.night.glow.get(&(si, frame_index)) {

@@ -75,6 +75,7 @@ mod language;
 mod member_panel;
 mod message_ui;
 mod net;
+mod packart;
 mod panels_ui;
 mod paths_lamps;
 mod pathview_ui;
