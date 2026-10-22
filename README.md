@@ -142,6 +142,9 @@ helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a fe
   only then.
 - **Content packs and game scripts** that change prices, buildings, terrain, golfers, text, art and sounds, add scenarios,
   and can be downloaded from inside the game ([docs/MODDING.md](docs/MODDING.md)).
+- **Your own art, in high resolution:** a content pack can bring hand-drawn pictures and PNG sprite sheets at 2x or 4x the
+  original's size, drawn sharp at any window size; `sgtool hd-kit` makes a starter kit and `sgtool pack-check` checks the
+  pack ([docs/MODDING.md](docs/MODDING.md#11-high-resolution-packs-and-your-own-art)).
 - **A course editor** (*Course editor...* on the title menu): build a course free of charge with the game's own tools,
   import a heightmap picture, choose the land owned at the start, the starting cash, the difficulty and goals, and save it
   as a scenario to play and share ([docs/PLAYING.md](docs/PLAYING.md#course-editor)).

@@ -563,7 +563,7 @@ impl App {
 
     /// The seasonal colours of a tree frame (cached), or None for the classic art.
     pub(crate) fn fx_season_texture(&mut self, g: &mut Gfx, si: usize, frame_index: usize, classic: TextureId) -> Option<TextureId> {
-        if crate::hd::active() {
+        if crate::hd::active() || self.pack_hires(si) {
             return None;
         }
         let season = self.fx.atmos.season;

@@ -1191,7 +1191,7 @@ impl App {
     /// A softened copy of a sprite's shadow frame (the art's own shadow: none is invented), or None to draw the classic one.
     pub fn fx_shadow(&mut self, g: &mut Gfx, si: usize, view: i32, frame: i32, classic: TextureId) -> Option<TextureId> {
         let s = settings();
-        if !s.enabled || !s.soft_sprite_shadows || crate::hd::active() {
+        if !s.enabled || !s.soft_sprite_shadows || crate::hd::active() || self.pack_hires(si) {
             return None;
         }
         let i = self.sprites[si].s.frame_index(view, frame);

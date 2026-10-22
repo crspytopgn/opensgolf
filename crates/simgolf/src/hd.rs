@@ -449,7 +449,7 @@ pub fn split_overlay(g: &mut Gfx, path: &Path, rects: &[(f32, f32, f32, f32)]) -
 }
 
 /// The 8-connected runs of opaque pixels, numbered from 1 (0 = transparent), as ui::split_overlay finds them.
-fn label_pieces(img: &Rgba) -> Vec<u32> {
+pub(crate) fn label_pieces(img: &Rgba) -> Vec<u32> {
     let (w, h) = (img.w as usize, img.h as usize);
     let mut label = vec![0u32; w * h];
     let mut next = 0u32;
@@ -482,7 +482,7 @@ fn label_pieces(img: &Rgba) -> Vec<u32> {
 }
 
 /// Per rectangle, which pieces have a pixel inside it (indexed by label).
-fn pieces_in_rects(label: &[u32], w: usize, h: usize, rects: &[(f32, f32, f32, f32)]) -> Vec<Vec<bool>> {
+pub(crate) fn pieces_in_rects(label: &[u32], w: usize, h: usize, rects: &[(f32, f32, f32, f32)]) -> Vec<Vec<bool>> {
     let n = label.iter().copied().max().unwrap_or(0) as usize;
     rects
         .iter()

@@ -16,6 +16,11 @@ pub struct Image {
 /// Loads a PCX from the disc. With `magenta_key`, pure magenta pixels become transparent (the original's colour key); `key_rgb` is
 /// another colour key as 0xRRGGBB.
 pub fn load_pcx(g: &mut Gfx, path: &Path, magenta_key: bool, key_rgb: Option<u32>) -> Option<Image> {
+    if crate::packart::active() {
+        if let Some(im) = crate::packart::load_pcx(g, path, magenta_key, key_rgb) {
+            return Some(im);
+        }
+    }
     if crate::hd::active() {
         if let Some(im) = crate::hd::load_pcx(g, path, magenta_key, key_rgb) {
             return Some(im);
@@ -42,6 +47,11 @@ pub fn load_pcx(g: &mut Gfx, path: &Path, magenta_key: bool, key_rgb: Option<u32
 /// least one pixel inside the rectangle is kept whole. The title menu's highlight art is one picture for every button; this
 /// gives each button exactly its own lit shapes instead of a rectangle cut out of the picture.
 pub fn split_overlay(g: &mut Gfx, path: &Path, rects: &[(f32, f32, f32, f32)]) -> Vec<Image> {
+    if crate::packart::active() {
+        if let Some(v) = crate::packart::split_overlay(g, path, rects) {
+            return v;
+        }
+    }
     if crate::hd::active() {
         if let Some(v) = crate::hd::split_overlay(g, path, rects) {
             return v;
@@ -132,6 +142,11 @@ pub fn load_pcx_cell(g: &mut Gfx, path: &Path, alpha: &Path, c: (usize, usize), 
 
 /// Loads a PCX with a separate alpha PCX of the same size (the interface's `_A` / `_alpha` files: white opaque, black clear).
 pub fn load_pcx_alpha(g: &mut Gfx, path: &Path, alpha: &Path) -> Option<Image> {
+    if crate::packart::active() {
+        if let Some(im) = crate::packart::load_pcx_alpha(g, path, alpha) {
+            return Some(im);
+        }
+    }
     if crate::hd::active() {
         if let Some(im) = crate::hd::load_pcx_alpha(g, path, alpha) {
             return Some(im);

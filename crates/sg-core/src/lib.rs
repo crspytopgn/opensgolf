@@ -30,6 +30,7 @@ pub mod geom;
 pub mod golfer;
 pub mod gsm;
 pub mod heightmap;
+pub mod hires;
 pub mod holetool;
 pub mod homes;
 pub mod index;

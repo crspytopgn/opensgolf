@@ -147,6 +147,11 @@ impl App {
         o: sg_core::bodies::Outfit,
     ) -> Option<miniquad::TextureId> {
         let i = self.sprites[si].s.frame_index(view, frame);
+        if crate::packart::active() {
+            if let Some(t) = self.pack_outfit_texture(g, si, i, o) {
+                return Some(t);
+            }
+        }
         if self.sprites[si].s.indexed.is_empty() {
             return None;
         }
@@ -173,6 +178,12 @@ impl App {
         let i = self.sprites[si].s.frame_index(view, frame);
         if let Some(t) = self.sprites[si].tex[i] {
             return t;
+        }
+        if crate::packart::active() {
+            if let Some(t) = self.pack_sprite_texture(g, si, i) {
+                self.sprites[si].tex[i] = Some(t);
+                return t;
+            }
         }
         if crate::hd::active() {
             if let Some(img) = self.hd.sprites.get(&si).and_then(|h| h.frame(i)) {
