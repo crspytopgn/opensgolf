@@ -3817,6 +3817,65 @@ pub(crate) mod tests {
         assert!(!club.left_handed(4));
     }
 
+    /// Issue #82: the pro's High Backspin shot, from the panel's oval to the ball at rest, in a practice round. Read again
+    /// from the publisher's exe for the issue: the oval sets 0x58f330 = 3 (0x436278), the aiming frame keeps it off a clean
+    /// lie and shortens the range to 13/18 (0x41b3c2), the planner flies it as the high shot (0x42546f: flag 0x80, vertical
+    /// speed (d + 50) / 400 more, type 3) with a 4 Iron at least (0x424b06), and the first bounce halves the speed and the
+    /// next one turns the ball back (0x42cf37). From the rough (hazard byte 1) the aiming frame refuses it (0x41b42a).
+    #[test]
+    fn the_pros_high_backspin_shot() {
+        let first_shot = |opt: i32, from: (i32, i32)| {
+            let (mut c, mut club) = test_course();
+            let mut rng = ExeRng { state: 12345 };
+            club.new_game(&mut rng);
+            club.pro_mask = 0x3ff;
+            club.pro_skill = [3; 16];
+            assert!(club.request_pro_round(false));
+            club.start_pro_round(&c, &mut rng, (8 * 1024, 25 * 1024), 2);
+            let g = club.gary as usize;
+            let (mut swing, mut turned, mut top) = (None, false, 0);
+            for tick in 1..3000u32 {
+                for gl in club.g.iter_mut().take(SLOTS) {
+                    gl.sx = 400;
+                    gl.sy = 300;
+                }
+                club.tick(&mut c, &mut rng, tick);
+                club.out.clear();
+                if club.pro_aiming().is_some() && swing.is_none() {
+                    let gg = &mut club.g[g];
+                    (gg.bx, gg.by) = (from.0 * 1024 + 512, from.1 * 1024 + 512);
+                    (gg.x, gg.y, gg.strokes) = (gg.bx, gg.by, 1);
+                    club.set_shot_option(opt);
+                    club.aim_frame(&c, (35, 25), false);
+                    club.commit_aim();
+                }
+                let gg = &club.g[g];
+                if gg.speed != 0 && swing.is_none() {
+                    swing = Some((club.planner.option, gg.shot_type, gg.flags & flag::BACKSPIN != 0, gg.club, gg.heading));
+                }
+                if let Some(s) = swing {
+                    top = top.max(gg.bz);
+                    turned |= gg.speed != 0 && (gg.heading ^ s.4) & 0x8000_0000 != 0;
+                    if gg.speed == 0 {
+                        return (s.0, s.1, s.2, s.3, top, turned);
+                    }
+                }
+            }
+            panic!("the shot never came to rest");
+        };
+        // 150 yards out on the fairway: a straight 2 Iron, or the high shot with a 4 Iron that flies higher and spins back
+        let (_, ty, spin, cl, top0, back0) = first_shot(0, (29, 25));
+        assert_eq!((ty, spin, cl), (0, false, 3));
+        assert!(!back0);
+        let (opt, ty, spin, cl, top, back) = first_shot(3, (29, 25));
+        assert_eq!((opt, ty, spin, cl), (3, 3, true, 5));
+        assert!(top > top0 * 3 / 2, "higher: {top} against {top0}");
+        assert!(back, "the backspin turns the ball back");
+        // from the rough the oval is refused while aiming: a straight shot
+        let (opt, ty, spin, ..) = first_shot(3, (29, 17));
+        assert_eq!((opt, ty, spin), (0, 0, false));
+    }
+
     /// A left-hander's shot bends the other way: the same swing (the same draws from the generator) aimed the same way
     /// leaves with its heading and curve mirrored about the line to the target, for a draw, a fade and a straight shot.
     #[test]

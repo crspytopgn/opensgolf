@@ -877,6 +877,34 @@ mod tests {
         assert!(said(&cl).unwrap().ends_with("into the hole at Hole 2!  "));
     }
 
+    /// Issue #83: which skill a great approach that ends on the green grows. As 0x407e00 picks it (re-read from the
+    /// publisher's exe for the issue: the jump table at 0x4095f4), an iron (clubs 3..10) grows Accurate Irons and a draw
+    /// the Draw Shot; putting comes only from a shot played from the green, or as the fallback after 50 tries when no other
+    /// skill the shot showed can still grow: a straight Lob Wedge (club 11), or irons already at the course rank's cap.
+    #[test]
+    fn great_approach_skill() {
+        let grown = |club: i32, shape: i32, irons: u8, seed: u32| {
+            let (c, mut cl) = great_shot_club();
+            cl.pro_skill = [2; 16];
+            cl.pro_skill[3] = irons;
+            let g = &mut cl.g[3];
+            (g.club, g.shot_type, g.strokes, g.rating) = (club, shape, 1, 0);
+            (g.ox, g.oy, g.bx, g.by) = (20 << 10, 25 << 10, 34 << 10, 25 << 10);
+            let before = cl.pro_skill;
+            cl.great_shot(&c, &mut ExeRng { state: seed }, 3, 2, 100, false, vec![]);
+            (0..12).filter(|&k| cl.pro_skill[k] != before[k]).collect::<Vec<_>>()
+        };
+        for seed in 1..=12 {
+            assert_eq!(grown(7, 0, 2, seed), vec![3], "a 6 Iron grows Accurate Irons (seed {seed})");
+            assert_eq!(grown(7, 1, 2, seed).len(), 1, "one skill grows (seed {seed})");
+            assert!([3, 5].contains(&grown(7, 1, 2, seed)[0]), "a drawn iron: irons or the draw (seed {seed})");
+            assert_eq!(grown(11, 1, 2, seed), vec![5], "a drawn wedge grows the Draw Shot (seed {seed})");
+            assert_eq!(grown(11, 0, 2, seed), vec![4], "a straight wedge has only putting left (seed {seed})");
+            // hole 2 open: a Municipal course, cap 6
+            assert_eq!(grown(7, 0, 6, seed), vec![4], "irons at the cap: putting (seed {seed})");
+        }
+    }
+
     #[test]
     fn aim_line_lifts() {
         // 100 range units at zoom 4: A = 800, A/3/8 = 33, A/2/8 = 50
