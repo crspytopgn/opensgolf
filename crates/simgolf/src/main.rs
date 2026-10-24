@@ -39,6 +39,7 @@ mod enhanced;
 mod extras;
 mod extras_ui;
 mod files_ui;
+mod fingerprint;
 mod framerate;
 mod fx;
 mod fx_ball;

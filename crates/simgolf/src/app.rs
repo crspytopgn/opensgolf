@@ -368,6 +368,10 @@ pub struct SaveGame {
     /// not, told to the player when the game is loaded. The game's own saves do not write it again.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub imported: Option<String>,
+    /// The cosmetic generator (`App::deco_rng`), which steps the celebrity residents' walk: saved only while the club has
+    /// residents, so they walk on after a load as they would have (older saves: none, and the generator goes on as it is).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deco_rng: Option<ExeRng>,
 }
 
 const SAVE_MAGIC: &[u8] = b"SIMGOLF-NATIVE-SAVE\n";
@@ -484,6 +488,7 @@ pub fn original_save(g: sg_core::sve::Game, game_dir: &Path) -> SaveGame {
         shared: false,
         packs: None,
         imported: Some(note),
+        deco_rng: None,
     }
 }
 
@@ -2389,6 +2394,14 @@ impl App {
                         l.objects[i].sub = o;
                     }
                 }
+                // the course's copy of the objects (made from the land's at each terrain change) takes the new values and
+                // owners too, as a loaded game's copy has them (the port's own: it kept those of the last terrain change)
+                for o in self.course.objects.iter_mut() {
+                    if let Some(n) = l.objects.iter().find(|n| (n.kind, n.a, n.b) == (o.kind, o.a, o.b)) {
+                        o.val = n.val;
+                        o.sub = n.sub;
+                    }
+                }
                 if (sizes(l), l.objects.iter().map(|o| o.sub).collect::<Vec<_>>()) != before {
                     self.props.retain(|p| !p.object);
                     self.add_land_objects();
@@ -2600,6 +2613,9 @@ impl App {
             self.staff_tick();
             self.staff_animate();
             self.resident_tick();
+            // test hooks: SG_FINGERPRINT and SG_SAVE_AT (fingerprint.rs)
+            self.fingerprint_note("");
+            self.save_at_hook();
             if before.is_some_and(|b| crate::comfort::big_news(&b, &self.news())) {
                 self.pause_for_news();
             }
@@ -2930,6 +2946,7 @@ impl App {
     pub fn save_game(&self, path: &Path) -> Result<(), String> {
         let out = self.save_bytes(6)?;
         if sg_core::fsutil::write_file(path, &out) {
+            self.fingerprint_note("save");
             Ok(())
         } else {
             Err(trf("STR_ERROR_COULD_NOT_WRITE", &[("FILE", &path.display())]))
@@ -2976,6 +2993,7 @@ impl App {
             packs: self.saved_packs(),
             shared: false,
             imported: None,
+            deco_rng: (!self.club.residents.is_empty()).then_some(self.deco_rng),
         };
         encode_save(&save, level)
     }
@@ -2983,7 +3001,9 @@ impl App {
     /// Loads a whole game saved by `save_game` and goes on from where it was.
     pub fn load_game(&mut self, g: &mut Gfx, path: &Path) -> Result<(), String> {
         let s = read_save(path)?;
-        self.load_save(g, s)
+        self.load_save(g, s)?;
+        self.fingerprint_note("load");
+        Ok(())
     }
 
     /// Goes on with a game read by `read_save` (or `read_save_bytes`).
@@ -3045,6 +3065,9 @@ impl App {
         self.econ = s.econ;
         self.econ.extras = self.club.extras;
         self.exe_rng = s.exe_rng;
+        if let Some(r) = s.deco_rng {
+            self.deco_rng = r;
+        }
         self.noise = s.noise;
         self.employees = s.employees;
         self.staff_tiles = s.staff_tiles;
@@ -3052,6 +3075,9 @@ impl App {
         self.hole_numbers.clear();
         self.sync_course();
         self.hole_stats = s.hole_stats;
+        // the Weather that matters extra's day as the save left it (sg_core::weather; nothing with the extra off)
+        self.club.place = self.weather_place();
+        self.club.weather_restore();
         self.sim_time = 0.0;
         self.tick_acc = 0.0;
         self.reset_clock = true;

@@ -1283,3 +1283,18 @@ tower, radio antenna and oil pump the land generator puts down are "an ugly wate
 the original's: landmark types 16 to 18 raise the ugly-object comment (event 20, mood -1) when a walking golfer glances
 at them or a shot's scan sees them; trees, hazard trees included, are never looked at. Test hook: `SG_THOUGHTS=1` prints
 every golfer thought as it is raised, with the golfer's mood. Test hooks for long runs: `SG_GOLFER_LOG=N` prints the golfers every N game ticks (how many are on the holes, queued and pausing, their moods, the quits, the cash, the weather the simulation plays and a hash of where every golfer is, to compare two runs), and `SG_STUCK_LOG=T` prints every golfer who has been on one hole for T game ticks (and each further T) with his state and his partner's.
+
+**Simulation fingerprint (determinism and save fidelity).** For reproducing a bug report exactly and for proving that a
+saved game loads back to the identical game, the port can fingerprint the simulation: one 64-bit number (FNV-1a over a
+fixed, platform-independent byte order, sg_core `fingerprint`) for everything that decides how the game plays on: the
+club (golfers, holes, members, roster, the pro, stories, tournaments, wildlife, the gameplay extras), the course's tiles
+and flags, the terrain and land, the money, the random generators, the staff and their weeds, the tick and calendar and
+the scenario's goals and scripts; camera, props, sprites, sounds, the ticker's text, toasts and Enhanced graphics are not
+in it. Test hooks: `SG_FINGERPRINT=FILE` writes a line "TICK FINGERPRINT" after every game tick (and "... save" when the
+game is saved, "... load" when one is loaded); `SG_FINGERPRINT_PARTS=1` adds each section's own hash (club=, course=,
+econ=, ...) and `SG_FINGERPRINT_PARTS=2` also the club's, the economy's and the course's fields and each golfer field,
+which say where two runs part; `SG_SAVE_AT=TICK,FILE` saves the game right after game tick TICK, inside the simulation,
+so a run can be cut at an exact tick and played on from the save. Two runs of the same scripted game (the same
+`--property`, `--clock`, `--edit` and `--time`) give identical files. `tools/determinism_check.sh [OUT_DIR] [--extras]`
+runs a scripted game twice and compares, saves it at two ticks and checks that the reloaded game plays on identically,
+and with `--extras` does both with each gameplay extra on in turn.

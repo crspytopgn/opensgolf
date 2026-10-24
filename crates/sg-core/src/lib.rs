@@ -20,6 +20,7 @@ pub mod data;
 pub mod decor;
 pub mod economy;
 pub mod extras;
+pub mod fingerprint;
 pub mod fixes;
 pub mod flc;
 pub mod flight;
