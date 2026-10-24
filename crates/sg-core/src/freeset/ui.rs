@@ -143,7 +143,7 @@ fn is_tray(p: &Comp) -> bool {
 
 /// The tray as the drawn panels have it (tools/freeset_art/ui.py terrain_panel): a sheet of blue glass with a light rim, its
 /// rounded left end at x 215, y 488, running off the right of the screen.
-fn glass_tray(c: &mut Canvas) {
+pub(super) fn glass_tray(c: &mut Canvas) {
     let (x, y, w, h, r) = (215.0, 488.0, 620.0, 140.0, 40.0);
     c.fill(
         (x, y, 800.0, 600.0),
@@ -342,6 +342,9 @@ fn draw(low: &str, name: &str, w: usize, h: usize, comps: &[Comp], full: bool) -
         }
         return c;
     }
+    if let Some(c) = super::people::sheet(name, w, h) {
+        return c;
+    }
     // tiny pieces are the original sheets' guide marks and stray specks, not art the engine cuts: drawing them left blobs
     let st = if low.contains("infoscreens/") { stacks(comps) } else { vec![Stack::Alone; comps.len()] };
     for (p, s) in comps.iter().zip(st).filter(|(p, _)| p.w * p.h >= 60.0 && p.w.min(p.h) >= 4.0) {
@@ -458,7 +461,7 @@ fn difficulty_lit(c: &mut Canvas) {
 }
 
 #[derive(Clone, Copy, PartialEq)]
-enum Glyph {
+pub(super) enum Glyph {
     Build,
     House,
     People,
@@ -500,7 +503,7 @@ fn round_button(c: &mut Canvas, x: f32, y: f32, r: f32, col: Col, g: Glyph) {
 }
 
 /// A simple white symbol in a circle of radius r.
-fn glyph(c: &mut Canvas, g: Glyph, x: f32, y: f32, r: f32, col: Col) {
+pub(super) fn glyph(c: &mut Canvas, g: Glyph, x: f32, y: f32, r: f32, col: Col) {
     let w = (r * 0.22).max(1.5);
     match g {
         Glyph::Build => {
