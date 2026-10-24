@@ -257,7 +257,9 @@ fn make(m: &Manifest, i: usize) -> Option<Vec<u8>> {
     let low = e.path.to_lowercase();
     match &e.item {
         // the interface pictures drawn by tools/freeset_art/ui.py, else drawn here
-        Item::Pic { .. } => baked::get(&pack_path(e)).map(<[u8]>::to_vec).or_else(|| ui::picture(e, &low)),
+        Item::Pic { w, h, .. } => {
+            baked::get(&pack_path(e)).map(<[u8]>::to_vec).or_else(|| tex::bank_rocks(&low, *w, *h)).or_else(|| ui::picture(e, &low))
+        }
         Item::Alpha { of, .. } => baked::get(&pack_path(e)).map(<[u8]>::to_vec).or_else(|| ui::alpha(&m.entries[*of], &low)),
         Item::Pal { w, h } => Some(sprite::palette_file(&low, *w, *h)),
         Item::Flc(head) => {
