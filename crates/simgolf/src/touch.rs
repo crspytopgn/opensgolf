@@ -449,6 +449,12 @@ impl Stage {
                                 self.touch.mode = Mode::Pan;
                                 self.finger_pan(x - start.0, y - start.1);
                             }
+                        } else if far && self.picks_spot(start) {
+                            // an employee or a golfer waits for the tap that says where to go: a drag looks around for the
+                            // spot and posts nobody (a left press at the drag's start did, issue #86)
+                            self.app.drag_state(true, now);
+                            self.touch.mode = Mode::Pan;
+                            self.finger_pan(x - start.0, y - start.1);
                         } else if far {
                             self.mouse_motion_event(start.0, start.1);
                             self.mouse_button_down_event(MouseButton::Left, start.0, start.1);
@@ -624,6 +630,21 @@ impl Stage {
     fn targets_here(&self, p: (f32, f32)) -> bool {
         let a = &self.app;
         if a.popup.is_some() || a.notice.is_some() || a.touch_target_for().is_none() {
+            return false;
+        }
+        let (vx, vy) = a.view.to_virtual(p.0, p.1);
+        vy < 452.0 && !(a.ui_ok && crate::render::dock_hit(vx, vy) >= 0)
+    }
+
+    /// Whether a one-finger drag from this drawable-pixel point is on the course while an employee (the Employee panel's or
+    /// the People screen's Move, or one picked up on the course) or a golfer (the card's Move or Eject) waits for the tap
+    /// on its new spot.
+    fn picks_spot(&self, p: (f32, f32)) -> bool {
+        let a = &self.app;
+        if a.screen != Screen::Play || a.popup.is_some() || a.notice.is_some() {
+            return false;
+        }
+        if a.moving_employee.is_none() && a.card_ui.held.is_none() {
             return false;
         }
         let (vx, vy) = a.view.to_virtual(p.0, p.1);
