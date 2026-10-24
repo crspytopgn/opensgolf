@@ -133,7 +133,8 @@ not loaded by the panel code.
 Level and unlock (exact formulas; the meaning of two inputs is derived):
 
 * `level = DAT_005a8c38[id]` (0, 1 or 2; the array is indexed by building id, `DAT_005a8c50` is the same array at id 6).
-  Upgraded means `level != 0`.
+  Upgraded means `level != 0`. Entry 7 (the Snack Bar) is always 0: the refresh 0x42f340 skips kind 7 (0x42f41e) and the
+  load zeroes it (0x40fce9), so the Snack Bar lot never greys out once built and every Snack Bar is a new one. exact.
 * Buildable (colour picture, pad, clickable): `id < unlock - level && level < 2 && (level == 0 || DAT_005685f0 > 10)`.
   `unlock = DAT_005a6364`: 6 in a normal new game, 17 in sandbox. `DAT_005685f0` is the number of the next hole (the error
   text says upgraded buildings need "beyond 9 holes"). derived.

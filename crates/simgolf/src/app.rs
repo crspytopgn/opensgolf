@@ -3637,7 +3637,7 @@ impl App {
     /// Placing and removing buildings, as the exe does it. A building goes wherever its footprint fits (no water, cliffs, tees,
     /// other buildings or land outside the property under it); it costs its price times (level + 2) / 2 plus a clearing charge for
     /// trees, rocks and water under it, booked to Facilities. Building a kind that already stands again upgrades it (level + 1)
-    /// and moves it there, which needs a Country Club (10 holes). It only earns money once a path joins it to the clubhouse.
+    /// and moves it there, which needs a Country Club (10 holes); the Snack Bar has no levels, so any number may stand. It only earns money once a path joins it to the clubhouse.
     /// Benches, flower beds, willows and bridges are tile items (see place_tile_item). Removing goes through undo: items give
     /// back what they cost, buildings are demolished with no refund.
     pub fn edit_building(&mut self, tx: i32, ty: i32, remove: bool) {
@@ -3674,7 +3674,8 @@ impl App {
             return self.show_toast(tr("STR_TOAST_BUILD_MORE_HOLES"));
         }
         let Some(land) = self.land.as_mut() else { return };
-        let existing = if kind >= 6 { land.objects.iter().position(|o| o.kind == kind) } else { None };
+        // a Snack Bar never upgrades the one standing: any number may be built (land::kind_has_levels, 0x41f926)
+        let existing = if sg_core::land::kind_has_levels(kind) { land.objects.iter().position(|o| o.kind == kind) } else { None };
         if existing.is_some() && economy::rank(holes) < 2 {
             self.ui_sound(24);
             return self.show_toast(tr("STR_TOAST_NO_UPGRADES_YET"));
