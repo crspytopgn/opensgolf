@@ -57,7 +57,7 @@ copies leave them out), only the Sims' voices in `SimsFX`, or lacks more than a 
 when the game starts and the ticker on every start (sg_core::mixer `shortfall`; the console or log has a `sound:` line
 with the counts). The browser page also sums up what it found after loading the files, in large type on the start page
 (and again there on the next visit, as "Last time: ...") and over the game once (20 seconds, or until tapped when
-something is missing): "OpenSGolf 0.5.4. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
+something is missing): "OpenSGolf 0.5.5. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
 big). Art ✓, music: N, Sims' voices: N." The console's `files:` line adds the compression methods the zip used.
 Deflate64 (Windows' own zipper, for big files such as the sounds), BZip2, LZMA and PPMd (7-Zip's, Keka's and The
 Unarchiver's stronger settings), which iPad's Files app cannot unpack (it shows such folders empty), are read by the
@@ -1049,7 +1049,8 @@ black above and below (web/files.js `sgPortraitAsk`, `sgCanvasRect`). Only touch
 an iPad); a desktop window, however tall, never is. The Android app is held in landscape by the system (either way up).
 
 Tap for a click; drag one finger to scroll the course (or to paint with the selected tool); hold a finger still for half a
-second for a right click (undo, remove, close a screen). With the raise / lower tool (the Elevation panel, or =), a tap raises
+second for a right click (undo, remove, close a screen). While an employee (Move) or a golfer (the card's Move or Eject)
+waits for its new spot, dragging only scrolls the course and the next tap is the spot (issue #86). With the raise / lower tool (the Elevation panel, or =), a tap raises
 the ground and holding a finger still for half a second lowers it instead (the keyboard's Shift+click); keep the finger down
 and drag to go on lowering along the way. With two fingers: drag to scroll, pinch to step through the three
 zoom levels, twist to turn the view a quarter. Once the screen has been touched, small round buttons down the right edge
