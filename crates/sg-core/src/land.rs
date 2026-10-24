@@ -388,6 +388,15 @@ pub const K_SNACK_BAR: i32 = 7;
 pub const K_MARINA: i32 = 12;
 pub const K_CLUBHOUSE: i32 = 15;
 
+/// Whether a kind keeps a building level, so that building it again upgrades the one standing (EXACT): the kinds from the
+/// Putting Green up except the Snack Bar. The exe raises the level table 0x5a8c38 from the records for every kind from 6 but
+/// the Snack Bar (the refresh 0x42f340 skips kind 7 at 0x42f41e, and the load zeroes its entry at 0x40fcf7), and the
+/// placement only removes the standing buildings of a kind whose level is not 0 (0x41f926). So the Snack Bar's level is
+/// always 0: it is never upgraded nor greyed out, every one costs the base price, and any number of them may stand.
+pub fn kind_has_levels(kind: i32) -> bool {
+    kind >= K_PUTTING_GREEN && kind != K_SNACK_BAR
+}
+
 /// Tile flag bits the generator uses.
 pub mod flag {
     /// A path is laid on the tile.
@@ -2223,5 +2232,38 @@ mod tile_item_tests {
         // A fairway tile on the path still gets marked but passes nothing on.
         l.ty[idx(16, 10)] = 2;
         assert_eq!(l.joined_objects(), vec![true, false]);
+    }
+
+    #[test]
+    fn snack_bars_have_no_level_and_golfers_take_the_nearest() {
+        // the Snack Bar is the one building from the Putting Green up without levels (0x42f41e, 0x40fce9, 0x41f926)
+        assert!(!kind_has_levels(K_SNACK_BAR));
+        for k in [K_PUTTING_GREEN, 8, 9, K_DRIVING_RANGE, 11, K_MARINA, 13, 14] {
+            assert!(kind_has_levels(k), "kind {k}");
+        }
+        for k in 0..K_PUTTING_GREEN {
+            assert!(!kind_has_levels(k), "kind {k}");
+        }
+        let mut l = rough_land();
+        l.objects.clear();
+        let put = |l: &mut Land, kind: i32, a: i32, b: i32| {
+            l.objects.push(Object { kind, a, b, dir: 0, flags: 0, sub: 0, val: 0 });
+        };
+        put(&mut l, K_CLUBHOUSE, 10, 10);
+        put(&mut l, K_SNACK_BAR, 20, 10);
+        put(&mut l, K_SNACK_BAR, 30, 30);
+        put(&mut l, K_SNACK_BAR, 5, 35);
+        put(&mut l, 8, 40, 10);
+        let mut c = crate::course::Course::default();
+        c.sync(&l, true);
+        // several Snack Bars leave its level at 0, a Pro Shop has level 1
+        assert_eq!((c.level[K_SNACK_BAR as usize], c.oper[K_SNACK_BAR as usize]), (0, 0));
+        assert_eq!(c.level[8], 1);
+        // a hungry golfer is sent to the nearest one (0x40ddb0), wherever it stands
+        let at = |a: i32, b: i32| (a * 1024 + 512, b * 1024 + 512);
+        for (tile, want) in [((21, 12), 1), ((29, 28), 2), ((6, 33), 3)] {
+            let (x, y) = at(tile.0, tile.1);
+            assert_eq!(c.nearest(K_SNACK_BAR, x, y).0, want, "from {tile:?}");
+        }
     }
 }

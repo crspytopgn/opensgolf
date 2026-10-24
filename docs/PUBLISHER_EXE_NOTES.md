@@ -453,9 +453,12 @@ Confidence: high for the rules listed; the per-kind special cases (flower bed, l
   under it; halved for a path). The cost is price x (level + 2) / 2 + clearing, booked to Facilities when placed. There is no
   "building lot" and no path needed to build; without a path joining it to the clubhouse a building is not operational
   (no income, monthly warning on Moderate and up).
-- Each kind from the Putting Green up exists once: building it again removes the old one and places a new one at level + 1
-  (an upgrade, with its cost); the exe only allows that from 10 holes ("Sorry, upgraded buildings are not available until you
-  build beyond 9 holes.").
+- Each kind from the Putting Green up exists once, except the Snack Bar: building it again removes the old one and places a
+  new one at level + 1 (an upgrade, with its cost); the exe only allows that from 10 holes ("Sorry, upgraded buildings are not
+  available until you build beyond 9 holes."). The removal runs only when the kind's level (0x5a8c38) is not 0 (0x41f926,
+  every record of the kind goes), and the Snack Bar's level is always 0: the refresh 0x42f340 raises the level of kinds 6 to
+  16 but skips 7 (0x42f41e), and the load zeroes entry 7 of both tables (0x40fce9). So any number of Snack Bars may stand,
+  each at the base price, its lot never greys out, and their look follows the course size (above), not a level (EXACT).
 - Landmark cost (5 x id + 25) x 2 units, free when donated. Home sites need a site value of at least 50 (0x42ef40).
 - Removal frees the record and turns the footprint into rough (deep rough on slots 12..15; water under a Marina in Parkland
   and Tropical), clearing its path marks; kinds 0..5 give their price back (landmark (level + 5) x 10).

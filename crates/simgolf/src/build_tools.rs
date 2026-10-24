@@ -16,7 +16,7 @@
 //!   go, one per footprint. While the button is held the row's footprints are outlined (white where one fits, red where
 //!   not) with the count and total cost by the pointer; on release each goes through App::edit_building, the one-click
 //!   placement, so its rules and price are the click's, and the row is one undo step. Esc or a right click cancels it.
-//!   Unique buildings (the clubhouse's kind: putting green to airstrip, upgraded by placing again), landmarks (each
+//!   Buildings (the clubhouse's kind: putting green to airstrip, upgraded by placing again but for the snack bar), landmarks (each
 //!   chosen and priced on its own), home sites (sold one by one, with their own sums) and paths (which the original
 //!   already paints along a drag) are left as they are. With the extra off a drag does what the original's does.
 //!
