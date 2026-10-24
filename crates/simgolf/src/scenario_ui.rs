@@ -219,7 +219,7 @@ impl App {
                 .and_then(|data| read_save_bytes(&data, course));
             let r = save.and_then(|s| self.load_save(g, s));
             if let Err(e) = r {
-                eprintln!("scenario {id}: {e}");
+                crate::bugreport::warn(&format!("scenario {id}: {e}"));
                 self.show_toast(&e);
                 return;
             }
@@ -389,7 +389,7 @@ impl App {
     }
 
     fn script_error(&mut self, pack: &str, msg: String) {
-        eprintln!("script {pack}: {msg}");
+        crate::bugreport::warn(&format!("script {pack}: {msg}"));
         self.show_toast(&trf("STR_SCRIPT_ERROR_TOAST", &[("PACK", &pack)]));
         self.scen.errors.push((pack.to_string(), msg));
         if self.scen.errors.len() > 100 {
@@ -646,7 +646,7 @@ impl App {
                 self.content.rediscover();
             }
             Err(e) => {
-                eprintln!("could not export the scenario: {e}");
+                crate::bugreport::warn(&format!("could not export the scenario: {e}"));
                 self.show_toast(&e);
             }
         }

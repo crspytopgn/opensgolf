@@ -310,6 +310,9 @@ pub const ACTIONS: &[Action] = {
         act!("cheats", "STR_CTL_CHEATS", ctrl_shifted(C)),
         // the port's own showcase fly-over (showcase.rs): Shift+O, which the original leaves unused
         act!("showcase", "STR_CTL_SHOWCASE", shifted(O)),
+        // the port's own Report a problem (bugreport.rs): Shift+F8, which the original leaves unused (it has F8 alone);
+        // its box asks before anything opens
+        act!("report_problem", "STR_CTL_REPORT_PROBLEM", shifted(F8)),
     ]
 };
 
