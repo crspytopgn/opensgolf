@@ -108,7 +108,7 @@ helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a fe
   balls roll and who comes out to play), more visitors (touring pros and invented celebrities, moddable through
   data/visitors.toml), the calendar at half or quarter speed or stopped, sandbox switches (freeze golfer happiness, unlock
   everything), and, experimental, cut content restored as decorative landmarks), looks (turning buildings, path styles
-  and lamp posts, random trees), a search over every
+  and lamp posts, random trees, the desert's Ravine and Brush art the right way round), a search over every
   Preferences option with a reset to the original, and interface extras such as a People screen, message history,
   autosave (the last three kept), a map of each saved course, pausing in the background or on big news, and course
   sharing: copy a course code, a friend pastes it and tries to beat your course record.
@@ -136,6 +136,8 @@ helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a fe
   the row and its cost shown before you let go; and *Original* and *Modern* control presets on the Change keys screen.
 - **Random trees** (interface extra): every tree planted takes a random size and species of its kind, and every scenic
   tree a random one of the seven.
+- **The desert's Ravine and Brush art** (interface extra, issue #89): the original's desert draws the Ravine as dry weeds
+  and the Brush as a crack, on the course and on their buttons; this trades the two pictures, play unchanged.
 - **Updates from the title menu:** *Check for updates*, then *Update now* downloads the new version, checks its signature
   and installs it in place (Windows, macOS, Linux, Android); on Windows and with the Linux .tar.gz it downloads only the
   programs and the pack files that changed. A Preferences tick (Preferences → More) checks once at each start. Only GitHub is contacted, and

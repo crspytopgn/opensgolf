@@ -3334,3 +3334,7 @@ STR_TOUCH_AIM_LABEL                     :{YARDS} yds, {CLUB}
 STR_TOUCH_PLACE                         :Place
 STR_TOUCH_CENTRE                        :Centre on my pro
 STR_TOUCH_LOOK_HINT                     :Drag the course to look round, drag the target to aim. Two fingers move the view.
+
+# The desert's Ravine and Brush art (OpenSGolf extras, extras.rs desert_art, issue #89)
+STR_EXTRAS_DESERT_ART                   : Fix the desert's swapped Ravine and Brush art
+STR_EXTRAS_DESC_DESERT_ART              :The original desert shows the Ravine as dry weeds and the Brush as a crack, on the course and on their buttons. This trades the two pictures; play is unchanged.

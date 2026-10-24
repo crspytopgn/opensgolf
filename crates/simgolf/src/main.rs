@@ -3011,6 +3011,10 @@ impl EventHandler for Stage {
         app.screen_audio();
         self.pointer_preview();
         let app = &mut self.app;
+        // the desert's Ravine and Brush art (OpenSGolf extras) ticked or unticked, from whichever box: the ground redrawn
+        if app.desert_art_built != app.desert_art() {
+            app.dirty = true;
+        }
         if app.dirty {
             let t0 = now();
             app.rebuild_batches(&mut self.g);
