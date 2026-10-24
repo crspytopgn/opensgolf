@@ -787,18 +787,12 @@ impl App {
                 .into_iter()
                 // the port's own Course sharing extra (share.rs), before Back
                 .chain(crate::extras::sharing().then(|| tr("STR_MENU_SYSTEM_SHARE")))
-                // the port's own Report a problem (bugreport.rs)
-                .chain([tr("STR_MENU_SYSTEM_REPORT")])
                 .chain([tr("STR_MENU_SYSTEM_BACK")])
                 .collect(),
-                // in a tournament the sharing line refuses too (its bit only when it is there: Report a problem takes
-                // the place after Quit otherwise, and stays usable)
-                if tour || pro_out { 0 } else { 1 << 2 }
-                    | if tour { 1 << 6 } else { 0 }
-                    | if tour && crate::extras::sharing() { 1 << 8 } else { 0 },
+                if tour || pro_out { 0 } else { 1 << 2 } | if tour { 1 << 6 | 1 << 8 } else { 0 },
                 250.0,
-                // a line higher for each of the port's lines, so the box stays on the screen
-                if crate::extras::sharing() { 276.0 } else { 308.0 },
+                // one line higher with the sharing line, so the box stays on the screen
+                if crate::extras::sharing() { 308.0 } else { 340.0 },
             ),
             // the original's four ticks, then the port's lines (prefs_ui.rs); higher than the original's place with the port's
             // lines, so the box keeps clear of the bottom of the screen

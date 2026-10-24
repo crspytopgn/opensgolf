@@ -1670,8 +1670,6 @@ impl Stage {
         self.app.close_popup();
         use popup_ui::PopupKind;
         match kind {
-            // the port's own Report a problem line of System Functions (bugreport.rs), before Back
-            PopupKind::System if line == tr("STR_MENU_SYSTEM_REPORT") => self.app.open_report_box(),
             PopupKind::Info if line == tr("STR_MENU_INFO_PEOPLE") => self.app.open_people(),
             PopupKind::Info if line == tr("STR_MENU_INFO_HISTORY") => self.app.open_history(),
             PopupKind::Info if line == tr("STR_MENU_INFO_PATH_VIEW") => self.app.toggle_path_view(),

@@ -1012,9 +1012,9 @@ after `SG_CLICK`; letters and Space also type their character.
 
 ## Reporting a problem
 
-The port's own helper (crates/simgolf/src/bugreport.rs); nothing changes until you use it. System Functions → *Report a
-problem...*, Preferences → *More...* → *Report a problem...*, or **Shift+F8** on the course (Change keys can move it)
-open a small box that says what will happen, with an *Include a screenshot* tick (ticked), *OK, open the form* (the
+The port's own helper (crates/simgolf/src/bugreport.rs); nothing changes until you use it (the original's System
+Functions menu is left as it is). System Functions → Preferences → *More...* → *Report a problem...*, or **Shift+F8** on
+the course (Change keys can move it), open a small box that says what will happen, with an *Include a screenshot* tick (ticked), *OK, open the form* (the
 box's tick and Enter too) and *Cancel* (Esc too). OK:
 
 - opens the project's bug report form on GitHub in your browser, already filled in: the version, the platform, the base

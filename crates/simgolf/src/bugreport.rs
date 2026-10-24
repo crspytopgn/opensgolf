@@ -1,5 +1,5 @@
-//! Report a problem (the port's own helper; docs/PLAYING.md, "Reporting a problem"): System Functions' *Report a
-//! problem...*, Preferences > More, or Shift+F8 on the course open a small box saying what will happen, with a tick for a
+//! Report a problem (the port's own helper; docs/PLAYING.md, "Reporting a problem"): Preferences > More > *Report a
+//! problem...*, or Shift+F8 on the course, open a small box saying what will happen, with a tick for a
 //! screenshot. Its OK opens the project's bug report form (.github/ISSUE_TEMPLATE/bug.yml) in the browser, filled in
 //! through the issue form's address parameters with the version, the platform, the base set and a short system line
 //! with the game's recent warnings, and puts a copy of the game being played (the normal save format) and the screenshot

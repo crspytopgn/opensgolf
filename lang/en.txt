@@ -3336,7 +3336,6 @@ STR_TOUCH_CENTRE                        :Centre on my pro
 STR_TOUCH_LOOK_HINT                     :Drag the course to look round, drag the target to aim. Two fingers move the view.
 
 # Report a problem (the port's own helper, bugreport.rs; docs/PLAYING.md "Reporting a problem")
-STR_MENU_SYSTEM_REPORT                  : Report a problem...
 STR_MENU_PREFS_REPORT                   : Report a problem...
 STR_PREFS_DESC_REPORT                   :Opens the bug report form in your browser, filled in with the version and your system, and keeps a copy of this game for you to attach. Nothing is sent until you submit the form.
 STR_CTL_REPORT_PROBLEM                  :Report a problem (opens the bug report form, asks first)
