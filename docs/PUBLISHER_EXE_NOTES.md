@@ -654,9 +654,12 @@ Confidence: high unless marked.
   15, 16 and 20 of the distance over 20 (16 for the high shot), bending by a sixth of a turn times the shot shape (the
   second point's bend and the heights are medium confidence).
 - When a shot of the pro ends on a playable lie and beats (D + 1) times a bar that grows with his skills, difficulty and the
-  shot's difficulty, one skill grows (picked at random among those the shot showed: putting on the green, recovery from a
-  hazard, luck after a tree or a hole-out, driving off the tee, the shot shape, power when the shot beat his range, irons
-  for middle clubs), up to 6, 8, 10 or 99 by course rank; a new skill starts at 3 - difficulty. Ending in a hazard may
+  shot's difficulty, one skill grows (picked at random among those the shot showed: putting for a shot played from the
+  green, recovery from a hazard, luck after a tree or a hole-out, driving off the tee, the shot shape, power when the shot
+  beat his range, irons for clubs 3..10; up to 100 draws of rand(12), cases by the table at 0x4095f4, and only after 50
+  draws, or at once for a hole-out, the fallback: putting when the ball rests on the green, else luck. So a straight Lob
+  Wedge approach onto the green, or one whose skills are capped, grows putting: re-read for issues #82 and #83), up to
+  6, 8, 10 or 99 by course rank; a new skill starts at 3 - difficulty. Ending in a hazard may
   cost a skill above 3 one point and his momentum.
 - A famous golfer challenges when a newcomer with all three skills arrives after the first year, hole L + 3 exists and no
   pro is out; the challenger's skill total is close to 20 + 5L. Each hole of the match is worth 20L units, and the match
