@@ -340,7 +340,8 @@ effects stay off it (only the shoreline's wet band darkens it, faintly, next to 
   zoom but one in. The course's bodies of water are found when the ground changes (`build_ponds`: 4-connected water,
   each tile's distance from the land); a body of 450 tiles or more, or of 150 running off the map, is the sea: none of
   this on it (a river running off the map is not the sea). Reeds stand in about a third of the shore tiles of ponds and
-  lakes, on the bank side, swaying with the wind, bulrush heads from June (papyrus tufts in the desert), browner in
+  lakes, on the bank side at the water's edge, each a tuft of stems fanning out from one root (the middle ones tallest,
+  dark at the foot and lit to the tip, two leaves arching out low), swaying with the wind, bulrush heads from June (papyrus tufts in the desert), browner in
   autumn. Lily pads lie in some of the tiles one or two from the land from late April to October, a few flowers in high
   summer. Ducks (drakes and ducks, ducklings in May and June) and, except in the tropics, swans glide in slow ovals on
   open water (two tiles from the land and the property's edge) of lakes of 24 tiles or more, one group for every 40
