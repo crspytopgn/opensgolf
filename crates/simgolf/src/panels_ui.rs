@@ -708,7 +708,11 @@ impl App {
     }
 
     /// The level the next building of a kind would have: 0 when none stands, 1 for an upgrade, 2 when it is upgraded already.
+    /// Always 0 for the Snack Bar, which the exe never levels (land::kind_has_levels).
     pub(crate) fn lot_level(&self, kind: i32) -> i32 {
+        if !land::kind_has_levels(kind) {
+            return 0;
+        }
         self.land.as_ref().and_then(|l| l.objects.iter().find(|o| o.kind == kind)).map(|o| o.sub + 1).unwrap_or(0)
     }
 

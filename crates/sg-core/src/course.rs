@@ -313,7 +313,8 @@ impl Course {
             }
         }
         if self.level[7] != 0 {
-            // The exe's quirk: an existing snack bar zeroes its operational level entry.
+            // The exe's quirk (0x40fce9): a standing snack bar zeroes its level and operational level entries.
+            self.level[7] = 0;
             self.oper[7] = 0;
         }
         self.refresh();
