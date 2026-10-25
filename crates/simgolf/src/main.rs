@@ -2502,11 +2502,11 @@ impl Stage {
                 if let Some((k, v)) = app.paint_variant {
                     app.paint_variant = Some((k, v + 1));
                 }
-                if app.edit && app.tool == 1 {
+                if app.edit && app.tool == 1 && app.pstate.elev_tool < 3 {
                     app.pstate.elev_tool = (app.pstate.elev_tool + 1) % 3;
                 }
             }
-            KeyCode::Minus | KeyCode::Equal | KeyCode::KpSubtract | KeyCode::KpAdd if app.has_hit => {
+            KeyCode::Minus | KeyCode::Equal | KeyCode::KpSubtract | KeyCode::KpAdd if app.has_hit && app.pstate.elev_tool < 3 => {
                 let (a, b) = app.terrain.corner_of(app.hit_x, app.hit_z);
                 let up = matches!(k, KeyCode::Equal | KeyCode::KpAdd);
                 app.edit_elevation(a, b, if up { 1 } else { -1 });

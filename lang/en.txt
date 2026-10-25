@@ -776,7 +776,6 @@ STR_TOAST_EMPLOYEE_CLICK                :Click the course where the {EMPLOYEE} s
 STR_TOAST_BUILDING_LOCKED               :This building is will become available as you build additional holes.
 STR_TOAST_NO_HOME_SITES                 :No home sites are free: each Silver (or better) member buys one lot.
 STR_TOAST_NO_LANDMARK                   :The club has no landmark to place yet.
-STR_TOAST_ANALYZE_NOT_AVAILABLE         :Analyze Golf Shot is not available yet
 STR_TOAST_CANNOT_RENAME                 :Employees cannot be renamed yet
 STR_TOAST_PRO_ALREADY_PLAYING           :{PRO} is already playing
 STR_TOAST_PRO_NEEDS_HOLE                :Your pro needs at least one hole to play
@@ -1041,6 +1040,10 @@ STR_TILE_CACTUS                         :Cactus
 STR_TILE_TROPICAL_BUSH                  :Tropical bush
 STR_TILE_TROPICAL_TREE                  :Tropical tree
 STR_TILE_GORSE                          :Gorse
+STR_TILE_BURN                           :Burn
+STR_TILE_MAPLE_TREE                     :Maple tree
+STR_TILE_PINE                           :Pine
+STR_TILE_SCOTS_PINE                     :Scots pine
 STR_TILE_TEES                           :Tees
 STR_TILE_GREEN                          :Green
 STR_TILE_FAIRWAY                        :Fairway

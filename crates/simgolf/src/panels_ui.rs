@@ -114,10 +114,17 @@ fn tile_key(id: i32, theme: usize) -> &'static str {
         // the desert's tree is drawn as a Joshua tree and its pine as a cactus (the button art and sg_core::decor agree)
         (1, 13) => "STR_TILE_JOSHUA_TREE",
         (1, 14) => "STR_TILE_CACTUS",
-        (2, 11) => "STR_TILE_TROPICAL_BUSH",
-        (2, 13) => "STR_TILE_TROPICAL_TREE",
-        // the Links names are inferred
+        // the tropical tree is drawn as the tropical bush and its pine as the tropical tree (sg_core::decor: TropicalBrush,
+        // Tree_Cerc and Tree_Drac); the theme's text file and the exe's per-theme names agree, and its brush keeps its name
+        (2, 13) => "STR_TILE_TROPICAL_BUSH",
+        (2, 14) => "STR_TILE_TROPICAL_TREE",
+        // the Links stream is a burn, its trees maples, pines and Scots pines (the theme's text file, the exe's per-theme
+        // names and sg_core::decor agree)
+        (3, 10) => "STR_TILE_BURN",
         (3, 11) => "STR_TILE_GORSE",
+        (3, 13) => "STR_TILE_MAPLE_TREE",
+        (3, 14) => "STR_TILE_PINE",
+        (3, 15) => "STR_TILE_SCOTS_PINE",
         _ => [
             "STR_TILE_TEES",
             "STR_TILE_GREEN",
@@ -562,9 +569,14 @@ fn terrain_text(app: &App, theme: usize, name: &str) -> String {
                 .collect();
             text.lines().map(|l| l.trim_end_matches('\r').to_string()).collect()
         });
-        let key = format!("*{name}");
-        lines.iter().position(|l| l.eq_ignore_ascii_case(&key)).and_then(|k| lines.get(k + 1)).cloned().unwrap_or_default()
+        text_entry(lines, name).unwrap_or_default()
     })
+}
+
+/// The line after the one that reads "*" and `name` (without case), the description of that tile.
+fn text_entry(lines: &[String], name: &str) -> Option<String> {
+    let key = format!("*{name}");
+    lines.iter().position(|l| l.eq_ignore_ascii_case(&key)).and_then(|k| lines.get(k + 1)).cloned()
 }
 
 impl App {
@@ -1601,7 +1613,7 @@ impl App {
         true
     }
 
-    fn elevation_click(&mut self, h: i32) -> bool {
+    pub(crate) fn elevation_click(&mut self, h: i32) -> bool {
         match h {
             -2 => {
                 self.pstate.alt = false;
@@ -1613,11 +1625,12 @@ impl App {
                 self.arm_undo();
             }
             3 => {
-                // Analyze Golf Shot: what the exe's map click does with it is not decoded; the tool is only selected and the
-                // map is left alone (placeholder)
+                // Analyze Golf Shot: armed like the other elevation tools, so that a right click on the course is the
+                // exe's / key (main.rs right_click, 0x41e4be..0x41f29d). The port's own: a left click on the course also
+                // analyses from the clicked tile, as / does from the tile under the pointer.
                 self.pstate.elev_tool = 3;
-                self.edit = false;
-                self.show_toast(tr("STR_TOAST_ANALYZE_NOT_AVAILABLE"));
+                self.tool = 1;
+                self.edit = true;
             }
             i if i >= 0 => {
                 self.pstate.elev_tool = i as usize;
@@ -1718,6 +1731,23 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_terrain_button_has_its_description() {
+        // the tooltip looks its description up by the button's English name in Interface/<theme>.txt, whose "*Name" lines
+        // the free set keeps exactly as the original's (issue #88: the tropical pine, named "Pine tree", had none)
+        for (t, file) in ["parkland", "desert", "tropical", "links"].iter().enumerate() {
+            let d = sg_core::freeset::read(&format!("text/Interface/{file}.txt")).expect(file);
+            let lines: Vec<String> = String::from_utf8_lossy(&d).lines().map(|l| l.trim_end_matches('\r').to_string()).collect();
+            for slot in 0..16 {
+                let name = sg_core::lang::en(tile_key(tile_id(slot), t));
+                assert!(text_entry(&lines, name).is_some_and(|l| !l.is_empty()), "{file}: {name}");
+            }
+        }
+        assert_eq!(sg_core::lang::en(tile_key(14, 2)), "Tropical tree");
+        assert_eq!(sg_core::lang::en(tile_key(13, 2)), "Tropical bush");
+        assert_eq!(sg_core::lang::en(tile_key(11, 2)), "Brush");
+    }
 
     #[test]
     fn a_strip_picture_picks_its_own_design() {

@@ -3938,6 +3938,12 @@ impl App {
             2 => self.edit_path(a, b, lower),
             4 => self.edit_building(a, b, lower),
             5 => self.undo_tile(a, b),
+            _ if self.pstate.elev_tool == 3 && self.panel == 2 && self.pstate.alt => {
+                if !dragging {
+                    let t = self.terrain.tile_of(self.hit_x, self.hit_z);
+                    self.start_analysis(Some(t), true);
+                }
+            }
             _ => {
                 let down = lower != (self.raise_sign < 0);
                 let delta = if down { -1 } else { 1 };
@@ -4898,6 +4904,27 @@ mod tests {
     fn plan_of(a: &App) -> String {
         let c = &a.club;
         serde_json::to_string(&(a.exe_rng, c.game, &c.layout_land, &c.holes[1], &c.g[sg_core::holetool::TRIAL], &c.planner)).unwrap()
+    }
+
+    #[test]
+    fn analyze_golf_shot_from_the_elevation_panel_analyses_the_clicked_tile() {
+        let mut a = building_game();
+        a.panel = 2;
+        a.pstate.alt = true;
+        a.pstate.elev_tool = 0;
+        assert!(a.elevation_click(3));
+        assert!(a.edit && a.tool == 1 && a.pstate.elev_tool == 3, "the button arms the tool");
+        let heights = a.terrain.corner.clone();
+        // a left click on tile (10, 20) shows the analysis of the hole nearest it, as / there does, and leaves the ground
+        let ts = sg_core::terrain::TILE_SIZE;
+        a.has_hit = true;
+        a.hit_x = (10.5 - a.terrain.w as f32 * 0.5) * ts;
+        a.hit_z = (20.5 - a.terrain.h as f32 * 0.5) * ts;
+        assert_eq!(a.terrain.tile_of(a.hit_x, a.hit_z), (10, 20));
+        a.apply_tool(false, false);
+        assert!(a.analysis.is_some(), "the click analyses");
+        assert_eq!(a.analysis_hole, a.club.nearest_hole(10, 20));
+        assert_eq!(a.terrain.corner, heights, "no ground is raised or lowered");
     }
 
     #[test]

@@ -107,6 +107,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.5.7" date="2026-10-25">
+      <description>
+        <p>The Analyze Golf Shot button on the Elevation panel works: click near a hole to see golfers' sample shots. On the tropical and Links courses, the tree and stream buttons now show their own names and descriptions. A lone elm tree stands in the middle of its square again.</p>
+      </description>
+    </release>
     <release version="0.5.6" date="2026-10-25">
       <description>
         <p>New Report a problem form, an optional Looks extra for the desert's Ravine and Brush art, more faithful saves (the hole plan and the calendar's hold are kept), each save checked as it is written, and, after an hour of play, a gentle note about supporting the project that asks at most twice.</p>
