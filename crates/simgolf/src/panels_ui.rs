@@ -167,6 +167,17 @@ fn terrain_slot_at(theme: usize, px: f32, py: f32) -> Option<usize> {
     })
 }
 
+/// The cell of the TerrainButtons sheet tile slot `slot` (0..13) shows: its own, or with the desert's Ravine and Brush art
+/// fixed (OpenSGolf extras, extras.rs `desert_art`) the Ravine's (slot 5, tile 10) and the Brush's (slot 11, tile 11)
+/// traded, every state with it. In the original's desert sheet the Ravine's cell holds dry weeds and the Brush's a crack.
+fn terrain_cell(slot: usize, swap: bool) -> usize {
+    match slot {
+        5 if swap => 11,
+        11 if swap => 5,
+        k => k,
+    }
+}
+
 fn tile_id(slot: usize) -> i32 {
     if slot < 13 {
         TERRAIN_SLOTS[slot].2
@@ -864,6 +875,9 @@ impl App {
         blit(g, s, &body_art, TERRAIN_BODY, TERRAIN_BODY.0, TERRAIN_BODY.1);
         // no button is lit while no tool is armed (a new game opens the panel with none, 0x4c2848 = -1)
         let current = (self.tool == 0 && self.edit).then(|| PAINT[self.paint_idx].ty);
+        // the desert's Ravine and Brush art fixed (OpenSGolf extras): their buttons trade pictures, on the original's sheet
+        // only (the free set's desert buttons already show a stream and bushes)
+        let swap = self.desert_art() && !self.on_free_set();
         for i in 0..16 {
             let r = terrain_slot_rect(i, theme);
             let id = tile_id(i);
@@ -877,8 +891,9 @@ impl App {
                 0
             };
             if i < 13 {
-                let sx = if i > 6 { 248.0 } else { 0.0 } + state as f32 * 62.0;
-                blit(g, s, &buttons, (sx, (i % 7) as f32 * 54.0, 62.0, 54.0), r.x, r.y);
+                let k = terrain_cell(i, swap);
+                let sx = if k > 6 { 248.0 } else { 0.0 } + state as f32 * 62.0;
+                blit(g, s, &buttons, (sx, (k % 7) as f32 * 54.0, 62.0, 54.0), r.x, r.y);
             } else {
                 // trees have no disabled look
                 let state = state.min(2) as f32;
@@ -1761,5 +1776,17 @@ mod tests {
         assert_eq!(hire_choice_at(300.0, 390.0), Some(6));
         assert_eq!(hire_choice_at(300.0, 225.0), None);
         assert_eq!(hire_choice_at(600.0, 175.0), None);
+    }
+
+    #[test]
+    fn the_desert_art_fix_trades_only_the_ravine_and_brush_cells() {
+        assert_eq!((tile_id(5), tile_id(11)), (10, 11));
+        assert_eq!((terrain_cell(5, true), terrain_cell(11, true)), (11, 5));
+        for k in 0..13 {
+            assert_eq!(terrain_cell(k, false), k);
+            if k != 5 && k != 11 {
+                assert_eq!(terrain_cell(k, true), k);
+            }
+        }
     }
 }

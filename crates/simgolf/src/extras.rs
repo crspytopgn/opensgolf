@@ -54,6 +54,12 @@
 //!   this save...*, for moving games between devices (issue #49). Up to 0.4.9 they came with Course sharing, so ticks
 //!   saved before it follow that tick.
 //!
+//! * the desert's Ravine and Brush art (app.rs `ground_tex`, panels_ui.rs `terrain_cell`, issue #89): in the desert theme
+//!   the original draws the Ravine (tile 10) with the dry weeds of its Overgrowth textures and the Brush (tile 11) with its
+//!   brush textures, a branching crack, and its Build Course buttons for the two show the same, the other way round from
+//!   every other theme. A look (the Looks page): each tile is drawn with the other's textures and the two buttons trade
+//!   pictures; tiles, saves and play are as before.
+//!
 //! With every extra off the game draws and plays exactly as before they existed (each hook asks its switch first).
 use serde::{Deserialize, Serialize};
 use std::cell::Cell;
@@ -87,6 +93,7 @@ pub struct Settings {
     pub right_drag: bool,
     pub random_trees: bool,
     pub save_files: bool,
+    pub desert_art: bool,
 }
 
 impl Settings {
@@ -118,6 +125,7 @@ impl Settings {
         right_drag: false,
         random_trees: true,
         save_files: true,
+        desert_art: true,
     };
     pub const ALL_OFF: Settings = Settings {
         people: false,
@@ -143,6 +151,7 @@ impl Settings {
         right_drag: false,
         random_trees: false,
         save_files: false,
+        desert_art: false,
     };
 
     /// The ticks as the Extras box's checkbox bits (in `UI_KEYS` order).
@@ -171,6 +180,7 @@ impl Settings {
             self.right_drag,
             self.random_trees,
             self.save_files,
+            self.desert_art,
         ]
         .iter()
         .enumerate()
@@ -203,6 +213,7 @@ impl Settings {
             right_drag: on(20),
             random_trees: on(21),
             save_files: on(22),
+            desert_art: on(23),
         }
     }
 
@@ -236,7 +247,7 @@ impl Default for Settings {
 
 /// The interface extras' lines on the Extras box's Interface page (extras_ui.rs), one tick per extra in `Settings::bits`
 /// order (text keys in lang/en.txt).
-pub const UI_KEYS: [&str; 23] = [
+pub const UI_KEYS: [&str; 24] = [
     "STR_EXTRAS_PEOPLE",
     "STR_EXTRAS_HISTORY",
     "STR_EXTRAS_NAME_TAGS",
@@ -260,6 +271,7 @@ pub const UI_KEYS: [&str; 23] = [
     "STR_EXTRAS_RIGHT_DRAG",
     "STR_EXTRAS_RANDOM_TREES",
     "STR_EXTRAS_SAVE_FILES",
+    "STR_EXTRAS_DESERT_ART",
 ];
 
 thread_local! {
@@ -342,6 +354,20 @@ pub fn random_trees() -> bool {
 }
 pub fn save_files() -> bool {
     settings().save_files
+}
+pub fn desert_art() -> bool {
+    settings().desert_art
+}
+
+/// The ground texture type (sg_core::terrain TextureCatalog) a desert tile is drawn with while the desert's Ravine and
+/// Brush art is fixed: the Ravine (10) takes the brush textures (the crack) and the Brush (11) the Overgrowth textures
+/// (the dry weeds); every other type keeps its own.
+pub fn desert_art_swap(tex_type: i32) -> i32 {
+    match tex_type {
+        10 => 11,
+        11 => 10,
+        t => t,
+    }
 }
 
 fn settings_json() -> serde_json::Value {
@@ -430,6 +456,10 @@ fn upgrade_off(v: &serde_json::Value, s: &mut Settings) {
     // random trees (0.4.8): off from ticks saved before it
     if v.get("random_trees").is_none() {
         s.random_trees = false;
+    }
+    // the desert's Ravine and Brush art (0.5): off from ticks saved before it
+    if v.get("desert_art").is_none() {
+        s.desert_art = false;
     }
 }
 
@@ -1033,7 +1063,7 @@ mod tests {
         let f = Settings { save_files: true, ..Settings::ALL_OFF };
         assert_eq!(f.bits(), 1 << 22);
         assert_eq!(Settings::from_bits(f.bits()), f);
-        assert_eq!(UI_KEYS.len(), 23);
+        assert_eq!(UI_KEYS.len(), 24);
     }
 
     #[test]
@@ -1051,5 +1081,23 @@ mod tests {
         assert_eq!(r.bits(), 1 << 21);
         assert_eq!(Settings::from_bits(r.bits()), r);
         assert_eq!(r.preset_part(), r);
+    }
+
+    #[test]
+    fn the_desert_art_fix_is_off_unless_ticked_and_trades_only_the_two_tiles() {
+        let v: serde_json::Value = serde_json::json!({ "people": true, "random_trees": true });
+        assert!(!from_json(&v).desert_art, "ticks saved before it read as off");
+        assert!(from_json(&serde_json::json!({ "desert_art": true })).desert_art);
+        assert!(!Settings::ALL_OFF.desert_art && !Settings::default().desert_art);
+        assert!(Settings::HELPERS.desert_art, "a look: the helper presets tick it");
+        let d = Settings { desert_art: true, ..Settings::ALL_OFF };
+        assert_eq!(d.bits(), 1 << 23);
+        assert_eq!(Settings::from_bits(d.bits()), d);
+        assert_eq!(d.preset_part(), d);
+        // the Ravine (10) and the Brush (11) trade textures; every other type keeps its own
+        assert_eq!((desert_art_swap(10), desert_art_swap(11)), (11, 10));
+        for t in (0..40).filter(|t| !matches!(t, 10 | 11)) {
+            assert_eq!(desert_art_swap(t), t);
+        }
     }
 }
