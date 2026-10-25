@@ -1,0 +1,1 @@
+* An anonymous play-time count (one count per 15 minutes played; no personal data), with a notice and an off switch in Preferences > More

@@ -107,6 +107,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.5.8" date="2026-10-25">
+      <description>
+        <p>Builds from GitHub can count play time anonymously (one count per 15 minutes played, no personal data), with a notice and an off switch in Preferences. Store builds, including this one, leave it out entirely.</p>
+      </description>
+    </release>
     <release version="0.5.7" date="2026-10-25">
       <description>
         <p>The Analyze Golf Shot button on the Elevation panel works: click near a hole to see golfers' sample shots. On the tropical and Links courses, the tree and stream buttons now show their own names and descriptions. A lone elm tree stands in the middle of its square again.</p>
