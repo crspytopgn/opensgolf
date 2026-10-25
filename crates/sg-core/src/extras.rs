@@ -375,8 +375,9 @@ impl Extras {
 #[serde(default)]
 pub struct Calendar {
     pub lag: u32,
-    /// The last game tick stepped did not move the date (so a month start the date stands on is not taken again).
-    #[serde(skip)]
+    /// The last game tick stepped did not move the date (so a month start the date stands on is not taken again). Saved
+    /// while set, as the next game tick's golfers read it before the calendar steps again (older saves: not held).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub held: bool,
 }
 
@@ -624,6 +625,16 @@ mod tests {
         // pause wins over the slower speeds
         let e = Extras { pause_calendar: true, season_speed: 2, ..Default::default() };
         assert!(!cal.step(0x10004, &e));
+        // the hold is saved with the club while set, so a loaded game does not begin the month the date stands on again
+        let mut club = crate::golfer::Club::default();
+        club.cal = cal;
+        let json = serde_json::to_string(&club).unwrap();
+        let back: crate::golfer::Club = serde_json::from_str(&json).unwrap();
+        assert!(back.cal.held && !back.cal.new_month(0x10000));
+        // not held: nothing more is written (a Classic save has no calendar at all)
+        club.cal.held = false;
+        assert!(!serde_json::to_string(&club.cal).unwrap().contains("held"));
+        assert!(!serde_json::to_string(&crate::golfer::Club::default()).unwrap().contains("\"cal\""));
     }
 
     #[test]
