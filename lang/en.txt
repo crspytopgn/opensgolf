@@ -3362,3 +3362,13 @@ STR_BUGREPORT_FORM_LOG                  :Recent warnings:
 STR_BUGREPORT_FORM_NO_LOG               :No warnings so far.
 STR_KEYS_K_REPORT_PROBLEM               :Shift+F8
 STR_KEYS_REPORT_PROBLEM                 :Report a problem (the bug report form, asks first)
+
+# The support reminder (the port's own, support.rs; docs/PLAYING.md "Supporting OpenSGolf")
+STR_SUPPORT_TITLE                       :Enjoying OpenSGolf?
+STR_SUPPORT_BODY                        :It's free and made in my spare time. If you'd like to say thanks, a coffee keeps it going.
+STR_SUPPORT_YES                         : Support on Buy Me a Coffee
+STR_SUPPORT_LATER                       : Maybe later
+STR_SUPPORT_NEVER                       : Don't ask again
+STR_SUPPORT_NO_BROWSER                  :No browser could be opened. The address is on the clipboard: {URL}
+STR_MENU_PREFS_SUPPORT                  : Support OpenSGolf...
+STR_PREFS_DESC_SUPPORT                  :Opens OpenSGolf's Buy Me a Coffee page in your browser. The game stays free and complete either way.

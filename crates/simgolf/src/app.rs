@@ -707,6 +707,8 @@ pub struct App {
     pub xs: crate::extras::State,
     /// Quick save and load, the comfort pauses and the staff areas (comfort.rs).
     pub comfort: crate::comfort::State,
+    /// The support reminder's play time and asks (support.rs; the port's own, kept in settings.json, never in saves).
+    pub support: crate::support::State,
     /// The Change keys screen, the hidden interface and the save's content packs question (controls_ui.rs).
     pub ctl: crate::controls_ui::CtlState,
     /// The scenario's goals and the packs' scripts of the game in progress (scenario_ui).
@@ -1017,6 +1019,7 @@ impl App {
             prefs_stack: Vec::new(),
             xs: Default::default(),
             comfort: Default::default(),
+            support: Default::default(),
             ctl: Default::default(),
             scen: Default::default(),
             last_message: String::new(),
@@ -1313,7 +1316,9 @@ impl App {
         let title = matches!(
             self.screen,
             Screen::Menu | Screen::Scenarios | Screen::Difficulty | Screen::Property | Screen::Themes | Screen::Credits
-        ) || (self.screen == Screen::Files && !self.title.over_game());
+        ) || (self.screen == Screen::Files && !self.title.over_game())
+            // the support box over the title menu (support.rs)
+            || self.popup_over_title();
         if self.music_screen == Some(title) {
             return;
         }

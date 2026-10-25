@@ -100,6 +100,7 @@ mod selfcheck;
 mod share;
 mod showcase;
 mod staffview_ui;
+mod support;
 mod sysdiag;
 mod tags_ui;
 mod textsize;
@@ -1344,6 +1345,8 @@ impl Stage {
         extras::init(o.no_extras);
         // the player's keys (controls.rs)
         controls::init();
+        // the support reminder's play time (support.rs)
+        app.support = support::init();
         // the text size (textsize.rs; Preferences' Text size line)
         textsize::init();
         // the effects (fx.rs) follow Enhanced's ticks; --fx / --fx-set / OPENSGOLF_FX turn them on for this run
@@ -1655,6 +1658,12 @@ impl Stage {
         let Some(kind) = self.app.popup.as_ref().map(|p| p.kind) else { return };
         // the career's end takes any answer but the first (Esc too) as the main menu
         let r = if kind == popup_ui::PopupKind::CareerOver { Some(r.unwrap_or(1)) } else { r };
+        // the support reminder (support.rs): Esc, a right-click or a click outside the box is Maybe later
+        if kind == popup_ui::PopupKind::Support {
+            self.app.close_popup();
+            self.app.support_answer(r);
+            return;
+        }
         let Some(k) = r else {
             self.app.close_popup();
             return;
@@ -1714,6 +1723,8 @@ impl Stage {
             }
             // the Cheats box's Done (cheats_ui.rs; the cheats themselves are used while it stays open)
             PopupKind::Cheats => {}
+            // answered above
+            PopupKind::Support => {}
             PopupKind::QuickLoad => {
                 if k == 0 {
                     self.app.quick_load(&mut self.g);
@@ -1905,6 +1916,11 @@ impl Stage {
             Line::Report => {
                 self.app.prefs_stack.clear();
                 self.app.open_report_box();
+            }
+            // Support OpenSGolf (support.rs): the project's Buy Me a Coffee page in the browser; Preferences stays
+            Line::Support => {
+                self.app.open_support_page();
+                self.app.open_popup(from);
             }
             _ => {}
         }
@@ -2599,7 +2615,9 @@ impl Stage {
         app.count_exe_frames();
         // the title screens set Klepto ITC (difficulty, the file lists and Pick A Pro, the theme packs); the rest of the game
         // draws in Manual SSi and Arial
-        let title = app.ui_ok && matches!(app.screen, Screen::Menu | Screen::Difficulty | Screen::Files | Screen::Themes);
+        // the support reminder over the title menu (support.rs): the menu under it as before
+        let over_title = app.ui_ok && app.popup_over_title();
+        let title = app.ui_ok && matches!(app.screen, Screen::Menu | Screen::Difficulty | Screen::Files | Screen::Themes) || over_title;
         // the info screens (reports, roster, SGA, land and the like) draw with their own two fonts
         let info = app.ui_ok
             && matches!(
@@ -2626,7 +2644,8 @@ impl Stage {
             && matches!(
                 app.screen,
                 Screen::Files | Screen::Themes | Screen::Credits | Screen::Menu | Screen::Property | Screen::Difficulty | Screen::Scenarios
-            );
+            )
+            || over_title;
         if title_page && enhanced::widescreen() {
             enhanced::backdrop(&mut self.g, &ui::Screen::new(app.draw_w, app.draw_h), false);
         }
@@ -2634,6 +2653,10 @@ impl Stage {
             app.draw_title_screen(&mut self.g);
         } else if app.screen == Screen::Menu && app.ui_ok {
             app.draw_menu(&mut self.g);
+        } else if over_title {
+            app.draw_menu(&mut self.g);
+            ui::set_face(None);
+            app.draw_popup(&mut self.g);
         } else if app.screen == Screen::Property && app.ui_ok {
             app.draw_property(&mut self.g);
         } else if app.screen == Screen::Difficulty && app.ui_ok {
@@ -3048,6 +3071,8 @@ impl EventHandler for Stage {
         if app.econ.game_over && app.screen == Screen::Play && app.popup.is_none() {
             app.open_popup(popup_ui::PopupKind::CareerOver);
         }
+        // the support reminder at a natural pause, when it is due (support.rs; scripted stills only with SG_SUPPORT)
+        app.support_frame(self.png_out.is_none());
         app.screen_audio();
         self.pointer_preview();
         let app = &mut self.app;
@@ -3078,7 +3103,7 @@ impl EventHandler for Stage {
         // the club runs only on the course view and not while paused; a long stall (a dragged window) is not caught up
         let dt = (t - self.last_tick).clamp(0.0, 0.25);
         self.last_tick = t;
-        if self.png_out.is_none()
+        let playing = self.png_out.is_none()
             && !app.paused
             && app.editor.is_none()
             && app.screen == Screen::Play
@@ -3086,10 +3111,12 @@ impl EventHandler for Stage {
             && app.title.save_name.is_none()
             && app.analysis.is_none()
             && app.simfoto.is_none_or(|f| f.frames < 2)
-            && app.great_shot.is_none()
-        {
+            && app.great_shot.is_none();
+        if playing {
             app.time += dt * app.speed.max(1) as f64 * perf::speed();
         }
+        // the support reminder counts the time played (support.rs; real time, whatever the game speed)
+        app.support_tick(dt, playing);
         app.club.turbo = app.speed > 1;
         let (w, h) = window::screen_size();
         app.draw_w = w.max(1.0);
@@ -3375,6 +3402,11 @@ impl EventHandler for Stage {
             return;
         }
         if self.app.screen == Screen::Popup {
+            // the support reminder: a right-click is Maybe later (support.rs)
+            if button == MouseButton::Right && self.app.popup.as_ref().is_some_and(|p| p.kind == popup_ui::PopupKind::Support) {
+                self.popup_done(None);
+                return;
+            }
             let (vx, vy) = self.app.view.to_virtual(x, y);
             if let Some(r) = self.app.popup_pointer(vx, vy, true) {
                 self.popup_done(r);
@@ -3717,11 +3749,14 @@ impl EventHandler for Stage {
     /// the app paused on Android): the Pause in the background extra pauses the game (comfort.rs).
     fn window_minimized_event(&mut self) {
         self.app.window_hidden();
+        // no play time counted in the background (support.rs)
+        self.app.support.hidden = true;
     }
 
     /// The window is back: the pause the extra made ends.
     fn window_restored_event(&mut self) {
         self.app.window_shown();
+        self.app.support.hidden = false;
     }
 }
 

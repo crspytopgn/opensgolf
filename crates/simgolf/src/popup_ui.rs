@@ -47,10 +47,14 @@ pub enum PopupKind {
     /// Preferences > Game files (the port's own, prefs_ui.rs): your SimGolf files or the free graphics, Content packs,
     /// Language.
     PrefsFiles,
-    /// Preferences > More (the port's own, prefs_ui.rs): the bug fixes, the update checks, Search, Report a problem.
+    /// Preferences > More (the port's own, prefs_ui.rs): the bug fixes, the update checks, Search, Report a problem, Support
+    /// OpenSGolf.
     PrefsMore,
     /// Report a problem's confirmation (the port's own, bugreport.rs): what will open, a screenshot tick, OK or Cancel.
     Report,
+    /// The support reminder (the port's own, support.rs): Support on Buy Me a Coffee, Maybe later, Don't ask again; over
+    /// the title menu or the course.
+    Support,
 }
 
 #[derive(Clone, Debug)]
@@ -744,6 +748,7 @@ impl App {
         let set_par_lines: [String; 2];
         let cheat_lines: Vec<String>;
         let report_lines: Vec<String>;
+        let support_lines: Vec<String>;
         let (mut lines, disabled, cx, mut top): (Vec<&str>, u32, f32, f32) = match kind {
             PopupKind::Retire => (
                 vec![retire[0].as_str(), retire[1].as_str(), tr("STR_RETIRE_WAIT"), tr("STR_RETIRE_SAVE_FIRST"), tr("STR_RETIRE_SO_LONG")],
@@ -827,6 +832,12 @@ impl App {
                 report_lines = crate::bugreport::box_lines();
                 let top = crate::bugreport::box_top(report_lines.len());
                 (report_lines.iter().map(|l| l.as_str()).collect(), 0, 400.0, top)
+            }
+            // the port's own support reminder (support.rs): in the middle of the screen
+            PopupKind::Support => {
+                support_lines = crate::support::box_lines();
+                let top = crate::bugreport::box_top(support_lines.len());
+                (support_lines.iter().map(|l| l.as_str()).collect(), 0, 400.0, top)
             }
             // the port's own Cheats box: below the dock's top, clear of the course's middle
             PopupKind::Cheats => {
@@ -918,6 +929,11 @@ impl App {
             }
         }
         self.screen = Screen::Popup;
+    }
+
+    /// A popup over the title menu (the support reminder, support.rs): the menu is drawn under it and its music goes on.
+    pub fn popup_over_title(&self) -> bool {
+        self.screen == Screen::Popup && self.popup.as_ref().is_some_and(|p| p.back == Screen::Menu)
     }
 
     pub fn close_popup(&mut self) {

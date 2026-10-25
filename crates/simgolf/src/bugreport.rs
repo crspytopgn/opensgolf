@@ -247,8 +247,9 @@ fn platform_here() -> &'static str {
     platform_option(std::env::consts::OS, cfg!(target_arch = "wasm32"), touch)
 }
 
-/// Opens the form; false when no browser could be started.
-fn open_form(url: &str) -> bool {
+/// Opens an address (the form, the support page in support.rs): a new tab in the browser, the system's browser elsewhere;
+/// false when no browser could be started.
+pub fn open_link(url: &str) -> bool {
     #[cfg(target_arch = "wasm32")]
     {
         // SAFETY: the page reads `len` bytes at `ptr`, which live for the call
@@ -357,7 +358,7 @@ impl App {
                 println!("report: would open the folder {folder}");
             }
         } else {
-            if !open_form(&url) {
+            if !open_link(&url) {
                 // no browser: the address on the clipboard for the player to paste
                 miniquad::window::clipboard_set(&url);
                 return self.show_notice(tr("STR_BUGREPORT_NO_BROWSER"));

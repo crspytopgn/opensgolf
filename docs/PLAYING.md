@@ -369,8 +369,8 @@ golfers' thoughts**, **Advisor and first-time messages**, **Ambient animals** an
 - **Game files...**: *Use my SimGolf files...* or *Use the free graphics* (not in the browser; see *Your own SimGolf
   files*), *Content packs...*, and *Language:* when a translation is installed.
 - **More...**: *Fix the original game's bugs* (on by default; docs/FIXES.md), *Check for updates when the game starts*
-  (off by default), *Check for updates now* (where the title menu has its button), *Search options...* and *Report a
-  problem...* (see *Reporting a problem*).
+  (off by default), *Check for updates now* (where the title menu has its button), *Search options...*, *Report a
+  problem...* (see *Reporting a problem*) and *Support OpenSGolf...* (see *Supporting OpenSGolf*).
 
 The foot of Preferences and of each box says in a sentence what the OpenSGolf line under the pointer does (on a touch
 screen the line last tapped; a line that opens something opens on the second tap, the first showing what it does; ticks
@@ -1068,6 +1068,29 @@ Nothing is sent by the game: you read the form, say what happened and submit it 
 Without a browser the form's address is put on the clipboard. Test hooks: `--edit "M:12"` opens the box;
 `SG_REPORT=1` makes its OK print the address it would open and write the files without opening the browser or the
 folder (`SG_REPORT=1 SG_PRESS="Shift+F8;Enter"` for a scripted run).
+
+## Supporting OpenSGolf
+
+OpenSGolf is free and complete; nothing is ever locked. The port's own gentle reminder (crates/simgolf/src/support.rs;
+never in the original's menus or screens): the game counts the time you spend playing on the course (the game running,
+not paused and not in the background) **on your own device only**, in `settings.json` in the save folder (the browser's
+own storage on the web, the app's folder on Android). Nothing is sent anywhere, and saved games do not hold it.
+
+After about **an hour of play**, at the next natural pause (the title menu, or just after the year-end report is closed;
+never while building, while your pro is out, during a tournament or over another box) a small box asks once:
+*Enjoying OpenSGolf?*, with **Support on Buy Me a Coffee** (opens [buymeacoffee.com/crspytopgn](https://buymeacoffee.com/crspytopgn)
+in your browser; a new tab in the browser version), **Maybe later** (Esc, a right-click or a click outside the box too)
+and **Don't ask again**. *Maybe later* asks once more after about another five hours of play, and then never again;
+*Support* or *Don't ask again* ends it at once. It asks two times at most, ever, with no countdown and nothing held back.
+To turn it off, choose *Don't ask again* (or *Maybe later* twice), or set `"done": true` under `"support"` in
+`settings.json`. **Preferences > More... > Support OpenSGolf...** opens the same page at any time (and the box asks no
+more).
+
+The store builds (Flathub, F-Droid; `OPENSGOLF_NO_SELF_UPDATE`) keep the reminder; their store pages list the donation
+link too. Test hooks: `SG_PLAYTIME=SECONDS` starts the counter there (`SG_PLAYTIME=3600` and a visit to the title menu
+shows the box); `SG_SUPPORT=1` shows the box at the first frame of the title menu or of a quiet course, whatever the
+counter, for stills (`SG_SUPPORT=1 BIN --game DIR --png out.png --time 2`). A shown box still counts as an ask in
+`settings.json`, so use a scratch `OPENSGOLF_SAVE_DIR` for tests.
 
 ## Controllers and the Steam Deck
 

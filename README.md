@@ -205,6 +205,9 @@ packs (mods) choose their own licence; the free base set is GPL-2.0-or-later too
 
 OpenSGolf is free and always will be. If you enjoy it and feel like buying me a coffee, that's always nice:
 [buymeacoffee.com/crspytopgn](https://buymeacoffee.com/crspytopgn).
+The game itself asks at most twice, gently, after an hour of play and again five hours later if you said *Maybe later*
+(the play time is counted on your device only and never sent; *Don't ask again* ends it; see
+[docs/PLAYING.md](docs/PLAYING.md#supporting-opensgolf)). Preferences > More has a *Support OpenSGolf* line.
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/crspytopgn)
 
