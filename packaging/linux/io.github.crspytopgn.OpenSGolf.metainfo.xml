@@ -111,7 +111,7 @@
       <description>
         <p>Builds from GitHub can count play time anonymously (one count per 15 minutes played, no personal data), with a notice and an off switch in Preferences. Store builds, including this one, leave it out entirely.</p>
         <p>The support reminder now says how long you have played and what keeping OpenSGolf going costs.</p>
-        <p>Preferences, More shows your total time played, and option descriptions are no longer cut off on touch screens.</p>
+        <p>The title menu and Preferences show your total time played, and option descriptions are no longer cut off on touch screens.</p>
       </description>
     </release>
     <release version="0.5.7" date="2026-10-25">

@@ -371,7 +371,8 @@ golfers' thoughts**, **Advisor and first-time messages**, **Ambient animals** an
 - **More...**: *Fix the original game's bugs* (on by default; docs/FIXES.md), *Check for updates when the game starts*
   (off by default), *Check for updates now* (where the title menu has its button), *Search options...*, *Report a
   problem...* (see *Reporting a problem*), *Support OpenSGolf...* (see *Supporting OpenSGolf*; under it, a note of your own total time played, kept only on
-  your device) and *Count my play time
+  your device; the title menu shows it too, in the bottom left corner on the free graphics and at the top middle on the
+  original's, once you have played a minute) and *Count my play time
   (anonymous)* (on by default; not in store builds; see *Play-time count*).
 
 The foot of Preferences and of each box says in a sentence what the OpenSGolf line under the pointer does (on a touch

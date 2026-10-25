@@ -3377,6 +3377,7 @@ STR_SUPPORT_NEVER                       : Don't ask again
 STR_SUPPORT_NO_BROWSER                  :No browser could be opened. The address is on the clipboard: {URL}
 STR_MENU_PREFS_SUPPORT                  : Support OpenSGolf...
 STR_MENU_PREFS_PLAYED_NOTE              :Your time played: {TIME}.
+STR_TITLE_PLAYED                        :{TIME} played
 STR_TIME_HOUR                           :1 hour
 STR_TIME_HOURS                          :{N} hours
 STR_TIME_MINUTE                         :1 minute

@@ -807,6 +807,19 @@ impl App {
         self.draw_update_button(g, &s);
         // and "Course editor..." (editor.rs)
         self.draw_editor_button(g, &s);
+        // and the player's own time played (support.rs's counter; from a minute on): the free set's bottom left corner, the
+        // top middle on the original's title, clear of its trademark lines
+        let played = self.support.record.played.max(0.0) as u64;
+        if played >= 60 {
+            let t = trf("STR_TITLE_PLAYED", &[("TIME", &crate::support::time_words(played))]);
+            let f = crate::ui::F_MANUAL15;
+            if self.on_free_set() {
+                s.put(g, f, 9.0, 579.0, &t, rgba(0.0, 0.0, 0.0, 0.6));
+                s.put(g, f, 8.0, 578.0, &t, rgb(1.0, 1.0, 1.0));
+            } else {
+                s.put_centered(g, f, 400.0, 8.0, &t, crate::info_ui::c15(0x2108));
+            }
+        }
         if !self.toast.is_empty() && self.clock < self.toast_until {
             // with bigger text (textsize.rs) the note grows up from the bottom, as wide as the screen at most
             let size = crate::textsize::fit_px(18.0, 2.0, &self.toast, 780.0);
