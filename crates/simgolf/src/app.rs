@@ -2260,19 +2260,7 @@ impl App {
 
     /// The staff's weed tiles into the golfers' tile flags (the exe keeps both in one array).
     fn weeds_to_course(&mut self) {
-        let t = &self.staff_tiles;
-        if t.flags.len() != (t.w * t.h) as usize {
-            return;
-        }
-        for a in 0..t.w.min(sg_core::course::n()) {
-            for b in 0..t.h.min(sg_core::course::n()) {
-                let si = (b * t.w + a) as usize;
-                let ci = sg_core::course::idx(a, b);
-                let bits = t.flags[si] & (staff::WEEDS | staff::WORKED);
-                self.course.flags[ci] = (self.course.flags[ci] & !(staff::WEEDS | staff::WORKED)) | bits;
-                self.course.growth[ci] = t.counter[si];
-            }
-        }
+        weeds_into(&self.staff_tiles, &mut self.course);
     }
 
     /// New weeds the golfers started, back into the staff's tiles.
@@ -2947,6 +2935,8 @@ impl App {
         let out = self.save_bytes(6)?;
         if sg_core::fsutil::write_file(path, &out) {
             self.fingerprint_note("save");
+            // the save self-check reads the file back over the next frames (selfcheck.rs)
+            self.selfcheck_after_save(&out);
             Ok(())
         } else {
             Err(trf("STR_ERROR_COULD_NOT_WRITE", &[("FILE", &path.display())]))
@@ -3017,7 +3007,13 @@ impl App {
 
     /// `load_save`; with `keep_art` (undo.rs) a save of the theme already loaded keeps its textures and only rebuilds the
     /// course's meshes and props.
-    pub fn load_save_with(&mut self, g: &mut Gfx, mut s: SaveGame, keep_art: bool) -> Result<(), String> {
+    pub fn load_save_with(&mut self, g: &mut Gfx, s: SaveGame, keep_art: bool) -> Result<(), String> {
+        self.load_save_into(Some(g), s, keep_art)
+    }
+
+    /// `load_save_with`; without `g` the game is loaded with no art, no portraits, no scripts run and no message: the save
+    /// self-check's scratch copy of the game (selfcheck.rs), which only reads the simulation back.
+    pub(crate) fn load_save_into(&mut self, mut g: Option<&mut Gfx>, mut s: SaveGame, keep_art: bool) -> Result<(), String> {
         let imported = s.imported.take();
         // the save's course size (older saves: the original's), before anything reads the map
         sg_core::mapsize::set(s.size);
@@ -3044,11 +3040,18 @@ impl App {
             }
         }
         self.adopt_holes = false;
-        if keep_art && s.theme == self.theme {
-            self.rebuild_batches(g);
-            self.populate_props();
-        } else if !self.load_theme(g, s.theme) {
-            return Err(tr("STR_ERROR_THEME_NOT_LOADED").into());
+        match g.as_deref_mut() {
+            Some(g) if keep_art && s.theme == self.theme => {
+                self.rebuild_batches(g);
+                self.populate_props();
+            }
+            Some(g) => {
+                if !self.load_theme(g, s.theme) {
+                    return Err(tr("STR_ERROR_THEME_NOT_LOADED").into());
+                }
+            }
+            // the scratch copy: only the theme the simulation reads (exe_theme)
+            None => self.theme = s.theme,
         }
         self.club = s.club;
         if self.club.roster.is_empty() {
@@ -3057,7 +3060,10 @@ impl App {
             let pack = THEME_PACKS.get(self.theme_pack).copied().unwrap_or("Standard").replace(' ', "_");
             self.club.roster = sg_core::roster::load(&self.game_dir, &pack);
         }
-        self.register_portraits(g);
+        // (the scratch copy keeps the portraits' heads as saved, which are the live game's)
+        if let Some(g) = g.as_deref_mut() {
+            self.register_portraits(g);
+        }
         let tutorial = self.club.stories.tutorial;
         self.load_story();
         self.club.stories.tutorial = tutorial;
@@ -3087,7 +3093,12 @@ impl App {
         self.pstate.alt = false;
         self.edit = false;
         self.dirty = true;
-        self.restore_game_scripts(s.goals, &s.scripts);
+        if g.is_some() {
+            self.restore_game_scripts(s.goals, &s.scripts);
+        } else {
+            // the scratch copy runs no scripts: the self-check compares their saved state with the live game's itself
+            self.scen.goals = s.goals;
+        }
         self.xs = crate::extras::State { kept: s.extras, ..Default::default() };
         // an undo in the course editor stays in the editor: free building, no scripts (editor.rs)
         self.econ.free = self.editor.is_some();
@@ -3095,7 +3106,7 @@ impl App {
             self.scen.host = Default::default();
         }
         // a game brought over from the original's saved game says what came over (share.rs)
-        if let Some(note) = imported {
+        if let Some(note) = imported.filter(|_| g.is_some()) {
             self.post_message(&note, 1, crate::message_ui::NOBODY);
         }
         Ok(())
@@ -4053,6 +4064,22 @@ pub fn tick_bench_report(app: &App) {
 }
 
 /// Milliseconds from the system clock, wrapped to 32 bits like the Windows tick count.
+/// The staff's weed tiles into a course's tile flags and growth (`App::weeds_to_course`, at the start of every game tick).
+pub fn weeds_into(t: &TileState, course: &mut Course) {
+    if t.flags.len() != (t.w * t.h) as usize {
+        return;
+    }
+    for a in 0..t.w.min(sg_core::course::n()) {
+        for b in 0..t.h.min(sg_core::course::n()) {
+            let si = (b * t.w + a) as usize;
+            let ci = sg_core::course::idx(a, b);
+            let bits = t.flags[si] & (staff::WEEDS | staff::WORKED);
+            course.flags[ci] = (course.flags[ci] & !(staff::WEEDS | staff::WORKED)) | bits;
+            course.growth[ci] = t.counter[si];
+        }
+    }
+}
+
 pub fn clock_ms() -> u32 {
     (miniquad::date::now() * 1000.0) as u64 as u32
 }

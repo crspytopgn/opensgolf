@@ -3334,3 +3334,4 @@ STR_TOUCH_AIM_LABEL                     :{YARDS} yds, {CLUB}
 STR_TOUCH_PLACE                         :Place
 STR_TOUCH_CENTRE                        :Centre on my pro
 STR_TOUCH_LOOK_HINT                     :Drag the course to look round, drag the target to aim. Two fingers move the view.
+STR_SELFCHECK_FOUND                     :OpenSGolf found a problem with a saved game and kept a report. Preferences > More > Report a problem can send it.

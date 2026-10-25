@@ -95,6 +95,7 @@ mod reports_ui;
 mod scenario_ui;
 mod scorecard_ui;
 mod screens_ui;
+mod selfcheck;
 mod share;
 mod showcase;
 mod staffview_ui;
@@ -2998,6 +2999,8 @@ impl EventHandler for Stage {
         // the Autosave extra (autosave.rs) and a course code being pasted (share.rs)
         self.app.autosave_tick(t);
         self.app.share_tick(t);
+        // the save self-check: a save read back over the next frames, a report told of once (selfcheck.rs)
+        self.app.selfcheck_step();
         // a controller's sticks and buttons (gamepad.rs)
         self.gamepad_update(t);
         // the sound output follows the system's default device (audio.rs)
@@ -3146,11 +3149,14 @@ impl EventHandler for Stage {
                     std::process::exit(1);
                 }
                 println!("saved {} ({}x{})", out.display(), self.app.draw_w, self.app.draw_h);
+                // a save self-check under way finishes before the program ends (selfcheck.rs)
+                self.app.selfcheck_flush();
                 if let Some(f) = &self.save_game_out {
                     match self.app.save_game(f) {
                         Ok(()) => println!("saved game {} at tick {}, cash {:.0}", f.display(), self.app.game_tick, self.app.econ.cash),
                         Err(e) => eprintln!("error: {e}"),
                     }
+                    self.app.selfcheck_flush();
                 }
                 std::process::exit(0);
             }

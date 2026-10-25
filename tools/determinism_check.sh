@@ -5,7 +5,9 @@
 #      seconds, a celebrity's home, the pro's practice round); the two runs' fingerprints, one per game tick, must be identical,
 #   2. save and reload: the same game saved at a game tick a fifth of the way and halfway (SG_SAVE_AT), loaded and played
 #      on; from the save on, every game tick's state must be the one the uninterrupted run had,
-#   3. with --extras: both again with each gameplay extra (sg_core::extras) on in turn (the --extras test hook's bits).
+#   3. with --extras: both again with each gameplay extra (sg_core::extras) on in turn (the --extras test hook's bits),
+#   4. the save self-check (SG_SELFCHECK=1, selfcheck.rs): each save at a game tick must read back, in memory, to the game
+#      it was saved from (tools/selfcheck_test.sh tests its report).
 # Each run is on a virtual display; the logs and fingerprint files stay in OUT_DIR. A difference names the first game
 # tick the runs part at; SG_FINGERPRINT_PARTS=2 (set for every run) gives each line's sections and fields, which say what
 # differs there.
@@ -23,7 +25,8 @@ rm -rf "$OUT"
 mkdir -p "$OUT/save"
 OPENSGOLF_SAVE_DIR="$PWD/$OUT/save"
 SG_FINGERPRINT_PARTS=2
-export OPENSGOLF_SAVE_DIR SG_FINGERPRINT_PARTS
+SG_SELFCHECK=1
+export OPENSGOLF_SAVE_DIR SG_FINGERPRINT_PARTS SG_SELFCHECK
 fail=0
 # the property's land with --clock 4242 (as tools/freeset_playtest.sh): a hole from the tee at 16,30 to the green at
 # 32,24, a groundskeeper and a soda vendor posted by it, a home site with a celebrity living there, and the pro's
@@ -104,6 +107,12 @@ reload() {
         echo "FAIL $label: no save at game tick $at"
         fail=1
         return
+    fi
+    if grep -q "^selfcheck: ok at tick $at " "$OUT/$label-full-$at.log"; then
+        echo "ok   $label: the save self-check read the save at game tick $at back to the identical game"
+    else
+        echo "FAIL $label: the save self-check at game tick $at: $(grep "selfcheck" "$OUT/$label-full-$at.log" | head -2)"
+        fail=1
     fi
     # (A: the scripted runs' aiming at the pin, which j:0 set in the first run, for the rest of the practice round)
     run "$label-reload-$at" --load-game "$OUT/save/$label-$at.sgs" --edit "A" --time "$TIME" || return

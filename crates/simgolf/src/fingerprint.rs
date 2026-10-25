@@ -52,13 +52,18 @@ impl App {
         f
     }
 
-    /// `SG_FINGERPRINT_PARTS=2`: the club's, the economy's and the course's fields one by one, after the sections, and
-    /// each golfer field over all the golfers.
-    fn fingerprint_fields(&self) -> String {
-        let mut s = String::new();
-        for (part, list) in [("club", fields(&self.club)), ("econ", fields(&self.econ)), ("course", fields(&self.course))] {
+    /// The club's, the economy's and the course's fields one by one ("club.next_hole"), and each golfer field over all the
+    /// golfers ("club.g.mood"): `SG_FINGERPRINT_PARTS=2` and the save self-check's report (selfcheck.rs).
+    pub fn fingerprint_field_list(&self) -> Vec<(String, u64)> {
+        self.fingerprint_field_list_with(&self.course)
+    }
+
+    /// `fingerprint_field_list` with another copy of the course (the save self-check's, selfcheck.rs).
+    pub fn fingerprint_field_list_with(&self, course: &sg_core::course::Course) -> Vec<(String, u64)> {
+        let mut out = Vec::new();
+        for (part, list) in [("club", fields(&self.club)), ("econ", fields(&self.econ)), ("course", fields(course))] {
             for (k, v) in list {
-                s.push_str(&format!(" {part}.{k}={v:016x}"));
+                out.push((format!("{part}.{k}"), v));
             }
         }
         // each golfer field over all the golfer records
@@ -72,9 +77,14 @@ impl App {
             }
         }
         for (k, h) in keys {
-            s.push_str(&format!(" club.g.{k}={:016x}", h.finish()));
+            out.push((format!("club.g.{k}"), h.finish()));
         }
-        s
+        out
+    }
+
+    /// `SG_FINGERPRINT_PARTS=2`: the fields after the sections.
+    fn fingerprint_fields(&self) -> String {
+        self.fingerprint_field_list().into_iter().map(|(k, v)| format!(" {k}={v:016x}")).collect()
     }
 
     /// Test hook: `SG_SAVE_AT=TICK,FILE` saves the game to FILE right after game tick TICK, inside the simulation's loop,

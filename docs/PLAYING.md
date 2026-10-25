@@ -195,6 +195,23 @@ reporting. Its Top 10 Designers (`top10.sve`) has the same layout as the port's:
 designers to your table (its made-up default designers are left out, and the best ten of both stay); the start page's
 Restore puts it in place of the browser's table, after asking.
 
+**Save self-check (not in the original).** Each time the game is saved (by you, the Autosave extra, the quick save or the
+end of a career), OpenSGolf quietly reads the file it has just written back in memory, into a scratch copy of the game,
+and checks that it gives exactly the game you are playing (the simulation fingerprint below). Your game, the screen, the
+sounds and the ticker are not touched, and it takes a few milliseconds spread over the next two frames (about 20 ms in all
+on an 18-hole Giant course on a desktop), at most once every two minutes. Nothing is shown when the save is fine, which
+is always unless the port has a bug. When the two differ, the game keeps a small report in `Reports` in the save folder
+(on Android in the app's external files folder beside `Photos`; in the browser in its own storage with the saves, and in
+Back up my saves): `selfcheck-<date>-<time>.txt`, which says which parts of the game differ (sections and fields, such
+as "econ econ.cash"), the OpenSGolf version, the platform (such as "windows x86_64" or "web") and the date, and the save
+it was found with, `selfcheck-<date>-<time>.sgs`. The newest five are kept. At the next start the ticker says once that a
+report was kept and that Preferences > More > Report a problem can send it. **Privacy:** nothing is sent anywhere,
+ever, by the self-check: the reports stay in your save folder until you delete them or choose to send one yourself. A
+report holds no name, folder or anything about your computer beyond the platform; the save in it is your game as you
+saved it (the course, its name and the people in it). Saves of the course editor, and a save made while the hole being
+built has its tee and cup but is not open yet (the load plans that hole again, so the two cannot be compared), are not
+checked.
+
 ## Course size
 
 OpenSGolf can start a game on a map larger than the original's. The choice is on Select Difficulty (Start New Game and
@@ -1296,5 +1313,20 @@ econ=, ...) and `SG_FINGERPRINT_PARTS=2` also the club's, the economy's and the 
 which say where two runs part; `SG_SAVE_AT=TICK,FILE` saves the game right after game tick TICK, inside the simulation,
 so a run can be cut at an exact tick and played on from the save. Two runs of the same scripted game (the same
 `--property`, `--clock`, `--edit` and `--time`) give identical files. `tools/determinism_check.sh [OUT_DIR] [--extras]`
-runs a scripted game twice and compares, saves it at two ticks and checks that the reloaded game plays on identically,
-and with `--extras` does both with each gameplay extra on in turn.
+runs a scripted game twice and compares, saves it at two ticks and checks that the reloaded game plays on identically
+(and that the save self-check read each save back to the identical game), and with `--extras` does both with each
+gameplay extra on in turn.
+
+**Save self-check: test hooks.** `SG_SELFCHECK=1` prints each check's result and its time on each frame
+("selfcheck: ok at tick 700 (6.8 ms: 1.4 + 2.5 + 2.9)": at the save, reading back, loading and comparing) and checks every
+save, with no two minutes between; `SG_SELFCHECK=0` turns the check off; `SG_SELFCHECK_BREAK=1` changes the money in the
+scratch copy, so every check finds a difference and writes a report. The scratch copy takes from the running game what a
+save rightly does not keep: each golfer's screen position (`sx`, `sy`, set from the camera on every drawn frame), the
+flags the game hands the simulation before each tick (the ticker's, the advisor's, the close view's and the snapshots'),
+the snapshots still to queue, the pointer's tile, the scripted runs' aiming, the tiles retyped since the wildlife looked,
+the staff code's golfer copies and, when the save has none, the cosmetic generator; the running game's course copy of the
+staff's weeds and growth is compared as the next tick refreshes it. The scripts are not run in the scratch copy: their
+saved state and the goals are compared with the running game's. `tools/selfcheck_test.sh [OUT_DIR]` checks two saves,
+forces a difference and checks the report, that only five are kept and that the next start tells you once. For the
+Report a problem button: `selfcheck::latest_report_files()` gives the newest report's text and save (nothing is sent by
+it).
