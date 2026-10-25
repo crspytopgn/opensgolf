@@ -3061,6 +3061,8 @@ impl EventHandler for Stage {
             app.refresh_trees();
             app.dirty = false;
             app.report_course(false);
+            // the redraw after a load is done: from here every course sync plans the hole being built again (app.rs)
+            app.kept_plan = None;
             if std::env::var_os("SG_TICK_BENCH").is_some() {
                 println!("rebuild: {:.1} ms for a {}x{} map", (now() - t0) * 1000.0, app.terrain.w, app.terrain.h);
             }

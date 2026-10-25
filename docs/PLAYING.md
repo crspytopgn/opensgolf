@@ -208,9 +208,7 @@ it was found with, `selfcheck-<date>-<time>.sgs`. The newest five are kept. At t
 report was kept and that Preferences > More > Report a problem can send it. **Privacy:** nothing is sent anywhere,
 ever, by the self-check: the reports stay in your save folder until you delete them or choose to send one yourself. A
 report holds no name, folder or anything about your computer beyond the platform; the save in it is your game as you
-saved it (the course, its name and the people in it). Saves of the course editor, and a save made while the hole being
-built has its tee and cup but is not open yet (the load plans that hole again, so the two cannot be compared), are not
-checked.
+saved it (the course, its name and the people in it). Saves of the course editor are not checked.
 
 ## Course size
 
@@ -1360,8 +1358,9 @@ which say where two runs part; `SG_SAVE_AT=TICK,FILE` saves the game right after
 so a run can be cut at an exact tick and played on from the save. Two runs of the same scripted game (the same
 `--property`, `--clock`, `--edit` and `--time`) give identical files. `tools/determinism_check.sh [OUT_DIR] [--extras]`
 runs a scripted game twice and compares, saves it at two ticks and checks that the reloaded game plays on identically
-(and that the save self-check read each save back to the identical game), and with `--extras` does both with each
-gameplay extra on in turn.
+(and that the save self-check read each save back to the identical game), does both again with a second hole's tee and
+cup laid but the hole not opened (a hole being built keeps its plan through a save and load: the port's own, the
+original plans it again after a load), and with `--extras` does both with each gameplay extra on in turn.
 
 **Save self-check: test hooks.** `SG_SELFCHECK=1` prints each check's result and its time on each frame
 ("selfcheck: ok at tick 700 (6.8 ms: 1.4 + 2.5 + 2.9)": at the save, reading back, loading and comparing) and checks every

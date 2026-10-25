@@ -5,8 +5,10 @@
 #      seconds, a celebrity's home, the pro's practice round); the two runs' fingerprints, one per game tick, must be identical,
 #   2. save and reload: the same game saved at a game tick a fifth of the way and halfway (SG_SAVE_AT), loaded and played
 #      on; from the save on, every game tick's state must be the one the uninterrupted run had,
-#   3. with --extras: both again with each gameplay extra (sg_core::extras) on in turn (the --extras test hook's bits),
-#   4. the save self-check (SG_SELFCHECK=1, selfcheck.rs): each save at a game tick must read back, in memory, to the game
+#   3. both again with the second hole's tee and cup laid but the hole not opened, so both saves are made while the hole
+#      being built stands planned (its plan must come back with the save, not be made again with other random numbers),
+#   4. with --extras: the first two again with each gameplay extra (sg_core::extras) on in turn (the --extras test hook's bits),
+#   5. the save self-check (SG_SELFCHECK=1, selfcheck.rs): each save at a game tick must read back, in memory, to the game
 #      it was saved from (tools/selfcheck_test.sh tests its report).
 # Each run is on a virtual display; the logs and fingerprint files stay in OUT_DIR. A difference names the first game
 # tick the runs part at; SG_FINGERPRINT_PARTS=2 (set for every run) gives each line's sections and fields, which say what
@@ -135,6 +137,12 @@ reload() {
 
 echo "== Classic (no extras)"
 check classic
+
+echo "== Classic, the second hole built (tee at 18,22, cup green at 34,30) but not opened"
+PLAIN=$EDIT
+EDIT="$PLAIN;t:18,22,0;t:34,30,1"
+check classic-building
+EDIT=$PLAIN
 
 if [ "$EXTRAS" = "--extras" ]; then
     echo "== each gameplay extra on in turn"
