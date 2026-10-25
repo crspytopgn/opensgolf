@@ -58,6 +58,8 @@ pub struct Ctx {
     pub update_now: bool,
     /// This build has the play-time count (playcount.rs AVAILABLE).
     pub play_count: bool,
+    /// Seconds played on the course (support.rs's counter), shown under Support OpenSGolf.
+    pub played: u64,
 }
 
 /// The rows at the foot of each box kept for the description (as the Extras box's, extras_ui::FOOT_LINES).
@@ -150,6 +152,9 @@ pub fn lines(kind: PopupKind, c: &Ctx, text: u32) -> Vec<String> {
         if l == Line::FixBugs {
             v.push(format!("{NOTE}{}", tr("STR_MENU_PREFS_FIX_BUGS_NOTE")));
         }
+        if l == Line::Support {
+            v.push(format!("{NOTE}{}", trf("STR_MENU_PREFS_PLAYED_NOTE", &[("TIME", &crate::support::time_words(c.played))])));
+        }
     }
     v.extend(std::iter::repeat_n(String::new(), FOOT_LINES));
     v
@@ -240,6 +245,7 @@ impl crate::app::App {
             languages: crate::language::available().len() > 1,
             update_now: crate::update::AVAILABLE,
             play_count: crate::playcount::AVAILABLE,
+            played: self.support.record.played.max(0.0) as u64,
         }
     }
 
@@ -280,7 +286,8 @@ mod tests {
     use super::*;
     use Line::*;
 
-    const ALL: Ctx = Ctx { files: Some(("Use my SimGolf files...", false)), languages: true, update_now: true, play_count: true };
+    const ALL: Ctx =
+        Ctx { files: Some(("Use my SimGolf files...", false)), languages: true, update_now: true, play_count: true, played: 0 };
 
     #[test]
     fn preferences_keeps_the_originals_four_first_then_the_divider() {
@@ -323,6 +330,9 @@ mod tests {
         let l = lines(PopupKind::PrefsMore, &ALL, 100);
         assert!(l[2].starts_with(NOTE));
         assert_eq!(l.iter().filter(|s| s.starts_with(' ')).count(), 7);
+        // and the time played under Support OpenSGolf is a note too
+        let support = l.iter().position(|s| s == &label(Support, &ALL, 100)).unwrap();
+        assert_eq!(l[support + 1], format!("{NOTE}Your time played: 0 minutes."));
         // the files line's description follows what it does
         let free = Ctx { files: Some(("Use the free graphics", true)), ..ALL };
         assert_ne!(desc_key(Files, &free), desc_key(Files, &ALL));

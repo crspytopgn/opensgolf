@@ -1451,6 +1451,46 @@ impl App {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn every_preferences_description_fits_the_foot() {
+        use crate::prefs_ui::{desc_key, items, Ctx};
+        // each box as drawn at normal text size; the foot's text left of the OK tick, in its smaller font
+        let width = |kind: PopupKind, c: &Ctx| {
+            let b = ChoiceBox {
+                lines: crate::prefs_ui::lines(kind, c, 100),
+                checks: Some(0),
+                plain: crate::prefs_ui::plain_bits(&items(kind, c)),
+                min_w: PREFS_MIN_W,
+                own: kind != PopupKind::Prefs,
+                ..ChoiceBox::new(Vec::new(), 400.0, 100.0)
+            };
+            b.rect().w - 20.0 - 60.0
+        };
+        let all = Ctx { files: Some(("Use my SimGolf files...", false)), languages: true, update_now: true, play_count: true, played: 0 };
+        let free = Ctx { files: Some(("Use the free graphics", true)), ..all };
+        let mut long = Vec::new();
+        for c in [all, free] {
+            for kind in [PopupKind::Prefs, PopupKind::PrefsGraphics, PopupKind::PrefsFiles, PopupKind::PrefsMore] {
+                let w = width(kind, &c);
+                for l in items(kind, &c) {
+                    if let Some(d) = desc_key(l, &c) {
+                        let t = sg_core::lang::trf("STR_PREFS_TAP_AGAIN", &[("DESC", &sg_core::lang::tr(d))]);
+                        // "Tap again" only on the lines that open something (foot_text's armed)
+                        let texts = if crate::prefs_ui::opens(l) { vec![sg_core::lang::tr(d).to_string(), t] } else { vec![t.clone(); 0] };
+                        for text in texts.into_iter().chain([sg_core::lang::tr(d).to_string()]) {
+                            let n = crate::extras::wrap(FOOT_FONTS[1], &text, w).len();
+                            if n > 2 {
+                                long.push(format!("{d} takes {n} lines: {text}"));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        long.dedup();
+        assert!(long.is_empty(), "{long:#?}");
+    }
     use super::*;
 
     /// WCAG contrast ratio of two 15-bit colours as the port shows them (`info_ui::c15`).

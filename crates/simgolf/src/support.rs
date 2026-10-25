@@ -268,6 +268,24 @@ impl App {
     }
 }
 
+/// A time played in hours and minutes ("6 hours 12 minutes", "45 minutes"), for the note in Preferences > More.
+pub fn time_words(secs: u64) -> String {
+    let (h, m) = (secs / 3600, secs / 60 % 60);
+    let hours = match h {
+        1 => tr("STR_TIME_HOUR").to_string(),
+        h => trf("STR_TIME_HOURS", &[("N", &h)]),
+    };
+    let minutes = match m {
+        1 => tr("STR_TIME_MINUTE").to_string(),
+        m => trf("STR_TIME_MINUTES", &[("N", &m)]),
+    };
+    match (h, m) {
+        (0, _) => minutes,
+        (_, 0) => hours,
+        _ => format!("{hours} {minutes}"),
+    }
+}
+
 /// How long the player has played, in whole hours (an hour at the least: the box never shows sooner).
 fn played_words(played: f64) -> String {
     match (played / 3600.0).floor() as u64 {
@@ -391,5 +409,15 @@ mod tests {
         assert_eq!(played_words(FIRST_ASK), tr("STR_SUPPORT_PLAYED_1"));
         assert_eq!(played_words(FIRST_ASK + SECOND_ASK + 1800.0), "You've played for about 6 hours.");
         assert!(box_lines(FIRST_ASK).concat().contains("£90 a month"));
+    }
+
+    #[test]
+    fn the_time_played_reads_in_hours_and_minutes() {
+        assert_eq!(time_words(0), "0 minutes");
+        assert_eq!(time_words(60), "1 minute");
+        assert_eq!(time_words(45 * 60 + 59), "45 minutes");
+        assert_eq!(time_words(3600), "1 hour");
+        assert_eq!(time_words(3600 + 60), "1 hour 1 minute");
+        assert_eq!(time_words(6 * 3600 + 12 * 60), "6 hours 12 minutes");
     }
 }
