@@ -1041,6 +1041,10 @@ STR_TILE_CACTUS                         :Cactus
 STR_TILE_TROPICAL_BUSH                  :Tropical bush
 STR_TILE_TROPICAL_TREE                  :Tropical tree
 STR_TILE_GORSE                          :Gorse
+STR_TILE_BURN                           :Burn
+STR_TILE_MAPLE_TREE                     :Maple tree
+STR_TILE_PINE                           :Pine
+STR_TILE_SCOTS_PINE                     :Scots pine
 STR_TILE_TEES                           :Tees
 STR_TILE_GREEN                          :Green
 STR_TILE_FAIRWAY                        :Fairway
