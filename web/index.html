@@ -434,7 +434,7 @@
 .trailer:hover .play,.trailer:focus .play{background:#e00}
 </style>
 <!-- Visit counter: GoatCounter (no cookies, no personal data); counts page visits, which start button is used and the game's
-     play-time count (opensgolf.js sg_playcount) -->
+     play-time count (sent by the game itself: opensgolf.js sg_playcount, which honours the #playcount tick below) -->
 <script data-goatcounter="https://opensgolf.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 <script>
   // counts which way people start the game (free graphics, a folder or a zip); does nothing if the counter is blocked
@@ -444,6 +444,14 @@
     if (free) free.addEventListener('click', function () { count('start-free-graphics'); });
     if (folder) folder.addEventListener('change', function () { count('start-game-folder'); });
     if (zip) zip.addEventListener('change', function () { count('start-game-zip'); });
+    // anonymous play time: the game itself sends its counts (crates/simgolf/src/playcount.rs, opensgolf.js sg_playcount); this
+    // tick turns them off, remembered in this browser (as is the game's own Preferences > More tick: either off is off)
+    var tick = document.getElementById('playcount'), KEY = 'sg_playcount_off';
+    function off() { try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; } }
+    if (tick) {
+      tick.checked = !off();
+      tick.addEventListener('change', function () { try { localStorage.setItem(KEY, tick.checked ? '0' : '1'); } catch (e) {} });
+    }
   });
 </script>
 </head>
@@ -596,6 +604,7 @@
           </div>
           <div id="summary" role="status" aria-live="polite"></div>
           <label class="remember"><input type="checkbox" id="remember" checked> Keep my files in this browser so next time starts at once</label>
+          <label class="remember"><input type="checkbox" id="playcount" checked> Count my play time, anonymously (one count per 15 minutes played and one at start; no cookies, no personal data)</label>
           <div id="status" role="status" aria-live="polite"></div>
           <p class="trouble">Game stuck on its first picture? <button class="linkish" id="resetgfx" onclick="sgResetGraphics(); return false;">Reset graphics settings</button> (your saved games are kept)</p>
         </section>
@@ -777,9 +786,9 @@
       <p>An unofficial fan project; not affiliated with or endorsed by Electronic Arts, Firaxis Games or Take-Two Interactive.
         SimGolf's art, sounds and data belong to Electronic Arts and are not included; the page reads them from your own copy.
         The picture at the top is from the game running with the original SimGolf files.</p>
-      <p>Visits are counted with <a href="https://www.goatcounter.com">GoatCounter</a>: no cookies and no personal data.
-        The game also counts play time there, anonymously: one count per 15 minutes played and one at start, with only the
-        system and version (Preferences &gt; More turns it off).</p>
+      <p>Visits and play time are counted with <a href="https://www.goatcounter.com">GoatCounter</a>: no cookies and no
+        personal data. The game counts play time anonymously: one count per 15 minutes played and one at start, with only the
+        system and version. The tick under the start buttons or the game's Preferences &gt; More turns it off.</p>
       <p class="viewed">Best viewed at any resolution, on any screen, with the sound on.</p>
     </footer>
   </div>

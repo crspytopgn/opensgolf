@@ -17,7 +17,9 @@
 //! On the desktop and Android each count is one GET of GoatCounter's count address (its documented `/count` pixel: `p` the
 //! event's name, `t` its title, `e` an event, `ns` counted every time rather than once a visit, `rnd` against caching),
 //! by ureq as the update check uses it (net.rs), on a thread of its own with a short timeout; in the browser the page's
-//! own GoatCounter script counts it (web/opensgolf.js sg_playcount). A failure is dropped: never tried again, never shown.
+//! own GoatCounter script counts it (web/opensgolf.js sg_playcount; the game is the only one counting play time there, and
+//! the page's own "Count my play time" tick off turns it off as the game's tick does). A failure is dropped: never tried
+//! again, never shown.
 //!
 //! Never from tests or scripted runs: under `cargo test`, with --png, --time or --screen, or with any SG_* test hook
 //! nothing is sent and the notice is not shown. Test hook: `SG_PLAYCOUNT_LOG=1` prints each count instead of sending it
@@ -163,19 +165,21 @@ pub struct State {
     base: Mode,
     /// The next play time that sends a count.
     next: f64,
+    /// The browser page's own "Count my play time" tick is off (web/index.html #playcount): off as with the game's tick.
+    page_off: bool,
     platform: String,
 }
 
 impl Default for State {
     fn default() -> State {
-        State { record: Record::default(), base: Mode::Off, next: EVERY, platform: String::new() }
+        State { record: Record::default(), base: Mode::Off, next: EVERY, page_off: false, platform: String::new() }
     }
 }
 
 impl State {
     /// The mode in use.
     pub fn mode(&self) -> Mode {
-        mode(AVAILABLE, self.record.off, self.base == Mode::Log, self.base == Mode::Quiet)
+        mode(AVAILABLE, self.record.off || self.page_off, self.base == Mode::Log, self.base == Mode::Quiet)
     }
 
     /// Preferences > More's tick.
@@ -221,7 +225,7 @@ pub fn init(played: f64, scripted: bool) -> State {
     let log = std::env::var_os(LOG_ENV).is_some_and(|v| !v.is_empty() && v != "0");
     let scripted = scripted || cfg!(test) || test_hooks();
     let base = mode(AVAILABLE, false, log, scripted);
-    let s = State { record, base, next: first_mark(played), platform: platform_here() };
+    let s = State { record, base, next: first_mark(played), page_off: page_off(), platform: platform_here() };
     if log {
         println!("play count: {:?} (platform {}, next count at {:.0} s of play)", s.mode(), s.platform, s.next);
     }
@@ -238,6 +242,22 @@ impl State {
             Mode::Off | Mode::Quiet => {}
         }
     }
+}
+
+/// The browser page's own tick is off (web/opensgolf.js sg_playcount_off); never elsewhere.
+fn page_off() -> bool {
+    #[cfg(all(not(opensgolf_store), target_arch = "wasm32"))]
+    {
+        #[link(wasm_import_module = "env")]
+        extern "C" {
+            /// 1 when the page's "Count my play time" tick is off (web/opensgolf.js).
+            fn sg_playcount_off() -> i32;
+        }
+        // SAFETY: no arguments; the page reads its own storage
+        unsafe { sg_playcount_off() != 0 }
+    }
+    #[cfg(not(all(not(opensgolf_store), target_arch = "wasm32")))]
+    false
 }
 
 /// The count on its way: a thread's one GET on the desktop and Android, the page's GoatCounter in the browser.
@@ -355,6 +375,10 @@ mod tests {
         s.record.off = true;
         assert_eq!(s.mode(), Mode::Off);
         assert!(!s.on());
+        // the browser page's own tick off is off too, whatever the game's tick
+        let s = State { base: Mode::Send, page_off: true, ..Default::default() };
+        assert_eq!(s.mode(), Mode::Off);
+        assert!(!notice_due(s.mode(), &s.record));
     }
 
     #[test]

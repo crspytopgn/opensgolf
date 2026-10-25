@@ -301,11 +301,14 @@ miniquad_add_plugin({
         // is still being handled, so the browser takes it as the player's); a note with the link when the tab is blocked
         env.sg_open_url = function (ptr, len) { sgOpenUrl(sgStr(ptr, len)); };
         // the play-time count (crates/simgolf/src/playcount.rs): an event for the page's GoatCounter (index.html), counted every
-        // time (no_session); nothing when the counter is blocked or the page has none
+        // time (no_session); nothing when the page's own tick is off (#playcount), the counter is blocked or the page has none
         env.sg_playcount = function (ptr, len) {
             const path = sgStr(ptr, len);
+            if (sgPlaycountOff()) return;
             try { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: path, title: path, event: true, no_session: true }); } catch (e) {}
         };
+        // 1 when the page's tick has turned the count off (the game then shows no notice either)
+        env.sg_playcount_off = function () { return sgPlaycountOff() ? 1 : 0; };
         env.sg_touch_device = function () { return sgTouchDevice() ? 1 : 0; };
         env.sg_pick_poll = function (dst, cap) {
             if (sgPicked === null) return -1;
@@ -342,6 +345,11 @@ function sgPickFile(accept = ".png,image/png") {
 }
 
 // Report a problem: the form in a new tab, else a note over the game with its link to tap.
+// the page's "Count my play time" tick (index.html #playcount) is off, remembered in this browser
+function sgPlaycountOff() {
+    try { return localStorage.getItem("sg_playcount_off") === "1"; } catch (e) { return false; }
+}
+
 function sgOpenUrl(url) {
     let w = null;
     try { w = window.open(url, "_blank"); } catch (e) {}

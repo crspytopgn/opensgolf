@@ -1119,7 +1119,8 @@ game never waits for it.
 It is on by default. The first time you play a course, the ticker says once: *OpenSGolf counts anonymous play time (no
 personal data). Turn it off in Preferences > More.* Take the tick off **Preferences > More... > Count my play time
 (anonymous)** and nothing is sent any more, the start count included (kept as `"off": true` under `"playcount"` in
-`settings.json`). Builds for a store or a package manager (Flathub, F-Droid and the like, built with
+`settings.json`). In the browser the web page's own *Count my play time* tick under the start buttons turns it off too
+(either one off is off). Builds for a store or a package manager (Flathub, F-Droid and the like, built with
 `OPENSGOLF_NO_SELF_UPDATE=1`) do not include it at all: no tick, no notice, nothing sent. The GitHub release builds and
 the browser version have it.
 
