@@ -923,6 +923,11 @@ Up to 30 steps are kept; the list starts empty with each game and is not saved. 
 The port's own (crates/simgolf/src/build_tools.rs), always there and doing nothing until used: they only show a distance
 or save clicks, and paint exactly what the plain brush would.
 
+- **Analyze Golf Shot** (the last button on the Elevation panel, or the **/** key over the course): golfers play sample
+  first shots of the hole nearest the tile, drawn on the course, with the Shot Analysis box comparing golfers with all
+  skills and without Imagination, Accuracy or Length. With the button picked, a right click on the course is the
+  original's / key, and a click (the port's own) analyses from the clicked tile; **.** analyses the same hole again from
+  the tile under the pointer. A key or click closes it once all the shots are drawn.
 - **Measuring tape** (**'**, the apostrophe; another key on *Change keys*): hold the key and move the pointer to measure
   from where the pointer was when you pressed it, then let go to leave the reading on the course; or tap the key, move
   the pointer and click to set the far end down. A white line joins the two points with the straight distance in yards

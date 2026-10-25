@@ -1613,7 +1613,7 @@ impl App {
         true
     }
 
-    fn elevation_click(&mut self, h: i32) -> bool {
+    pub(crate) fn elevation_click(&mut self, h: i32) -> bool {
         match h {
             -2 => {
                 self.pstate.alt = false;
@@ -1625,11 +1625,12 @@ impl App {
                 self.arm_undo();
             }
             3 => {
-                // Analyze Golf Shot: what the exe's map click does with it is not decoded; the tool is only selected and the
-                // map is left alone (placeholder)
+                // Analyze Golf Shot: armed like the other elevation tools, so that a right click on the course is the
+                // exe's / key (main.rs right_click, 0x41e4be..0x41f29d). The port's own: a left click on the course also
+                // analyses from the clicked tile, as / does from the tile under the pointer.
                 self.pstate.elev_tool = 3;
-                self.edit = false;
-                self.show_toast(tr("STR_TOAST_ANALYZE_NOT_AVAILABLE"));
+                self.tool = 1;
+                self.edit = true;
             }
             i if i >= 0 => {
                 self.pstate.elev_tool = i as usize;
