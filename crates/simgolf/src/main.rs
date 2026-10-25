@@ -23,6 +23,7 @@ mod autorelease;
 mod autosave;
 #[cfg(all(not(target_arch = "wasm32"), feature = "net"))]
 mod autoupdate;
+mod bugreport;
 mod build_tools;
 mod champ_ui;
 mod cheats_ui;
@@ -1032,9 +1033,15 @@ fn apply_edit_spec(app: &mut App, spec: &str) {
                     9 => popup_ui::PopupKind::PrefsGraphics,
                     10 => popup_ui::PopupKind::PrefsFiles,
                     11 => popup_ui::PopupKind::PrefsMore,
+                    // M:12 Report a problem's box (bugreport.rs)
+                    12 => popup_ui::PopupKind::Report,
                     _ => popup_ui::PopupKind::LandOffer,
                 };
-                app.open_popup(kind);
+                if kind == popup_ui::PopupKind::Report {
+                    app.open_report_box();
+                } else {
+                    app.open_popup(kind);
+                }
                 // M:5,P opens the Enhanced graphics box on page P, M:6,P the Extras box
                 if let Some(p) = app.popup.as_mut().filter(|_| v.len() >= 2) {
                     p.set_page(at(1).clamp(0, p.page_count() as i32 - 1) as u8);
@@ -1345,7 +1352,7 @@ impl Stage {
             std::process::exit(1);
         }
         if !load_ui(&mut app, &mut g) {
-            eprintln!("ui: could not load the Interface art or KLEPTO__.TTF, starting on the course");
+            bugreport::warn("ui: could not load the Interface art or KLEPTO__.TTF, starting on the course");
         }
         app.load_story();
         app.swaps = sg_core::bodies::Swaps::load(&app.game_path("Bodies"));
@@ -1742,6 +1749,12 @@ impl Stage {
                 8 if extras::sharing() => self.app.share_course(),
                 _ => {}
             },
+            // Report a problem's OK (bugreport.rs): the screenshot of the screen under the box, then the form and the files
+            PopupKind::Report => {
+                if k == bugreport::BOX_GO {
+                    self.report_problem(checks & 1 << bugreport::BOX_SHOT != 0);
+                }
+            }
             // Preferences > Enhanced graphics: the ticks become the settings (enhanced.rs)
             PopupKind::Enhanced => {
                 if let Some(p) = pref {
@@ -1887,6 +1900,11 @@ impl Stage {
             Line::UpdateNow => {
                 self.app.prefs_stack.clear();
                 self.app.check_for_updates();
+            }
+            // Report a problem (bugreport.rs): its box over the game
+            Line::Report => {
+                self.app.prefs_stack.clear();
+                self.app.open_report_box();
             }
             _ => {}
         }
@@ -2291,6 +2309,11 @@ impl Stage {
         let row = self.app.bt.row_from.is_some();
         if k == KeyCode::Escape && self.app.build_tools_cancel() {
             self.editing &= !row;
+            return;
+        }
+        // the port's own Report a problem (bugreport.rs): Shift+F8, a key the original leaves unused; its box asks first
+        if act == Some(controls::action("report_problem")) {
+            self.app.open_report_box();
             return;
         }
         // the port's own showcase fly-over (showcase.rs): Shift+O, a key the original leaves unused
@@ -2731,6 +2754,19 @@ impl Stage {
         self.g.flush();
         self.g.ctx.end_render_pass();
         enhanced::end_frame();
+    }
+
+    /// Report a problem's OK (bugreport.rs): with `shot` the screen as it is (the box gone) grabbed first; the graphics
+    /// driver's names for the system line.
+    fn report_problem(&mut self, shot: bool) {
+        let img = shot.then(|| self.grab());
+        let gl = if self.g.ctx.info().backend == miniquad::Backend::OpenGl {
+            let [vendor, renderer, version, _] = sysdiag::gl_strings();
+            format!("{vendor} / {renderer} / {version}")
+        } else {
+            format!("{:?}", self.g.ctx.info().backend)
+        };
+        self.app.report_problem(img, &gl);
     }
 
     /// Renders the current frame offscreen and writes it as a PNG.

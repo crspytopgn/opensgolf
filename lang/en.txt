@@ -3339,3 +3339,26 @@ STR_SELFCHECK_FOUND                     :OpenSGolf found a problem with a saved 
 # The desert's Ravine and Brush art (OpenSGolf extras, extras.rs desert_art, issue #89)
 STR_EXTRAS_DESERT_ART                   : Fix the desert's swapped Ravine and Brush art
 STR_EXTRAS_DESC_DESERT_ART              :The original desert shows the Ravine as dry weeds and the Brush as a crack, on the course and on their buttons. This trades the two pictures; play is unchanged.
+
+# Report a problem (the port's own helper, bugreport.rs; docs/PLAYING.md "Reporting a problem")
+STR_MENU_PREFS_REPORT                   : Report a problem...
+STR_PREFS_DESC_REPORT                   :Opens the bug report form in your browser, filled in with the version and your system, and keeps a copy of this game for you to attach. Nothing is sent until you submit the form.
+STR_CTL_REPORT_PROBLEM                  :Report a problem (opens the bug report form, asks first)
+STR_BUGREPORT_TITLE                     :Report a problem
+STR_BUGREPORT_EXPLAIN                   :This opens the project's bug report form on GitHub in your browser, filled in with the game's version, your system and its recent warnings.\nA copy of this game (and a screenshot, if ticked) goes in the Reports folder in your save folder, which opens too: drag the files into the form.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
+STR_BUGREPORT_EXPLAIN_WEB               :This opens the project's bug report form on GitHub in a new tab, filled in with the game's version, your browser and its recent warnings.\nA copy of this game (and a screenshot, if ticked) is downloaded: drag the files into the form.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
+STR_BUGREPORT_EXPLAIN_ANDROID           :This opens the project's bug report form on GitHub in your browser, filled in with the game's version, your phone and its recent warnings.\nA copy of this game (and a screenshot, if ticked) goes in the Reports folder next to the game's Photos, for you to attach.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
+STR_BUGREPORT_SCREENSHOT                : Include a screenshot
+STR_BUGREPORT_OPEN                      : OK, open the form
+STR_BUGREPORT_CANCEL                    : Cancel
+STR_BUGREPORT_DONE                      :The bug report form is open in your browser. Drag these files from the Reports folder (just opened) into its "Screenshots, save file, log" box: {FILES}.\nThe folder: {FOLDER}
+STR_BUGREPORT_DONE_WEB                  :The bug report form is open in a new tab, and these files were downloaded: {FILES}. Drag them into the form's "Screenshots, save file, log" box.
+STR_BUGREPORT_DONE_ANDROID              :The bug report form is open in your browser. These files are in {FOLDER} for you to attach (a computer sees the folder over USB): {FILES}.
+STR_BUGREPORT_DONE_NO_FILES             :The bug report form is open in your browser. Say what happened and submit it when you're ready.
+STR_BUGREPORT_NO_BROWSER                :No browser could be opened. The form's address is on the clipboard: paste it into a browser.
+STR_BUGREPORT_FORM_WHAT                 :What I did:\n\nWhat I expected:\n\nWhat happened instead:\n
+STR_BUGREPORT_FORM_FILES                :Please attach these files from the game's Reports folder (drag them here): {FILES}
+STR_BUGREPORT_FORM_LOG                  :Recent warnings:
+STR_BUGREPORT_FORM_NO_LOG               :No warnings so far.
+STR_KEYS_K_REPORT_PROBLEM               :Shift+F8
+STR_KEYS_REPORT_PROBLEM                 :Report a problem (the bug report form, asks first)

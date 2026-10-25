@@ -47,8 +47,10 @@ pub enum PopupKind {
     /// Preferences > Game files (the port's own, prefs_ui.rs): your SimGolf files or the free graphics, Content packs,
     /// Language.
     PrefsFiles,
-    /// Preferences > More (the port's own, prefs_ui.rs): the bug fixes, the update checks, Search.
+    /// Preferences > More (the port's own, prefs_ui.rs): the bug fixes, the update checks, Search, Report a problem.
     PrefsMore,
+    /// Report a problem's confirmation (the port's own, bugreport.rs): what will open, a screenshot tick, OK or Cancel.
+    Report,
 }
 
 #[derive(Clone, Debug)]
@@ -635,7 +637,7 @@ impl Popup {
             cx: self.cx,
             top: self.top,
             checks: (crate::prefs_ui::is_prefs_box(self.kind)
-                || matches!(self.kind, PopupKind::Enhanced | PopupKind::Extras | PopupKind::Search))
+                || matches!(self.kind, PopupKind::Enhanced | PopupKind::Extras | PopupKind::Search | PopupKind::Report))
             .then_some(self.checks),
             disabled: self.disabled,
             plain: match self.kind {
@@ -643,6 +645,7 @@ impl Popup {
                 PopupKind::Enhanced => crate::enhanced::popup_plain(self.page),
                 PopupKind::Extras => crate::extras_ui::popup_plain(self.page),
                 PopupKind::Search => crate::prefs_search::popup_plain(&self.hits),
+                PopupKind::Report => crate::bugreport::BOX_PLAIN,
                 _ => 0,
             },
             min_w: match self.kind {
@@ -740,6 +743,7 @@ impl App {
             if crate::prefs_ui::is_prefs_box(kind) { crate::prefs_ui::lines(kind, &ctx, crate::textsize::pct()) } else { Vec::new() };
         let set_par_lines: [String; 2];
         let cheat_lines: Vec<String>;
+        let report_lines: Vec<String>;
         let (mut lines, disabled, cx, mut top): (Vec<&str>, u32, f32, f32) = match kind {
             PopupKind::Retire => (
                 vec![retire[0].as_str(), retire[1].as_str(), tr("STR_RETIRE_WAIT"), tr("STR_RETIRE_SAVE_FIRST"), tr("STR_RETIRE_SO_LONG")],
@@ -817,6 +821,12 @@ impl App {
                 let old = self.club.holes[h.clamp(1, 18)].par;
                 set_par_lines = [trf("STR_SET_PAR_1", &[("HOLE", &h), ("OLD", &old), ("NEW", &new)]), tr("STR_SET_PAR_2").to_string()];
                 (vec![set_par_lines[0].as_str(), set_par_lines[1].as_str(), tr("STR_SET_PAR_YES"), tr("STR_SET_PAR_NO")], 0, 400.0, 200.0)
+            }
+            // the port's own Report a problem box (bugreport.rs): in the middle of the screen
+            PopupKind::Report => {
+                report_lines = crate::bugreport::box_lines();
+                let top = crate::bugreport::box_top(report_lines.len());
+                (report_lines.iter().map(|l| l.as_str()).collect(), 0, 400.0, top)
             }
             // the port's own Cheats box: below the dock's top, clear of the course's middle
             PopupKind::Cheats => {
@@ -1091,7 +1101,7 @@ impl App {
             KeyCode::Enter | KeyCode::KpEnter | KeyCode::Space => {
                 if p.sel.is_none()
                     && !crate::prefs_ui::is_prefs_box(p.kind)
-                    && !matches!(p.kind, PopupKind::Enhanced | PopupKind::Extras | PopupKind::Search)
+                    && !matches!(p.kind, PopupKind::Enhanced | PopupKind::Extras | PopupKind::Search | PopupKind::Report)
                 {
                     return Some(None);
                 }
@@ -1221,6 +1231,17 @@ impl App {
                 p.checks = crate::prefs_search::popup_checks(p.changed_only, &p.hits, &p.pref);
             }
             return Some(usize::MAX);
+        }
+        // Report a problem (bugreport.rs): the screenshot tick toggles, Cancel cancels, OK (its line, the tick, Enter) goes
+        if p.kind == PopupKind::Report {
+            return match pick.or(p.sel) {
+                Some(crate::bugreport::BOX_SHOT) if pick.is_some() => {
+                    p.checks ^= 1 << crate::bugreport::BOX_SHOT;
+                    Some(usize::MAX)
+                }
+                Some(crate::bugreport::BOX_CANCEL) => None,
+                _ => Some(crate::bugreport::BOX_GO),
+            };
         }
         if p.kind == PopupKind::Enhanced {
             if pick.is_some() {

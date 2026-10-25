@@ -188,7 +188,7 @@ impl App {
                 None
             }
             Err(e) => {
-                eprintln!("HD: {e}");
+                crate::bugreport::warn(&format!("HD: {e}"));
                 Some(tr(NO_PACK).to_string())
             }
         }

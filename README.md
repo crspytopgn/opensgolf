@@ -151,11 +151,17 @@ helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a fe
   import a heightmap picture, choose the land owned at the start, the starting cash, the difficulty and goals, and save it
   as a scenario to play and share ([docs/PLAYING.md](docs/PLAYING.md#course-editor)).
 
+- **Report a problem** (Preferences → More, or Shift+F8): opens the bug report form in your browser
+  filled in with the version, platform and a short system line, and puts a copy of your game (and a screenshot) in a
+  Reports folder to attach. Nothing is sent until you submit the form
+  ([docs/PLAYING.md](docs/PLAYING.md#reporting-a-problem)).
+
 How close each part is to the original is tracked in [docs/PARITY.md](docs/PARITY.md).
 
 ## Reporting bugs and contributing
 
-Please report bugs and suggest ideas on the [issue tracker](https://github.com/crspytopgn/opensgolf/issues/new/choose).
+Please report bugs and suggest ideas on the [issue tracker](https://github.com/crspytopgn/opensgolf/issues/new/choose)
+(in the game, Preferences → More → *Report a problem...* or Shift+F8 fills in the bug form for you).
 Contributions of code, art for the free base set and translations are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) and
 [docs/TRANSLATING.md](docs/TRANSLATING.md).
 

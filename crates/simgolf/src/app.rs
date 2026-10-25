@@ -1796,7 +1796,7 @@ impl App {
             }
             Err(e) => {
                 if !shadow {
-                    eprintln!("sprite: {e}"); // many objects simply have no shadow file
+                    crate::bugreport::warn(&format!("sprite: {e}")); // many objects simply have no shadow file
                 }
                 None
             }
@@ -2142,7 +2142,7 @@ impl App {
         let cat = match TextureCatalog::load(&dir) {
             Ok(c) => c,
             Err(e) => {
-                eprintln!("error: {e}");
+                crate::bugreport::warn(&format!("error: {e}"));
                 return false;
             }
         };
@@ -2936,7 +2936,7 @@ impl App {
         let path = crate::files_ui::saved_games_dir().join("&QuitSave.sgs");
         match self.save_game(&path) {
             Ok(()) => println!("saved game {}", path.display()),
-            Err(e) => eprintln!("could not save {}: {e}", path.display()),
+            Err(e) => crate::bugreport::warn(&format!("could not save {}: {e}", path.display())),
         }
         self.screen = Screen::Menu;
         self.hover = -1;

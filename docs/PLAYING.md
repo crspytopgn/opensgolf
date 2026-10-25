@@ -369,7 +369,8 @@ golfers' thoughts**, **Advisor and first-time messages**, **Ambient animals** an
 - **Game files...**: *Use my SimGolf files...* or *Use the free graphics* (not in the browser; see *Your own SimGolf
   files*), *Content packs...*, and *Language:* when a translation is installed.
 - **More...**: *Fix the original game's bugs* (on by default; docs/FIXES.md), *Check for updates when the game starts*
-  (off by default), *Check for updates now* (where the title menu has its button), and *Search options...*.
+  (off by default), *Check for updates now* (where the title menu has its button), *Search options...* and *Report a
+  problem...* (see *Reporting a problem*).
 
 The foot of Preferences and of each box says in a sentence what the OpenSGolf line under the pointer does (on a touch
 screen the line last tapped; a line that opens something opens on the second tap, the first showing what it does; ticks
@@ -1036,8 +1037,37 @@ changed every key does what it did before.
   `?safe` at the end of the page's address) puts the Enhanced graphics settings, frame rate cap included, back to their
   defaults without touching saved games.
 
+* **Shift+F8** (the port's own *Report a problem*; F8 alone is the original's) opens the Report a problem box (see
+  *Reporting a problem*).
+
 Test hooks: `SG_PRESS="u;Shift+Q;..."` presses keys (the names `settings.json` uses) after a scripted still's first frame,
 after `SG_CLICK`; letters and Space also type their character.
+
+## Reporting a problem
+
+The port's own helper (crates/simgolf/src/bugreport.rs); nothing changes until you use it (the original's System
+Functions menu is left as it is). System Functions → Preferences → *More...* → *Report a problem...*, or **Shift+F8** on
+the course (Change keys can move it), open a small box that says what will happen, with an *Include a screenshot* tick (ticked), *OK, open the form* (the
+box's tick and Enter too) and *Cancel* (Esc too). OK:
+
+- opens the project's bug report form on GitHub in your browser, already filled in: the version, the platform, the base
+  set (your SimGolf files or the free set), and in *Screenshots, save file, log* a short system line (system and
+  processor, the graphics driver's names, Enhanced graphics on or off, HD and the content packs in use, the gameplay and
+  interface extras as numbers, the window size) with the game's last 30 warnings and errors (a picture that could not be
+  read, a pack's problem, a failed save; the game keeps no log file of its own). The address stays under 6,000
+  characters (the oldest warnings are left out first);
+- writes a copy of the game being played (an ordinary saved game, `.sgs`) and, when ticked, a screenshot of the screen
+  under the box (`.png`), both named `OpenSGolf report <date> <time>` (UTC), to a **Reports** folder in the save folder,
+  and opens that folder in the file manager (Explorer, the Finder, or the desktop's own through xdg-open). A box says
+  which files to drag into the form. On the title screens there is no game to copy.
+- In the browser the form opens in a new tab (if the browser blocks it, a note over the game has the link to tap), and
+  the two files are downloaded instead. On Android they go in `Android/data/org.opensgolf.game/files/Reports` (next to
+  Photos; a computer sees it over USB), and the box says where.
+
+Nothing is sent by the game: you read the form, say what happened and submit it yourself (a GitHub account is needed).
+Without a browser the form's address is put on the clipboard. Test hooks: `--edit "M:12"` opens the box;
+`SG_REPORT=1` makes its OK print the address it would open and write the files without opening the browser or the
+folder (`SG_REPORT=1 SG_PRESS="Shift+F8;Enter"` for a scripted run).
 
 ## Controllers and the Steam Deck
 
