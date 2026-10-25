@@ -500,7 +500,10 @@ Confidence: high (layout pass read from the machine code, where the decompiler l
 - While the hole being built has a tee and a cup, the main frame plans it with a trial golfer record (0x9a): first a golfer of
   the Length and Accuracy classes plans the tee shot only, then one of all three classes plays up to five shots from the tee,
   stopping when a landing is in a hazard (hazard byte above 1) or at the cup. The landings are kept and replayed until a
-  terrain refresh clears game flag 0x40000. From them: the tee facing (heading to the first landing), the length (sum of the
+  terrain refresh clears game flag 0x40000. That refresh is 0x42f7a0 (its `and` at 0x42f929 is the only code that masks
+  0x40000 out of the flag word); it has 16 call sites, among them the load (0x40bb19) and the championship course loader (0x40b99a). Neither the Course
+  Report (0x44fb30) nor the instant shot analysis (0x41d0e3..0x41d8f3) reaches it through direct calls, so opening them
+  plans nothing again (DERIVED: a call graph of direct calls; calls through pointers were not followed). From them: the tee facing (heading to the first landing), the length (sum of the
   shot distances in range units, only when the shots reach the cup), flags 0x1000 / 0x2000 when the cup is more than one height
   step above / below the tee, flags 0x20 / 0x40 when the line to the cup bends more than 1/36 of a turn one way or the other
   (holes shorter than 250 count as straight), and three yardage markers 4, 6 and 8 tiles from the cup on holes longer than 150,
