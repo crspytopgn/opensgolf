@@ -57,7 +57,7 @@ copies leave them out), only the Sims' voices in `SimsFX`, or lacks more than a 
 when the game starts and the ticker on every start (sg_core::mixer `shortfall`; the console or log has a `sound:` line
 with the counts). The browser page also sums up what it found after loading the files, in large type on the start page
 (and again there on the next visit, as "Last time: ...") and over the game once (20 seconds, or until tapped when
-something is missing): "OpenSGolf 0.5.7. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
+something is missing): "OpenSGolf 0.5.8. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
 big). Art ✓, music: N, Sims' voices: N." The console's `files:` line adds the compression methods the zip used.
 Deflate64 (Windows' own zipper, for big files such as the sounds), BZip2, LZMA and PPMd (7-Zip's, Keka's and The
 Unarchiver's stronger settings), which iPad's Files app cannot unpack (it shows such folders empty), are read by the
@@ -1113,8 +1113,10 @@ the support reminder's clock (see *Supporting OpenSGolf*): time on the course wi
 the background and not on the menus. No ids, names, saved games or course data are sent, and no cookies are set. On the
 desktop and Android each count is one request to GoatCounter's count address with a User-Agent of
 `OpenSGolf/<version> (<platform>)`, made in the background with a short timeout; in the browser the page's own
-GoatCounter counts it. A count that does not get through (no internet, a blocker) is dropped, never tried again, and the
-game never waits for it.
+GoatCounter counts it. The game never waits for a count. On the desktop and Android a 15-minute count that does not get
+through (no internet) is kept, as a number only (`"pending"` under `"playcount"` in `settings.json`, a week of play at
+most), and sent later along with the next count that does, up to 16 at a time a second apart: the same counts, nothing
+more. Taking the tick off throws the kept ones away. The start count and the browser's counts are not kept.
 
 It is on by default. The first time you play a course, the ticker says once: *OpenSGolf counts anonymous play time (no
 personal data). Turn it off in Preferences > More.* Take the tick off **Preferences > More... > Count my play time

@@ -18,8 +18,11 @@
 //! event's name, `t` its title, `e` an event, `ns` counted every time rather than once a visit, `rnd` against caching),
 //! by ureq as the update check uses it (net.rs), on a thread of its own with a short timeout; in the browser the page's
 //! own GoatCounter script counts it (web/opensgolf.js sg_playcount; the game is the only one counting play time there, and
-//! the page's own "Count my play time" tick off turns it off as the game's tick does). A failure is dropped: never tried
-//! again, never shown.
+//! the page's own "Count my play time" tick off turns it off as the game's tick does). On the desktop and Android a
+//! 15-minute count that does not get through (no internet) is kept as a number in settings.json ([`Record::pending`], at
+//! most [`MAX_PENDING`], a week's play) and sent with the next count that does, [`BATCH`] at a time a second apart:
+//! nothing but the same counts, later; taking the tick off deletes them. The start count is not kept. Nothing is ever
+//! shown about a failure.
 //!
 //! Never from tests or scripted runs: under `cargo test`, with --png, --time or --screen, or with any SG_* test hook
 //! nothing is sent and the notice is not shown. Test hook: `SG_PLAYCOUNT_LOG=1` prints each count instead of sending it
@@ -39,6 +42,10 @@ pub const SETTINGS_KEY: &str = "playcount";
 pub const EVERY: f64 = 15.0 * 60.0;
 /// The test hook's variable.
 pub const LOG_ENV: &str = "SG_PLAYCOUNT_LOG";
+/// At most this many unsent 15-minute counts are kept (a week of play).
+pub const MAX_PENDING: u32 = 7 * 24 * 4;
+/// Kept counts sent along with one that gets through, a second apart.
+pub const BATCH: u32 = 16;
 /// How long a count may take before it is dropped.
 #[cfg(all(not(opensgolf_store), not(target_arch = "wasm32"), feature = "net"))]
 const TIMEOUT_S: u64 = 10;
@@ -51,6 +58,21 @@ pub struct Record {
     pub off: bool,
     /// The one-time notice was shown.
     pub noticed: bool,
+    /// 15-minute counts that did not get through (no internet), to be sent later: only their number is kept.
+    pub pending: u32,
+}
+
+/// Counts that a sending thread gave back (they did not get through), for the frame to keep in [`Record::pending`].
+static RETURNED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+
+/// `pending` after `back` more counts were given back, never above [`MAX_PENDING`].
+pub fn keep(pending: u32, back: u32) -> u32 {
+    pending.saturating_add(back).min(MAX_PENDING)
+}
+
+/// How many kept counts go out with the next one: at most [`BATCH`].
+pub fn batch(pending: u32) -> u32 {
+    pending.min(BATCH)
 }
 
 /// What this run does with the count.
@@ -237,21 +259,34 @@ pub fn init(played: f64, scripted: bool) -> State {
     let log = log_hook();
     let scripted = scripted || cfg!(test) || test_hooks();
     let base = mode(AVAILABLE, false, log, scripted);
-    let s = State { record, base, next: first_mark(played), page_off: page_off(), platform: platform_here() };
+    let mut s = State { record, base, next: first_mark(played), page_off: page_off(), platform: platform_here() };
     if log {
         println!("play count: {:?} (platform {}, next count at {:.0} s of play)", s.mode(), s.platform, s.next);
     }
-    s.send(&start_event(&s.platform, crate::update::VERSION));
+    let start = start_event(&s.platform, crate::update::VERSION);
+    s.send(&start, false);
     s
 }
 
 impl State {
-    /// Sends `event` (Send), prints it (Log), or nothing.
-    fn send(&self, event: &str) {
-        match self.mode() {
-            Mode::Log => println!("play count: would send {event}"),
-            Mode::Send => send_now(event, &self.platform),
-            Mode::Off | Mode::Quiet => {}
+    /// Sends `event` (Send), prints it (Log), or nothing; with up to [`BATCH`] kept counts after it. `play`: a 15-minute
+    /// count, kept for later if it does not get through.
+    fn send(&mut self, event: &str, play: bool) {
+        let mode = self.mode();
+        if !matches!(mode, Mode::Send | Mode::Log) {
+            return;
+        }
+        // the browser keeps nothing: its page is online to have loaded at all, and it tells the game nothing back
+        let later = if cfg!(target_arch = "wasm32") { 0 } else { batch(self.record.pending) };
+        if later > 0 {
+            self.record.pending -= later;
+            if mode == Mode::Send {
+                save(&self.record);
+            }
+        }
+        match mode {
+            Mode::Log => println!("play count: would send {event}{}", if later > 0 { format!(" and {later} kept") } else { String::new() }),
+            _ => send_now(event, play, later, &self.platform),
         }
     }
 }
@@ -272,20 +307,40 @@ fn page_off() -> bool {
     false
 }
 
-/// The count on its way: a thread's one GET on the desktop and Android, the page's GoatCounter in the browser.
+/// The count on its way, then `later` kept 15-minute counts: a thread's GETs on the desktop and Android (what does not get
+/// through is given back to [`RETURNED`]: the event if `play`, and the kept counts not yet sent), the page's GoatCounter
+/// in the browser.
 #[allow(unused_variables)]
-fn send_now(event: &str, platform: &str) {
+fn send_now(event: &str, play: bool, later: u32, platform: &str) {
     #[cfg(all(not(opensgolf_store), not(target_arch = "wasm32"), feature = "net"))]
     {
-        let rnd = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos() as u64);
-        let url = count_url(event, rnd);
+        let event = event.to_string();
+        let kept = play_event(platform);
         let agent_name = user_agent(crate::update::VERSION, platform);
-        // named: a panic in it ends only the count (android.rs); its answer is not read
-        let _ = std::thread::Builder::new().name("opensgolf-count".into()).spawn(move || {
+        // named: a panic in it ends only the count (android.rs); the answer is read only for whether it got through
+        let spawned = std::thread::Builder::new().name("opensgolf-count".into()).spawn(move || {
+            use std::sync::atomic::Ordering;
             let agent: ureq::Agent =
                 ureq::Agent::config_builder().timeout_global(Some(std::time::Duration::from_secs(TIMEOUT_S))).build().into();
-            let _ = agent.get(&url).header("User-Agent", &agent_name).call();
+            let get = |e: &str| {
+                let rnd = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos() as u64);
+                agent.get(&count_url(e, rnd)).header("User-Agent", &agent_name).call().is_ok()
+            };
+            if !get(&event) {
+                RETURNED.fetch_add(u32::from(play) + later, Ordering::Relaxed);
+                return;
+            }
+            for i in 0..later {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                if !get(&kept) {
+                    RETURNED.fetch_add(later - i, Ordering::Relaxed);
+                    return;
+                }
+            }
         });
+        if spawned.is_err() {
+            RETURNED.fetch_add(u32::from(play) + later, std::sync::atomic::Ordering::Relaxed);
+        }
     }
     #[cfg(all(not(opensgolf_store), target_arch = "wasm32"))]
     {
@@ -309,8 +364,15 @@ impl crate::app::App {
         }
         let played = self.support.record.played;
         let p = &mut self.playcount;
+        // counts that did not get through are kept for later (the tick off throws them away)
+        let back = RETURNED.swap(0, std::sync::atomic::Ordering::Relaxed);
+        if back > 0 && mode == Mode::Send {
+            p.record.pending = keep(p.record.pending, back);
+            save(&p.record);
+        }
         if reached(played, &mut p.next) {
-            p.send(&play_event(&p.platform));
+            let e = play_event(&p.platform);
+            p.send(&e, true);
         }
         let quiet = self.popup.is_none() && self.notice.is_none() && self.ui_ok;
         if self.screen == crate::app::Screen::Play && quiet && notice_due(mode, &self.playcount.record) {
@@ -332,6 +394,11 @@ impl crate::app::App {
         self.playcount.record.off = !on;
         // the notice would only say what the player has just seen in Preferences
         self.playcount.record.noticed = true;
+        // off: counts kept for later are thrown away, never sent
+        if !on {
+            self.playcount.record.pending = 0;
+            RETURNED.store(0, std::sync::atomic::Ordering::Relaxed);
+        }
         save(&self.playcount.record);
         if self.playcount.base == Mode::Log {
             println!("play count: {}", if on { "on" } else { "off" });
@@ -406,7 +473,21 @@ mod tests {
         let v = serde_json::to_value(&r).unwrap();
         assert_eq!(serde_json::from_value::<Record>(v).unwrap(), r);
         let none: Record = serde_json::from_value(serde_json::json!({})[SETTINGS_KEY].clone()).unwrap_or_default();
-        assert_eq!(none, Record { off: false, noticed: false });
+        assert_eq!(none, Record { off: false, noticed: false, pending: 0 });
+    }
+
+    #[test]
+    fn counts_that_do_not_get_through_are_kept_a_week_at_most() {
+        assert_eq!(keep(0, 1), 1);
+        assert_eq!(keep(5, 17), 22);
+        assert_eq!(keep(MAX_PENDING - 1, 5), MAX_PENDING, "a week of play at most");
+        assert_eq!(keep(u32::MAX, 1), MAX_PENDING);
+        assert_eq!(batch(0), 0);
+        assert_eq!(batch(3), 3);
+        assert_eq!(batch(200), BATCH);
+        // old settings without the number read as none kept
+        let r: Record = serde_json::from_value(serde_json::json!({"off": false, "noticed": true})).unwrap();
+        assert_eq!(r.pending, 0);
     }
 
     #[test]

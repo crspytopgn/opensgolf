@@ -3377,4 +3377,4 @@ STR_MENU_PREFS_SUPPORT                  : Support OpenSGolf...
 STR_PREFS_DESC_SUPPORT                  :Opens OpenSGolf's Buy Me a Coffee page in your browser. The game stays free and complete either way.
 STR_PLAYCOUNT_NOTICE                    :OpenSGolf counts anonymous play time (no personal data). Turn it off in Preferences > More.
 STR_MENU_PREFS_PLAYCOUNT                : Count my play time (anonymous)
-STR_PREFS_DESC_PLAYCOUNT                :Sends GoatCounter one count per 15 minutes played and one at start: only the system and version. No names, saves or cookies.
+STR_PREFS_DESC_PLAYCOUNT                :Sends GoatCounter one count per 15 minutes played and one at start: only the system and version. No names, saves or cookies. Counts made offline are sent later; turning this off deletes them.
