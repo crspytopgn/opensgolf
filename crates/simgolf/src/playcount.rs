@@ -167,11 +167,27 @@ pub fn query_value(s: &str) -> String {
     out
 }
 
+/// The test hook's variable for a stand-in counter on this computer (tools/playcount_test.sh); not an SG_* hook, so the
+/// game counts as it would for a player.
+pub const TEST_URL_ENV: &str = "OPENSGOLF_COUNT_TEST_URL";
+
+/// A stand-in counter's address from [`TEST_URL_ENV`]: only one on this computer (`http://127.0.0.1` or
+/// `http://localhost`), so counts can never be sent anywhere else.
+pub fn local_test_url(v: Option<&str>) -> Option<String> {
+    let v = v?.trim();
+    let local = ["http://127.0.0.1:", "http://127.0.0.1/", "http://localhost:", "http://localhost/"];
+    local.iter().any(|p| v.starts_with(p)).then(|| v.to_string())
+}
+
 /// The address that counts `event` (GoatCounter's pixel parameters); `rnd` against caching.
 #[cfg(not(opensgolf_store))]
 pub fn count_url(event: &str, rnd: u64) -> String {
     let e = query_value(event);
-    format!("{COUNT_URL}?p={e}&t={e}&e=true&ns=1&rnd={rnd:x}")
+    #[cfg(not(target_arch = "wasm32"))]
+    let base = local_test_url(std::env::var(TEST_URL_ENV).ok().as_deref()).unwrap_or_else(|| COUNT_URL.to_string());
+    #[cfg(target_arch = "wasm32")]
+    let base = COUNT_URL;
+    format!("{base}?p={e}&t={e}&e=true&ns=1&rnd={rnd:x}")
 }
 
 /// The User-Agent of a count, e.g. "OpenSGolf/0.6.0 (linux)" (GoatCounter takes a name with a slash and a space as no bot).
@@ -255,7 +271,9 @@ fn log_hook() -> bool {
 /// At start up, after the support reminder's clock (`played`): the saved record, the run's mode (`scripted`: --png,
 /// --time or --screen), and the start count.
 pub fn init(played: f64, scripted: bool) -> State {
-    let record: Record = serde_json::from_value(settings_json()[SETTINGS_KEY].clone()).unwrap_or_default();
+    let mut record: Record = serde_json::from_value(settings_json()[SETTINGS_KEY].clone()).unwrap_or_default();
+    // an edited or damaged settings.json never asks for more than a week of kept counts; none when the tick is off
+    record.pending = if record.off { 0 } else { record.pending.min(MAX_PENDING) };
     let log = log_hook();
     let scripted = scripted || cfg!(test) || test_hooks();
     let base = mode(AVAILABLE, false, log, scripted);
@@ -488,6 +506,16 @@ mod tests {
         // old settings without the number read as none kept
         let r: Record = serde_json::from_value(serde_json::json!({"off": false, "noticed": true})).unwrap();
         assert_eq!(r.pending, 0);
+    }
+
+    #[test]
+    fn a_stand_in_counter_only_on_this_computer() {
+        assert_eq!(local_test_url(Some("http://127.0.0.1:8770/count")).as_deref(), Some("http://127.0.0.1:8770/count"));
+        assert_eq!(local_test_url(Some("http://localhost:9/c")).as_deref(), Some("http://localhost:9/c"));
+        assert_eq!(local_test_url(Some("https://example.com/count")), None);
+        assert_eq!(local_test_url(Some("http://127.0.0.1.example.com/count")), None);
+        assert_eq!(local_test_url(Some("http://localhost.example.com/")), None);
+        assert_eq!(local_test_url(None), None);
     }
 
     #[test]
