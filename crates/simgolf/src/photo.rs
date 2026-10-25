@@ -241,7 +241,7 @@ pub fn photos_dir() -> PathBuf {
 }
 
 /// The date and time (UTC) of a Unix time, as year, month, day, hour, minute, second.
-fn civil(secs: i64) -> (i64, u32, u32, u32, u32, u32) {
+pub(crate) fn civil(secs: i64) -> (i64, u32, u32, u32, u32, u32) {
     let (days, rem) = (secs.div_euclid(86400), secs.rem_euclid(86400));
     // days to a date in the proleptic Gregorian calendar (H. Hinnant's civil_from_days)
     let z = days + 719468;

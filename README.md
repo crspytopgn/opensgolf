@@ -112,7 +112,7 @@ helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a fe
   balls roll and who comes out to play), more visitors (touring pros and invented celebrities, moddable through
   data/visitors.toml), the calendar at half or quarter speed or stopped, sandbox switches (freeze golfer happiness, unlock
   everything), and, experimental, cut content restored as decorative landmarks), looks (turning buildings, path styles
-  and lamp posts, random trees), a search over every
+  and lamp posts, random trees, the desert's Ravine and Brush art the right way round), a search over every
   Preferences option with a reset to the original, and interface extras such as a People screen, message history,
   autosave (the last three kept), a map of each saved course, pausing in the background or on big news, and course
   sharing: copy a course code, a friend pastes it and tries to beat your course record.
@@ -140,6 +140,8 @@ helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a fe
   the row and its cost shown before you let go; and *Original* and *Modern* control presets on the Change keys screen.
 - **Random trees** (interface extra): every tree planted takes a random size and species of its kind, and every scenic
   tree a random one of the seven.
+- **The desert's Ravine and Brush art** (interface extra, issue #89): the original's desert draws the Ravine as dry weeds
+  and the Brush as a crack, on the course and on their buttons; this trades the two pictures, play unchanged.
 - **Updates from the title menu:** *Check for updates*, then *Update now* downloads the new version, checks its signature
   and installs it in place (Windows, macOS, Linux, Android); on Windows and with the Linux .tar.gz it downloads only the
   programs and the pack files that changed. A Preferences tick (Preferences → More) checks once at each start. Only GitHub is contacted, and
@@ -153,11 +155,17 @@ helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a fe
   import a heightmap picture, choose the land owned at the start, the starting cash, the difficulty and goals, and save it
   as a scenario to play and share ([docs/PLAYING.md](docs/PLAYING.md#course-editor)).
 
+- **Report a problem** (Preferences → More, or Shift+F8): opens the bug report form in your browser
+  filled in with the version, platform and a short system line, and puts a copy of your game (and a screenshot) in a
+  Reports folder to attach. Nothing is sent until you submit the form
+  ([docs/PLAYING.md](docs/PLAYING.md#reporting-a-problem)).
+
 How close each part is to the original is tracked in [docs/PARITY.md](docs/PARITY.md).
 
 ## Reporting bugs and contributing
 
-Please report bugs and suggest ideas on the [issue tracker](https://github.com/crspytopgn/opensgolf/issues/new/choose).
+Please report bugs and suggest ideas on the [issue tracker](https://github.com/crspytopgn/opensgolf/issues/new/choose)
+(in the game, Preferences → More → *Report a problem...* or Shift+F8 fills in the bug form for you).
 Contributions of code, art for the free base set and translations are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md) and
 [docs/TRANSLATING.md](docs/TRANSLATING.md).
 
@@ -170,8 +178,8 @@ and off by default; only fixes for the original's own bugs are on.
 course sharing with challenges, controllers and the Steam Deck, and new Enhanced graphics (weather by place and year,
 wildlife, crowds, winter, grass, sharpening).
 
-Ideas for later: a community course gallery, club events, more translations, an installable phone and
-tablet app, and playing together online.
+Ideas for later: a community course gallery, club events, more translations and an installable phone and
+tablet app.
 
 ## Legal
 
@@ -197,6 +205,9 @@ packs (mods) choose their own licence; the free base set is GPL-2.0-or-later too
 
 OpenSGolf is free and always will be. If you enjoy it and feel like buying me a coffee, that's always nice:
 [buymeacoffee.com/crspytopgn](https://buymeacoffee.com/crspytopgn).
+The game itself asks at most twice, gently, after an hour of play and again five hours later if you said *Maybe later*
+(the play time is counted on your device only and never sent; *Don't ask again* ends it; see
+[docs/PLAYING.md](docs/PLAYING.md#supporting-opensgolf)). Preferences > More has a *Support OpenSGolf* line.
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/crspytopgn)
 

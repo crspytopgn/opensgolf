@@ -120,7 +120,7 @@ impl App {
         match sg_core::hires::sheet_sprite(path, pal, &s) {
             None => s,
             Some(Err(e)) => {
-                eprintln!("content pack: {}: {e}", path.display());
+                crate::bugreport::warn(&format!("content pack: {}: {e}", path.display()));
                 s
             }
             Some(Ok((small, sheet))) => {

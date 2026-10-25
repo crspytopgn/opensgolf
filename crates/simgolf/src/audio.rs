@@ -168,7 +168,7 @@ mod device {
                     self.failed = flag;
                 }
                 Err(e) => {
-                    eprintln!("sound: {e}");
+                    crate::bugreport::warn(&format!("sound: {e}"));
                     // try again later, quietly, with the same name (no message every two seconds)
                     self.device = now;
                 }

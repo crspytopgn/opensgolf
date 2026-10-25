@@ -136,7 +136,7 @@ impl Pad {
         {
             if !self.started {
                 self.started = true;
-                self.gilrs = gilrs::Gilrs::new().map_err(|e| eprintln!("controllers: {e}")).ok();
+                self.gilrs = gilrs::Gilrs::new().map_err(|e| crate::bugreport::warn(&format!("controllers: {e}"))).ok();
             }
             let gil = self.gilrs.as_mut()?;
             while let Some(ev) = gil.next_event() {

@@ -23,6 +23,15 @@ After a full load (0x40b9b0): flags 0x59e7b8 = loaded flags with bits 4 and 8 cl
 "restore" set and a name other than "While Browsing.sve" it shows "Loading Game" (0x4c5304); if the loaded theme byte differs
 from the one in memory the theme's art is reloaded (0x43dbe0). EXACT.
 
+The hole being built after a load: the flag word keeps bit 0x40000 (the hole layout pass has planned the hole being built,
+PUBLISHER_EXE_NOTES "Building holes") as the file has it (0x40bae7..0x40bb08 clear only bits 4 and 8), but the first rebuild,
+0x42f7a0, ends by clearing 0x40000 (0x42f929, the only place the code masks that bit out of the flag word). The pass's
+landing table (0x542dfc / 0x542e24) lies between the blocks 0x542414 and 0x543cfc of section 4, so it is not saved. So the
+next frame plans the hole again, drawing from the generator, and sets the hole record's facing, length, marks and yardage
+markers afresh. EXACT for the reads and writes (machine code of 0x40b9b0 and 0x42f7a0); DERIVED that 0x42f7a0 is the
+"terrain refresh" of the layout pass's notes. The port does the same:
+its load plans the hole being built again (`App::load_save_into`, `sync_course`), once, as a terrain refresh does.
+
 ## 2. Versioning and variants
 
 * There is no magic, version number, checksum or length field: the file is a memory dump in a fixed order. EXACT.

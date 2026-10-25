@@ -368,6 +368,10 @@ pub struct SaveGame {
     /// not, told to the player when the game is loaded. The game's own saves do not write it again.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub imported: Option<String>,
+    /// The cosmetic generator (`App::deco_rng`), which steps the celebrity residents' walk: saved only while the club has
+    /// residents, so they walk on after a load as they would have (older saves: none, and the generator goes on as it is).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deco_rng: Option<ExeRng>,
 }
 
 const SAVE_MAGIC: &[u8] = b"SIMGOLF-NATIVE-SAVE\n";
@@ -484,6 +488,7 @@ pub fn original_save(g: sg_core::sve::Game, game_dir: &Path) -> SaveGame {
         shared: false,
         packs: None,
         imported: Some(note),
+        deco_rng: None,
     }
 }
 
@@ -516,6 +521,9 @@ pub struct App {
     pub seed: u32,
     pub terrain: Terrain,
     pub catalog: TextureCatalog,
+    /// Whether the terrain's batches were built with the desert's Ravine and Brush art traded (`ground_tex`): the main loop
+    /// rebuilds them when the tick changes.
+    pub desert_art_built: bool,
     pub light: Lighting,
     /// Loaded textures by file (None when the file could not be decoded).
     pub textures: HashMap<PathBuf, Option<TextureId>>,
@@ -560,6 +568,11 @@ pub struct App {
     /// The terrain came from outside the hole tool (demo course, saved terrain, scripted edits): its painted tee and green
     /// pairs become holes at the next course sync.
     pub adopt_holes: bool,
+    /// What the plan of the hole being built was last made on (`plan_inputs`): a course sync plans the hole again only when
+    /// that changed, as the exe plans it again only after its terrain refresh 0x42f7a0 clears game flag 0x40000 (0x42f929),
+    /// which neither the Course Report (0x44fb30) nor the instant shot analysis (0x41d0e3..0x41d8f3) runs. Not saved: a load
+    /// clears it, as the exe's load runs the refresh (`load_save_into`).
+    pub plan_made_on: Option<u64>,
     pub sim_time: f64,
     /// Golfer clips by sprite id (clip + body): body and shadow sprites.
     pub golfer_clips: HashMap<i32, (Option<usize>, Option<usize>)>,
@@ -694,6 +707,8 @@ pub struct App {
     pub xs: crate::extras::State,
     /// Quick save and load, the comfort pauses and the staff areas (comfort.rs).
     pub comfort: crate::comfort::State,
+    /// The support reminder's play time and asks (support.rs; the port's own, kept in settings.json, never in saves).
+    pub support: crate::support::State,
     /// The Change keys screen, the hidden interface and the save's content packs question (controls_ui.rs).
     pub ctl: crate::controls_ui::CtlState,
     /// The scenario's goals and the packs' scripts of the game in progress (scenario_ui).
@@ -923,6 +938,7 @@ impl App {
             seed: 7,
             terrain: Terrain::default(),
             catalog: TextureCatalog::default(),
+            desert_art_built: false,
             light: Lighting::default(),
             textures: HashMap::new(),
             hd: crate::hd::HdState { pack_dir: save_dir().join("HD"), ..Default::default() },
@@ -953,6 +969,7 @@ impl App {
             course: Course::default(),
             hole_numbers: Vec::new(),
             adopt_holes: true,
+            plan_made_on: None,
             sim_time: 0.0,
             golfer_clips: HashMap::new(),
             difficulty: 1,
@@ -1002,6 +1019,7 @@ impl App {
             prefs_stack: Vec::new(),
             xs: Default::default(),
             comfort: Default::default(),
+            support: Default::default(),
             ctl: Default::default(),
             scen: Default::default(),
             last_message: String::new(),
@@ -1298,7 +1316,9 @@ impl App {
         let title = matches!(
             self.screen,
             Screen::Menu | Screen::Scenarios | Screen::Difficulty | Screen::Property | Screen::Themes | Screen::Credits
-        ) || (self.screen == Screen::Files && !self.title.over_game());
+        ) || (self.screen == Screen::Files && !self.title.over_game())
+            // the support box over the title menu (support.rs)
+            || self.popup_over_title();
         if self.music_screen == Some(title) {
             return;
         }
@@ -1408,6 +1428,7 @@ impl App {
         // the free base set draws all its water in one look with a shore against land (sg_core::terrain::Terrain::water_one)
         self.terrain.water_one = self.content.loaded.first().is_some_and(|b| b == sg_core::packs::FREE);
         self.sync_tile_corners();
+        self.desert_art_built = self.desert_art();
         let mut map: BTreeMap<usize, (TextureId, Vec<Vert>)> = BTreeMap::new();
         let mut tris = Vec::new();
         let mut order: HashMap<Option<TextureId>, usize> = HashMap::new();
@@ -1423,7 +1444,7 @@ impl App {
                 }
                 build_tile_triangles(&self.terrain, x, y, &mut tris);
                 for t in &tris {
-                    let path = self.catalog.pick(t.tex_type, t.set, t.variation).cloned();
+                    let path = self.catalog.pick(self.ground_tex(t.tex_type), t.set, t.variation).cloned();
                     let tex = path.and_then(|p| self.texture_for(g, &p));
                     let next = order.len();
                     let key = *order.entry(tex).or_insert(next);
@@ -1441,6 +1462,23 @@ impl App {
         self.build_paths(g);
         self.build_walls(g);
         self.build_edge_walls(g);
+    }
+
+    /// Whether the desert's Ravine and Brush art is traded (OpenSGolf extras, extras.rs `desert_art`): the tick, in the
+    /// desert theme only.
+    pub fn desert_art(&self) -> bool {
+        self.theme == 2 && crate::extras::desert_art()
+    }
+
+    /// The ground texture type a tile triangle is drawn with: its own (Terrain.dll's pick, sg_core::terrain
+    /// `build_tile_triangles`), or with the desert's art fixed the Ravine's and the Brush's traded, edge pieces and all (the
+    /// blend variations still come from the tiles' own types, so the borders fall where the original's do).
+    fn ground_tex(&self, tex_type: i32) -> i32 {
+        if self.desert_art_built {
+            crate::extras::desert_art_swap(tex_type)
+        } else {
+            tex_type
+        }
     }
 
     /// Path overlay (our own model): every path tile gets a centre piece, plus an arm toward each path neighbour, cut out of the
@@ -1769,7 +1807,7 @@ impl App {
             }
             Err(e) => {
                 if !shadow {
-                    eprintln!("sprite: {e}"); // many objects simply have no shadow file
+                    crate::bugreport::warn(&format!("sprite: {e}")); // many objects simply have no shadow file
                 }
                 None
             }
@@ -2115,7 +2153,7 @@ impl App {
         let cat = match TextureCatalog::load(&dir) {
             Ok(c) => c,
             Err(e) => {
-                eprintln!("error: {e}");
+                crate::bugreport::warn(&format!("error: {e}"));
                 return false;
             }
         };
@@ -2188,10 +2226,35 @@ impl App {
         if std::mem::take(&mut self.adopt_holes) {
             self.adopt_painted_holes();
         }
-        // every terrain change plans the hole being built again
-        self.club.game &= !golf::game::LAYOUT;
-        self.club.layout(&mut self.course, &mut self.exe_rng);
+        // every terrain change plans the hole being built again; a sync with nothing changed (a redraw, the Course Report, the
+        // shot analysis) keeps the plan (see `plan_made_on`)
+        let inputs = self.plan_inputs();
+        if self.plan_made_on != Some(inputs) {
+            self.club.game &= !golf::game::LAYOUT;
+            self.club.layout(&mut self.course, &mut self.exe_rng);
+            self.plan_made_on = Some(inputs);
+        }
         self.rebuild_hole_routes();
+    }
+
+    /// What the plan of the hole being built is made on, as a hash: the golfers' course as the terrain and the buildings make
+    /// it (not the weeds and work marks, the counters of landings and moods, nor the planner's scratch hazard bytes, which
+    /// change as the game runs without a terrain refresh), the hole being built and its tees and cup, and the two tees mode.
+    fn plan_inputs(&self) -> u64 {
+        use sg_core::course::f;
+        let c = &self.course;
+        let mut h = sg_core::fingerprint::Fnv64::new();
+        h.u64(sg_core::fingerprint::hash(&(&c.ty, &c.obj, &c.height, &c.walls, c.theme, c.door, c.editor)));
+        for &v in &c.flags {
+            h.u64((v & !(f::WEED | f::GROWING)) as u64);
+        }
+        for o in &c.objects {
+            h.u64(sg_core::fingerprint::hash(&(o.kind, o.a, o.b, o.dir)));
+        }
+        let n = self.club.next_hole;
+        let r = &self.club.holes[n.clamp(0, 19) as usize];
+        h.u64(sg_core::fingerprint::hash(&(n, r.back, r.fwd, r.pin, self.club.game & golf::game::TWO_TEES)));
+        h.finish()
     }
 
     /// The numbers of the open holes, from the golfers' hole records.
@@ -2255,19 +2318,7 @@ impl App {
 
     /// The staff's weed tiles into the golfers' tile flags (the exe keeps both in one array).
     fn weeds_to_course(&mut self) {
-        let t = &self.staff_tiles;
-        if t.flags.len() != (t.w * t.h) as usize {
-            return;
-        }
-        for a in 0..t.w.min(sg_core::course::n()) {
-            for b in 0..t.h.min(sg_core::course::n()) {
-                let si = (b * t.w + a) as usize;
-                let ci = sg_core::course::idx(a, b);
-                let bits = t.flags[si] & (staff::WEEDS | staff::WORKED);
-                self.course.flags[ci] = (self.course.flags[ci] & !(staff::WEEDS | staff::WORKED)) | bits;
-                self.course.growth[ci] = t.counter[si];
-            }
-        }
+        weeds_into(&self.staff_tiles, &mut self.course);
     }
 
     /// New weeds the golfers started, back into the staff's tiles.
@@ -2387,6 +2438,14 @@ impl App {
                     let home = (l.objects[i].a, l.objects[i].b);
                     if let Some(o) = self.club.celebrity_home(&mut self.exe_rng, val, owner, home) {
                         l.objects[i].sub = o;
+                    }
+                }
+                // the course's copy of the objects (made from the land's at each terrain change) takes the new values and
+                // owners too, as a loaded game's copy has them (the port's own: it kept those of the last terrain change)
+                for o in self.course.objects.iter_mut() {
+                    if let Some(n) = l.objects.iter().find(|n| (n.kind, n.a, n.b) == (o.kind, o.a, o.b)) {
+                        o.val = n.val;
+                        o.sub = n.sub;
                     }
                 }
                 if (sizes(l), l.objects.iter().map(|o| o.sub).collect::<Vec<_>>()) != before {
@@ -2600,6 +2659,9 @@ impl App {
             self.staff_tick();
             self.staff_animate();
             self.resident_tick();
+            // test hooks: SG_FINGERPRINT and SG_SAVE_AT (fingerprint.rs)
+            self.fingerprint_note("");
+            self.save_at_hook();
             if before.is_some_and(|b| crate::comfort::big_news(&b, &self.news())) {
                 self.pause_for_news();
             }
@@ -2910,7 +2972,7 @@ impl App {
         let path = crate::files_ui::saved_games_dir().join("&QuitSave.sgs");
         match self.save_game(&path) {
             Ok(()) => println!("saved game {}", path.display()),
-            Err(e) => eprintln!("could not save {}: {e}", path.display()),
+            Err(e) => crate::bugreport::warn(&format!("could not save {}: {e}", path.display())),
         }
         self.screen = Screen::Menu;
         self.hover = -1;
@@ -2930,6 +2992,9 @@ impl App {
     pub fn save_game(&self, path: &Path) -> Result<(), String> {
         let out = self.save_bytes(6)?;
         if sg_core::fsutil::write_file(path, &out) {
+            self.fingerprint_note("save");
+            // the save self-check reads the file back over the next frames (selfcheck.rs)
+            self.selfcheck_after_save(&out);
             Ok(())
         } else {
             Err(trf("STR_ERROR_COULD_NOT_WRITE", &[("FILE", &path.display())]))
@@ -2976,6 +3041,7 @@ impl App {
             packs: self.saved_packs(),
             shared: false,
             imported: None,
+            deco_rng: (!self.club.residents.is_empty()).then_some(self.deco_rng),
         };
         encode_save(&save, level)
     }
@@ -2983,7 +3049,9 @@ impl App {
     /// Loads a whole game saved by `save_game` and goes on from where it was.
     pub fn load_game(&mut self, g: &mut Gfx, path: &Path) -> Result<(), String> {
         let s = read_save(path)?;
-        self.load_save(g, s)
+        self.load_save(g, s)?;
+        self.fingerprint_note("load");
+        Ok(())
     }
 
     /// Goes on with a game read by `read_save` (or `read_save_bytes`).
@@ -2997,7 +3065,13 @@ impl App {
 
     /// `load_save`; with `keep_art` (undo.rs) a save of the theme already loaded keeps its textures and only rebuilds the
     /// course's meshes and props.
-    pub fn load_save_with(&mut self, g: &mut Gfx, mut s: SaveGame, keep_art: bool) -> Result<(), String> {
+    pub fn load_save_with(&mut self, g: &mut Gfx, s: SaveGame, keep_art: bool) -> Result<(), String> {
+        self.load_save_into(Some(g), s, keep_art)
+    }
+
+    /// `load_save_with`; without `g` the game is loaded with no art, no portraits, no scripts run and no message: the save
+    /// self-check's scratch copy of the game (selfcheck.rs), which only reads the simulation back.
+    pub(crate) fn load_save_into(&mut self, mut g: Option<&mut Gfx>, mut s: SaveGame, keep_art: bool) -> Result<(), String> {
         let imported = s.imported.take();
         // the save's course size (older saves: the original's), before anything reads the map
         sg_core::mapsize::set(s.size);
@@ -3024,11 +3098,18 @@ impl App {
             }
         }
         self.adopt_holes = false;
-        if keep_art && s.theme == self.theme {
-            self.rebuild_batches(g);
-            self.populate_props();
-        } else if !self.load_theme(g, s.theme) {
-            return Err(tr("STR_ERROR_THEME_NOT_LOADED").into());
+        match g.as_deref_mut() {
+            Some(g) if keep_art && s.theme == self.theme => {
+                self.rebuild_batches(g);
+                self.populate_props();
+            }
+            Some(g) => {
+                if !self.load_theme(g, s.theme) {
+                    return Err(tr("STR_ERROR_THEME_NOT_LOADED").into());
+                }
+            }
+            // the scratch copy: only the theme the simulation reads (exe_theme)
+            None => self.theme = s.theme,
         }
         self.club = s.club;
         if self.club.roster.is_empty() {
@@ -3037,7 +3118,10 @@ impl App {
             let pack = THEME_PACKS.get(self.theme_pack).copied().unwrap_or("Standard").replace(' ', "_");
             self.club.roster = sg_core::roster::load(&self.game_dir, &pack);
         }
-        self.register_portraits(g);
+        // (the scratch copy keeps the portraits' heads as saved, which are the live game's)
+        if let Some(g) = g.as_deref_mut() {
+            self.register_portraits(g);
+        }
         let tutorial = self.club.stories.tutorial;
         self.load_story();
         self.club.stories.tutorial = tutorial;
@@ -3045,13 +3129,25 @@ impl App {
         self.econ = s.econ;
         self.econ.extras = self.club.extras;
         self.exe_rng = s.exe_rng;
+        if let Some(r) = s.deco_rng {
+            self.deco_rng = r;
+        }
         self.noise = s.noise;
         self.employees = s.employees;
         self.staff_tiles = s.staff_tiles;
         self.game_tick = s.game_tick;
         self.hole_numbers.clear();
+        // As the original's load: a hole being built is planned again here, with the generator as loaded, even when the save
+        // has it planned (game flag LAYOUT, the landings and the hole record are all in the save). The exe's load 0x40b9b0
+        // restores the flag word with 0x40000 as saved (0x40bae7..0x40bb08) but then runs 0x42f7a0, which clears 0x40000
+        // (0x42f929), and the landing table 0x542dfc is not a saved block (docs/DECODE_SAVE.md section 1). Keeping the plan
+        // would not match the original.
+        self.plan_made_on = None;
         self.sync_course();
         self.hole_stats = s.hole_stats;
+        // the Weather that matters extra's day as the save left it (sg_core::weather; nothing with the extra off)
+        self.club.place = self.weather_place();
+        self.club.weather_restore();
         self.sim_time = 0.0;
         self.tick_acc = 0.0;
         self.reset_clock = true;
@@ -3061,7 +3157,12 @@ impl App {
         self.pstate.alt = false;
         self.edit = false;
         self.dirty = true;
-        self.restore_game_scripts(s.goals, &s.scripts);
+        if g.is_some() {
+            self.restore_game_scripts(s.goals, &s.scripts);
+        } else {
+            // the scratch copy runs no scripts: the self-check compares their saved state with the live game's itself
+            self.scen.goals = s.goals;
+        }
         self.xs = crate::extras::State { kept: s.extras, ..Default::default() };
         // an undo in the course editor stays in the editor: free building, no scripts (editor.rs)
         self.econ.free = self.editor.is_some();
@@ -3069,7 +3170,7 @@ impl App {
             self.scen.host = Default::default();
         }
         // a game brought over from the original's saved game says what came over (share.rs)
-        if let Some(note) = imported {
+        if let Some(note) = imported.filter(|_| g.is_some()) {
             self.post_message(&note, 1, crate::message_ui::NOBODY);
         }
         Ok(())
@@ -4027,6 +4128,22 @@ pub fn tick_bench_report(app: &App) {
 }
 
 /// Milliseconds from the system clock, wrapped to 32 bits like the Windows tick count.
+/// The staff's weed tiles into a course's tile flags and growth (`App::weeds_to_course`, at the start of every game tick).
+pub fn weeds_into(t: &TileState, course: &mut Course) {
+    if t.flags.len() != (t.w * t.h) as usize {
+        return;
+    }
+    for a in 0..t.w.min(sg_core::course::n()) {
+        for b in 0..t.h.min(sg_core::course::n()) {
+            let si = (b * t.w + a) as usize;
+            let ci = sg_core::course::idx(a, b);
+            let bits = t.flags[si] & (staff::WEEDS | staff::WORKED);
+            course.flags[ci] = (course.flags[ci] & !(staff::WEEDS | staff::WORKED)) | bits;
+            course.growth[ci] = t.counter[si];
+        }
+    }
+}
+
 pub fn clock_ms() -> u32 {
     (miniquad::date::now() * 1000.0) as u64 as u32
 }
@@ -4750,5 +4867,79 @@ impl App {
             return;
         }
         self.clicked_tile = Some(t);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A game on a flat fairway with hole 1's tee at 10,10 and its cup green at 10,30, planned but not opened.
+    fn building_game() -> App {
+        let mut a = App::with_clock(PathBuf::new(), 4242);
+        let n = sg_core::mapsize::ORIGINAL;
+        let tiles = (n * n) as usize;
+        a.terrain = Terrain { w: n, h: n, ty: vec![2; tiles], variation: vec![0; tiles], set: vec![0; tiles], ..Default::default() };
+        a.terrain.corner = vec![1; ((n + 1) * (n + 1)) as usize];
+        a.terrain.path_kind = vec![0; tiles];
+        a.terrain.wall_mask = vec![0; tiles];
+        a.terrain.paint(10, 10, 0, 0);
+        a.terrain.paint(10, 30, 1, 0);
+        let h = &mut a.club.holes[1];
+        h.back = (10, 10);
+        h.fwd = (10, 10);
+        h.pin = (10, 30);
+        a.sync_course();
+        a.game_tick = 1;
+        a
+    }
+
+    /// What the plan of the hole being built leaves in the game.
+    fn plan_of(a: &App) -> String {
+        let c = &a.club;
+        serde_json::to_string(&(a.exe_rng, c.game, &c.layout_land, &c.holes[1], &c.g[sg_core::holetool::TRIAL], &c.planner)).unwrap()
+    }
+
+    #[test]
+    fn the_hole_being_built_is_planned_again_only_after_a_terrain_change() {
+        let mut a = building_game();
+        assert!(a.club.game & golf::game::LAYOUT != 0 && !a.club.layout_land.is_empty(), "the hole is planned");
+        let planned = plan_of(&a);
+        // a redraw's sync and the Course Report change nothing (the exe's 0x44fb30 does not run the refresh 0x42f7a0)
+        a.sync_course();
+        a.report_course(true);
+        assert_eq!(plan_of(&a), planned);
+        // the instant shot analysis draws only its own shots (0x41d0e3..0x41d8f3 runs no refresh either)
+        let mut b = building_game();
+        a.start_analysis(Some((10, 20)), true);
+        let hole = b.club.nearest_hole(10, 20);
+        b.club.shot_analysis(&mut b.course, &mut b.exe_rng, 10, 20, hole);
+        assert_eq!(a.exe_rng.state, b.exe_rng.state);
+        assert_eq!(a.club.layout_land, b.club.layout_land);
+        // a terrain change plans it again
+        let before = a.exe_rng.state;
+        a.terrain.paint(20, 20, 4, 0);
+        a.sync_course();
+        assert_ne!(a.exe_rng.state, before);
+    }
+
+    #[test]
+    fn a_load_plans_the_hole_being_built_again_as_the_original_does() {
+        let a = building_game();
+        let bytes = a.save_bytes(1).unwrap();
+        let load = || {
+            let mut b = App::with_clock(PathBuf::new(), 7);
+            b.load_save_into(None, read_save_bytes(&bytes, "test").unwrap(), false).unwrap();
+            b
+        };
+        let (mut b, c) = (load(), load());
+        // 0x40b9b0 then 0x42f7a0 (0x42f929): planned again, with the generator as saved, the same way each time
+        assert_ne!(b.exe_rng.state, a.exe_rng.state);
+        assert!(b.club.game & golf::game::LAYOUT != 0);
+        assert_eq!(plan_of(&b), plan_of(&c));
+        // and only once: the load's redraw keeps that plan
+        let loaded = plan_of(&b);
+        b.sync_course();
+        assert_eq!(plan_of(&b), loaded);
     }
 }

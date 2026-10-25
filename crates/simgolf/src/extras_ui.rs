@@ -147,8 +147,8 @@ const PAGE_LINES: [&[ExtrasLine]; 5] = {
             G(2), // hardcore
         ],
         &[Calendar, G(8), G(9)],
-        // path styles and lamps, Tab turns buildings (only the picture turns), random trees
-        &[G(x::PATHS), G(0), U(21)],
+        // path styles and lamps, Tab turns buildings (only the picture turns), random trees, the desert's Ravine and Brush art
+        &[G(x::PATHS), G(0), U(21), U(23)],
         // People, extra reports, messages, path help, home-site details
         &[Group(0), Group(1), Group(2), U(4), U(19)],
         // autosave, save pictures, sharing, import and export saved games, the two pauses, then the three the controls presets set: drag to place, zoom
@@ -244,6 +244,7 @@ const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_RIGHT_DRAG",
     "STR_EXTRAS_DESC_RANDOM_TREES",
     "STR_EXTRAS_DESC_SAVE_FILES",
+    "STR_EXTRAS_DESC_DESERT_ART",
 ];
 
 /// A line's description (what ticking it changes; for the preset line, what the preset in use is).
@@ -896,7 +897,7 @@ mod tests {
             }
         }
         // looks: only the picture changes
-        for l in [ExtrasLine::Game(0), ExtrasLine::Game(x::PATHS), ExtrasLine::Ui(21)] {
+        for l in [ExtrasLine::Game(0), ExtrasLine::Game(x::PATHS), ExtrasLine::Ui(21), ExtrasLine::Ui(23)] {
             assert_eq!(page_of(l), Some(2), "{l:?}");
         }
         // animals cost money and lift moods: gameplay, a light touch

@@ -297,6 +297,10 @@ miniquad_add_plugin({
         // code or the original's top10.sve and saved games; the game reads it from picked/ and files it as a dropped file
         // (share.rs)
         env.sg_pick_save = function () { sgPickFile(".sgs,.sgch,.txt,.sve"); };
+        // Report a problem (crates/simgolf/src/bugreport.rs): the bug report form in a new tab (the click on the box's OK
+        // is still being handled, so the browser takes it as the player's); a note with the link when the tab is blocked
+        env.sg_open_url = function (ptr, len) { sgOpenUrl(sgStr(ptr, len)); };
+        env.sg_touch_device = function () { return sgTouchDevice() ? 1 : 0; };
         env.sg_pick_poll = function (dst, cap) {
             if (sgPicked === null) return -1;
             const b = enc.encode(sgPicked);
@@ -329,6 +333,33 @@ function sgPickFile(accept = ".png,image/png") {
     });
     document.body.appendChild(input);
     input.click();
+}
+
+// Report a problem: the form in a new tab, else a note over the game with its link to tap.
+function sgOpenUrl(url) {
+    let w = null;
+    try { w = window.open(url, "_blank"); } catch (e) {}
+    if (w) {
+        try { w.opener = null; } catch (e) {}
+        return;
+    }
+    const note = document.createElement("div");
+    note.style.cssText = "position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top));transform:translateX(-50%);z-index:20;" +
+        "max-width:min(720px,calc(100vw - 32px));background:rgba(10,30,18,0.95);color:#fff;font:600 clamp(16px,2.4vw,20px)/1.45 system-ui,sans-serif;" +
+        "padding:14px 20px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.5);text-align:center";
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.style.color = "#f4d35e";
+    a.textContent = "Open the bug report form";
+    const close = document.createElement("span");
+    close.textContent = "  \u00d7";
+    close.style.cursor = "pointer";
+    a.addEventListener("click", () => setTimeout(() => note.remove(), 0));
+    close.addEventListener("click", () => note.remove());
+    note.append(a, close);
+    document.body.appendChild(note);
 }
 
 // Hands a file to the browser as a download.

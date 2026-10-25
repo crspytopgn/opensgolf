@@ -179,11 +179,11 @@ pub fn startup(game_dir: &Path, base: Option<&str>) -> ContentState {
     }
     for r in &plan.rows {
         if let Status::Error(e) = &r.status {
-            eprintln!("content pack {} ({}): {e}", r.manifest.name, r.location);
+            crate::bugreport::warn(&format!("content pack {} ({}): {e}", r.manifest.name, r.location));
         }
     }
     for (id, w) in &warnings {
-        eprintln!("content pack {}: {w}", if id.is_empty() { "data" } else { id });
+        crate::bugreport::warn(&format!("content pack {}: {w}", if id.is_empty() { "data" } else { id }));
     }
     packs::apply(game_dir, loaded);
     ContentState {
@@ -611,7 +611,7 @@ impl App {
             match r.and_then(|d| sg_core::index::Index::parse(&d)) {
                 Ok((idx, warnings)) => {
                     for w in &warnings {
-                        eprintln!("content index: {w}");
+                        crate::bugreport::warn(&format!("content index: {w}"));
                     }
                     v.offers = sg_core::index::offers(&idx, &self.content.found);
                     v.problems = warnings;
@@ -623,7 +623,7 @@ impl App {
                     v.failed = false;
                 }
                 Err(e) => {
-                    eprintln!("content index {}: {e}", v.url);
+                    crate::bugreport::warn(&format!("content index {}: {e}", v.url));
                     v.status = trf("STR_INDEX_FAILED", &[("ERROR", &e)]);
                     v.failed = true;
                 }
@@ -646,7 +646,7 @@ impl App {
                 v.failed = false;
             }
             Err(e) => {
-                eprintln!("content index: {}: {e}", offer.entry.id);
+                crate::bugreport::warn(&format!("content index: {}: {e}", offer.entry.id));
                 let v = self.content.index.as_mut().expect("open");
                 v.status = trf("STR_INDEX_DOWNLOAD_FAILED", &[("PACK", &offer.entry.name), ("ERROR", &e)]);
                 v.failed = true;

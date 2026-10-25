@@ -53,7 +53,7 @@ impl App {
             let path = dir.join(FILE);
             match self.save_game(&path) {
                 Ok(()) => println!("autosaved {}", path.display()),
-                Err(e) => eprintln!("autosave: {e}"),
+                Err(e) => crate::bugreport::warn(&format!("autosave: {e}")),
             }
         }
     }

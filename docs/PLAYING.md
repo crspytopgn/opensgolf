@@ -57,7 +57,7 @@ copies leave them out), only the Sims' voices in `SimsFX`, or lacks more than a 
 when the game starts and the ticker on every start (sg_core::mixer `shortfall`; the console or log has a `sound:` line
 with the counts). The browser page also sums up what it found after loading the files, in large type on the start page
 (and again there on the next visit, as "Last time: ...") and over the game once (20 seconds, or until tapped when
-something is missing): "OpenSGolf 0.5.5. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
+something is missing): "OpenSGolf 0.5.6. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
 big). Art ✓, music: N, Sims' voices: N." The console's `files:` line adds the compression methods the zip used.
 Deflate64 (Windows' own zipper, for big files such as the sounds), BZip2, LZMA and PPMd (7-Zip's, Keka's and The
 Unarchiver's stronger settings), which iPad's Files app cannot unpack (it shows such folders empty), are read by the
@@ -195,6 +195,23 @@ reporting. Its Top 10 Designers (`top10.sve`) has the same layout as the port's:
 designers to your table (its made-up default designers are left out, and the best ten of both stay); the start page's
 Restore puts it in place of the browser's table, after asking.
 
+**Save self-check (not in the original).** Each time the game is saved (by you, the Autosave extra, the quick save or the
+end of a career), OpenSGolf quietly reads the file it has just written back in memory, into a scratch copy of the game,
+and checks that it gives exactly the game you are playing (the simulation fingerprint below). Your game, the screen, the
+sounds and the ticker are not touched, and it takes a few milliseconds spread over the next two frames (about 20 ms in all
+on an 18-hole Giant course on a desktop), at most once every two minutes. Nothing is shown when the save is fine, which
+is always unless the port has a bug. When the two differ, the game keeps a small report in `Reports` in the save folder
+(on Android in the app's external files folder beside `Photos`; in the browser in its own storage with the saves, and in
+Back up my saves): `selfcheck-<date>-<time>.txt`, which says which parts of the game differ (sections and fields, such
+as "econ econ.cash"), the OpenSGolf version, the platform (such as "windows x86_64" or "web") and the date, and the save
+it was found with, `selfcheck-<date>-<time>.sgs`. The newest five are kept. At the next start the ticker says once that a
+report was kept and that Preferences > More > Report a problem can send it. **Privacy:** nothing is sent anywhere,
+ever, by the self-check: the reports stay in your save folder until you delete them or choose to send one yourself. A
+report holds no name, folder or anything about your computer beyond the platform; the save in it is your game as you
+saved it (the course, its name and the people in it). Saves of the course editor, and a save made while the hole being
+built has its tee and cup but is not open yet (loading plans that hole again, as the original's load does, so the
+loaded game rightly differs there), are not checked.
+
 ## Course size
 
 OpenSGolf can start a game on a map larger than the original's. The choice is on Select Difficulty (Start New Game and
@@ -312,7 +329,7 @@ On the Add Buildings panel (or b for benches, Shift+B for a home site; Tab turns
 Everything OpenSGolf adds is optional, and every option belongs to one of three kinds:
 
 - **Looks**: changes only how the game looks (path styles and lamps, Tab turning a building's picture, random trees,
-  Enhanced graphics). Play is exactly the original's.
+  the desert's Ravine and Brush art, Enhanced graphics). Play is exactly the original's.
 - **Helpers**: shows you more or saves you effort (the People screen, extra reports, message history, autosave, import
   and export of saved games, the pauses, the mouse helpers). Play is exactly the original's.
 - **Gameplay**: changes how the game plays (animals to buy, more staff, set par, weather, visitors, hardcore, the
@@ -352,7 +369,8 @@ golfers' thoughts**, **Advisor and first-time messages**, **Ambient animals** an
 - **Game files...**: *Use my SimGolf files...* or *Use the free graphics* (not in the browser; see *Your own SimGolf
   files*), *Content packs...*, and *Language:* when a translation is installed.
 - **More...**: *Fix the original game's bugs* (on by default; docs/FIXES.md), *Check for updates when the game starts*
-  (off by default), *Check for updates now* (where the title menu has its button), and *Search options...*.
+  (off by default), *Check for updates now* (where the title menu has its button), *Search options...*, *Report a
+  problem...* (see *Reporting a problem*) and *Support OpenSGolf...* (see *Supporting OpenSGolf*).
 
 The foot of Preferences and of each box says in a sentence what the OpenSGolf line under the pointer does (on a touch
 screen the line last tapped; a line that opens something opens on the second tap, the first showing what it does; ticks
@@ -375,7 +393,7 @@ along its top; a click on a tab, Left and Right or Tab turn them). A banner unde
 - **Gameplay** (gameplay): "Changes how the game plays." (below)
 - **Sandbox** (gameplay): "Bends the rules for relaxed play." (the calendar and the sandbox switches, below)
 - **Looks** (looks): "Changes how it looks. Play is unchanged." (path styles and lamps, Tab turns buildings, random
-  trees, below)
+  trees, the desert's Ravine and Brush art, below)
 - **Info** (helpers): "Shows more about your club. Play is unchanged." Five lines, each ticking a group of the helpers
   described under *OpenSGolf extras* further down: **People screen, name tags and live scorecards**; **Extra reports**
   (landing map, comments by hole, history graphs, the year in numbers, tabs over the reports); **Message history and
@@ -547,6 +565,21 @@ On the **Looks** page:
   random design when you pick a flower bed, scenic tree or bridge (and the first bench); you then choose from the strip.
 - **Random trees.** Every tree the brushes plant takes a random look of its kind (see *Random trees* under *Camera
   bookmarks and the mouse*).
+- **Fix the desert's swapped Ravine and Brush art** (issue #89; off by default, on in the *Original + helpers* and
+  *OpenSGolf* presets, an interface tick kept in `settings.json` as `desert_art`). In the desert theme (Las Vegas,
+  Phoenix, Spain and the other desert properties) the original draws tile 10, the Ravine (the waterless stream), with
+  its Overgrowth textures, which in the desert are scrubby dry weeds, and tile 11, the Brush ("dry half-dead tangle of
+  weed"), with its brush textures, which in the desert are a branching crack (the same pictures as the unused Ravine
+  set); its Build Course buttons show the same, the Ravine's dry weeds and the Brush's crack, the other way round from
+  every other theme, where the Ravine's button is a winding stream and the Brush's bushes. With the tick on, in the
+  desert only, each of the two tiles is drawn with the other's textures (their edge pieces too; the borders between
+  tiles fall where they did), in Classic and Enhanced graphics alike, and the two buttons trade pictures in every state.
+  The tiles, their names and descriptions, costs, how they play and saves do not change, and the other themes are drawn
+  as before. The free graphics' desert copies the original's ground (dry scrub for the Ravine, cracked earth for the
+  Brush), so the tick trades its two ground textures too; its buttons already show a stream and bushes and are left as
+  they are. The routing map colours tiles by class and the brush's pointer is a ring, so neither shows the art. Test
+  hook: put `{"ui_extras": {"desert_art": true}}` in the settings.json of `OPENSGOLF_SAVE_DIR` and paint the tiles with
+  `--property 3 --edit "p:22,25,10,0,2;p:28,25,11,0,2" --panel 1` (`SG_PAINT=10` or `11` arms either brush).
 
 Test hooks: `--extras BITS` sets the extras a new game starts with (1 Tab turns, 2 cut content, 4 hardcore, 8 higher staff
 limits, 16 animals, 32 set par, 64 or 128 the calendar at half or quarter speed, 256 the calendar stopped, 512 freeze golfer
@@ -671,7 +704,8 @@ As in the original: **F1** Course Report, **F2** Player Comments (the twenty mos
 ## OpenSGolf extras
 
 The port's own additions to the interface, none of them in the original (crates/simgolf/src/extras.rs and the modules it
-names). They only add a screen, a tag, a strip, a button or a save: helpers (and one look, random trees), none of them
+names). They only add a screen, a tag, a strip, a button or a save: helpers (and two looks, random trees and the desert's
+Ravine and Brush art), none of them
 changes how the game plays. A new player starts with them off; the *Original + helpers* and *OpenSGolf* presets turn
 them on in one click (the two pauses and the three controls ticks excepted, which stay as you set them), and System
 Functions, Preferences, *Game options...* ticks them on its Info and Helpers pages (the Info page by groups) and
@@ -1003,8 +1037,60 @@ changed every key does what it did before.
   `?safe` at the end of the page's address) puts the Enhanced graphics settings, frame rate cap included, back to their
   defaults without touching saved games.
 
+* **Shift+F8** (the port's own *Report a problem*; F8 alone is the original's) opens the Report a problem box (see
+  *Reporting a problem*).
+
 Test hooks: `SG_PRESS="u;Shift+Q;..."` presses keys (the names `settings.json` uses) after a scripted still's first frame,
 after `SG_CLICK`; letters and Space also type their character.
+
+## Reporting a problem
+
+The port's own helper (crates/simgolf/src/bugreport.rs); nothing changes until you use it (the original's System
+Functions menu is left as it is). System Functions → Preferences → *More...* → *Report a problem...*, or **Shift+F8** on
+the course (Change keys can move it), open a small box that says what will happen, with an *Include a screenshot* tick (ticked), *OK, open the form* (the
+box's tick and Enter too) and *Cancel* (Esc too). OK:
+
+- opens the project's bug report form on GitHub in your browser, already filled in: the version, the platform, the base
+  set (your SimGolf files or the free set), and in *Screenshots, save file, log* a short system line (system and
+  processor, the graphics driver's names, Enhanced graphics on or off, HD and the content packs in use, the gameplay and
+  interface extras as numbers, the window size) with the game's last 30 warnings and errors (a picture that could not be
+  read, a pack's problem, a failed save; the game keeps no log file of its own). The address stays under 6,000
+  characters (the oldest warnings are left out first);
+- writes a copy of the game being played (an ordinary saved game, `.sgs`) and, when ticked, a screenshot of the screen
+  under the box (`.png`), both named `OpenSGolf report <date> <time>` (UTC), to a **Reports** folder in the save folder,
+  and opens that folder in the file manager (Explorer, the Finder, or the desktop's own through xdg-open). A box says
+  which files to drag into the form. On the title screens there is no game to copy.
+- In the browser the form opens in a new tab (if the browser blocks it, a note over the game has the link to tap), and
+  the two files are downloaded instead. On Android they go in `Android/data/org.opensgolf.game/files/Reports` (next to
+  Photos; a computer sees it over USB), and the box says where.
+
+Nothing is sent by the game: you read the form, say what happened and submit it yourself (a GitHub account is needed).
+Without a browser the form's address is put on the clipboard. Test hooks: `--edit "M:12"` opens the box;
+`SG_REPORT=1` makes its OK print the address it would open and write the files without opening the browser or the
+folder (`SG_REPORT=1 SG_PRESS="Shift+F8;Enter"` for a scripted run).
+
+## Supporting OpenSGolf
+
+OpenSGolf is free and complete; nothing is ever locked. The port's own gentle reminder (crates/simgolf/src/support.rs;
+never in the original's menus or screens): the game counts the time you spend playing on the course (the game running,
+not paused and not in the background) **on your own device only**, in `settings.json` in the save folder (the browser's
+own storage on the web, the app's folder on Android). Nothing is sent anywhere, and saved games do not hold it.
+
+After about **an hour of play**, at the next natural pause (the title menu, or just after the year-end report is closed;
+never while building, while your pro is out, during a tournament or over another box) a small box asks once:
+*Enjoying OpenSGolf?*, with **Support on Buy Me a Coffee** (opens [buymeacoffee.com/crspytopgn](https://buymeacoffee.com/crspytopgn)
+in your browser; a new tab in the browser version), **Maybe later** (Esc, a right-click or a click outside the box too)
+and **Don't ask again**. *Maybe later* asks once more after about another five hours of play, and then never again;
+*Support* or *Don't ask again* ends it at once. It asks two times at most, ever, with no countdown and nothing held back.
+To turn it off, choose *Don't ask again* (or *Maybe later* twice), or set `"done": true` under `"support"` in
+`settings.json`. **Preferences > More... > Support OpenSGolf...** opens the same page at any time (and the box asks no
+more).
+
+The store builds (Flathub, F-Droid; `OPENSGOLF_NO_SELF_UPDATE`) keep the reminder; their store pages list the donation
+link too. Test hooks: `SG_PLAYTIME=SECONDS` starts the counter there (`SG_PLAYTIME=3600` and a visit to the title menu
+shows the box); `SG_SUPPORT=1` shows the box at the first frame of the title menu or of a quiet course, whatever the
+counter, for stills (`SG_SUPPORT=1 BIN --game DIR --png out.png --time 2`). A shown box still counts as an ask in
+`settings.json`, so use a scratch `OPENSGOLF_SAVE_DIR` for tests.
 
 ## Controllers and the Steam Deck
 
@@ -1283,3 +1369,34 @@ tower, radio antenna and oil pump the land generator puts down are "an ugly wate
 the original's: landmark types 16 to 18 raise the ugly-object comment (event 20, mood -1) when a walking golfer glances
 at them or a shot's scan sees them; trees, hazard trees included, are never looked at. Test hook: `SG_THOUGHTS=1` prints
 every golfer thought as it is raised, with the golfer's mood. Test hooks for long runs: `SG_GOLFER_LOG=N` prints the golfers every N game ticks (how many are on the holes, queued and pausing, their moods, the quits, the cash, the weather the simulation plays and a hash of where every golfer is, to compare two runs), and `SG_STUCK_LOG=T` prints every golfer who has been on one hole for T game ticks (and each further T) with his state and his partner's.
+
+**Simulation fingerprint (determinism and save fidelity).** For reproducing a bug report exactly and for proving that a
+saved game loads back to the identical game, the port can fingerprint the simulation: one 64-bit number (FNV-1a over a
+fixed, platform-independent byte order, sg_core `fingerprint`) for everything that decides how the game plays on: the
+club (golfers, holes, members, roster, the pro, stories, tournaments, wildlife, the gameplay extras), the course's tiles
+and flags, the terrain and land, the money, the random generators, the staff and their weeds, the tick and calendar and
+the scenario's goals and scripts; camera, props, sprites, sounds, the ticker's text, toasts and Enhanced graphics are not
+in it. Test hooks: `SG_FINGERPRINT=FILE` writes a line "TICK FINGERPRINT" after every game tick (and "... save" when the
+game is saved, "... load" when one is loaded); `SG_FINGERPRINT_PARTS=1` adds each section's own hash (club=, course=,
+econ=, ...) and `SG_FINGERPRINT_PARTS=2` also the club's, the economy's and the course's fields and each golfer field,
+which say where two runs part; `SG_SAVE_AT=TICK,FILE` saves the game right after game tick TICK, inside the simulation,
+so a run can be cut at an exact tick and played on from the save. Two runs of the same scripted game (the same
+`--property`, `--clock`, `--edit` and `--time`) give identical files. `tools/determinism_check.sh [OUT_DIR] [--extras]`
+runs a scripted game twice and compares, saves it at two ticks and checks that the reloaded game plays on identically
+(and that the save self-check read each save back to the identical game), saves a game whose second hole has its tee
+and cup but is not open and checks that two loads of that save play on identically (loading plans that hole again, as the
+original does), and with `--extras` does both with each gameplay extra on in turn.
+
+**Save self-check: test hooks.** `SG_SELFCHECK=1` prints each check's result and its time on each frame
+("selfcheck: ok at tick 700 (6.8 ms: 1.4 + 2.5 + 2.9)": at the save, reading back, loading and comparing) and checks every
+save, with no two minutes between; `SG_SELFCHECK=0` turns the check off; `SG_SELFCHECK_BREAK=1` changes the money in the
+scratch copy, so every check finds a difference and writes a report. The scratch copy takes from the running game what a
+save rightly does not keep: each golfer's screen position (`sx`, `sy`, set from the camera on every drawn frame), the
+flags the game hands the simulation before each tick (the ticker's, the advisor's, the close view's and the snapshots'),
+the snapshots still to queue, the pointer's tile, the scripted runs' aiming, the tiles retyped since the wildlife looked,
+the staff code's golfer copies and, when the save has none, the cosmetic generator; the running game's course copy of the
+staff's weeds and growth is compared as the next tick refreshes it. The scripts are not run in the scratch copy: their
+saved state and the goals are compared with the running game's. `tools/selfcheck_test.sh [OUT_DIR]` checks two saves,
+forces a difference and checks the report, that only five are kept and that the next start tells you once. For the
+Report a problem button: `selfcheck::latest_report_files()` gives the newest report's text and save (nothing is sent by
+it).

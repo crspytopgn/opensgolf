@@ -435,7 +435,7 @@ fn property(name: &CStr) -> String {
 }
 
 /// The phone, for a report: maker, model, chip and Android version.
-fn device() -> String {
+pub(crate) fn device() -> String {
     format!(
         "{} {} ({}), Android {} (API {}), {}",
         property(c"ro.product.manufacturer"),

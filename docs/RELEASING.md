@@ -4,6 +4,9 @@ Pushing a tag such as `v0.4.1` (or running Actions → release → *Run workflow
 publishes the release (`.github/workflows/release.yml`). The package names carry no version, so the README's links to
 `releases/latest/download/<name>` always give the newest.
 
+The store and package manager listings (Flathub, F-Droid, Homebrew, winget, Scoop) and what each release needs for
+them, such as the AppStream release entry and the F-Droid changelog, are in [packaging/README.md](../packaging/README.md).
+
 ## Signed releases ("Update now")
 
 The game's **Update now** (`crates/simgolf/src/autoupdate.rs`) installs a package only when its SHA-256 is listed in the
