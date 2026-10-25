@@ -18,7 +18,10 @@
 //! retyped since the wildlife looked, the staff code's golfer copies and the cosmetic generator when the save has none.
 //! The live game's course copy of the staff's weeds and growth, which every game tick refreshes from the staff's tiles
 //! before anything reads it (`app::weeds_into`; the load does the same), is compared as the next tick will see it. The
-//! scripts are not run in the scratch copy: their saved state (with the goals) is compared with the live game's.
+//! scripts are not run in the scratch copy: their saved state (with the goals) is compared with the live game's. A save
+//! while the hole being built has its tee and cup is not checked: loading it plans that hole again with the generator as
+//! loaded, as the original's load does (0x42f7a0 clears game flag 0x40000 after 0x40b9b0 restores it), so the loaded game
+//! rightly differs from the running one there (tools/determinism_check.sh checks that two loads of it agree).
 //!
 //! Test hooks: `SG_SELFCHECK=1` prints each check's result and time, and checks every save (no gap); `SG_SELFCHECK=0`
 //! turns the check off; `SG_SELFCHECK_BREAK=1` changes the money in the scratch copy, so a check finds a difference and
@@ -278,6 +281,17 @@ impl App {
         if !due {
             return;
         }
+        // a hole being built with its tee and cup: the load plans it again, as the original's load does (0x42f7a0 clears
+        // game flag 0x40000 after 0x40b9b0 restores it), so the loaded game differs from the running one by design
+        if building(&self.club) {
+            if env.as_deref() == Some("1") {
+                println!(
+                    "selfcheck: skipped at tick {} (a hole being built is planned again on load, as the original does)",
+                    self.game_tick
+                );
+            }
+            return;
+        }
         let kept = Kept::of(self);
         let mut live = self.fingerprint();
         // the course's copy of the staff's weeds and growth is refreshed at the start of every game tick (weeds_into) and
@@ -366,6 +380,12 @@ fn times(ms: &[f64]) -> String {
     format!("{:.1} ms: {}", ms.iter().sum::<f64>(), spaced(&parts, " + "))
 }
 
+/// Whether the hole being built has its tee and cup (sg_core::holetool `layout` plans it).
+fn building(c: &sg_core::golfer::Club) -> bool {
+    let h = c.next_hole;
+    (1..=18).contains(&h) && c.holes.get(h as usize).is_some_and(|r| r.back.0 != 0 && r.pin.0 != 0)
+}
+
 /// The fingerprint of a saved game read back into a scratch copy of the game, with what the copy takes from the live game.
 fn scratch_fingerprint(s: SaveGame, k: &Kept) -> Result<(Fingerprint, Vec<(String, u64)>), String> {
     let scripts = hash(&(&s.goals, &s.scripts));
@@ -418,6 +438,19 @@ mod tests {
         let fb = vec![("econ.cash".to_string(), 7), ("econ.debt".to_string(), 5)];
         assert_eq!(differences(&a, &b, &fa, &fb), ["econ", "econ.cash"]);
         assert!(differences(&a, &a, &fa, &fa).is_empty());
+    }
+
+    #[test]
+    fn a_hole_being_built_is_seen() {
+        let mut c = sg_core::golfer::Club::default();
+        assert!(!building(&c));
+        let h = c.next_hole as usize;
+        c.holes[h].back = (5, 6);
+        assert!(!building(&c));
+        c.holes[h].pin = (9, 9);
+        assert!(building(&c));
+        c.next_hole = 19;
+        assert!(!building(&c));
     }
 
     #[test]

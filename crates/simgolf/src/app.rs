@@ -568,10 +568,6 @@ pub struct App {
     /// The terrain came from outside the hole tool (demo course, saved terrain, scripted edits): its painted tee and green
     /// pairs become holes at the next course sync.
     pub adopt_holes: bool,
-    /// The port's own (save fidelity): after a load that kept the plan of the hole being built (`load_save_into`), what that
-    /// plan was made on (`plan_inputs`), until the load's redraw is done (main.rs clears it): a course sync in between that
-    /// finds the course as loaded keeps the plan, as the saved game, which had no such redraw, kept it.
-    pub kept_plan: Option<u64>,
     pub sim_time: f64,
     /// Golfer clips by sprite id (clip + body): body and shadow sprites.
     pub golfer_clips: HashMap<i32, (Option<usize>, Option<usize>)>,
@@ -966,7 +962,6 @@ impl App {
             course: Course::default(),
             hole_numbers: Vec::new(),
             adopt_holes: true,
-            kept_plan: None,
             sim_time: 0.0,
             golfer_clips: HashMap::new(),
             difficulty: 1,
@@ -2183,12 +2178,6 @@ impl App {
     /// Brings the golfers' view of the course up to date: tiles, objects and levels from the land, weeds from the staff's tiles,
     /// the clubhouse door, and one hole record per tee and green pair (back and forward tee on the tee, pin and cup on the green).
     pub fn sync_course(&mut self) {
-        self.sync_course_planning(true);
-    }
-
-    /// `sync_course`, with `plan` false keeping the plan of the hole being built as it stands (a load of a game saved with
-    /// game flag LAYOUT set: see `load_save_into`).
-    fn sync_course_planning(&mut self, plan: bool) {
         self.ensure_land();
         if let Some(land) = self.land.as_mut() {
             land.sync_from_terrain(&self.terrain);
@@ -2226,19 +2215,10 @@ impl App {
         if std::mem::take(&mut self.adopt_holes) {
             self.adopt_painted_holes();
         }
-        // every terrain change plans the hole being built again (but see `kept_plan`)
-        if plan && !self.kept_plan.is_some_and(|k| k == self.plan_inputs()) {
-            self.kept_plan = None;
-            self.club.game &= !golf::game::LAYOUT;
-            self.club.layout(&mut self.course, &mut self.exe_rng);
-        }
+        // every terrain change plans the hole being built again
+        self.club.game &= !golf::game::LAYOUT;
+        self.club.layout(&mut self.course, &mut self.exe_rng);
         self.rebuild_hole_routes();
-    }
-
-    /// What the plan of the hole being built is made on, as a hash: the golfers' course and the hole's tees and cup.
-    fn plan_inputs(&self) -> u64 {
-        let h = &self.club.holes[(self.club.next_hole.clamp(0, 19)) as usize];
-        sg_core::fingerprint::hash(&(&self.course, self.club.next_hole, h.back, h.fwd, h.pin))
     }
 
     /// The numbers of the open holes, from the golfers' hole records.
@@ -3121,16 +3101,12 @@ impl App {
         self.staff_tiles = s.staff_tiles;
         self.game_tick = s.game_tick;
         self.hole_numbers.clear();
-        // The port's own (save fidelity): a game saved with the hole being built already planned (game flag LAYOUT) keeps
-        // that plan, its landings (`layout_land`), the hole record's length, facing, marks and markers and the trial
-        // golfer, all in the save, so the loaded game goes on drawing from the generator as the saved one did. The
-        // original's load does not keep it: it restores the flag word from the file (0x40bae7..0x40bb08) but then runs the
-        // terrain refresh 0x42f7a0, which clears 0x40000 (0x42f929), and the landing table 0x542dfc is not among the saved
-        // blocks, so its next frame plans the hole again (docs/DECODE_SAVE.md section 1). The load's own redraw syncs the
-        // course again; `kept_plan` keeps the plan through it.
-        let planned = self.club.game & golf::game::LAYOUT != 0;
-        self.sync_course_planning(!planned);
-        self.kept_plan = planned.then(|| self.plan_inputs());
+        // As the original's load: a hole being built is planned again here, with the generator as loaded, even when the save
+        // has it planned (game flag LAYOUT, the landings and the hole record are all in the save). The exe's load 0x40b9b0
+        // restores the flag word with 0x40000 as saved (0x40bae7..0x40bb08) but then runs 0x42f7a0, which clears 0x40000
+        // (0x42f929), and the landing table 0x542dfc is not a saved block (docs/DECODE_SAVE.md section 1). Keeping the plan
+        // would not match the original.
+        self.sync_course();
         self.hole_stats = s.hole_stats;
         // the Weather that matters extra's day as the save left it (sg_core::weather; nothing with the extra off)
         self.club.place = self.weather_place();
@@ -4854,67 +4830,5 @@ impl App {
             return;
         }
         self.clicked_tile = Some(t);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// A game on a flat fairway with hole 1's tee at 10,10 and its cup green at 10,30, planned but not opened.
-    fn building_game() -> App {
-        let mut a = App::with_clock(PathBuf::new(), 4242);
-        let n = sg_core::mapsize::ORIGINAL;
-        let tiles = (n * n) as usize;
-        a.terrain = Terrain { w: n, h: n, ty: vec![2; tiles], variation: vec![0; tiles], set: vec![0; tiles], ..Default::default() };
-        a.terrain.corner = vec![1; ((n + 1) * (n + 1)) as usize];
-        a.terrain.path_kind = vec![0; tiles];
-        a.terrain.wall_mask = vec![0; tiles];
-        a.terrain.paint(10, 10, 0, 0);
-        a.terrain.paint(10, 30, 1, 0);
-        let h = &mut a.club.holes[1];
-        h.back = (10, 10);
-        h.fwd = (10, 10);
-        h.pin = (10, 30);
-        a.sync_course();
-        a.game_tick = 1;
-        a
-    }
-
-    /// What the plan of the hole being built leaves in the game.
-    fn plan_of(a: &App) -> String {
-        let c = &a.club;
-        serde_json::to_string(&(a.exe_rng, c.game, &c.layout_land, &c.holes[1], &c.g[sg_core::holetool::TRIAL], &c.planner)).unwrap()
-    }
-
-    #[test]
-    fn a_planned_hole_being_built_keeps_its_plan_through_a_save() {
-        let a = building_game();
-        assert!(a.club.game & golf::game::LAYOUT != 0 && !a.club.layout_land.is_empty(), "the hole is planned");
-        assert_eq!(a.club.holes[1].par, 0, "and not open");
-        let mut b = App::with_clock(PathBuf::new(), 7);
-        b.load_save_into(None, read_save_bytes(&a.save_bytes(1).unwrap(), "test").unwrap(), false).unwrap();
-        assert_eq!(plan_of(&b), plan_of(&a), "the loaded game has the saved plan and generator");
-        // the load's redraw syncs the course again and keeps the plan; after it, a sync plans again as the saved game would
-        b.sync_course();
-        assert_eq!(plan_of(&b), plan_of(&a));
-        b.kept_plan = None;
-        b.sync_course();
-        assert_ne!(b.exe_rng.state, a.exe_rng.state);
-        // a change of the course before the redraw plans again too
-        let mut d = App::with_clock(PathBuf::new(), 7);
-        d.load_save_into(None, read_save_bytes(&a.save_bytes(1).unwrap(), "test").unwrap(), false).unwrap();
-        d.terrain.paint(20, 20, 4, 0);
-        d.sync_course();
-        assert!(d.kept_plan.is_none());
-        assert_ne!(d.exe_rng.state, a.exe_rng.state);
-        // a save without the planned flag (as the original's load leaves it, 0x42f929) is planned again on load, drawing
-        // from the generator
-        let mut s = read_save_bytes(&a.save_bytes(1).unwrap(), "test").unwrap();
-        s.club.game &= !golf::game::LAYOUT;
-        let mut c = App::with_clock(PathBuf::new(), 7);
-        c.load_save_into(None, s, false).unwrap();
-        assert!(c.club.game & golf::game::LAYOUT != 0);
-        assert_ne!(c.exe_rng.state, a.exe_rng.state);
     }
 }

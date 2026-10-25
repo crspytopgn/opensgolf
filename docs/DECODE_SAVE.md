@@ -29,9 +29,8 @@ PUBLISHER_EXE_NOTES "Building holes") as the file has it (0x40bae7..0x40bb08 cle
 landing table (0x542dfc / 0x542e24) lies between the blocks 0x542414 and 0x543cfc of section 4, so it is not saved. So the
 next frame plans the hole again, drawing from the generator, and sets the hole record's facing, length, marks and yardage
 markers afresh. EXACT for the reads and writes (machine code of 0x40b9b0 and 0x42f7a0); DERIVED that 0x42f7a0 is the
-"terrain refresh" of the layout pass's notes. The port keeps the plan
-instead (its own save fidelity: the port's save holds the generator, the landings and the trial golfer, and a game loaded
-with the flag set goes on as the saved one; `App::load_save_into`).
+"terrain refresh" of the layout pass's notes. The port does the same:
+its load plans the hole being built again (`App::load_save_into`, `sync_course`), once, as a terrain refresh does.
 
 ## 2. Versioning and variants
 

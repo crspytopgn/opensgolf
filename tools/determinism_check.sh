@@ -5,9 +5,11 @@
 #      seconds, a celebrity's home, the pro's practice round); the two runs' fingerprints, one per game tick, must be identical,
 #   2. save and reload: the same game saved at a game tick a fifth of the way and halfway (SG_SAVE_AT), loaded and played
 #      on; from the save on, every game tick's state must be the one the uninterrupted run had,
-#   3. both again with the second hole's tee and cup laid but the hole not opened, so both saves are made while the hole
-#      being built stands planned (its plan must come back with the save, not be made again with other random numbers),
-#   4. with --extras: the first two again with each gameplay extra (sg_core::extras) on in turn (the --extras test hook's bits),
+#   3. a hole being built: the game with a second hole's tee and cup laid but the hole not opened, saved at the same game
+#      ticks; loading plans that hole again, as the original's load does (docs/DECODE_SAVE.md section 1), so the loaded game
+#      is not compared with the uninterrupted run but two loads of the save must play on identically (the plan made again
+#      is the same each time), and the save self-check must say it skipped that save,
+#   4. with --extras: 1 and 2 again with each gameplay extra (sg_core::extras) on in turn (the --extras test hook's bits),
 #   5. the save self-check (SG_SELFCHECK=1, selfcheck.rs): each save at a game tick must read back, in memory, to the game
 #      it was saved from (tools/selfcheck_test.sh tests its report).
 # Each run is on a virtual display; the logs and fingerprint files stay in OUT_DIR. A difference names the first game
@@ -135,13 +137,49 @@ reload() {
     fi
 }
 
+# reload_twice LABEL TICK: the game with a hole being built saved at game tick TICK, loaded twice and played on
+reload_twice() {
+    label=$1
+    at=$2
+    SG_SAVE_AT="$at,$OUT/save/$label-$at.sgs" run "$label-full-$at" --property 0 --clock 4242 --edit "$EDIT" --time "$TIME" ||
+        return
+    if [ ! -s "$OUT/save/$label-$at.sgs" ]; then
+        echo "FAIL $label: no save at game tick $at"
+        fail=1
+        return
+    fi
+    if grep -q "^selfcheck: skipped at tick $at (a hole being built" "$OUT/$label-full-$at.log"; then
+        echo "ok   $label: the save self-check skipped the save at game tick $at (a hole being built)"
+    else
+        echo "FAIL $label: the save at game tick $at had no hole being built: $(grep "selfcheck" "$OUT/$label-full-$at.log" | head -2)"
+        fail=1
+    fi
+    run "$label-load-a-$at" --load-game "$OUT/save/$label-$at.sgs" --edit "A" --time "$TIME" || return
+    run "$label-load-b-$at" --load-game "$OUT/save/$label-$at.sgs" --edit "A" --time "$TIME" || return
+    a="$OUT/$label-load-a-$at.fp"
+    b="$OUT/$label-load-b-$at.fp"
+    n=$(shared "$a" "$b")
+    d=$(first_difference "$a" "$b")
+    if [ "$n" -eq 0 ]; then
+        echo "FAIL $label: the loads of the save at game tick $at played no game tick"
+        fail=1
+    elif [ -n "$d" ]; then
+        echo "FAIL $label: two loads of the save at game tick $at part at $d"
+        fail=1
+    else
+        echo "ok   $label: two loads of the save at game tick $at identical over $n game ticks"
+    fi
+}
+
 echo "== Classic (no extras)"
 check classic
 
 echo "== Classic, the second hole built (tee at 18,22, cup green at 34,30) but not opened"
 PLAIN=$EDIT
 EDIT="$PLAIN;t:18,22,0;t:34,30,1"
-check classic-building
+for at in $SAVES; do
+    reload_twice classic-building "$at"
+done
 EDIT=$PLAIN
 
 if [ "$EXTRAS" = "--extras" ]; then
