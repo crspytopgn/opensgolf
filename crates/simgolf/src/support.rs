@@ -1,6 +1,7 @@
 //! The support reminder (the port's own, none of it in the original; docs/PLAYING.md "Supporting OpenSGolf"): the game
 //! counts the time played on the course (the game running, not paused and not in the background) on the player's own
-//! device, in settings.json (the browser's storage on the web, the app's folder on Android). Nothing is ever sent.
+//! device, in settings.json (the browser's storage on the web, the app's folder on Android). The counter is never sent;
+//! the play-time count (playcount.rs) sends only a mark for each 15 minutes of it.
 //!
 //! After about an hour of play, at the next natural pause (the title menu, or just after the year-end report closes, never
 //! while building, while the pro is out, in a tournament or over another box) a small box asks once: Support on Buy Me a

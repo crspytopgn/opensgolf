@@ -709,6 +709,8 @@ pub struct App {
     pub comfort: crate::comfort::State,
     /// The support reminder's play time and asks (support.rs; the port's own, kept in settings.json, never in saves).
     pub support: crate::support::State,
+    /// The play-time count (playcount.rs; the port's own, kept in settings.json, never in saves).
+    pub playcount: crate::playcount::State,
     /// The Change keys screen, the hidden interface and the save's content packs question (controls_ui.rs).
     pub ctl: crate::controls_ui::CtlState,
     /// The scenario's goals and the packs' scripts of the game in progress (scenario_ui).
@@ -1020,6 +1022,7 @@ impl App {
             xs: Default::default(),
             comfort: Default::default(),
             support: Default::default(),
+            playcount: Default::default(),
             ctl: Default::default(),
             scen: Default::default(),
             last_message: String::new(),

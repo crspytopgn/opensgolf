@@ -300,6 +300,12 @@ miniquad_add_plugin({
         // Report a problem (crates/simgolf/src/bugreport.rs): the bug report form in a new tab (the click on the box's OK
         // is still being handled, so the browser takes it as the player's); a note with the link when the tab is blocked
         env.sg_open_url = function (ptr, len) { sgOpenUrl(sgStr(ptr, len)); };
+        // the play-time count (crates/simgolf/src/playcount.rs): an event for the page's GoatCounter (index.html), counted every
+        // time (no_session); nothing when the counter is blocked or the page has none
+        env.sg_playcount = function (ptr, len) {
+            const path = sgStr(ptr, len);
+            try { if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: path, title: path, event: true, no_session: true }); } catch (e) {}
+        };
         env.sg_touch_device = function () { return sgTouchDevice() ? 1 : 0; };
         env.sg_pick_poll = function (dst, cap) {
             if (sgPicked === null) return -1;

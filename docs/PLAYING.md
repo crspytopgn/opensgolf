@@ -370,7 +370,8 @@ golfers' thoughts**, **Advisor and first-time messages**, **Ambient animals** an
   files*), *Content packs...*, and *Language:* when a translation is installed.
 - **More...**: *Fix the original game's bugs* (on by default; docs/FIXES.md), *Check for updates when the game starts*
   (off by default), *Check for updates now* (where the title menu has its button), *Search options...*, *Report a
-  problem...* (see *Reporting a problem*) and *Support OpenSGolf...* (see *Supporting OpenSGolf*).
+  problem...* (see *Reporting a problem*), *Support OpenSGolf...* (see *Supporting OpenSGolf*) and *Count my play time
+  (anonymous)* (on by default; not in store builds; see *Play-time count*).
 
 The foot of Preferences and of each box says in a sentence what the OpenSGolf line under the pointer does (on a touch
 screen the line last tapped; a line that opens something opens on the second tap, the first showing what it does; ticks
@@ -1079,7 +1080,8 @@ folder (`SG_REPORT=1 SG_PRESS="Shift+F8;Enter"` for a scripted run).
 OpenSGolf is free and complete; nothing is ever locked. The port's own gentle reminder (crates/simgolf/src/support.rs;
 never in the original's menus or screens): the game counts the time you spend playing on the course (the game running,
 not paused and not in the background) **on your own device only**, in `settings.json` in the save folder (the browser's
-own storage on the web, the app's folder on Android). Nothing is sent anywhere, and saved games do not hold it.
+own storage on the web, the app's folder on Android), and saved games do not hold it. The counter itself is never sent;
+only the play-time count's 15-minute marks are (see *Play-time count*).
 
 After about **an hour of play**, at the next natural pause (the title menu, or just after the year-end report is closed;
 never while building, while your pro is out, during a tournament or over another box) a small box asks once:
@@ -1096,6 +1098,35 @@ link too. Test hooks: `SG_PLAYTIME=SECONDS` starts the counter there (`SG_PLAYTI
 shows the box); `SG_SUPPORT=1` shows the box at the first frame of the title menu or of a quiet course, whatever the
 counter, for stills (`SG_SUPPORT=1 BIN --game DIR --png out.png --time 2`). A shown box still counts as an ask in
 `settings.json`, so use a scratch `OPENSGOLF_SAVE_DIR` for tests.
+
+## Play-time count
+
+So the project can see how many hours are played on each system and version, the game sends an anonymous count to
+OpenSGolf's [GoatCounter](https://www.goatcounter.com) (the same counter as the web page's visits; the port's own,
+crates/simgolf/src/playcount.rs). Exactly this is sent, and nothing else:
+
+- once when the game starts: `start/<platform>/<version>`, e.g. `start/windows/0.6.0`;
+- once for every **15 minutes of play**: `play-15min/<platform>`, e.g. `play-15min/linux`.
+
+`<platform>` is `windows`, `macos`, `linux`, `android` or `web`, with `-arm64` on 64-bit ARM computers. The play time is
+the support reminder's clock (see *Supporting OpenSGolf*): time on the course with the game running, not paused, not in
+the background and not on the menus. No ids, names, saved games or course data are sent, and no cookies are set. On the
+desktop and Android each count is one request to GoatCounter's count address with a User-Agent of
+`OpenSGolf/<version> (<platform>)`, made in the background with a short timeout; in the browser the page's own
+GoatCounter counts it. A count that does not get through (no internet, a blocker) is dropped, never tried again, and the
+game never waits for it.
+
+It is on by default. The first time you play a course, the ticker says once: *OpenSGolf counts anonymous play time (no
+personal data). Turn it off in Preferences > More.* Take the tick off **Preferences > More... > Count my play time
+(anonymous)** and nothing is sent any more, the start count included (kept as `"off": true` under `"playcount"` in
+`settings.json`). Builds for a store or a package manager (Flathub, F-Droid and the like, built with
+`OPENSGOLF_NO_SELF_UPDATE=1`) do not include it at all: no tick, no notice, nothing sent. The GitHub release builds and
+the browser version have it.
+
+Nothing is sent from tests or scripted runs: under `cargo test`, with `--png`, `--time` or `--screen`, or with any `SG_*`
+test hook set (the notice is not shown either, so stills are unchanged). Test hook: `SG_PLAYCOUNT_LOG=1` prints each
+count instead of sending it (`play count: would send play-15min/linux`) and shows the notice without remembering it;
+with `SG_PLAYTIME=890` the first 15-minute count comes after ten seconds on the course.
 
 ## Controllers and the Steam Deck
 

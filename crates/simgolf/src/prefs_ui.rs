@@ -3,7 +3,7 @@
 //! options: Game options... (the OpenSGolf extras box), Graphics... (HD, Enhanced, pixel-perfect and the Enhanced graphics
 //! settings), Controls and keys... (keys_ui.rs), Text size (stepped at once), Game files... (your SimGolf files or the
 //! free graphics, Content packs, Language) and More... (the bug fixes, the update checks, Search, Report a problem, Support
-//! OpenSGolf). Each port line shows a one-line description at the box's foot when pointed at (on a touch screen when
+//! OpenSGolf, the play-time count). Each port line shows a one-line description at the box's foot when pointed at (on a touch screen when
 //! tapped: a line that opens something opens on the second tap). The settings are the same ones, kept in the same places of settings.json, as before.
 
 use crate::popup_ui::PopupKind;
@@ -42,6 +42,8 @@ pub enum Line {
     Report,
     /// Support OpenSGolf (the port's own, support.rs): the project's Buy Me a Coffee page
     Support,
+    /// Count my play time (anonymous) (the port's own, playcount.rs; not in store builds)
+    PlayCount,
 }
 
 /// What the boxes' lines depend on besides the settings.
@@ -54,6 +56,8 @@ pub struct Ctx {
     pub languages: bool,
     /// This build can check for updates itself (update.rs AVAILABLE: Check for updates now).
     pub update_now: bool,
+    /// This build has the play-time count (playcount.rs AVAILABLE).
+    pub play_count: bool,
 }
 
 /// The rows at the foot of each box kept for the description (as the Extras box's, extras_ui::FOOT_LINES).
@@ -78,9 +82,12 @@ pub fn items(kind: PopupKind, c: &Ctx) -> Vec<Line> {
         PopupKind::Prefs => vec![Thoughts, Advisor, Animals, Sound, GameOptions, Graphics, Controls, TextSize, GameFiles, More],
         PopupKind::PrefsGraphics => vec![Hd, Enhanced, PixelPerfect, EnhancedSettings],
         PopupKind::PrefsFiles => c.files.map(|_| Files).into_iter().chain([Content]).chain(c.languages.then_some(Language)).collect(),
-        PopupKind::PrefsMore => {
-            [FixBugs, UpdateCheck].into_iter().chain(c.update_now.then_some(UpdateNow)).chain([Search, Report, Support]).collect()
-        }
+        PopupKind::PrefsMore => [FixBugs, UpdateCheck]
+            .into_iter()
+            .chain(c.update_now.then_some(UpdateNow))
+            .chain([Search, Report, Support])
+            .chain(c.play_count.then_some(PlayCount))
+            .collect(),
         _ => Vec::new(),
     }
 }
@@ -126,6 +133,7 @@ pub fn label(l: Line, c: &Ctx, text: u32) -> String {
         Search => "STR_MENU_PREFS_SEARCH",
         Report => "STR_MENU_PREFS_REPORT",
         Support => "STR_MENU_PREFS_SUPPORT",
+        PlayCount => "STR_MENU_PREFS_PLAYCOUNT",
     };
     tr(key).to_string()
 }
@@ -150,7 +158,7 @@ pub fn lines(kind: PopupKind, c: &Ctx, text: u32) -> Vec<String> {
 /// A tick (kept in the box until its OK) rather than a line that does something at once.
 pub fn is_tick(l: Line) -> bool {
     use Line::*;
-    matches!(l, Thoughts | Advisor | Animals | Sound | Hd | Enhanced | PixelPerfect | FixBugs | UpdateCheck)
+    matches!(l, Thoughts | Advisor | Animals | Sound | Hd | Enhanced | PixelPerfect | FixBugs | UpdateCheck | PlayCount)
 }
 
 /// A line that opens a box or screen, or does something there is no stepping back from (the files line, the update check):
@@ -189,6 +197,7 @@ pub fn desc_key(l: Line, c: &Ctx) -> Option<&'static str> {
         Search => "STR_PREFS_DESC_SEARCH",
         Report => "STR_PREFS_DESC_REPORT",
         Support => "STR_PREFS_DESC_SUPPORT",
+        PlayCount => "STR_PREFS_DESC_PLAYCOUNT",
     })
 }
 
@@ -218,7 +227,7 @@ pub fn place_key(l: Line) -> &'static str {
     match l {
         Hd | Enhanced | PixelPerfect | EnhancedSettings => "STR_SEARCH_PLACE_GRAPHICS",
         Files | Content | Language => "STR_SEARCH_PLACE_FILES",
-        FixBugs | UpdateCheck | UpdateNow | Search | Report | Support => "STR_SEARCH_PLACE_MORE",
+        FixBugs | UpdateCheck | UpdateNow | Search | Report | Support | PlayCount => "STR_SEARCH_PLACE_MORE",
         _ => "STR_SEARCH_PLACE_PREFS",
     }
 }
@@ -230,6 +239,7 @@ impl crate::app::App {
             files: self.files_option().map(|(a, l)| (l, a == crate::gamefiles::Action::Free)),
             languages: crate::language::available().len() > 1,
             update_now: crate::update::AVAILABLE,
+            play_count: crate::playcount::AVAILABLE,
         }
     }
 
@@ -246,6 +256,7 @@ impl crate::app::App {
             PixelPerfect => crate::enhanced::settings().pixel_perfect,
             FixBugs => crate::enhanced::fix_bugs(),
             UpdateCheck => crate::extras::update_check(),
+            PlayCount => self.playcount.on(),
             _ => false,
         }
     }
@@ -269,7 +280,7 @@ mod tests {
     use super::*;
     use Line::*;
 
-    const ALL: Ctx = Ctx { files: Some(("Use my SimGolf files...", false)), languages: true, update_now: true };
+    const ALL: Ctx = Ctx { files: Some(("Use my SimGolf files...", false)), languages: true, update_now: true, play_count: true };
 
     #[test]
     fn preferences_keeps_the_originals_four_first_then_the_divider() {
@@ -301,7 +312,7 @@ mod tests {
         assert_eq!(items(PopupKind::PrefsFiles, &none), [Content]);
         assert_eq!(items(PopupKind::PrefsFiles, &ALL), [Files, Content, Language]);
         assert_eq!(items(PopupKind::PrefsMore, &none), [FixBugs, UpdateCheck, Search, Report, Support]);
-        assert_eq!(items(PopupKind::PrefsMore, &ALL), [FixBugs, UpdateCheck, UpdateNow, Search, Report, Support]);
+        assert_eq!(items(PopupKind::PrefsMore, &ALL), [FixBugs, UpdateCheck, UpdateNow, Search, Report, Support, PlayCount]);
         for kind in [PopupKind::PrefsGraphics, PopupKind::PrefsFiles, PopupKind::PrefsMore] {
             for l in items(kind, &ALL) {
                 assert!(desc_key(l, &ALL).is_some(), "{l:?}");
@@ -311,7 +322,7 @@ mod tests {
         // the note under the bug fixes is no option
         let l = lines(PopupKind::PrefsMore, &ALL, 100);
         assert!(l[2].starts_with(NOTE));
-        assert_eq!(l.iter().filter(|s| s.starts_with(' ')).count(), 6);
+        assert_eq!(l.iter().filter(|s| s.starts_with(' ')).count(), 7);
         // the files line's description follows what it does
         let free = Ctx { files: Some(("Use the free graphics", true)), ..ALL };
         assert_ne!(desc_key(Files, &free), desc_key(Files, &ALL));
