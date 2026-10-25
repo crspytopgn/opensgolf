@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata for OpenSGolf (Flathub, GNOME Software, KDE Discover, distribution packages).
+     Check it with appstreamcli validate (packaging/README.md, "Checking the files").
+     Add a <release> at the top of <releases> for every new version (packaging/README.md). -->
+<component type="desktop-application">
+  <id>io.github.crspytopgn.OpenSGolf</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-2.0-or-later AND OFL-1.1</project_license>
+
+  <name>OpenSGolf</name>
+  <summary>Build and run your own golf resort</summary>
+
+  <developer id="io.github.crspytopgn">
+    <name>The OpenSGolf contributors</name>
+  </developer>
+
+  <description>
+    <p>
+      OpenSGolf is a free, open source engine for the golf course building game Sid Meier’s SimGolf (2002).
+      Lay out holes, plant trees and dig ponds, put up a clubhouse and shops, hire staff, and watch your golfers play
+      your course, chat, complain and come back for more.
+    </p>
+    <p>
+      It comes with its own complete set of free graphics and sounds, so you can start playing right away. If you own
+      SimGolf, you can choose “Use my SimGolf files…” in the game and pick your installed game folder, the CD, a CD image
+      or a .zip of the folder: OpenSGolf then plays with the original art and sounds. No game files are included.
+    </p>
+    <p>
+      With every option at its default it aims to play exactly like the original. On top of that it offers:
+    </p>
+    <ul>
+      <li>Any window size and full screen, with optional enhanced, high-resolution graphics</li>
+      <li>Optional fixes for bugs of the original game</li>
+      <li>Optional interface helpers and extras, all off until you turn them on</li>
+      <li>A course editor for your own scenarios, and content packs (mods)</li>
+      <li>Mouse, keyboard, touch screen and game controller support</li>
+    </ul>
+    <p>
+      OpenSGolf is not affiliated with or endorsed by Electronic Arts or Firaxis Games. SimGolf and Sid Meier’s are
+      trademarks of their owners and are named here only to say which game’s files OpenSGolf can use.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">io.github.crspytopgn.OpenSGolf.desktop</launchable>
+  <provides>
+    <binary>opensgolf</binary>
+  </provides>
+
+  <url type="homepage">https://github.com/crspytopgn/opensgolf</url>
+  <url type="bugtracker">https://github.com/crspytopgn/opensgolf/issues</url>
+  <url type="help">https://github.com/crspytopgn/opensgolf/blob/main/docs/PLAYING.md</url>
+  <url type="vcs-browser">https://github.com/crspytopgn/opensgolf</url>
+  <url type="contribute">https://github.com/crspytopgn/opensgolf/blob/main/CONTRIBUTING.md</url>
+  <url type="translate">https://github.com/crspytopgn/opensgolf/blob/main/docs/TRANSLATING.md</url>
+  <url type="donation">https://buymeacoffee.com/crspytopgn</url>
+
+  <categories>
+    <category>Game</category>
+    <category>Simulation</category>
+  </categories>
+  <keywords>
+    <keyword>golf</keyword>
+    <keyword>course</keyword>
+    <keyword>tycoon</keyword>
+    <keyword>management</keyword>
+    <keyword>building</keyword>
+    <keyword>SimGolf</keyword>
+  </keywords>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#aad7f5</color>
+    <color type="primary" scheme_preference="dark">#2c6929</color>
+  </branding>
+
+  <!-- taken with the included free graphics (no original game files), at 1280 x 720 -->
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/crspytopgn/opensgolf/main/packaging/screenshots/02-course.jpg</image>
+      <caption>A course with its clubhouse, played with the included free graphics</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/crspytopgn/opensgolf/main/packaging/screenshots/01-title.png</image>
+      <caption>The title menu</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/crspytopgn/opensgolf/main/packaging/screenshots/03-golfers.jpg</image>
+      <caption>Golfers tell you what they think of your course</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/crspytopgn/opensgolf/main/packaging/screenshots/04-hole-stats.jpg</image>
+      <caption>Hole statistics and the golfers’ comments</caption>
+    </screenshot>
+  </screenshots>
+
+  <requires>
+    <display_length compare="ge">600</display_length>
+  </requires>
+  <recommends>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </recommends>
+  <supports>
+    <control>touch</control>
+    <control>gamepad</control>
+  </supports>
+
+  <content_rating type="oars-1.1"/>
+
+  <releases>
+    <release version="0.5.5" date="2026-10-24">
+      <description>
+        <p>On touch screens, dragging while moving an employee now scrolls the view instead of placing them.</p>
+      </description>
+    </release>
+    <release version="0.5.4" date="2026-10-24">
+      <description>
+        <p>Free graphics for the People panels, eagles and water banks; any number of Snack Bars.</p>
+      </description>
+    </release>
+    <release version="0.5.3" date="2026-10-22">
+      <description>
+        <p>The walking pro wears the body chosen in Customise.</p>
+      </description>
+    </release>
+    <release version="0.5.2" date="2026-10-22">
+      <description>
+        <p>High-resolution content packs, and tools for making your own art.</p>
+      </description>
+    </release>
+    <release version="0.5.1" date="2026-10-21">
+      <description>
+        <p>Look around while aiming on touch screens.</p>
+      </description>
+    </release>
+    <release version="0.5.0" date="2026-10-20"/>
+    <release version="0.4.9" date="2026-10-20">
+      <description>
+        <p>Points players to the CD or a CD image for the original sounds.</p>
+      </description>
+    </release>
+    <release version="0.4.8" date="2026-10-20"/>
+    <release version="0.4.7" date="2026-10-18">
+      <description>
+        <p>Reworked free graphics and sounds, and an interface overhaul.</p>
+      </description>
+    </release>
+    <release version="0.4.6" date="2026-10-17"/>
+    <release version="0.4.5" date="2026-10-17"/>
+    <release version="0.4.4" date="2026-10-17">
+      <description>
+        <p>Use the SimGolf CD itself, or a Mac .cdr image of it.</p>
+      </description>
+    </release>
+    <release version="0.4.3" date="2026-10-17"/>
+    <release version="0.4.2" date="2026-10-17">
+      <description>
+        <p>Optional extras: weather, visitors, drag to place, path styles and lamps, scorecards.</p>
+      </description>
+    </release>
+    <release version="0.4.1" date="2026-10-17">
+      <description>
+        <p>Use a CD image (.iso) of SimGolf.</p>
+      </description>
+    </release>
+    <release version="0.4.0" date="2026-10-17">
+      <description>
+        <p>Course editor, history graphs, camera controls, enhanced water, building tools and left-handed golfers.</p>
+      </description>
+    </release>
+    <release version="0.3.8" date="2026-10-16"/>
+    <release version="0.3.7" date="2026-10-16"/>
+    <release version="0.3.6" date="2026-10-16"/>
+    <release version="0.3.5" date="2026-10-16"/>
+    <release version="0.3.4" date="2026-10-15"/>
+    <release version="0.3.3" date="2026-10-15"/>
+    <release version="0.3.2" date="2026-10-15"/>
+    <release version="0.3.1" date="2026-10-15"/>
+    <release version="0.3.0" date="2026-10-15"/>
+    <release version="0.2.6" date="2026-10-14"/>
+    <release version="0.2.5" date="2026-10-14"/>
+    <release version="0.2.4" date="2026-10-14"/>
+    <release version="0.2.3" date="2026-10-14"/>
+    <release version="0.2.2" date="2026-10-13"/>
+    <release version="0.2.1" date="2026-10-13"/>
+    <release version="0.2.0" date="2026-10-13"/>
+    <release version="0.1.6" date="2026-10-13"/>
+    <release version="0.1.5" date="2026-10-13"/>
+    <release version="0.1.4" date="2026-10-13"/>
+    <release version="0.1.3" date="2026-10-13"/>
+    <release version="0.1.2" date="2026-10-13"/>
+    <release version="0.1.1" date="2026-10-13"/>
+    <release version="0.1.0" date="2026-10-12">
+      <description>
+        <p>First release.</p>
+      </description>
+    </release>
+  </releases>
+</component>
