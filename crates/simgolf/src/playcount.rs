@@ -213,16 +213,28 @@ fn save(r: &Record) {
     }
 }
 
-/// Whether a test hook is set (any SG_* variable but the log's own).
+/// Whether a test hook is set (any SG_* variable but the log's own). The browser has no environment (reading it panics
+/// there), so never there.
 fn test_hooks() -> bool {
-    std::env::vars_os().any(|(k, _)| k.to_str().is_some_and(|k| k.starts_with("SG_") && k != LOG_ENV))
+    #[cfg(not(target_arch = "wasm32"))]
+    return std::env::vars_os().any(|(k, _)| k.to_str().is_some_and(|k| k.starts_with("SG_") && k != LOG_ENV));
+    #[cfg(target_arch = "wasm32")]
+    false
+}
+
+/// The log test hook (`SG_PLAYCOUNT_LOG`), never in the browser (see `test_hooks`).
+fn log_hook() -> bool {
+    #[cfg(not(target_arch = "wasm32"))]
+    return std::env::var_os(LOG_ENV).is_some_and(|v| !v.is_empty() && v != "0");
+    #[cfg(target_arch = "wasm32")]
+    false
 }
 
 /// At start up, after the support reminder's clock (`played`): the saved record, the run's mode (`scripted`: --png,
 /// --time or --screen), and the start count.
 pub fn init(played: f64, scripted: bool) -> State {
     let record: Record = serde_json::from_value(settings_json()[SETTINGS_KEY].clone()).unwrap_or_default();
-    let log = std::env::var_os(LOG_ENV).is_some_and(|v| !v.is_empty() && v != "0");
+    let log = log_hook();
     let scripted = scripted || cfg!(test) || test_hooks();
     let base = mode(AVAILABLE, false, log, scripted);
     let s = State { record, base, next: first_mark(played), page_off: page_off(), platform: platform_here() };
