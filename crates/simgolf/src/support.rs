@@ -268,11 +268,20 @@ impl App {
     }
 }
 
+/// How long the player has played, in whole hours (an hour at the least: the box never shows sooner).
+fn played_words(played: f64) -> String {
+    match (played / 3600.0).floor() as u64 {
+        0 | 1 => tr("STR_SUPPORT_PLAYED_1").to_string(),
+        h => trf("STR_SUPPORT_PLAYED", &[("HOURS", &h)]),
+    }
+}
+
 /// The box's lines: the title, its words as notes (popup_ui's lines starting with a tab), then the three options.
-pub fn box_lines() -> Vec<String> {
+pub fn box_lines(played: f64) -> Vec<String> {
     // an empty note under the title keeps the words clear of the free set's header band
     let mut v = vec![tr("STR_SUPPORT_TITLE").to_string(), "\t".to_string()];
-    v.extend(crate::extras::wrap(crate::popup_ui::NOTE_FONT, tr("STR_SUPPORT_BODY"), 340.0).into_iter().map(|l| format!("\t{l}")));
+    let words = format!("{} {}", played_words(played), tr("STR_SUPPORT_BODY"));
+    v.extend(crate::extras::wrap(crate::popup_ui::NOTE_FONT, &words, 340.0).into_iter().map(|l| format!("\t{l}")));
     v.push("\t".to_string());
     v.extend([tr("STR_SUPPORT_YES"), tr("STR_SUPPORT_LATER"), tr("STR_SUPPORT_NEVER")].map(str::to_string));
     v
@@ -370,10 +379,17 @@ mod tests {
 
     #[test]
     fn the_box_has_a_title_words_and_three_options() {
-        let l = box_lines();
+        let l = box_lines(FIRST_ASK);
         assert_eq!(l[0], tr("STR_SUPPORT_TITLE"));
         let opts: Vec<&String> = l.iter().filter(|s| s.starts_with(' ')).collect();
         assert_eq!(opts, [tr("STR_SUPPORT_YES"), tr("STR_SUPPORT_LATER"), tr("STR_SUPPORT_NEVER")]);
         assert!(l.iter().any(|s| s.starts_with('\t') && s.len() > 1));
+    }
+
+    #[test]
+    fn the_box_says_how_long_was_played() {
+        assert_eq!(played_words(FIRST_ASK), tr("STR_SUPPORT_PLAYED_1"));
+        assert_eq!(played_words(FIRST_ASK + SECOND_ASK + 1800.0), "You've played for about 6 hours.");
+        assert!(box_lines(FIRST_ASK).concat().contains("£90 a month"));
     }
 }

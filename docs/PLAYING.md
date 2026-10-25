@@ -1085,7 +1085,8 @@ only the play-time count's 15-minute marks are (see *Play-time count*).
 
 After about **an hour of play**, at the next natural pause (the title menu, or just after the year-end report is closed;
 never while building, while your pro is out, during a tournament or over another box) a small box asks once:
-*Enjoying OpenSGolf?*, with **Support on Buy Me a Coffee** (opens [buymeacoffee.com/crspytopgn](https://buymeacoffee.com/crspytopgn)
+*Enjoying OpenSGolf?*: it says roughly how long you have played (in whole hours, counted on your device), that
+OpenSGolf is free and always will be, and what keeping it going costs; with **Support on Buy Me a Coffee** (opens [buymeacoffee.com/crspytopgn](https://buymeacoffee.com/crspytopgn)
 in your browser; a new tab in the browser version), **Maybe later** (Esc, a right-click or a click outside the box too)
 and **Don't ask again**. *Maybe later* asks once more after about another five hours of play, and then never again;
 *Support* or *Don't ask again* ends it at once. It asks two times at most, ever, with no countdown and nothing held back.

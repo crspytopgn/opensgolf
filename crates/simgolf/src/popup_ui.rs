@@ -835,7 +835,7 @@ impl App {
             }
             // the port's own support reminder (support.rs): in the middle of the screen
             PopupKind::Support => {
-                support_lines = crate::support::box_lines();
+                support_lines = crate::support::box_lines(self.support.record.played);
                 let top = crate::bugreport::box_top(support_lines.len());
                 (support_lines.iter().map(|l| l.as_str()).collect(), 0, 400.0, top)
             }

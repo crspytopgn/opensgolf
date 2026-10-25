@@ -3368,7 +3368,9 @@ STR_KEYS_REPORT_PROBLEM                 :Report a problem (the bug report form, 
 
 # The support reminder (the port's own, support.rs; docs/PLAYING.md "Supporting OpenSGolf")
 STR_SUPPORT_TITLE                       :Enjoying OpenSGolf?
-STR_SUPPORT_BODY                        :It's free and made in my spare time. If you'd like to say thanks, a coffee keeps it going.
+STR_SUPPORT_PLAYED_1                    :You've played for about an hour.
+STR_SUPPORT_PLAYED                      :You've played for about {HOURS} hours.
+STR_SUPPORT_BODY                        :OpenSGolf is free and always will be. Keeping it going costs about £90 a month in the tools I build it with, and there's a long list of new ideas and community suggestions still to come. A coffee helps pay for the next update.
 STR_SUPPORT_YES                         : Support on Buy Me a Coffee
 STR_SUPPORT_LATER                       : Maybe later
 STR_SUPPORT_NEVER                       : Don't ask again
