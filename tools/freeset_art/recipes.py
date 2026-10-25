@@ -48,8 +48,8 @@ class Tree(Recipe):
     def __init__(self, name):
         self.name = name
 
-    # the scenic elm's file has no views in its header: its 52 frames are four turns of the tree, each growing over 13
-    # frames as the original's do (the game draws its last, the grown tree; App::add_trees)
+    # the free set keeps the scenic elm as a plain animation (the original's header does not add up, docs/SPRITES.md): its
+    # 52 frames are four turns of the tree, each growing over 13 frames (the game draws its last, the grown tree)
     ELM_CYCLE = 13
 
     def elm(self):

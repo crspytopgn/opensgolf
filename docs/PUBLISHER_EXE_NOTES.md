@@ -545,8 +545,14 @@ WEAK for a game loaded mid-growth (the save format was not checked for the count
   grown tree, and
   each `...Shadow.flc` has the same frames, so the shadow grows with the tree (the shadow is drawn with the body's frame).
   Nothing is scaled. The free set's tree sheets have the same frame counts, also drawn as a growing tree. The
-  scenic elm (`Flics/Scenic/ScenicElm.flc`, no views in its header) holds 52 frames, four turns of a 13-frame growth; the
-  game draws only its last frame (a lone grown broadleaf in Parkland and Links), and the free set's elm has the same layout.
+  scenic elm (`Flics/Scenic/ScenicElm.flc`) is the one file whose header does not add up: 4 views of 12 frames, but a
+  frame count of 52 and 56 frames stored. The exe takes the header as it is (EXACT: the FLC open 0x482c07 keeps the crop
+  origin and canvas, 0x48236d builds the view table from offsets 96 and 98 with frames per view + 1 frames per view, the
+  sprite loader 0x404120 keeps 12 as the frames per view), so view v starts at stored frame 13 v, and the lone broadleaf
+  branch (0x4143d5) draws frame 11 of view (a - 2b) & 3 queued at the tile's point (0x462a30, box 100 x 100, zoom 4,
+  palette 0xa6), the trunk's foot (crop origin (199, 168): pixel (41, 72)) on the tile centre. The port read the file as a
+  plain animation until 0.5.6 (52 frames, anchored at the middle of the bottom edge), which put the trunk 14 px left of
+  and 13 px above the tile centre (issue #93). The free set's elm keeps its own plain 52-frame layout.
 - The brush (0x420608) sets the tile's flag 0x4000 and its counter (byte array 0x578804) to 0 on every tile whose type it
   changes, whatever the brush; the same tile repainted with its own type is left alone. The building tool does the same for a
   scenic tree (the willow tool, `place_tile_item`) and for a new flower bed.
