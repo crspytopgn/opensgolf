@@ -30,8 +30,14 @@ pub const TEST_URL_ENV: &str = "SG_UPDATE_URL";
 /// The title button's hover value (after gamefiles::FILES_HOVER).
 pub const UPDATE_HOVER: i32 = 8;
 
-/// True where the button is offered: a build that can make HTTPS requests itself, not the browser version.
-pub const AVAILABLE: bool = cfg!(all(not(target_arch = "wasm32"), feature = "net"));
+/// True where the button is offered: a build that can make HTTPS requests itself, not the browser version, and not a
+/// store's or package manager's build ([`STORE_BUILD`]).
+pub const AVAILABLE: bool = cfg!(all(not(target_arch = "wasm32"), feature = "net")) && !STORE_BUILD;
+
+/// The port's own: a build made for a store or a package manager (Flathub, F-Droid; packaging/README.md), where the store
+/// installs the updates, so Check for updates and Update now are left out. Set by building with `OPENSGOLF_NO_SELF_UPDATE=1`;
+/// downloading content packs (Preferences > Content > Find more) stays.
+pub const STORE_BUILD: bool = matches!(option_env!("OPENSGOLF_NO_SELF_UPDATE"), Some(v) if !v.is_empty() && !matches!(v.as_bytes(), b"0"));
 
 /// A version as compared: major, minor, patch, then true for a release (a prerelease such as 0.4.0-rc1 comes before
 /// 0.4.0).
