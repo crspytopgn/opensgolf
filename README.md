@@ -12,6 +12,10 @@ have them, or its own free graphics and sound if you don't. It runs on Windows, 
 <sub>Screenshot taken with the original SimGolf files (not included). More pictures on the
 [website](https://crspytopgn.github.io/opensgolf/).</sub>
 
+**Watch the trailer** (one minute, 4K, played with the original SimGolf files):
+
+[![OpenSGolf trailer on YouTube](https://img.youtube.com/vi/B0ZH-oHJd-w/maxresdefault.jpg)](https://www.youtube.com/watch?v=B0ZH-oHJd-w)
+
 ## Table of contents
 
 - [About](#about)

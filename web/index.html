@@ -428,6 +428,10 @@
     .cd { --cd: 138px; }
     .strip p { font-size: 13px; }
   }
+.trailer{position:relative;display:block;border-radius:10px;overflow:hidden;border:2px solid rgba(255,255,255,.25);box-shadow:0 4px 18px rgba(0,0,0,.35)}
+.trailer img{display:block;width:100%;height:auto}
+.trailer .play{position:absolute;left:50%;top:50%;width:84px;height:60px;margin:-30px 0 0 -42px;border-radius:14px;background:rgba(204,0,0,.9);color:#fff;font-size:30px;line-height:60px;text-align:center}
+.trailer:hover .play,.trailer:focus .play{background:#e00}
 </style>
 <!-- Visit counter: GoatCounter (no cookies, no personal data); counts page visits and which start button is used -->
 <script data-goatcounter="https://opensgolf.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
@@ -650,6 +654,15 @@
               <div id="packstatus"></div>
             </div>
           </details>
+        </section>
+
+        <section class="block" id="trailer">
+          <h2 class="bar"><svg aria-hidden="true"><use href="#i-ball"/></svg>Watch the trailer</h2>
+          <a class="trailer" href="https://www.youtube.com/watch?v=B0ZH-oHJd-w" target="_blank" rel="noopener">
+            <img src="https://img.youtube.com/vi/B0ZH-oHJd-w/maxresdefault.jpg" loading="lazy" width="1280" height="720" onerror="this.onerror=null;this.src='https://img.youtube.com/vi/B0ZH-oHJd-w/hqdefault.jpg'"
+              alt="OpenSGolf trailer: one minute of play with the original SimGolf files (opens YouTube)">
+            <span class="play" aria-hidden="true">&#9654;</span>
+          </a>
         </section>
 
         <section class="block" id="about">
