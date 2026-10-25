@@ -178,8 +178,8 @@ and off by default; only fixes for the original's own bugs are on.
 course sharing with challenges, controllers and the Steam Deck, and new Enhanced graphics (weather by place and year,
 wildlife, crowds, winter, grass, sharpening).
 
-Ideas for later: a community course gallery, club events, more translations, an installable phone and
-tablet app, and playing together online.
+Ideas for later: a community course gallery, club events, more translations and an installable phone and
+tablet app.
 
 ## Legal
 
