@@ -167,6 +167,11 @@
     text-shadow: 0 1px 0 #0b2f63, 0 2px 6px rgba(0, 20, 50, 0.8); }
   .tagline { margin: 6px 0 0; font-size: 13px; max-width: 470px; color: #fff; padding: 6px 10px; border-radius: 6px;
     background: rgba(8, 36, 80, 0.62); border: 1px solid rgba(255, 255, 255, 0.25); }
+  .dl { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+  .dl .btn { min-height: 38px; padding: 0 16px; font-size: 14px; flex: 0 0 auto; }
+  .dl .btn[hidden] { display: none; }
+  .dl-more { font: 12.5px/1.5 var(--ui); color: #fff; text-shadow: 0 1px 2px rgba(0, 20, 50, 0.9); }
+  .dl-more a { color: #fff; font-weight: bold; }
   .shot { flex: 0 0 auto; width: 220px; height: 150px; border: 4px solid var(--frame); border-radius: 14px; transform: rotate(2.5deg);
     background: #0c2416 url("start-bg.jpg") 60% 35% / cover no-repeat;
     box-shadow: inset 0 0 0 1px rgba(255,255,255,0.5), 0 0 0 1px #1d6b2f, 0 8px 18px rgba(0, 20, 50, 0.45); }
@@ -510,8 +515,17 @@
             <h1>Open<span>S</span>Golf</h1>
           </header>
           <p class="kicker">Sid Meier's SimGolf, remastered</p>
-          <p class="tagline">Build the golf resort of your dreams. Free and open source, on PC, Mac, Linux, phones and right
-            here in your browser. Nothing to install.</p>
+          <p class="tagline">Build the golf resort of your dreams. Free and open source: play right here in your browser with
+            nothing to install, or download it for your computer or phone.</p>
+          <div class="dl">
+            <a class="btn green" id="dl-main" hidden href="https://github.com/crspytopgn/opensgolf/releases/latest">⬇ Download</a>
+            <span class="dl-more"><span id="dl-also">Download for</span>
+              <a data-os="windows" href="https://github.com/crspytopgn/opensgolf/releases/latest/download/opensgolf-windows.zip">Windows</a> ·
+              <a data-os="mac" href="https://github.com/crspytopgn/opensgolf/releases/latest/download/opensgolf-macos.zip">Mac</a> ·
+              <a data-os="linux" href="https://github.com/crspytopgn/opensgolf/releases/latest/download/opensgolf-linux-x86_64.AppImage">Linux</a> ·
+              <a data-os="android" href="https://github.com/crspytopgn/opensgolf/releases/latest/download/opensgolf-android.apk">Android</a> ·
+              <a href="https://github.com/crspytopgn/opensgolf/releases/latest">all downloads</a></span>
+          </div>
         </div>
         <div class="shot" role="img" aria-label="OpenSGolf playing with the original SimGolf files"></div>
       </div>
@@ -817,6 +831,25 @@
 <script src="files.js"></script>
 <script src="opensgolf.js"></script>
 <script>
+  // the download row: a button for the visitor's own system, the others beside it (without scripts, just the list)
+  (() => {
+    const ua = navigator.userAgent, os = /Android/i.test(ua) ? "android" : /iPhone|iPad|iPod/i.test(ua) ? "ios"
+      : /Windows/i.test(ua) ? "windows" : /Mac/i.test(ua) && navigator.maxTouchPoints > 1 ? "ios"
+      : /Mac/i.test(ua) ? "mac" : /Linux|X11|CrOS/i.test(ua) ? "linux" : "";
+    const names = { windows: "Windows", mac: "Mac", linux: "Linux", android: "Android" };
+    const own = document.querySelector('.dl-more a[data-os="' + os + '"]');
+    if (own) {
+      const main = document.getElementById("dl-main");
+      main.href = own.href; main.textContent = "⬇ Download for " + names[os]; main.hidden = false;
+      document.getElementById("dl-also").textContent = "Also for";
+      // the visitor's own system once is enough: its link and the dot after it go
+      const dot = own.nextSibling;
+      if (dot && dot.nodeType === 3) dot.textContent = dot.textContent.replace("·", "");
+      own.remove();
+    } else if (os === "ios") {
+      document.getElementById("dl-also").textContent = "On iPhone and iPad, play right here. Download for";
+    }
+  })();
   // the CD spins while the player's files are read or unpacked, and stops when the game starts or the page says why not
   const cd = document.getElementById("cd");
   function sgSpin(job) {
