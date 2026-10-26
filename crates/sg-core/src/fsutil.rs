@@ -235,14 +235,21 @@ pub fn resolve(base: impl AsRef<Path>, rel: &str) -> PathBuf {
             cur = direct;
             continue;
         }
-        let want = comp.to_lowercase();
-        let found = list_dir(&cur).into_iter().find(|p| p.file_name().map(|n| n.to_string_lossy().to_lowercase() == want).unwrap_or(false));
+        // any case, and a space for an underscore: some retail installs name the tropical trees' folders "Tree Cerc"
+        // and "Tree Drac" where other copies have "Tree_Cerc" and "Tree_Drac" (#88)
+        let want = loose_name(comp);
+        let found = list_dir(&cur).into_iter().find(|p| p.file_name().map(|n| loose_name(&n.to_string_lossy()) == want).unwrap_or(false));
         match found {
             Some(p) => cur = p,
             None => return exact,
         }
     }
     cur
+}
+
+/// A file or folder name as `resolve` compares it: lower case, with spaces read as underscores.
+fn loose_name(n: &str) -> String {
+    n.to_lowercase().replace(' ', "_")
 }
 
 /// Lower-case file extension including the dot (".pcx"), or "".
@@ -270,6 +277,18 @@ pub fn walk(dir: &Path) -> Vec<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_space_in_a_folder_name_reads_as_an_underscore() {
+        let dir = std::env::temp_dir().join(format!("sg_loose_{}", std::process::id()));
+        let sub = dir.join("Flics").join("Trees").join("Tropic").join("Tree Cerc");
+        std::fs::create_dir_all(&sub).unwrap();
+        std::fs::write(sub.join("Cerc_Small.flc"), b"x").unwrap();
+        // the game asks for the underscore name; this install has a space (#88)
+        let p = resolve(&dir, "Flics/Trees/Tropic/Tree_Cerc/Cerc_Small.flc");
+        assert_eq!(std::fs::read(&p).unwrap(), b"x");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     #[test]
     fn an_unreadable_file_says_why_and_what_its_folder_holds() {
