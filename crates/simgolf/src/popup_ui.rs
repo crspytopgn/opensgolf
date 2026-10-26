@@ -1477,8 +1477,9 @@ mod tests {
                     if let Some(d) = desc_key(l, &c) {
                         let t = sg_core::lang::trf("STR_PREFS_TAP_AGAIN", &[("DESC", &sg_core::lang::tr(d))]);
                         // "Tap again" only on the lines that open something (foot_text's armed)
-                        let texts = if crate::prefs_ui::opens(l) { vec![sg_core::lang::tr(d).to_string(), t] } else { vec![t.clone(); 0] };
-                        for text in texts.into_iter().chain([sg_core::lang::tr(d).to_string()]) {
+                        let plain = sg_core::lang::tr(d).to_string();
+                        let texts = if crate::prefs_ui::opens(l) { vec![plain, t] } else { vec![plain] };
+                        for text in texts {
                             let n = crate::extras::wrap(FOOT_FONTS[1], &text, w).len();
                             if n > 2 {
                                 long.push(format!("{d} takes {n} lines: {text}"));
