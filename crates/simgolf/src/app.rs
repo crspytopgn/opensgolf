@@ -558,6 +558,8 @@ pub struct App {
     /// (main.rs: once, in a box until the list changes, and in the ticker).
     pub unreadable: Vec<String>,
     pub unreadable_said: bool,
+    /// When the last of them was found (the game clock): the note waits until the art has finished loading.
+    pub unreadable_at: f64,
     /// Sprites drawn from a content pack's high-resolution or person's sheet, by sprite index (packart.rs).
     pub pack_art: HashMap<usize, sg_core::hires::SheetSprite>,
     pub props: Vec<Prop>,
@@ -973,6 +975,7 @@ impl App {
             sprite_index: HashMap::new(),
             unreadable: Vec::new(),
             unreadable_said: false,
+            unreadable_at: 0.0,
             pack_art: HashMap::new(),
             props: Vec::new(),
             show_props: true,
@@ -1192,7 +1195,7 @@ impl App {
     /// The art files that could not be read, said once a run (in the ticker) and in a box until the list changes; None
     /// when there is nothing (new) to say.
     pub fn take_unreadable_note(&mut self) -> Option<(String, bool)> {
-        if self.unreadable_said || self.unreadable.is_empty() {
+        if self.unreadable_said || self.unreadable.is_empty() || self.clock - self.unreadable_at < 2.0 {
             return None;
         }
         self.unreadable_said = true;
@@ -1845,6 +1848,7 @@ impl App {
                     // game's own and is not counted)
                     if !self.on_free_set() && !self.unreadable.iter().any(|f| f == rel) {
                         self.unreadable.push(rel.to_string());
+                        self.unreadable_at = self.clock;
                     }
                 }
                 None
