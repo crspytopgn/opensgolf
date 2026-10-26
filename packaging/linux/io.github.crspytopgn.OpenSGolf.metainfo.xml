@@ -110,6 +110,7 @@
     <release version="0.5.11" date="2026-10-26">
       <description>
         <p>Placing a landmark, flower bed or scenic tree now places the one you chose: a click on the course no longer picks the item the pointer passed over on the way.</p>
+        <p>Paths are drawn with the original's pieces: ends and bends join up without loose round dots, and a path joined to the clubhouse is grey as in the original.</p>
         <p>Sand traps keep the shape you turned them to before placing them, as in the original.</p>
         <p>Enhanced graphics: fixed a brief flash of large, blocky shadows on busy courses, and removed the twinkling white dots on the ground on spring and autumn mornings.</p>
       </description>
