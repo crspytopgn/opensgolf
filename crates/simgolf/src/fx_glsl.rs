@@ -282,7 +282,7 @@ vec3 seasonal(vec3 c, float grass) {
     s = mix(s, vec3(l * 1.22, l * 1.10, l * 0.60), fx2.y * 0.32);
     return mix(c, s, gm);
 }
-// early mornings: frost in patches (more in hollows) and dew or rime glinting in the sun
+// early mornings: frost in patches (more in hollows), with a fine grain of rime
 vec3 frosty(vec3 c, float grass, vec4 lm) {
     // level ground only (not the cliffs and walls)
     float gm = grass * (1.0 - lm.a) * smoothstep(0.6, 0.85, up_n);
@@ -315,10 +315,8 @@ vec3 frosty(vec3 c, float grass, vec4 lm) {
         white *= 0.96 + 0.06 * grain;
         c = mix(c, min(white, vec3(1.0)), cov * 0.97);
     }
-    float h = hash(floor(vec2(w_pos.x + w_pos.y * 1.37, w_pos.z - w_pos.y * 0.71) * fx3.w));
-    float tw = 0.5 + 0.5 * sin(fx1.w * 2.6 + h * 40.0);
-    float sp = step(0.991, h) * tw * min(fx2.w + fx2.z, 1.0) * gm * cloud_sun();
-    return c + vec3(0.92, 0.96, 1.0) * sp * 0.6;
+    // (0.6 dropped the dew's twinkling white dots: on screen they read as flickering pixels, not dew)
+    return c;
 }
 // wet ground: darker and a little glossy, with puddles mirroring the sky (rain rings in them while it rains)
 vec3 wetted(vec3 c, float pot, vec4 lm) {

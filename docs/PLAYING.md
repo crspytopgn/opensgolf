@@ -1352,8 +1352,7 @@ The **Weather** page and the newer Atmosphere options (docs/ENHANCED.md has the 
   rain slants and the clouds drift with it.
 - *Lamps and fireflies at dusk* (on, with the time of day): from sunset lamps light up beside the buildings and along the
   paths, and fireflies drift over the rough on parkland and tropical courses.
-- *Seasons* (on): blossom on the trees and fresh greens in March and April, autumn colours in September and October, and
-  dew on spring and autumn mornings (with the time of day). Palms, cacti and conifers barely change.
+- *Seasons* (on): blossom on the trees and fresh greens in March and April, autumn colours in September and October. Palms, cacti and conifers barely change.
 - *Wet ground, puddles and rainbows* (on, with rain): during a rainy day and drying through the next the ground is darker
   and glossy, puddles fill on level fairway and rough and shrink as they dry, and about every other time the sun comes out
   after rain a rainbow stands in the sky.
