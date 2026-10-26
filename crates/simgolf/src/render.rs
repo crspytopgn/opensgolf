@@ -4,7 +4,7 @@
 use crate::app::*;
 use crate::atlas::STex;
 use crate::gfx::{Gfx, Mat4, Mode, Uniforms, Vert};
-use crate::ui::{money, rgb, rgba, text_width, wrap_text, Screen as Ui};
+use crate::ui::{money, rgb, rgba, text_width, Screen as Ui};
 use miniquad::TextureId;
 use sg_core::decor::WEEDY_BED;
 use sg_core::economy::{Economy, STAFF_KINDS};
@@ -1174,25 +1174,6 @@ impl App {
                     s.fill(g, r.x, r.y, r.w, r.h, rgba(0.5, 0.5, 0.9, 0.45));
                 }
                 s.text(g, r.x + 4.0, r.y + 13.0, &it.label, 13.0, rgb(1.0, 1.0, 1.0));
-            }
-        }
-        // Story lines (port-only, until the exe's portrait bubbles for story talk are drawn), below the ticker's place.
-        s.anchor(Anchor::Top);
-        if self.show_advisor {
-            let y = 124.0;
-            if !self.story_lines.is_empty() && self.game_tick < self.story_until {
-                // the latest story lines (the exe shows them as thought bubbles over the two golfers)
-                let mut rows: Vec<String> = Vec::new();
-                for l in self.story_lines.iter() {
-                    let (who, text) = l.split_once('|').unwrap_or(("", l));
-                    rows.extend(wrap_text(&format!("{who}: {text}"), 14.0, 290.0));
-                }
-                let sh = 26.0 + 17.0 * rows.len() as f32;
-                s.fill(g, 244.0, y, 306.0, sh, rgba(0.12, 0.2, 0.25, 0.85));
-                s.text(g, 252.0, y + 16.0, &self.story_title, 12.0, rgb(0.8, 0.9, 1.0));
-                for (i, l) in rows.iter().enumerate() {
-                    s.text(g, 252.0, y + 33.0 + 17.0 * i as f32, l, 14.0, rgb(1.0, 1.0, 1.0));
-                }
             }
         }
         s.anchor(Anchor::Centre);
