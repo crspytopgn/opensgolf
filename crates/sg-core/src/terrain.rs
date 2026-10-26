@@ -1063,9 +1063,74 @@ pub fn build_tile_triangles(t: &Terrain, tx: i32, ty: i32, out: &mut Vec<TileTri
     }
 }
 
+/// A path tile's neighbours with a path, as Terrain.dll's tile path draw (0x100108f0) adds them up from the neighbours' path
+/// flag (Tile+0x208): north (y - 1) 1, south 2, east (x + 1) 4, west 8.
+pub fn path_mask(n: bool, s: bool, e: bool, w: bool) -> u8 {
+    n as u8 | (s as u8) << 1 | (e as u8) << 2 | (w as u8) << 3
+}
+
+/// The centre of a path tile, by its `path_mask`: what Terrain.dll draws on each of the four triangles between the tile's
+/// centre and two edge midpoints, north-west, north-east, south-west and south-east in that order (the jump table of
+/// 0x100116d0, after the tile's arms: an arm per neighbour, a third of the tile wide, from the centre to the edge, in
+/// `Path.tga`). 0 draws nothing there, 2 the triangle of `PathInside.tga` (the filled corner between two arms), 3 that of
+/// `PathCurve.tga` (the round edge: four of them give a lone tile its round dot, two the round end of a path, one the outside
+/// of a bend). A straight run's centre (masks 3 and 12) is all arm. `PathCap.tga` is loaded but never drawn.
+pub fn path_centre(mask: u8) -> [u8; 4] {
+    const T: [[u8; 4]; 16] = [
+        [3, 3, 3, 3], // alone
+        [0, 0, 3, 3], // N: an end
+        [3, 3, 0, 0], // S
+        [0, 0, 0, 0], // N S: straight
+        [3, 0, 3, 0], // E
+        [0, 2, 3, 0], // N E: a bend
+        [3, 0, 0, 2], // S E
+        [0, 2, 0, 2], // N S E: a T
+        [0, 3, 0, 3], // W
+        [2, 0, 0, 3], // N W
+        [0, 3, 2, 0], // S W
+        [2, 0, 2, 0], // N S W
+        [0, 0, 0, 0], // E W: straight
+        [2, 2, 0, 0], // N E W
+        [0, 0, 2, 2], // S E W
+        [2, 2, 2, 2], // a crossing
+    ];
+    T[mask as usize & 15]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn path_pieces_follow_the_neighbours() {
+        // a lone tile is the round dot, all curve
+        assert_eq!(path_centre(path_mask(false, false, false, false)), [3; 4]);
+        // straight runs: arms only, no round piece
+        assert_eq!(path_centre(path_mask(true, true, false, false)), [0; 4]);
+        assert_eq!(path_centre(path_mask(false, false, true, true)), [0; 4]);
+        // the end of a run going north: rounded on the south side only
+        assert_eq!(path_centre(path_mask(true, false, false, false)), [0, 0, 3, 3]);
+        // a bend north to east: the inside corner filled, the outside (south-west) rounded
+        assert_eq!(path_centre(path_mask(true, false, true, false)), [0, 2, 3, 0]);
+        // a bend south to west
+        assert_eq!(path_centre(path_mask(false, true, false, true)), [0, 3, 2, 0]);
+        // a T (north, south and east): the two inside corners on the east filled, nothing round
+        assert_eq!(path_centre(path_mask(true, true, true, false)), [0, 2, 0, 2]);
+        assert_eq!(path_centre(15), [2; 4]);
+        // the round piece shows only on a side with no neighbour, the filled corner only between two
+        for m in 0..16u8 {
+            let c = path_centre(m);
+            let (n, s, e, w) = (m & 1 != 0, m & 2 != 0, m & 4 != 0, m & 8 != 0);
+            for (q, (v, h)) in [(n, w), (n, e), (s, w), (s, e)].into_iter().enumerate() {
+                let want = match (v, h) {
+                    (true, true) => 2,
+                    (false, false) => 3,
+                    _ => 0,
+                };
+                assert_eq!(c[q], want, "mask {m} quadrant {q}");
+            }
+        }
+    }
 
     #[test]
     fn tiles_keep_their_own_corners() {
