@@ -554,6 +554,10 @@ pub struct App {
     pub dpi: f32,
     pub sprites: Vec<GlSprite>,
     pub sprite_index: HashMap<String, Option<usize>>,
+    /// The art files of the player's copy that could not be read (Flics/..., shadows aside), and whether this run said so
+    /// (main.rs: once, in a box until the list changes, and in the ticker).
+    pub unreadable: Vec<String>,
+    pub unreadable_said: bool,
     /// Sprites drawn from a content pack's high-resolution or person's sheet, by sprite index (packart.rs).
     pub pack_art: HashMap<usize, sg_core::hires::SheetSprite>,
     pub props: Vec<Prop>,
@@ -967,6 +971,8 @@ impl App {
             dpi: 1.0,
             sprites: Vec::new(),
             sprite_index: HashMap::new(),
+            unreadable: Vec::new(),
+            unreadable_said: false,
             pack_art: HashMap::new(),
             props: Vec::new(),
             show_props: true,
@@ -1183,6 +1189,24 @@ impl App {
 
     /// A message for the player: on the course it goes to the ticker as the exe's messages do (priority 1, nobody
     /// speaking); the title screens, which have no ticker, show it as a note at the bottom for 3 seconds.
+    /// The art files that could not be read, said once a run (in the ticker) and in a box until the list changes; None
+    /// when there is nothing (new) to say.
+    pub fn take_unreadable_note(&mut self) -> Option<(String, bool)> {
+        if self.unreadable_said || self.unreadable.is_empty() {
+            return None;
+        }
+        self.unreadable_said = true;
+        let file = format!("Flics/{}", self.unreadable[0]);
+        let msg = match self.unreadable.len() {
+            1 => trf("STR_FILES_UNREADABLE_1", &[("FILE", &file)]),
+            n => trf("STR_FILES_UNREADABLE", &[("N", &n), ("FILE", &file)]),
+        };
+        let mut list = self.unreadable.clone();
+        list.sort();
+        let boxed = crate::gamefiles::take_once("unreadable_files_shown", &list.join("|"));
+        Some((msg, boxed))
+    }
+
     pub fn show_toast(&mut self, msg: &str) {
         self.toast = msg.to_string();
         self.toast_until = self.clock + 3.0;
@@ -1817,6 +1841,11 @@ impl App {
             Err(e) => {
                 if !shadow {
                     crate::bugreport::warn(&format!("sprite: {e}")); // many objects simply have no shadow file
+                    // a whole copy reads every one: a file it cannot is missing or damaged (the free set's art is the
+                    // game's own and is not counted)
+                    if !self.on_free_set() && !self.unreadable.iter().any(|f| f == rel) {
+                        self.unreadable.push(rel.to_string());
+                    }
                 }
                 None
             }

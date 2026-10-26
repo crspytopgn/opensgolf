@@ -3136,6 +3136,13 @@ impl EventHandler for Stage {
     fn draw(&mut self) {
         glass_ui::set_active(self.app.on_free_set());
         enhanced::trial_frame(self.app.clock);
+        // art files of the player's copy that could not be read (app.rs take_unreadable_note)
+        if let Some((msg, boxed)) = self.app.take_unreadable_note() {
+            self.app.show_toast(&msg);
+            if boxed && self.png_out.is_none() {
+                self.app.show_notice(&msg);
+            }
+        }
         // too slow for the Enhanced options in use: the costliest go, a step at a time (enhanced.rs, issue #55)
         if self.png_out.is_none() {
             if let Some((s, what)) = enhanced::guard_frame(self.app.clock) {
