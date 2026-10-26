@@ -150,6 +150,21 @@ function sgDrawWatch() {
     if (now - d.last > SG_STALL_MS) sgDrawingStopped("no frame drawn for " + Math.round((now - d.last) / 1000) + " seconds");
 }
 setInterval(sgDrawWatch, 250);
+
+// Enhanced graphics draw at most about 1440p's pixels (SG_ENHANCED_PIXELS): a 4K screen has four times 1080p's and each
+// effect runs on every one of them, which a laptop's chip cannot keep up with; the browser stretches the picture to the
+// screen. Classic draws at the screen's own pixels as always (its picture stays exact). miniquad's gl.js sizes the canvas
+// and places the mouse with its dpi_scale, which this replaces.
+const SG_ENHANCED_PIXELS = 2560 * 1440;
+const sgScreenDpr = dpi_scale;
+function sgDpr() {
+    const real = sgScreenDpr();
+    const c = document.getElementById("glcanvas");
+    const area = c ? c.clientWidth * c.clientHeight : 0;
+    if (!sgDraw.enhanced || !area || area * real * real <= SG_ENHANCED_PIXELS) return real;
+    return Math.max(1, Math.sqrt(SG_ENHANCED_PIXELS / area));
+}
+dpi_scale = sgDpr;
 document.addEventListener("visibilitychange", () => { if (sgDraw.last) sgDraw.last = performance.now(); });
 // Leaving a game that was drawing well (a reload, the tab closed, the title's exit button): the marker of Enhanced's
 // start-up trial goes, so a player who leaves within its first seconds keeps Enhanced next time.
@@ -172,7 +187,14 @@ miniquad_add_plugin({
         env.sg_frame_cap = function (fps) { sgFrameCap = fps; };
         // the watch over the game's drawing (sgDrawingStopped): a frame was drawn; Enhanced graphics on or off
         env.sg_frame_drawn = function () { sgDraw.last = performance.now(); };
-        env.sg_enhanced = function (on) { sgDraw.enhanced = on !== 0; };
+        env.sg_enhanced = function (on) {
+            const was = sgDraw.enhanced;
+            sgDraw.enhanced = on !== 0;
+            // the drawing's size follows (sgDpr), after this frame: the game hears of it as of a window resized
+            if (was !== sgDraw.enhanced) setTimeout(() => { const c = document.getElementById("glcanvas"); if (c && wasm_exports) resize(c, wasm_exports.resize); }, 0);
+        };
+        // the game asks for the screen's scale too (touch slop): the same as the drawing's
+        env.dpi_scale = sgDpr;
         // the game's quit (the title menu's exit button): a tab cannot close itself, so back to the start page
         env.sg_quit = function () { location.reload(); };
         env.sg_fs_size = function (ptr, len) {

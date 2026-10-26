@@ -111,8 +111,8 @@ impl Atlas {
                 allocate_mipmaps: false,
                 sample_count: 1,
             };
-            let blank = vec![0u8; (PAGE * PAGE * 4) as usize];
-            let tex = ctx.new_texture(TextureAccess::Static, TextureSource::Bytes(&blank), params);
+            // made without a picture (no 16 MB of blank to send): a frame and its border are all that is ever read
+            let tex = ctx.new_texture(TextureAccess::Static, TextureSource::Empty, params);
             self.pages.push(Page { tex, shelves: Vec::new(), top: 0, fill: 0, used: self.frame });
             self.pages.len() - 1
         } else {
@@ -245,8 +245,10 @@ mod tests {
         assert_eq!(fit(&mut p, 100, 10), Some((0, 50)));
         // a frame wider than what is left of every row starts a new one
         assert_eq!(fit(&mut p, PAGE - 150, 50), Some((0, 60)));
-        // no room left
+        // a short frame still goes along a row of its height
         p.top = PAGE - 5;
-        assert_eq!(fit(&mut p, 10, 10), None);
+        assert_eq!(fit(&mut p, 10, 10), Some((100, 50)));
+        // a frame taller than every row, with no room for a new one: none
+        assert_eq!(fit(&mut p, 10, 100), None);
     }
 }

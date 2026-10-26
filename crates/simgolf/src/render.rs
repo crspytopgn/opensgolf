@@ -1,11 +1,11 @@
 //! Drawing: the course (terrain, paths, walls), sprites in painter's order, the ball, the edit cursor, and the 2D screens (title
 //! menu, select difficulty, heads-up display with the dock). The property chooser and land screen are in world_ui, the
 //! course report in info_ui.
-use crate::atlas::STex;
-use miniquad::TextureId;
 use crate::app::*;
+use crate::atlas::STex;
 use crate::gfx::{Gfx, Mat4, Mode, Uniforms, Vert};
 use crate::ui::{money, rgb, rgba, text_width, wrap_text, Screen as Ui};
+use miniquad::TextureId;
 use sg_core::decor::WEEDY_BED;
 use sg_core::economy::{Economy, STAFF_KINDS};
 use sg_core::lang::{tr, trf};
@@ -141,14 +141,7 @@ impl App {
 
     /// A person's frame in the palette of an outfit, recoloured on first use and cached (in Classic, in the sprite atlas,
     /// atlas.rs).
-    pub(crate) fn outfit_texture(
-        &mut self,
-        g: &mut Gfx,
-        si: usize,
-        view: i32,
-        frame: i32,
-        o: sg_core::bodies::Outfit,
-    ) -> Option<STex> {
+    pub(crate) fn outfit_texture(&mut self, g: &mut Gfx, si: usize, view: i32, frame: i32, o: sg_core::bodies::Outfit) -> Option<STex> {
         let i = self.sprites[si].s.frame_index(view, frame);
         if crate::packart::active() {
             if let Some(t) = self.pack_outfit_texture(g, si, i, o) {
@@ -209,7 +202,14 @@ impl App {
     }
 
     /// A recoloured frame as a texture of its own (the customise screen's figure).
-    pub(crate) fn outfit_texture_whole(&mut self, g: &mut Gfx, si: usize, view: i32, frame: i32, o: sg_core::bodies::Outfit) -> Option<TextureId> {
+    pub(crate) fn outfit_texture_whole(
+        &mut self,
+        g: &mut Gfx,
+        si: usize,
+        view: i32,
+        frame: i32,
+        o: sg_core::bodies::Outfit,
+    ) -> Option<TextureId> {
         let i = self.sprites[si].s.frame_index(view, frame);
         if crate::packart::active() {
             if let Some(t) = self.pack_outfit_texture(g, si, i, o) {
