@@ -222,6 +222,7 @@ pub fn club_unsaved(c: &crate::golfer::Club) -> u64 {
     h.bool(c.ticker_busy);
     h.bool(c.advisor);
     h.bool(c.view_close);
+    h.bool(c.message_up);
     h.bool(c.show_snapshots);
     h.u64(c.award_snaps.len() as u64);
     for &(id, (x, y)) in &c.award_snaps {
@@ -677,6 +678,7 @@ mod tests {
             ("ticker busy", |c| c.ticker_busy = !c.ticker_busy),
             ("advisor", |c| c.advisor = !c.advisor),
             ("view close", |c| c.view_close = !c.view_close),
+            ("message up", |c| c.message_up = !c.message_up),
             ("award snaps", |c| c.award_snaps.push((1, (2, 3)))),
             ("place", |c| c.place.seed += 1),
             ("today", |c| c.today = Some(Default::default())),

@@ -630,10 +630,21 @@ Confidence: high.
   the opening pair before tick 0x800 gets the tutorial. After N Happy Endings a pair keeps its story with chance 7/N.
 - Pairing also sets both moods to 2 + compatibility (5 less the differing trait bits).
 - A beat needs the pair on one hole, both standing, within 0x3000 / (scene + 6) map units, 150 ticks since the last beat on
-  the course and the owner's smoothed mood above 4 * scene + 4 (the exe also needs the owner on screen). The partner's reply is
+  the course and the owner's smoothed mood above 4 * scene + 4. The player must be watching (0x428c07..0x428c8e): no ticker
+  message up (0x569498), the closest zoom (0x4c2844 at 4) and the owner's screen point, as the golfer drawing last stored it
+  (+0x08/+0x0c, -1 when not drawn), inside x 51..749, y 51..449 of the 800 x 600 screen. The partner's reply is
   (mood - 1) / 2, capped below the best after scene 1, nudged by the newest thought and a "stories go well" landmark. The best
   reply passes the scene (owner mood + 1), one less fails quietly, lower fails with owner mood - 1; a failed scene goes back
   and the owner's smoothed mood loses a third.
+- The lines show only as bubbles over the two golfers (thought type 0x32 in the thought pass 0x416a15, 0x416b5e..0x416d38),
+  at zoom above 2 whatever the thoughts option, while the golfer's bubble timer is 1..7 (7 at the line, one less every 8
+  ticks; the partner's starts at 10, so its reply appears about 24 ticks after the opening line). Each is the line, centred
+  12 pixels left of the owner or right of the partner, its top at zoom * 10 + 7 (owner) or - 7 (partner) above the pair's
+  mid height ((partner y - own y) / 2), on an 11 pixel bar of 15-bit 0x2008 the text's width + 8 wide (0x480b00), with the
+  ball piece (0x5a58c4) and the halo head of the golfer's face of the moment at half size (0x473cb0 scale 1/2) 42 pixels
+  above the bar: left of the owner's bar (x = bar left - 56), right of the partner's (x = bar right - 12) with the head
+  mirrored (scale -1/2, anchored 36 pixels in; where the mirrored draw lands is not decoded, the port centres it there).
+  Font and colour as the other thoughts. Nothing else on screen shows them.
 - Passing scene 4 is a Happy Ending: the hole is marked in both members' records (worth membership points and a good thought
   later) and the story's landmark type becomes available and free once, if a random walk from the owner reaches rough.
 

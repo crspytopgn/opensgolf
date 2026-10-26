@@ -258,6 +258,19 @@ impl App {
         }
         self.xs.kept.push_message(Message { tick, text: text.to_string(), speaker, roster, face, at });
     }
+
+    /// A golfer's story line (the original shows it only in the bubble over the golfer, thoughts_ui.rs): the history keeps
+    /// it as the golfer's message, so a story can be read again.
+    pub fn keep_story_line(&mut self, g: usize, text: &str) {
+        if !crate::extras::history() || text.trim().is_empty() {
+            return;
+        }
+        let gg = &self.club.g[g];
+        let (roster, at) = (gg.roster, Some((gg.x, gg.y)));
+        let face = self.club.attitude(g) as u8;
+        let tick = self.date();
+        self.xs.kept.push_message(Message { tick, text: text.to_string(), speaker: g as i32, roster, face, at });
+    }
 }
 
 #[cfg(test)]

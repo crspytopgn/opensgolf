@@ -446,6 +446,9 @@ pub struct Club {
     /// game before each tick.
     #[serde(skip)]
     pub view_close: bool,
+    /// A ticker message is up (0x569498), which holds back story beats (0x428c07); set by the game before each tick.
+    #[serde(skip)]
+    pub message_up: bool,
     /// The Preferences' "Show snapshots of great shots." option (bit 2 of 0x5a5a00), set by the game before each tick.
     #[serde(skip)]
     pub show_snapshots: bool,
@@ -584,6 +587,7 @@ impl Club {
             advisor: true,
             shot_recs: Vec::new(),
             view_close: true,
+            message_up: false,
             show_snapshots: true,
             extras: Default::default(),
             cal: Default::default(),
