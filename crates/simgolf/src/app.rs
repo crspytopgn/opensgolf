@@ -1843,7 +1843,8 @@ impl App {
             }
             Err(e) => {
                 if !shadow {
-                    crate::bugreport::warn(&format!("sprite: {e}")); // many objects simply have no shadow file
+                    // (many objects simply have no shadow file, so those are not said)
+                    crate::bugreport::warn(&format!("sprite: {e}"));
                     // a whole copy reads every one: a file it cannot is missing or damaged (the free set's art is the
                     // game's own and is not counted)
                     if !self.on_free_set() && !self.unreadable.iter().any(|f| f == rel) {
