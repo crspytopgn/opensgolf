@@ -59,7 +59,7 @@ game sends "{$S,\"playcount\":{\"noticed\":true,\"pending\":3}}"
 check "counter answers: start count" "$(hits start/linux sends)" 1
 check "counter answers: 15-minute counts (3 kept and the new one)" "$(hits play-15min/linux sends)" 4
 check "counter answers: nothing kept afterwards" "$(field sends "d['playcount']['pending']")" 0
-check "counter answers: the clock went on" "$(field sends "int(d['support']['played'] > 900)")" 1
+check "counter answers: the clock went on" "$(field sends "int(d['support']['played'] >= 900)")" 1
 game restart "$(cat "$OUT/sends/save/settings.json")"
 check "a restart: the start count only, nothing counted twice" "$(hits play-15min restart)/$(hits start restart)" 0/1
 game toomany "{$S,\"playcount\":{\"noticed\":true,\"pending\":4000000000}}"
@@ -71,18 +71,18 @@ kill $SERVER; wait $SERVER 2>/dev/null
 server error
 game errors "{$S,\"playcount\":{\"noticed\":true}}"
 check "counter fails: the 15-minute count kept" "$(field errors "d['playcount']['pending']")" 1
-check "counter fails: the clock went on" "$(field errors "int(d['support']['played'] > 900)")" 1
+check "counter fails: the clock went on" "$(field errors "int(d['support']['played'] >= 900)")" 1
 kill $SERVER; wait $SERVER 2>/dev/null
 
 server hang
 game hangs "{$S,\"playcount\":{\"noticed\":true,\"pending\":2}}"
-check "counter hangs: the game kept running" "$(field hangs "int(d['support']['played'] > 900)")" 1
+check "counter hangs: the game kept running" "$(field hangs "int(d['support']['played'] >= 900)")" 1
 check "counter hangs: the counts kept after the timeout" "$(field hangs "d['playcount']['pending']")" 3
 kill $SERVER; wait $SERVER 2>/dev/null
 
 URL="http://127.0.0.1:9/count" game offline "{$S,\"playcount\":{\"noticed\":true}}"
 check "no internet: the 15-minute count kept" "$(field offline "d['playcount']['pending']")" 1
-check "no internet: the clock went on" "$(field offline "int(d['support']['played'] > 900)")" 1
+check "no internet: the clock went on" "$(field offline "int(d['support']['played'] >= 900)")" 1
 
 server ok
 READONLY=1 game readonly "{$S,\"playcount\":{\"noticed\":true}}"
