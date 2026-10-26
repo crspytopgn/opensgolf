@@ -199,7 +199,10 @@ the original manual and footage of the game, and nothing here removes or bypasse
 OpenSGolf is free software under the **GNU General Public License, version 2 or (at your option) any later version**
 (GPL-2.0-or-later), the same licence as OpenTTD: see [LICENSE](LICENSE). Anyone may use, change and share it, and changed
 versions must stay open under the same terms. The bundled Liberation Sans font is under the SIL Open Font License. Content
-packs (mods) choose their own licence; the free base set is GPL-2.0-or-later too.
+packs (mods) choose their own licence; the free base set is GPL-2.0-or-later too. The built-in HD maker's pixel-art
+upscaler (`crates/sg-core/src/xbrz.rs`) was written for OpenSGolf to the rules and constants of the xBRZ algorithm by Zenju
+(xBRZ 1.8, <https://sourceforge.net/projects/xbrz/>, GPL-3.0, itself based on Hyllian's xBR); GPL-3.0 is among the
+versions OpenSGolf's licence allows.
 
 ## Supporting the project
 
@@ -295,10 +298,12 @@ GitHub Pages.
 and **Classic stays the default and byte-identical** with it off. Turn it on in System Functions → Preferences → Graphics, or with
 `--enhanced` / `--classic-render` (`--fx` for just the effects). See [docs/ENHANCED.md](docs/ENHANCED.md).
 
-An opt-in **HD mode** draws the game's art upscaled ×4 (or ×2) with an AI upscaler such as Real-ESRGAN. The upscaled art is a
-derivative of EA's art, so you make the pack yourself from your own copy with `tools/hd_pack/hd_pack.py`. It is never
-shipped, downloaded from this project, or to be shared. Turn it on in Preferences → Graphics (*HD graphics*), with `--hd` / `--classic`,
-or `--hd-pack DIR`. See [docs/HD.md](docs/HD.md).
+An opt-in **HD mode** draws the game's art upscaled ×4 (or ×2). Making it is one click: Preferences → Graphics → *Make HD
+graphics from my SimGolf files...* upscales your own copy's art on your machine (built-in xBRZ upscaler, or Real-ESRGAN when
+it is installed; a minute or two on a desktop, in the background while you play), then turns HD on. The upscaled art is a
+derivative of EA's art, so it is always made by you from your own copy (in the game, or with `tools/hd_pack/hd_pack.py`);
+it is never shipped, downloaded from this project, or to be shared. Switch it in Preferences → Graphics (*HD graphics*),
+with `--hd` / `--classic`, or `--hd-pack DIR`. See [docs/HD.md](docs/HD.md).
 
 ### How it was made
 

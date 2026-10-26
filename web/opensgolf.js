@@ -212,6 +212,13 @@ miniquad_add_plugin({
             // download: it would be out of reach (and soon over the quota) in local storage. The accomplishment snapshots
             // the board shows (snapshots/accomp<n>.png) are kept like the saves.
             const low = sgKey(path);
+            // the HD pack the game makes itself (Preferences > Graphics > Make HD graphics..., hd_make.rs) goes with an HD pack
+            // the player picked: in this browser's IndexedDB (far too large for local storage)
+            if (low.startsWith("hd/")) {
+                sgAddFile(path, bytes);
+                sgHdKeep(path, bytes);
+                return;
+            }
             // Load Previous Game's Export this save (files_ui.rs) writes under download/: a download, kept nowhere
             if (low.startsWith("download/")) {
                 sgDownload(path.split(/[\\/]/).pop(), bytes);
@@ -246,6 +253,7 @@ miniquad_add_plugin({
                 // an older version of a downloaded pack
                 sgDb().then(db => db.transaction("packs", "readwrite").objectStore("packs").delete(path)).catch(() => {});
             }
+            if (k.startsWith("hd/")) sgHdKeep(path, null);
             try {
                 for (let i = localStorage.length - 1; i >= 0; i--) {
                     const lk = localStorage.key(i);
@@ -1444,6 +1452,45 @@ async function sgLoadHdZip(file) {
         return;
     }
     await sgUseHd(entries);
+}
+// The files of the HD pack the game makes (sg_fs_write), kept in IndexedDB in batches, in the order written (the manifest
+// after the pictures it lists); null bytes remove a file.
+const sgHdQueue = [];
+let sgHdFlushing = false;
+function sgHdKeep(path, bytes) {
+    sgHdQueue.push([path, bytes]);
+    if (!sgHdFlushing) {
+        sgHdFlushing = true;
+        setTimeout(sgHdFlush, 0);
+    }
+}
+async function sgHdFlush() {
+    try {
+        if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+        const db = await sgDb();
+        while (sgHdQueue.length > 0) {
+            const part = sgHdQueue.splice(0, 100);
+            await new Promise((ok, fail) => {
+                const tx = db.transaction("hd", "readwrite");
+                const st = tx.objectStore("hd");
+                // (a pack picked earlier and cut short leaves its marker: this store is complete again as the game writes it)
+                st.delete(SG_STORE_PARTIAL);
+                for (const [path, bytes] of part) {
+                    if (bytes === null) st.delete(path);
+                    else st.put(bytes, path);
+                }
+                tx.oncomplete = ok;
+                tx.onerror = () => fail(tx.error);
+                tx.onabort = () => fail(tx.error);
+            });
+        }
+    } catch (e) {
+        sgHdQueue.length = 0;
+        console.warn("could not keep the HD pack in this browser", e);
+        sgNote("The HD graphics could not be kept in this browser (" + (e && e.name === "QuotaExceededError" ?
+            "not enough storage space" : (e && e.message) || "storage refused") + "): they last until the page is closed.", true);
+    }
+    sgHdFlushing = false;
 }
 async function sgForgetHd() {
     try {

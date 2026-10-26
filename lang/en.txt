@@ -800,7 +800,7 @@ STR_ERROR_CANT_BUILD_THERE              :Can't build there.
 STR_ERROR_CANT_BUILD_BENCH              :Can't build bench there.
 STR_ERROR_CANT_BUILD_BRIDGE             :Can't build bridge there.
 # What the player sees when they ask for HD graphics and there is no pack
-STR_ERROR_NO_HD_PACK                    :No HD art pack found. Make one from your own copy of the game with tools/hd_pack (see docs/HD.md). Staying with Classic graphics.
+STR_ERROR_NO_HD_PACK                    :No HD art pack found. Make one from your own copy of the game: Preferences, Graphics, Make HD graphics from my SimGolf files... (or tools/hd_pack, see docs/HD.md). Staying with Classic graphics.
 # Errors reading a saved game
 STR_ERROR_FILE_NOT_FOUND                :{FILE}: not found
 STR_ERROR_NOT_A_SAVED_GAME              :{FILE}: not a saved game
@@ -3389,3 +3389,31 @@ STR_PREFS_DESC_SUPPORT                  :Opens OpenSGolf's Buy Me a Coffee page 
 STR_PLAYCOUNT_NOTICE                    :OpenSGolf counts anonymous play time (no personal data). Turn it off in Preferences > More.
 STR_MENU_PREFS_PLAYCOUNT                : Count my play time (anonymous)
 STR_PREFS_DESC_PLAYCOUNT                :One count per 15 minutes played and one at start: only system and version, no names or saves. Offline counts are sent later.
+
+# Making HD graphics from the player's own files (the port's own, hd_make.rs; docs/HD.md)
+STR_PREFS_MAKE_HD                       : Make HD graphics from my SimGolf files...
+STR_PREFS_MAKE_HD_AGAIN                 : Make HD graphics again...
+STR_PREFS_MAKE_HD_RESUME                : Finish making HD graphics...
+STR_PREFS_MAKE_HD_RUNNING               : Making HD graphics: {PCT}% (show)
+STR_PREFS_DESC_MAKE_HD                  :Upscales the game's art from your own files into an HD pack on this device, then turns HD on.
+STR_HD_MAKE_ASK                         :Make HD graphics? The game upscales its {PICTURES} pictures from your own SimGolf files, on this device: about {SIZE} and {TIME}. You can play on meanwhile, stop at any time and carry on later. The pack is made from EA's art: keep it to yourself, do not share it.
+STR_HD_MAKE_ASK_BROWSER                 :Make HD graphics? The game upscales its {PICTURES} pictures twice their size from your own SimGolf files, here in this browser, which keeps them with your game files: about {SIZE} and {TIME}. You can play on meanwhile (more slowly), stop at any time and carry on later. Keep the pack to yourself.
+STR_HD_MAKE_AGAIN_NOTE                  :You have an HD pack already: making it again replaces it.
+STR_HD_MAKE_BIG                         :Make it (4 times the size: {SIZE}, {TIME})
+STR_HD_MAKE_SMALL                       :Make a smaller one (twice the size: {SIZE}, {TIME})
+STR_HD_MAKE_X2                          :Make it (twice the size: {SIZE}, {TIME})
+STR_HD_MAKE_BEST                        :Make it with Real-ESRGAN (best quality; slow without a strong graphics card)
+STR_HD_MAKE_QUICK                       :Make it with the built-in upscaler ({SIZE}, {TIME})
+STR_HD_MAKE_ASK_RESUME                  :Making HD graphics was stopped before it was done. Carry on where it stopped?
+STR_HD_MAKE_RESUME                      :Carry on
+STR_HD_MAKE_RESTART                     :Start again
+STR_HD_MAKE_MINUTE                      :about a minute
+STR_HD_MAKE_MINUTES                     :about {N} minutes
+STR_HD_MAKE_LEFT_UNKNOWN                :working out how long
+STR_HD_MAKE_PROGRESS                    :Making HD graphics from your SimGolf files: {PCT}% done ({PICTURES} pictures), {LEFT} to go. HD turns on when it is done.
+STR_HD_MAKE_STOP                        :Stop (carry on later)
+STR_HD_MAKE_HIDE                        :Keep playing
+STR_HD_MAKE_STOPPED                     :Stopped making HD graphics. Preferences, Graphics carries on where it stopped.
+STR_HD_MAKE_DONE                        :The HD graphics are ready and switched on (Preferences, Graphics switches them off).
+STR_HD_MAKE_FAILED                      :Making HD graphics stopped: {ERR}
+STR_HD_MAKE_WRITE_FAILED                :{FILE} could not be written (is the disk full?)
