@@ -1517,9 +1517,15 @@ impl App {
         }
     }
 
-    /// Path overlay (our own model): every path tile gets a centre piece, plus an arm toward each path neighbour, cut out of the
-    /// game's cross shaped Path.tga (arms 0..0.33 / 0.66..1 of the tile, centre between).
+    /// Path overlay, as Terrain.dll draws a path tile (0x100108f0): an arm toward each neighbour with a path, a third of the
+    /// tile wide from its centre to the edge, cut from the cross shaped `Path.tga` (texture 0.33..0.67 across, the third at
+    /// the arm's end along), then the centre's four triangles as `sg_core::terrain::path_centre` picks them (`PathInside.tga`
+    /// between two arms, `PathCurve.tga` rounding the sides without one). A path joined to the clubhouse uses the `X` art,
+    /// one that isn't the plain art (the tile's +0x209 byte, which layPath and updatePath set from the exe's flag 0x40,
+    /// wrapper 0x44a410; the texture slot is 0x21 with it, 0x20 without).
     fn build_paths(&mut self, g: &mut Gfx) {
+        // the Path styles extra (paths_lamps.rs) draws both arts in its material: there an unjoined path keeps its muddy tint
+        let styled = self.club.extras.path_material() != 0;
         let t = &self.terrain;
         if t.path_kind.is_empty() {
             return;
@@ -1534,11 +1540,8 @@ impl App {
         let joined_at =
             |tx: i32, ty: i32| connected.as_ref().is_none_or(|j| !sg_core::course::inside(tx, ty) || j[sg_core::course::idx(tx, ty)]);
         let (ox, oz) = (-t.w as f32 * TILE_SIZE * 0.5, -t.h as f32 * TILE_SIZE * 0.5);
-        struct Piece {
-            r: [f32; 4],
-            disc: bool,
-        }
-        let mut jobs: Vec<(bool, &'static str, Vec<Vert>)> = Vec::new();
+        // (rank, joined, file, triangles): the arms go down before the centres, as in the DLL's tile draw
+        let mut jobs: Vec<(u8, bool, &'static str, Vec<Vert>)> = Vec::new();
         for ty in 0..t.h {
             for tx in 0..t.w {
                 let kind = t.path_at(tx, ty);
@@ -1560,30 +1563,12 @@ impl App {
                 let s = t.path_at(tx, ty + 1) != 0;
                 let w = t.path_at(tx - 1, ty) != 0;
                 let e = t.path_at(tx + 1, ty) != 0;
-                let links = n as i32 + s as i32 + w as i32 + e as i32;
-                let file = if kind == 2 { "PathX.tga" } else { "Path.tga" };
-                let disc_file = if kind == 2 { "PathCurveX.tga" } else { "PathCurve.tga" };
-                let (a, b) = (0.33f32, 0.67f32);
-                let straight = (n && s && !w && !e) || (w && e && !n && !s);
-                let mut pieces = Vec::new();
-                if links >= 3 || straight {
-                    pieces.push(Piece { r: [a, a, b, b], disc: false });
-                } else {
-                    pieces.push(Piece { r: [0.22, 0.22, 0.78, 0.78], disc: true });
-                }
-                if n {
-                    pieces.push(Piece { r: [a, 0.0, b, a], disc: false });
-                }
-                if s {
-                    pieces.push(Piece { r: [a, b, b, 1.0], disc: false });
-                }
-                if w {
-                    pieces.push(Piece { r: [0.0, a, a, b], disc: false });
-                }
-                if e {
-                    pieces.push(Piece { r: [b, a, 1.0, b], disc: false });
-                }
                 let joined = joined_at(tx, ty);
+                let [arm_file, inside_file, curve_file] = if joined {
+                    ["PathX.tga", "PathInsideX.tga", "PathCurveX.tga"]
+                } else {
+                    ["Path.tga", "PathInside.tga", "PathCurve.tga"]
+                };
                 let vert = |wx: f32, wz: f32, u: f32, v: f32| {
                     let y = t.height_at(wx, wz) + 1.5;
                     let e = 12.0;
@@ -1593,37 +1578,73 @@ impl App {
                     let l = (nx * nx + ny * ny + nz * nz).sqrt();
                     let mut vv = Vert::new(wx, y, wz, u, v);
                     vv.normal = [nx / l, ny / l, nz / l];
-                    if !joined {
-                        vv.color = [0.45, 0.32, 0.22, 1.0]; // unconnected paths: the same artwork in a muddy brown
+                    if styled && !joined {
+                        vv.color = [0.45, 0.32, 0.22, 1.0];
                     }
                     vv
                 };
-                for p in &pieces {
+                // a point of the tile (u, v in 0..1, v = 0 the north edge) with its texture coordinates
+                let q = |u: f32, v: f32, tu: f32, tv: f32| vert(ox + (tx as f32 + u) * TILE_SIZE, oz + (ty as f32 + v) * TILE_SIZE, tu, tv);
+                let (a, b) = (1.0f32 / 3.0, 2.0f32 / 3.0);
+                // arms: (u0, v0, u1, v1) on the tile; the texture's third at that end along the arm, the same across
+                // (and whether it runs along v, and whether it is on the far side, south or east)
+                let arms = [
+                    (n, [a, 0.0, b, 0.5], true, false),
+                    (s, [a, 0.5, b, 1.0], true, true),
+                    (w, [0.0, a, 0.5, b], false, false),
+                    (e, [0.5, a, 1.0, b], false, true),
+                ];
+                for (on, r, along_v, far) in arms {
+                    if !on {
+                        continue;
+                    }
+                    // the half tile from the centre to the edge takes the texture's outer third: 0.5 -> 1/3 or 2/3, edge -> 0 or 1
+                    let tex = |c: f32| if far { a + c * b } else { c * b };
                     let mut v = Vec::new();
                     const D: i32 = 2;
                     for j in 0..D {
                         for i in 0..D {
-                            let u0 = p.r[0] + (p.r[2] - p.r[0]) * i as f32 / D as f32;
-                            let u1 = p.r[0] + (p.r[2] - p.r[0]) * (i + 1) as f32 / D as f32;
-                            let v0 = p.r[1] + (p.r[3] - p.r[1]) * j as f32 / D as f32;
-                            let v1 = p.r[1] + (p.r[3] - p.r[1]) * (j + 1) as f32 / D as f32;
-                            // Disc pieces map the whole texture onto the rectangle.
-                            let tu = |u: f32| if p.disc { (u - p.r[0]) / (p.r[2] - p.r[0]) } else { u };
-                            let tv = |v: f32| if p.disc { (v - p.r[1]) / (p.r[3] - p.r[1]) } else { v };
-                            let q =
-                                |u: f32, vv: f32| vert(ox + (tx as f32 + u) * TILE_SIZE, oz + (ty as f32 + vv) * TILE_SIZE, tu(u), tv(vv));
-                            let (q00, q10, q11, q01) = (q(u0, v0), q(u1, v0), q(u1, v1), q(u0, v1));
+                            let u0 = r[0] + (r[2] - r[0]) * i as f32 / D as f32;
+                            let u1 = r[0] + (r[2] - r[0]) * (i + 1) as f32 / D as f32;
+                            let v0 = r[1] + (r[3] - r[1]) * j as f32 / D as f32;
+                            let v1 = r[1] + (r[3] - r[1]) * (j + 1) as f32 / D as f32;
+                            let p = |u: f32, vv: f32| {
+                                let (tu, tv) = if along_v { (u, tex(vv)) } else { (tex(u), vv) };
+                                q(u, vv, tu, tv)
+                            };
+                            let (q00, q10, q11, q01) = (p(u0, v0), p(u1, v0), p(u1, v1), p(u0, v1));
                             v.extend_from_slice(&[q00, q10, q11, q00, q11, q01]);
                         }
                     }
-                    jobs.push((joined, if p.disc { disc_file } else { file }, v));
+                    jobs.push((0, joined, arm_file, v));
+                }
+                // the centre's triangles (NW, NE, SW, SE): two edge midpoints and the centre, the same part of the texture,
+                // split once more so they follow the ground
+                let centre = sg_core::terrain::path_centre(sg_core::terrain::path_mask(n, s, e, w));
+                let tris = [[(0.0, 0.5), (0.5, 0.0)], [(0.5, 0.0), (1.0, 0.5)], [(0.0, 0.5), (0.5, 1.0)], [(0.5, 1.0), (1.0, 0.5)]];
+                for (piece, [p1, p2]) in centre.into_iter().zip(tris) {
+                    let file = match piece {
+                        2 => inside_file,
+                        3 => curve_file,
+                        _ => continue,
+                    };
+                    let c = (0.5f32, 0.5f32);
+                    let mid = |p: (f32, f32), r: (f32, f32)| ((p.0 + r.0) * 0.5, (p.1 + r.1) * 0.5);
+                    let (m1, m2, m3) = (mid(c, p1), mid(p1, p2), mid(p2, c));
+                    let p = |pt: (f32, f32)| q(pt.0, pt.1, pt.0, pt.1);
+                    let mut v = Vec::new();
+                    for tri in [[c, m1, m3], [m1, p1, m2], [m3, m2, p2], [m1, m2, m3]] {
+                        v.extend(tri.map(p));
+                    }
+                    jobs.push((1, joined, file, v));
                 }
             }
         }
+        jobs.sort_by_key(|j| j.0);
         let mut paths: BTreeMap<usize, (TextureId, Vec<Vert>)> = BTreeMap::new();
         let mut mud: BTreeMap<usize, (TextureId, Vec<Vert>)> = BTreeMap::new();
         let mut order: HashMap<&'static str, usize> = HashMap::new();
-        for (joined, file, v) in jobs {
+        for (_, joined, file, v) in jobs {
             // (the Path styles and lamps extra's materials: paths_lamps.rs)
             let Some(tex) = self.path_texture(g, file) else { continue };
             let next = order.len();
