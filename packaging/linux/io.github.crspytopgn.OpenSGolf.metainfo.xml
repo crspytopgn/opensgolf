@@ -107,6 +107,14 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.6.0" date="2026-10-28">
+      <description>
+        <p>Smoother play: the short freezes as golfers came and went are gone, and the course draws faster.</p>
+        <p>Enhanced graphics keep up better on large screens and slower machines (a browser draws them at up to 1440p and stretches them to a 4K screen), and ease off a step at a time by themselves when the game runs slowly.</p>
+        <p>Preferences can make HD graphics from your own SimGolf files, on your own device.</p>
+        <p>The free graphics' golfers have a new cast of cartoon faces, and the game says when some of your SimGolf files cannot be read.</p>
+      </description>
+    </release>
     <release version="0.5.10" date="2026-10-26">
       <description>
         <p>The tropical trees show again with retail CD installs, whose tree folders are named with spaces (Tree Cerc, Tree Drac) where other copies use underscores.</p>
