@@ -1912,6 +1912,39 @@ impl App {
         });
     }
 
+    /// The pictures of the holes' tee tiles (sg_core::decor::tee_arrow): the exe rewrites a tee's variant byte as it draws the
+    /// tile each frame (0x4120ae) and the terrain is redrawn when one changes (opening a hole, turning the view). The port keeps
+    /// the picture in the renderer's terrain only, so the land and its saves are as before.
+    fn update_tee_arrows(&mut self) {
+        use sg_core::course::{f, idx, inside, t};
+        let camera = 2 * ((self.rot / 90.0).round() as i32).rem_euclid(4);
+        let c = &self.course;
+        let mut changed = false;
+        for a in 0..self.terrain.w {
+            for b in 0..self.terrain.h {
+                if !inside(a, b) {
+                    continue;
+                }
+                let i = idx(a, b);
+                let h = (c.flags[i] & f::LOW) as usize;
+                if c.ty[i] != t::TEE || h == 0 || h >= self.club.holes.len() {
+                    continue;
+                }
+                let o = self.terrain.tile_index(a, b);
+                if self.terrain.ty[o] != sg_core::terrain::TT_TEE {
+                    continue;
+                }
+                let r = &self.club.holes[h];
+                let v = sg_core::decor::tee_arrow(r.par, r.tee_facing, r.flags, camera);
+                if self.terrain.variation[o] != v {
+                    self.terrain.variation[o] = v;
+                    changed = true;
+                }
+            }
+        }
+        self.dirty |= changed;
+    }
+
     /// Flags on the cup tiles and tee markers on the open holes' tees, as the exe draws them every frame.
     fn update_decor_props(&mut self) {
         self.props.retain(|p| !p.decor);
@@ -2837,6 +2870,7 @@ impl App {
         self.update_weed_props();
         self.update_tree_growth();
         self.update_decor_props();
+        self.update_tee_arrows();
         for p in self.props.iter_mut() {
             if p.animated {
                 if let Some(b) = p.body {
@@ -3371,9 +3405,9 @@ impl App {
                 }
                 continue;
             }
-            // tees use this byte as their look
+            // a new tee is drawn with the round mark (0x420760 clears its variant byte) until its hole opens (tee_arrows)
             let vb = match self.land.as_ref() {
-                _ if pe.ty == 0 => ((x * 7 + y * 13) as u32 % 5) as i32,
+                _ if pe.ty == 0 => 0,
                 Some(l) if keep => l.var[li] as i32,
                 _ => want,
             };

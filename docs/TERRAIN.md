@@ -78,7 +78,12 @@ second "Overgrowth" (probably a copy-paste slip in the original).
   default), 1 Tropical, 2 Desert, 3 Links (inferred from jump table order).
 * For each type the loader tries sets `A`..`E`: file `<TypeName><Set>0001.bmp`; if it exists it
   also loads `0002`..`0009`. Stops at the first missing set. Stored in a global table
-  `tex[37 types][25 sets][9 variations]`. Type 0 (Tee) uses a slightly different loop.
+  `tex[37 types][25 sets][9 variations]`. Type 0 (Tee) uses a slightly different loop: TeeA0001..TeeA0025 become sets
+  0..24 of one picture each (the round mark, then 24 arrows, three per heading); golf.exe picks the set per frame (PARITY.md,
+  "Tee arrows").
+* Texture coordinates come from a table by the view phase (0x10063ca0, indexed at 0x1000e833 with the phase 0x10070a14 also
+  used for sand): each phase turns the picture a quarter, so the ground's pictures turn with the view. The port does this for
+  tee tiles only (`view_uv`).
 * Textures are 64x64 24-bit BMPs, built with `gluBuild2DMipmaps`, linear filtering, repeat wrap.
 * Overlays loaded per theme: `Path.tga`, `PathCap.tga`, `PathInside.tga`, `PathCurve.tga`, the same
   four with an `X` suffix, `CliffTest.bmp`, `RetainWallA.bmp`, `strata.bmp` (texture ids 35, 34 and 36 in that order of the
