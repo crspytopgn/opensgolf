@@ -395,6 +395,54 @@ function sgStatus(t) {
     document.getElementById("status").textContent = t;
 }
 
+// The panel beside the spinning CD while the player's files are read: the step, a bar and its count, and a clock that
+// ticks every second (with a time left once a tenth is done), so a long file never looks stuck. `n` 0: no count yet.
+let sgProg = null;
+function sgProgressBegin() {
+    sgProgressEnd();
+    const el = id => document.getElementById(id);
+    sgProg = { t0: Date.now(), frac: 0, timer: 0, el };
+    el("prog").hidden = false;
+    el("prog").closest(".tray").classList.add("busy");
+    sgProgress("Opening your files", 0, 0);
+    sgProg.timer = setInterval(sgProgressClock, 1000);
+}
+function sgProgress(stage, i, n, unit = "files") {
+    if (!sgProg) return;
+    const el = sgProg.el;
+    const frac = n > 0 ? Math.min(1, i / n) : 0;
+    if (stage !== sgProg.stage) {
+        // a new step starts its own clock for the time left
+        sgProg.stage = stage;
+        sgProg.s0 = Date.now();
+    }
+    sgProg.frac = frac;
+    el("pstage").textContent = stage;
+    el("pcount").textContent = n > 0 ? Math.round(frac * 100) + "% · " + i + " of " + n + " " + unit : "";
+    el("pfill").style.width = n > 0 ? (frac * 100).toFixed(1) + "%" : "";
+    el("pfill").parentNode.classList.toggle("wait", !(n > 0));
+    sgProgressClock();
+}
+function sgProgressClock() {
+    if (!sgProg) return;
+    const fmt = s => s < 60 ? s + " s" : Math.floor(s / 60) + " min " + String(s % 60).padStart(2, "0") + " s";
+    const took = Math.round((Date.now() - sgProg.t0) / 1000);
+    let t = "Working for " + fmt(took);
+    const step = (Date.now() - sgProg.s0) / 1000;
+    if (sgProg.frac >= 0.1 && sgProg.frac < 1 && step > 3) {
+        const left = Math.max(1, Math.round(step * (1 - sgProg.frac) / sgProg.frac));
+        t += " · about " + (left < 60 ? left + " s" : Math.round(left / 60) + " min") + " left";
+    }
+    sgProg.el("ptime").textContent = t;
+}
+function sgProgressEnd() {
+    if (!sgProg) return;
+    clearInterval(sgProg.timer);
+    sgProg.el("prog").hidden = true;
+    sgProg.el("prog").closest(".tray").classList.remove("busy");
+    sgProg = null;
+}
+
 // --- browser storage of the game files --------------------------------------------------------------------------------------
 function sgDb() {
     return new Promise((ok, fail) => {
@@ -898,6 +946,7 @@ async function sgUse(entries, skipped = [], stat = {}) {
     sgSummary(sum, true);
     // play at once; the copy kept for next time is written in the background (it can take minutes for a whole game folder)
     const remember = document.getElementById("remember").checked;
+    sgProgress("Starting the game", 0, 0);
     sgStart();
     sgNote(sum.text, sum.problem);
     if (remember) sgStoreAll(keep);
@@ -936,9 +985,12 @@ async function sgLoadFolder(fileList) {
     }
     const entries = [];
     let bytes = 0;
+    const total = Math.max(1, Math.round(files.reduce((t, f) => t + f.size, 0) / 1048576));
     for (let i = 0; i < files.length; i++) {
         entries.push([files[i].webkitRelativePath, new Uint8Array(await files[i].arrayBuffer())]);
         bytes += files[i].size;
+        // by size: the big sound files come last, and a count of files would say "1 s left" for a while
+        if (i % 10 === 0 || i === files.length - 1) sgProgress("Reading your game files", Math.round(bytes / 1048576), total, "MB");
         if (i % 50 === 0 || i === files.length - 1) {
             sgStatus("Reading your game files: " + (i + 1) + " of " + files.length + " (" + Math.round(bytes / 1048576) + " MB)");
             await new Promise(r => setTimeout(r, 0));
@@ -972,6 +1024,7 @@ async function sgLoadZip(file) {
         return;
     }
     sgStatus("Opening " + file.name + "...");
+    sgProgress("Opening " + file.name, 0, 0);
     let list;
     try {
         list = await sgZipEntries(file);
@@ -986,6 +1039,7 @@ async function sgLoadZip(file) {
     try {
         await sgUnzip(file, async (name, bytes, i, n) => {
             entries.push([name, bytes]);
+            if (i % 10 === 0) sgProgress("Unpacking your game files", i + 1, n);
             if (i % 50 === 0) {
                 sgStatus("Unpacking your game files: " + (i + 1) + " of " + n);
                 await new Promise(r => setTimeout(r, 0));
@@ -1238,6 +1292,7 @@ async function sgUseCd(from, unpack) {
     const entries = [];
     try {
         await unpack(async (path, bytes) => { entries.push([path, bytes]); }, async (i, n) => {
+            sgProgress("Unpacking your SimGolf CD", i, n);
             if (i % 25 === 0 || i === n) {
                 sgStatus("Unpacking the CD (" + from + "): " + i + " of " + n + " files");
                 await new Promise(r => setTimeout(r, 0));
