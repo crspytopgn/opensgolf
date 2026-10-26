@@ -273,7 +273,8 @@ mod tests {
         let rain = search("rain", false, &p);
         assert!(rain.iter().any(|&h| matches!(h, Hit::Enhanced(i) if enhanced::OPTIONS[i].key == "fx_rain")));
         let sandbox = search("sandbox:", false, &p);
-        assert_eq!(sandbox, (8..=9).map(|i| Hit::Extra(ExtrasLine::Game(i))).collect::<Vec<_>>(), "the two sandbox switches");
+        let want: Vec<_> = [8, 9, sg_core::extras::NO_WEEDS].into_iter().map(|i| Hit::Extra(ExtrasLine::Game(i))).collect();
+        assert_eq!(sandbox, want, "the three sandbox switches");
         // words in any order and case, each must be there
         assert_eq!(search("NORMAL calendar", false, &p), vec![Hit::Extra(ExtrasLine::Calendar)]);
         // the ticks on Preferences itself, and the Info page's grouped lines by their words
