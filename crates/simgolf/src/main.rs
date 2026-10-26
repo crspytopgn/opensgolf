@@ -2157,11 +2157,7 @@ impl Stage {
             for (i, it) in items.iter().enumerate() {
                 if panel_item_rect(i, cols).has(vx, vy) {
                     match it.kind {
-                        0 => {
-                            app.tool = 0;
-                            app.paint_idx = it.arg;
-                            app.edit = true;
-                        }
+                        0 => app.pick_brush(it.arg),
                         1 => {
                             app.tool = 2;
                             app.path_kind = it.arg as i32;
@@ -2391,7 +2387,8 @@ impl Stage {
             app.edit = true;
             app.tool = 0;
             if let Some(i) = PAINT.iter().position(|p| p.ty == ty as i32 && p.vbyte == 0) {
-                app.paint_idx = i;
+                // and rolls its variant, as the button does (issue #104)
+                app.pick_brush(i);
             }
         };
         if act.map_or(aiming && !shift, controls::is_aim) {

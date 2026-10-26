@@ -1428,6 +1428,11 @@ over an existing green it turns that green tricky (or back to plain) at no cost,
 whose cup tile is tricky is harder to putt: golfers' putting accuracy drops by 10 (0x424120). The original also has a
 sideways kick for a ball bouncing on a tricky green (0x4289e0), but its test can never pass, so neither game does it.
 
+**Sand trap shapes.** The Sand Trap brush has four shapes; picking the brush (its button or s) deals one at random and
+Tab turns it to the next, and the shape under the pointer is the one laid, as in the original (0x41eac4, 0x42059d).
+Painted over an existing sand trap it turns that tile to the new shape at no cost. (Until 0.6 the port laid every tile in
+one shape whatever the pointer showed, issue #104.)
+
 Golfers name what they look at in their scenery comments as the original does: the tile's stored location splits as
 `loc % 50, loc / 50` (0x469b00), and a landmark is called by its short name (0x4074a0 with 0), so the eyesore water
 tower, radio antenna and oil pump the land generator puts down are "an ugly water tower" and so on. That they are ugly is

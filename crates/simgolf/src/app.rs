@@ -3313,9 +3313,12 @@ impl App {
     pub fn paint_tiles(&mut self, tiles: &[(i32, i32)]) {
         let pe = &PAINT[self.paint_idx];
         // the green brush's byte: a plain or a tricky green (Tab)
+        // and the sand trap's: its shape, the one the pointer shows (issue #104)
         let want = if pe.ty == 1 {
             self.paint_brush_variant();
             self.green_brush_byte()
+        } else if pe.ty == 7 {
+            self.sand_brush_byte()
         } else {
             pe.vbyte
         };
@@ -3388,16 +3391,25 @@ impl App {
             }
             // the green brush over a green only turns it plain or tricky: the exe sets the variant byte at 0x420561 and
             // leaves before the charge and the new-tile bookkeeping, since the type stays the same
-            if old == new && new == 1 {
-                let ti = self.terrain.tile_index(x, y);
-                self.terrain.variation[ti] = want as u8;
-                if let Some(l) = self.land.as_mut() {
-                    l.var[li] = want as u8;
+            // a sand trap over sand turns it the same way, free (0x42059d writes the byte before the same-type exit at
+            // 0x4205ef), unless the tile's flag 0x200 keeps its byte
+            let keep = new == 7 && self.land.as_ref().is_some_and(|l| l.flags[li] & 0x200 != 0);
+            if old == new && (new == 1 || new == 7) {
+                if !keep {
+                    let ti = self.terrain.tile_index(x, y);
+                    self.terrain.variation[ti] = want as u8;
+                    if let Some(l) = self.land.as_mut() {
+                        l.var[li] = want as u8;
+                    }
                 }
                 continue;
             }
             // tees use this byte as their look
-            let vb = if pe.ty == 0 { ((x * 7 + y * 13) as u32 % 5) as i32 } else { want };
+            let vb = match self.land.as_ref() {
+                _ if pe.ty == 0 => ((x * 7 + y * 13) as u32 % 5) as i32,
+                Some(l) if keep => l.var[li] as i32,
+                _ => want,
+            };
             self.econ.spend_to(economy::LEDGER_BUILD_COURSE, cost as f64 * Economy::UNIT);
             let hb = (self.club.next_hole as usize).min(18);
             if !self.econ.free {
@@ -3496,8 +3508,26 @@ impl App {
         self.refresh_trees();
     }
 
-    /// The brush's variant (0x5a34f0): rolled when the brush is first used (the green always starts at 0, 0x41eaa0), one up
-    /// with each Tab.
+    /// Arms terrain brush `k` (PAINT): picking a brush, from its button or its key, rolls its variant at once, a random 0..2
+    /// (0x41eac4 `rand(3)` into 0x5a34f0), the green's 0 (0x41eade), so the shape the pointer shows is the one painted and
+    /// Tab turns it from the start (issue #104: the roll waited for the first tile, so the first click changed the shape and
+    /// Tabs before it were lost).
+    pub fn pick_brush(&mut self, k: usize) {
+        self.tool = 0;
+        self.paint_idx = k;
+        self.edit = true;
+        let v = if PAINT[k].ty == 1 { 0 } else { self.exe_rng.below(3) };
+        self.paint_variant = Some((k, v));
+    }
+
+    /// The variant byte a sand trap tile takes from the brush (0x42059d: variant % 12 + 12, written on every tile the brush
+    /// touches while its flag 0x200 is clear); Terrain.dll draws SandBunker1..4 by its low two bits, turned by the view.
+    pub(crate) fn sand_brush_byte(&mut self) -> i32 {
+        self.paint_brush_variant().rem_euclid(12) + 12
+    }
+
+    /// The brush's variant (0x5a34f0): rolled when the brush is picked (`pick_brush`), or when first used by a test hook that
+    /// armed it directly (the green always starts at 0, 0x41eaa0), one up with each Tab.
     fn paint_brush_variant(&mut self) -> i32 {
         match self.paint_variant {
             Some((k, v)) if k == self.paint_idx => v,
@@ -5005,6 +5035,39 @@ mod tests {
         a.terrain.paint(20, 20, 4, 0);
         a.sync_course();
         assert_ne!(a.exe_rng.state, before);
+    }
+
+    #[test]
+    fn a_sand_trap_is_painted_the_way_the_pointer_shows_it_turned() {
+        // issue #104: the shape picked with Tab must be the one placed
+        let mut a = building_game();
+        a.econ.cash = 1e7;
+        let k = PAINT.iter().position(|p| p.ty == 7).unwrap();
+        a.pick_brush(k);
+        let (_, v0) = a.paint_variant.expect("picking the brush rolls its variant");
+        assert!((0..3).contains(&v0));
+        // two Tabs (main.rs), then a tile
+        for _ in 0..2 {
+            let (k, v) = a.paint_variant.unwrap();
+            a.paint_variant = Some((k, v + 1));
+        }
+        a.paint_tiles(&[(20, 20)]);
+        let ti = a.terrain.tile_index(20, 20);
+        let li = (20 * land::mn() + 20) as usize;
+        assert_eq!(a.terrain.ty[ti], 7);
+        assert_eq!(a.terrain.variation[ti] as i32, (v0 + 2) % 12 + 12, "the terrain draws the brush's shape");
+        assert_eq!(a.land.as_ref().unwrap().var[li], a.terrain.variation[ti], "and the land keeps it");
+        assert_eq!(a.paint_variant, Some((k, v0 + 2)), "painting keeps the turn");
+        // one more Tab and the same tile again: turned, free (0x42059d before the same-type exit)
+        a.paint_variant = Some((k, v0 + 3));
+        let cash = a.econ.cash;
+        a.paint_tiles(&[(20, 20)]);
+        assert_eq!(a.terrain.variation[ti] as i32 & 3, (v0 + 3) & 3);
+        assert_eq!(a.econ.cash, cash);
+        // the green still starts plain
+        let g = PAINT.iter().position(|p| p.ty == 1).unwrap();
+        a.pick_brush(g);
+        assert_eq!(a.paint_variant, Some((g, 0)));
     }
 
     #[test]
