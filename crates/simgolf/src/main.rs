@@ -84,6 +84,7 @@ mod pathview_ui;
 mod people_ui;
 mod perf;
 mod photo;
+mod playcount;
 mod player_panel;
 mod popup_ui;
 mod prefs_search;
@@ -1347,6 +1348,8 @@ impl Stage {
         controls::init();
         // the support reminder's play time (support.rs)
         app.support = support::init();
+        // the play-time count (playcount.rs; the port's own): nothing in stills, tests or store builds; the start count
+        app.playcount = playcount::init(app.support.record.played, o.png_out.is_some() || o.time != 0.0 || o.screen.is_some());
         // the text size (textsize.rs; Preferences' Text size line)
         textsize::init();
         // the effects (fx.rs) follow Enhanced's ticks; --fx / --fx-set / OPENSGOLF_FX turn them on for this run
@@ -1869,6 +1872,8 @@ impl Stage {
                         extras::save(&ui);
                     }
                 }
+                // the play-time count (playcount.rs; kept in settings.json)
+                Line::PlayCount => self.app.set_playcount(on),
                 _ => {}
             }
         }
@@ -3117,6 +3122,8 @@ impl EventHandler for Stage {
         }
         // the support reminder counts the time played (support.rs; real time, whatever the game speed)
         app.support_tick(dt, playing);
+        // the play-time count at each 15 minutes of that time, and its one-time notice (playcount.rs)
+        app.playcount_frame();
         app.club.turbo = app.speed > 1;
         let (w, h) = window::screen_size();
         app.draw_w = w.max(1.0);

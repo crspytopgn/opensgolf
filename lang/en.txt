@@ -1328,8 +1328,8 @@ STR_PREFS_UPDATE_NOW                    : Check for updates now (online)
 STR_PREFS_HINT                          :Point at an OpenSGolf line, or tap it, to read what it does.
 STR_PREFS_HINT_GRAPHICS                 :With HD and Enhanced both off you play in Classic, the original's own graphics.
 STR_PREFS_TAP_AGAIN                     :{DESC} Tap again to open.
-STR_PREFS_DESC_GAME_OPTIONS             :Optional extras, all off at first: presets, gameplay changes, sandbox switches, looks, information and helpers.
-STR_PREFS_DESC_GRAPHICS                 :Classic (the original's), HD art or Enhanced graphics, pixel-perfect scaling and the Enhanced settings.
+STR_PREFS_DESC_GAME_OPTIONS             :Optional extras, all off at first: presets, gameplay, sandbox, looks, information and helpers.
+STR_PREFS_DESC_GRAPHICS                 :Classic (the original's), HD art or Enhanced graphics, and pixel-perfect scaling.
 STR_PREFS_DESC_CONTROLS                 :Every key the game takes, the Original or Modern controls, and Change keys to set your own.
 STR_PREFS_DESC_TEXT_SIZE                :Bigger text in the boxes, messages and tooltips. Each click steps: normal, 125%, 150%.
 STR_PREFS_DESC_GAME_FILES               :Your own SimGolf files or the free graphics, content packs (mods) and the language.
@@ -1340,11 +1340,11 @@ STR_PREFS_DESC_PIXEL_PERFECT            :Scales the picture by whole sizes only,
 STR_PREFS_DESC_ENHANCED_SETTINGS        :What Enhanced graphics does, page by page: display, effects, atmosphere, weather and water.
 STR_PREFS_DESC_FILES_MINE               :Plays on your own copy of SimGolf's files instead of the free graphics (the game starts again).
 STR_PREFS_DESC_FILES_FREE               :Plays on OpenSGolf's free graphics instead of your SimGolf files (the game starts again).
-STR_PREFS_DESC_CONTENT                  :The installed content packs (mods): switch them on or off and set their order; used from the next start.
+STR_PREFS_DESC_CONTENT                  :Your content packs (mods): switch them on or off and set their order, from the next start.
 STR_PREFS_DESC_LANGUAGE                 :The game's language: each click steps to the next installed translation.
 STR_PREFS_DESC_FIX_BUGS                 :Mends glitches of the original game itself (docs/FIXES.md); on at first. Off: the game as it was in 2002.
 STR_PREFS_DESC_UPDATE_NOW               :Asks GitHub now whether a newer OpenSGolf is out, as the title menu's button does.
-STR_PREFS_DESC_SEARCH                   :Finds any option by its words, shows what differs from the original, or resets it all. Typing a letter here does it too.
+STR_PREFS_DESC_SEARCH                   :Finds any option by its words, shows what differs from the original, or resets it all.
 STR_TEXT_SIZE_NORMAL                    :normal
 STR_TEXT_SIZE_125                       :125%
 STR_TEXT_SIZE_150                       :150%
@@ -3345,7 +3345,7 @@ STR_EXTRAS_DESC_DESERT_ART              :The original desert shows the Ravine as
 
 # Report a problem (the port's own helper, bugreport.rs; docs/PLAYING.md "Reporting a problem")
 STR_MENU_PREFS_REPORT                   : Report a problem...
-STR_PREFS_DESC_REPORT                   :Opens the bug report form in your browser, filled in with the version and your system, and keeps a copy of this game for you to attach. Nothing is sent until you submit the form.
+STR_PREFS_DESC_REPORT                   :Opens a filled-in bug report form and keeps a copy of this game to attach. Nothing is sent until you submit.
 STR_CTL_REPORT_PROBLEM                  :Report a problem (opens the bug report form, asks first)
 STR_BUGREPORT_TITLE                     :Report a problem
 STR_BUGREPORT_EXPLAIN                   :This opens the project's bug report form on GitHub in your browser, filled in with the game's version, your system and its recent warnings.\nA copy of this game (and a screenshot, if ticked) goes in the Reports folder in your save folder, which opens too: drag the files into the form.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
@@ -3368,10 +3368,21 @@ STR_KEYS_REPORT_PROBLEM                 :Report a problem (the bug report form, 
 
 # The support reminder (the port's own, support.rs; docs/PLAYING.md "Supporting OpenSGolf")
 STR_SUPPORT_TITLE                       :Enjoying OpenSGolf?
-STR_SUPPORT_BODY                        :It's free and made in my spare time. If you'd like to say thanks, a coffee keeps it going.
+STR_SUPPORT_PLAYED_1                    :You've played for about an hour.
+STR_SUPPORT_PLAYED                      :You've played for about {HOURS} hours.
+STR_SUPPORT_BODY                        :Thanks for playing! OpenSGolf is free and always will be, with no ads. It's made by one person, and the tools cost about £90 a month. If it's given you some good hours, a coffee helps keep the updates coming. No pressure either way: enjoy your course!
 STR_SUPPORT_YES                         : Support on Buy Me a Coffee
 STR_SUPPORT_LATER                       : Maybe later
 STR_SUPPORT_NEVER                       : Don't ask again
 STR_SUPPORT_NO_BROWSER                  :No browser could be opened. The address is on the clipboard: {URL}
 STR_MENU_PREFS_SUPPORT                  : Support OpenSGolf...
+STR_MENU_PREFS_PLAYED_NOTE              :Your time played: {TIME}.
+STR_TITLE_PLAYED                        :{TIME} played
+STR_TIME_HOUR                           :1 hour
+STR_TIME_HOURS                          :{N} hours
+STR_TIME_MINUTE                         :1 minute
+STR_TIME_MINUTES                        :{N} minutes
 STR_PREFS_DESC_SUPPORT                  :Opens OpenSGolf's Buy Me a Coffee page in your browser. The game stays free and complete either way.
+STR_PLAYCOUNT_NOTICE                    :OpenSGolf counts anonymous play time (no personal data). Turn it off in Preferences > More.
+STR_MENU_PREFS_PLAYCOUNT                : Count my play time (anonymous)
+STR_PREFS_DESC_PLAYCOUNT                :One count per 15 minutes played and one at start: only system and version, no names or saves. Offline counts are sent later.

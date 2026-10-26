@@ -1,6 +1,7 @@
 //! The support reminder (the port's own, none of it in the original; docs/PLAYING.md "Supporting OpenSGolf"): the game
 //! counts the time played on the course (the game running, not paused and not in the background) on the player's own
-//! device, in settings.json (the browser's storage on the web, the app's folder on Android). Nothing is ever sent.
+//! device, in settings.json (the browser's storage on the web, the app's folder on Android). The counter is never sent;
+//! the play-time count (playcount.rs) sends only a mark for each 15 minutes of it.
 //!
 //! After about an hour of play, at the next natural pause (the title menu, or just after the year-end report closes, never
 //! while building, while the pro is out, in a tournament or over another box) a small box asks once: Support on Buy Me a
@@ -267,11 +268,38 @@ impl App {
     }
 }
 
+/// A time played in hours and minutes ("6 hours 12 minutes", "45 minutes"), for the note in Preferences > More.
+pub fn time_words(secs: u64) -> String {
+    let (h, m) = (secs / 3600, secs / 60 % 60);
+    let hours = match h {
+        1 => tr("STR_TIME_HOUR").to_string(),
+        h => trf("STR_TIME_HOURS", &[("N", &h)]),
+    };
+    let minutes = match m {
+        1 => tr("STR_TIME_MINUTE").to_string(),
+        m => trf("STR_TIME_MINUTES", &[("N", &m)]),
+    };
+    match (h, m) {
+        (0, _) => minutes,
+        (_, 0) => hours,
+        _ => format!("{hours} {minutes}"),
+    }
+}
+
+/// How long the player has played, in whole hours (an hour at the least: the box never shows sooner).
+fn played_words(played: f64) -> String {
+    match (played / 3600.0).floor() as u64 {
+        0 | 1 => tr("STR_SUPPORT_PLAYED_1").to_string(),
+        h => trf("STR_SUPPORT_PLAYED", &[("HOURS", &h)]),
+    }
+}
+
 /// The box's lines: the title, its words as notes (popup_ui's lines starting with a tab), then the three options.
-pub fn box_lines() -> Vec<String> {
+pub fn box_lines(played: f64) -> Vec<String> {
     // an empty note under the title keeps the words clear of the free set's header band
     let mut v = vec![tr("STR_SUPPORT_TITLE").to_string(), "\t".to_string()];
-    v.extend(crate::extras::wrap(crate::popup_ui::NOTE_FONT, tr("STR_SUPPORT_BODY"), 340.0).into_iter().map(|l| format!("\t{l}")));
+    let words = format!("{} {}", played_words(played), tr("STR_SUPPORT_BODY"));
+    v.extend(crate::extras::wrap(crate::popup_ui::NOTE_FONT, &words, 340.0).into_iter().map(|l| format!("\t{l}")));
     v.push("\t".to_string());
     v.extend([tr("STR_SUPPORT_YES"), tr("STR_SUPPORT_LATER"), tr("STR_SUPPORT_NEVER")].map(str::to_string));
     v
@@ -369,10 +397,27 @@ mod tests {
 
     #[test]
     fn the_box_has_a_title_words_and_three_options() {
-        let l = box_lines();
+        let l = box_lines(FIRST_ASK);
         assert_eq!(l[0], tr("STR_SUPPORT_TITLE"));
         let opts: Vec<&String> = l.iter().filter(|s| s.starts_with(' ')).collect();
         assert_eq!(opts, [tr("STR_SUPPORT_YES"), tr("STR_SUPPORT_LATER"), tr("STR_SUPPORT_NEVER")]);
         assert!(l.iter().any(|s| s.starts_with('\t') && s.len() > 1));
+    }
+
+    #[test]
+    fn the_box_says_how_long_was_played() {
+        assert_eq!(played_words(FIRST_ASK), tr("STR_SUPPORT_PLAYED_1"));
+        assert_eq!(played_words(FIRST_ASK + SECOND_ASK + 1800.0), "You've played for about 6 hours.");
+        assert!(box_lines(FIRST_ASK).concat().contains("£90 a month"));
+    }
+
+    #[test]
+    fn the_time_played_reads_in_hours_and_minutes() {
+        assert_eq!(time_words(0), "0 minutes");
+        assert_eq!(time_words(60), "1 minute");
+        assert_eq!(time_words(45 * 60 + 59), "45 minutes");
+        assert_eq!(time_words(3600), "1 hour");
+        assert_eq!(time_words(3600 + 60), "1 hour 1 minute");
+        assert_eq!(time_words(6 * 3600 + 12 * 60), "6 hours 12 minutes");
     }
 }

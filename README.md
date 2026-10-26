@@ -206,8 +206,14 @@ packs (mods) choose their own licence; the free base set is GPL-2.0-or-later too
 OpenSGolf is free and always will be. If you enjoy it and feel like buying me a coffee, that's always nice:
 [buymeacoffee.com/crspytopgn](https://buymeacoffee.com/crspytopgn).
 The game itself asks at most twice, gently, after an hour of play and again five hours later if you said *Maybe later*
-(the play time is counted on your device only and never sent; *Don't ask again* ends it; see
+(the play time is counted on your device; *Don't ask again* ends it; see
 [docs/PLAYING.md](docs/PLAYING.md#supporting-opensgolf)). Preferences > More has a *Support OpenSGolf* line.
+
+**Privacy: the play-time count.** So I can see how much OpenSGolf is played, the GitHub release builds and the browser
+version send an anonymous count to the project's [GoatCounter](https://www.goatcounter.com): one at start
+(`start/<platform>/<version>`) and one per 15 minutes of play (`play-15min/<platform>`), nothing else (no ids, names,
+saves or cookies). The game says so once; *Preferences > More > Count my play time (anonymous)* turns it off. Store
+builds (Flathub, F-Droid) do not include it. See [docs/PLAYING.md](docs/PLAYING.md#play-time-count).
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/crspytopgn)
 

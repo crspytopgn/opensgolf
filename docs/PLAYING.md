@@ -57,7 +57,7 @@ copies leave them out), only the Sims' voices in `SimsFX`, or lacks more than a 
 when the game starts and the ticker on every start (sg_core::mixer `shortfall`; the console or log has a `sound:` line
 with the counts). The browser page also sums up what it found after loading the files, in large type on the start page
 (and again there on the next visit, as "Last time: ...") and over the game once (20 seconds, or until tapped when
-something is missing): "OpenSGolf 0.5.7. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
+something is missing): "OpenSGolf 0.5.8. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
 big). Art ✓, music: N, Sims' voices: N." The console's `files:` line adds the compression methods the zip used.
 Deflate64 (Windows' own zipper, for big files such as the sounds), BZip2, LZMA and PPMd (7-Zip's, Keka's and The
 Unarchiver's stronger settings), which iPad's Files app cannot unpack (it shows such folders empty), are read by the
@@ -370,7 +370,10 @@ golfers' thoughts**, **Advisor and first-time messages**, **Ambient animals** an
   files*), *Content packs...*, and *Language:* when a translation is installed.
 - **More...**: *Fix the original game's bugs* (on by default; docs/FIXES.md), *Check for updates when the game starts*
   (off by default), *Check for updates now* (where the title menu has its button), *Search options...*, *Report a
-  problem...* (see *Reporting a problem*) and *Support OpenSGolf...* (see *Supporting OpenSGolf*).
+  problem...* (see *Reporting a problem*), *Support OpenSGolf...* (see *Supporting OpenSGolf*; under it, a note of your own total time played, kept only on
+  your device; the title menu shows it too, in the bottom left corner on the free graphics and at the top middle on the
+  original's, once you have played a minute) and *Count my play time
+  (anonymous)* (on by default; not in store builds; see *Play-time count*).
 
 The foot of Preferences and of each box says in a sentence what the OpenSGolf line under the pointer does (on a touch
 screen the line last tapped; a line that opens something opens on the second tap, the first showing what it does; ticks
@@ -1079,11 +1082,13 @@ folder (`SG_REPORT=1 SG_PRESS="Shift+F8;Enter"` for a scripted run).
 OpenSGolf is free and complete; nothing is ever locked. The port's own gentle reminder (crates/simgolf/src/support.rs;
 never in the original's menus or screens): the game counts the time you spend playing on the course (the game running,
 not paused and not in the background) **on your own device only**, in `settings.json` in the save folder (the browser's
-own storage on the web, the app's folder on Android). Nothing is sent anywhere, and saved games do not hold it.
+own storage on the web, the app's folder on Android), and saved games do not hold it. The counter itself is never sent;
+only the play-time count's 15-minute marks are (see *Play-time count*).
 
 After about **an hour of play**, at the next natural pause (the title menu, or just after the year-end report is closed;
 never while building, while your pro is out, during a tournament or over another box) a small box asks once:
-*Enjoying OpenSGolf?*, with **Support on Buy Me a Coffee** (opens [buymeacoffee.com/crspytopgn](https://buymeacoffee.com/crspytopgn)
+*Enjoying OpenSGolf?*: it says roughly how long you have played (in whole hours, counted on your device), that
+OpenSGolf is free and always will be, and what keeping it going costs; with **Support on Buy Me a Coffee** (opens [buymeacoffee.com/crspytopgn](https://buymeacoffee.com/crspytopgn)
 in your browser; a new tab in the browser version), **Maybe later** (Esc, a right-click or a click outside the box too)
 and **Don't ask again**. *Maybe later* asks once more after about another five hours of play, and then never again;
 *Support* or *Don't ask again* ends it at once. It asks two times at most, ever, with no countdown and nothing held back.
@@ -1096,6 +1101,38 @@ link too. Test hooks: `SG_PLAYTIME=SECONDS` starts the counter there (`SG_PLAYTI
 shows the box); `SG_SUPPORT=1` shows the box at the first frame of the title menu or of a quiet course, whatever the
 counter, for stills (`SG_SUPPORT=1 BIN --game DIR --png out.png --time 2`). A shown box still counts as an ask in
 `settings.json`, so use a scratch `OPENSGOLF_SAVE_DIR` for tests.
+
+## Play-time count
+
+So the project can see how many hours are played on each system and version, the game sends an anonymous count to
+OpenSGolf's [GoatCounter](https://www.goatcounter.com) (the same counter as the web page's visits; the port's own,
+crates/simgolf/src/playcount.rs). Exactly this is sent, and nothing else:
+
+- once when the game starts: `start/<platform>/<version>`, e.g. `start/windows/0.6.0`;
+- once for every **15 minutes of play**: `play-15min/<platform>`, e.g. `play-15min/linux`.
+
+`<platform>` is `windows`, `macos`, `linux`, `android` or `web`, with `-arm64` on 64-bit ARM computers. The play time is
+the support reminder's clock (see *Supporting OpenSGolf*): time on the course with the game running, not paused, not in
+the background and not on the menus. No ids, names, saved games or course data are sent, and no cookies are set. On the
+desktop and Android each count is one request to GoatCounter's count address with a User-Agent of
+`OpenSGolf/<version> (<platform>)`, made in the background with a short timeout; in the browser the page's own
+GoatCounter counts it. The game never waits for a count. On the desktop and Android a 15-minute count that does not get
+through (no internet) is kept, as a number only (`"pending"` under `"playcount"` in `settings.json`, a week of play at
+most), and sent later along with the next count that does, up to 16 at a time a second apart: the same counts, nothing
+more. Taking the tick off throws the kept ones away. The start count and the browser's counts are not kept.
+
+It is on by default. The first time you play a course, the ticker says once: *OpenSGolf counts anonymous play time (no
+personal data). Turn it off in Preferences > More.* Take the tick off **Preferences > More... > Count my play time
+(anonymous)** and nothing is sent any more, the start count included (kept as `"off": true` under `"playcount"` in
+`settings.json`). In the browser the web page's own *Count my play time* tick under the start buttons turns it off too
+(either one off is off). Builds for a store or a package manager (Flathub, F-Droid and the like, built with
+`OPENSGOLF_NO_SELF_UPDATE=1`) do not include it at all: no tick, no notice, nothing sent. The GitHub release builds and
+the browser version have it.
+
+Nothing is sent from tests or scripted runs: under `cargo test`, with `--png`, `--time` or `--screen`, or with any `SG_*`
+test hook set (the notice is not shown either, so stills are unchanged). Test hook: `SG_PLAYCOUNT_LOG=1` prints each
+count instead of sending it (`play count: would send play-15min/linux`) and shows the notice without remembering it;
+with `SG_PLAYTIME=890` the first 15-minute count comes after ten seconds on the course.
 
 ## Controllers and the Steam Deck
 
