@@ -129,6 +129,16 @@ impl TextureCatalog {
         let mut found = 0;
         for t in 0..TYPE_COUNT {
             let Some(name) = NAMES[t] else { continue };
+            if t == TT_TEE as usize {
+                // Terrain.dll's loader (0x1000782d) treats the tees apart: TeeA0001..TeeA0025 are 25 sets of one
+                // picture each (the round mark, then the arrows), set k being file k + 1; a tile's variant byte is its set
+                for v in 1..=25 {
+                    let Some(p) = index.get(&format!("{name}A{v:04}.bmp").to_lowercase()) else { break };
+                    cat.files[t].push(vec![Some(p.clone())]);
+                    found += 1;
+                }
+                continue;
+            }
             for letter in 'A'..='E' {
                 let mut vars = vec![None; 9];
                 let mut have = 0;
@@ -956,6 +966,17 @@ fn texture_type_for(tile_type: i32, vbyte: i32, param: i32, desert: bool, phase:
     }
 }
 
+/// A vertex's texture coordinates (top-down) under view quarter turn `phase`, as Terrain.dll's table at 0x10063ca0 has them
+/// (its bottom-up coordinates turned a quarter per phase).
+pub fn view_uv(u: f32, v: f32, phase: i32) -> (f32, f32) {
+    match phase.rem_euclid(4) {
+        1 => (v, 1.0 - u),
+        2 => (1.0 - u, 1.0 - v),
+        3 => (1.0 - v, u),
+        _ => (u, v),
+    }
+}
+
 /// Appends the 8 triangles of tile (tx,ty). Tile = 3x3 vertex patch (corners, edge midpoints, centre), 50 units apart; quadrants
 /// split along their NW-SE diagonal; UVs 0, 0.5, 1. Sand (type 7) tiles are dished 13 units like the original. World X/Z are
 /// centred on the map: x = tx*100 - w*50.
@@ -967,15 +988,13 @@ pub fn build_tile_triangles(t: &Terrain, tx: i32, ty: i32, out: &mut Vec<TileTri
     let hgt = t.patch_heights(tx, ty);
     let ox = tx as f32 * TILE_SIZE - t.w as f32 * TILE_SIZE * 0.5;
     let oz = ty as f32 * TILE_SIZE - t.h as f32 * TILE_SIZE * 0.5;
-    let vtx = |j: usize, k: usize| Vertex {
-        x: ox + k as f32 * TILE_SIZE * 0.5,
-        y: hgt[j][k],
-        z: oz + j as f32 * TILE_SIZE * 0.5,
-        u: k as f32 * 0.5,
-        v: j as f32 * 0.5,
-        nx: 0.0,
-        ny: 1.0,
-        nz: 0.0,
+    // Terrain.dll takes each vertex's texture coordinates from a table by the view's quarter turn (0x10063ca0, phase
+    // 0x10070a14 at 0x1000e833), so its pictures turn with the view; the port does so for the tees only, whose arrows the exe
+    // picks by the view (decor::tee_arrow) and would otherwise point the wrong way once the view is turned
+    let phase = if ttype == TT_TEE as i32 { t.sand_phase } else { 0 };
+    let vtx = |j: usize, k: usize| {
+        let (u, v) = view_uv(k as f32 * 0.5, j as f32 * 0.5, phase);
+        Vertex { x: ox + k as f32 * TILE_SIZE * 0.5, y: hgt[j][k], z: oz + j as f32 * TILE_SIZE * 0.5, u, v, nx: 0.0, ny: 1.0, nz: 0.0 }
     };
 
     // Variation per triangle record (rec = 2*quadrant + {0,1}; quadrants NW, NE, SW, SE).
@@ -1066,6 +1085,23 @@ pub fn build_tile_triangles(t: &Terrain, tx: i32, ty: i32, out: &mut Vec<TileTri
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn view_turns_the_picture_a_quarter_per_phase() {
+        // Terrain.dll's table (bottom-up there): under phase 1 the vertex that showed the picture's top-left shows its
+        // bottom-left
+        assert_eq!(view_uv(0.0, 0.0, 0), (0.0, 0.0));
+        assert_eq!(view_uv(0.0, 0.0, 1), (0.0, 1.0));
+        assert_eq!(view_uv(0.0, 0.0, 2), (1.0, 1.0));
+        assert_eq!(view_uv(0.0, 0.0, 3), (1.0, 0.0));
+        assert_eq!(view_uv(0.5, 0.5, 3), (0.5, 0.5));
+        // four quarters come round again
+        let mut p = (0.5, 0.0);
+        for _ in 0..4 {
+            p = view_uv(p.0, p.1, 1);
+        }
+        assert_eq!(p, (0.5, 0.0));
+    }
 
     #[test]
     fn tiles_keep_their_own_corners() {

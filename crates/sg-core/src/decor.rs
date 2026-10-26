@@ -213,6 +213,25 @@ pub fn tee_markers(par: i32, facing: i32, frame: Option<i32>) -> [Draw; 2] {
     [Draw { sprite, frame, view: 0, pal: 0x5e, da: a1, db: b1 }, Draw { sprite, frame, view: 0, pal: 0x5e, da: a2, db: b2 }]
 }
 
+/// The picture a tee tile of a hole is drawn with, its variant byte as Terrain.dll's tee texture set (TeeA0001 + set): the
+/// exe's tile pass rewrites it every frame for each drawn tee tile carrying a hole number (0x4120ae..0x41232b). An unopened
+/// hole's tee gets 0, the round mark; an open hole's gets one of 24 arrows, three per heading ((camera - facing - 2) & 7, the
+/// sprites' view rule, `camera` being 0x5685f4: 0, 2, 4 or 6), the straight one plus 1 for a dogleg left (hole flag 0x20) and
+/// plus 2 for a dogleg right (0x40), `facing` the tee facing toward the first landing.
+pub fn tee_arrow(par: i32, facing: i32, flags: u32, camera: i32) -> u8 {
+    if par == 0 {
+        return 0;
+    }
+    let mut v = (((camera - facing - 2) & 7) * 3 + 1) as u8;
+    if flags & 0x20 != 0 {
+        v += 1;
+    }
+    if flags & 0x40 != 0 {
+        v += 2;
+    }
+    v
+}
+
 /// The bench seats of a bench tile (0x411e17): one per heading d (0, 2, 4, 6) a golfer can sit facing (`ok(d)`), pulled
 /// toward that side of the tile. Empty means the tile has lost its bench.
 pub fn benches(var: u8, ok: &dyn Fn(usize) -> bool) -> Vec<Draw> {
@@ -689,6 +708,30 @@ mod tests {
         assert_eq!(sprout_frame(1, 16, false), (1, true));
         // a one-frame sprite is grown at once
         assert_eq!(sprout_frame(0, 1, true), (0, true));
+    }
+
+    #[test]
+    fn tee_arrows_follow_the_hole_and_the_view() {
+        // an unopened hole keeps the round mark whatever its facing or bend
+        assert_eq!(tee_arrow(0, 2, 0x20, 0), 0);
+        // facing 6 (straight, default view): heading (0 - 6 - 2) & 7 = 0, the first arrow (TeeA0002)
+        assert_eq!(tee_arrow(4, 6, 0, 0), 1);
+        // facing 2: heading 4, set 13 (TeeA0014); a dogleg left one on, a dogleg right two on
+        assert_eq!(tee_arrow(4, 2, 0, 0), 13);
+        assert_eq!(tee_arrow(4, 2, 0x20, 0), 14);
+        assert_eq!(tee_arrow(5, 2, 0x40, 0), 15);
+        // a quarter turn of the view (camera 2) moves the heading two places: three sets each
+        assert_eq!(tee_arrow(4, 2, 0, 2), 19);
+        assert_eq!(tee_arrow(4, 2, 0, 4), 1);
+        assert_eq!(tee_arrow(4, 2, 0, 6), 7);
+        // every result is one of the 25 tee pictures
+        for f in -8..8 {
+            for c in [0, 2, 4, 6] {
+                for fl in [0, 0x20, 0x40] {
+                    assert!((1..25).contains(&tee_arrow(3, f, fl, c)));
+                }
+            }
+        }
     }
 
     #[test]
