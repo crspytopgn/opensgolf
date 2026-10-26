@@ -40,6 +40,8 @@ impl App {
             return;
         }
         let c15 = |v: u16| rgb(((v >> 10) & 31) as f32 / 31.0, ((v >> 5) & 31) as f32 / 31.0, (v & 31) as f32 / 31.0);
+        // the story lines go last, their portraits before their bars, so a long line is never under the other one's portrait
+        let mut stories = Vec::new();
         for gi in 0..SLOTS {
             let gg = &self.club.g[gi];
             if gg.hole <= 0 || !(1..=7).contains(&gg.timer) || gg.thought == 0 {
@@ -57,7 +59,7 @@ impl App {
                 _ => c15(if faded { 0x6318 } else { 0x7fff }),
             };
             if story {
-                self.story_bubble(g, s, exe_zoom, gi, c);
+                stories.push((gi, c));
                 continue;
             }
             let line = self.club.thought(&self.course, gg.thought as u32, gg.thought_arg & 0x3fff, gi);
@@ -83,6 +85,11 @@ impl App {
             }
             bubble(g, s, exe_zoom, x, (y - up).round(), &line.text, c);
         }
+        for bars in [false, true] {
+            for &(gi, c) in &stories {
+                self.story_bubble(g, s, exe_zoom, gi, c, bars);
+            }
+        }
     }
 
     /// A story line over golfer `gi` (0x416b5e..0x416d38): the line in the thought's colour `c` on an 11 pixel high dark
@@ -92,7 +99,8 @@ impl App {
     /// higher and centred 12 pixels left of the owner, its portrait left of the bar; the partner's 12 pixels right, its
     /// portrait right of the bar and turned to face the owner. DERIVED: where the exe's mirrored half-size draw puts the
     /// partner's head (anchored 36 pixels into the ball; drawn here centred there, so on the ball).
-    fn story_bubble(&self, g: &mut Gfx, s: &Ui, exe_zoom: f32, gi: usize, c: [f32; 4]) {
+    /// `bars`: false draws the portrait, true the bar and its line.
+    fn story_bubble(&self, g: &mut Gfx, s: &Ui, exe_zoom: f32, gi: usize, c: [f32; 4], bars: bool) {
         let gg = &self.club.g[gi];
         let Some(text) = self.club.story_line(gi) else { return };
         let Some((x, y)) = self.screen_of(gg.x, gg.y) else { return };
@@ -108,15 +116,18 @@ impl App {
         let half = (w / 2.0).trunc();
         let cx = if owner { x - 12.0 } else { x + 12.0 };
         let ball_x = if owner { cx - half - 56.0 } else { x + half };
+        if bars {
+            let c15 = |v: u16| rgb(((v >> 10) & 31) as f32 / 31.0, ((v >> 5) & 31) as f32 / 31.0, (v & 31) as f32 / 31.0);
+            s.fill(g, cx - half, top, w, 11.0, c15(0x2008));
+            s.put_centered(g, font, cx, top, &text, c);
+            return;
+        }
         let ball = (ball_x, top - 42.0, 70.0, 70.0);
         s.image_scaled(g, &self.art.trans, ball, (0.0, 300.0, 140.0, 140.0));
         let id = gg.roster.max(0) as usize;
         let person = self.club.roster.get(id).cloned().unwrap_or_default();
         let head = if owner { ball } else { (ball_x + 71.0, top - 42.0, -70.0, 70.0) };
         self.art.halo_cell_in(g, s, person.female(), person.head_index(id), self.club.attitude(gi) as usize, head);
-        let c15 = |v: u16| rgb(((v >> 10) & 31) as f32 / 31.0, ((v >> 5) & 31) as f32 / 31.0, (v & 31) as f32 / 31.0);
-        s.fill(g, cx - half, top, w, 11.0, c15(0x2008));
-        s.put_centered(g, font, cx, top, &text, c);
     }
 
     /// Golfer names (0x462be0), with the "Display golfer names on screen" option at the closest zoom: centred on the golfer
