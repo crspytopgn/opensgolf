@@ -107,6 +107,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.5.10" date="2026-10-26">
+      <description>
+        <p>The tropical trees show again with retail CD installs, whose tree folders are named with spaces (Tree Cerc, Tree Drac) where other copies use underscores.</p>
+      </description>
+    </release>
     <release version="0.5.9" date="2026-10-26">
       <description>
         <p>Problem reports now say why a game file could not be opened, and list what its folder holds, to track down missing pictures.</p>
