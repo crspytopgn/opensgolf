@@ -391,6 +391,10 @@ impl crate::app::App {
         if reached(played, &mut p.next) {
             let e = play_event(&p.platform);
             p.send(&e, true);
+            // the mark is kept with the clock at once, so a restart soon after never sends it again
+            if mode == Mode::Send {
+                self.support_save_now();
+            }
         }
         let quiet = self.popup.is_none() && self.notice.is_none() && self.ui_ok;
         if self.screen == crate::app::Screen::Play && quiet && notice_due(mode, &self.playcount.record) {

@@ -199,6 +199,12 @@ impl App {
         }
     }
 
+    /// Writes the play time now (the play-time count's 15-minute mark: a quit soon after must not count it again).
+    pub fn support_save_now(&mut self) {
+        self.support.unsaved = 0.0;
+        save(&self.support.record);
+    }
+
     /// Once a frame: the box at a natural pause when it is due (`auto` false: scripted stills, which only SG_SUPPORT
     /// shows it in).
     pub fn support_frame(&mut self, auto: bool) {
