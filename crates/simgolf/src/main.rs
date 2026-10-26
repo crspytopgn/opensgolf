@@ -432,6 +432,9 @@ fn load_ui(app: &mut App, g: &mut Gfx) -> bool {
 
 /// The interface art (at start up, and again when the graphics mode changes). False when the title art is missing.
 fn load_art(app: &mut App, g: &mut Gfx) -> bool {
+    // the old art's textures (deleted at the frame's end, gfx.rs Deferred) go now, before the new ones are made, so a
+    // switch (HD, a theme, Enhanced) never holds both in memory
+    g.ctx.commit_frame();
     let mut img = |rel: &str, magenta: bool, key: Option<u32>| ui::load_pcx(g, &app.game_path(&format!("Interface/{rel}")), magenta, key);
     let base = img("TitleBASE.pcx", false, None);
     let un = img("TitleUnSel.pcx", true, None);

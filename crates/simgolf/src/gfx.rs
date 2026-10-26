@@ -713,6 +713,10 @@ struct Deferred {
     vb: BufferId,
     ib: BufferId,
     cap: usize,
+    /// Textures deleted during the frame, deleted for real when it ends: a draw queued earlier in the frame (a batch, the cast
+    /// shadows' list of outlines) may still name one, and a texture made meanwhile must not take its place under the same
+    /// name (that drew one frame of every cast shadow from the wrong pictures when their cache was emptied, large and hard).
+    doomed: Vec<TextureId>,
 }
 
 impl Deferred {
@@ -720,7 +724,7 @@ impl Deferred {
         let cap = 16384;
         let vb = inner.new_buffer(BufferType::VertexBuffer, BufferUsage::Stream, BufferSource::empty::<Vert>(cap));
         let ib = inner.new_buffer(BufferType::IndexBuffer, BufferUsage::Immutable, BufferSource::slice(&seq_indices(cap)));
-        Deferred { inner, queue, vb, ib, cap }
+        Deferred { inner, queue, vb, ib, cap, doomed: Vec::new() }
     }
 
     /// Draws the waiting batches (before anything else reaches the renderer).
@@ -841,8 +845,10 @@ impl RenderingBackend for Deferred {
         self.inner.delete_buffer(buffer)
     }
     fn delete_texture(&mut self, texture: TextureId) {
-        self.submit();
-        self.inner.delete_texture(texture)
+        // at the frame's end (`doomed`)
+        if !self.doomed.contains(&texture) {
+            self.doomed.push(texture);
+        }
     }
     fn delete_shader(&mut self, program: ShaderId) {
         self.submit();
@@ -882,6 +888,9 @@ impl RenderingBackend for Deferred {
     }
     fn commit_frame(&mut self) {
         self.submit();
+        for t in std::mem::take(&mut self.doomed) {
+            self.inner.delete_texture(t);
+        }
         self.inner.commit_frame()
     }
     fn draw(&self, base_element: i32, num_elements: i32, num_instances: i32) {
