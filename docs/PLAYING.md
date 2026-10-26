@@ -57,7 +57,7 @@ copies leave them out), only the Sims' voices in `SimsFX`, or lacks more than a 
 when the game starts and the ticker on every start (sg_core::mixer `shortfall`; the console or log has a `sound:` line
 with the counts). The browser page also sums up what it found after loading the files, in large type on the start page
 (and again there on the next visit, as "Last time: ...") and over the game once (20 seconds, or until tapped when
-something is missing): "OpenSGolf 0.5.11. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
+something is missing): "OpenSGolf 0.5.12. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
 big). Art ✓, music: N, Sims' voices: N." The console's `files:` line adds the compression methods the zip used.
 Deflate64 (Windows' own zipper, for big files such as the sounds), BZip2, LZMA and PPMd (7-Zip's, Keka's and The
 Unarchiver's stronger settings), which iPad's Files app cannot unpack (it shows such folders empty), are read by the
@@ -127,7 +127,7 @@ local `-bin` packages, `opensgolf-packs.sha256`, `SHA256SUMS` and a signature ma
 
 For scripted runs (any of `--png`, `--course`, `--edit`, `--golfer`, `--sandbox`, `--follow`) the game skips the menu and opens on the demo course; `--screen menu|property|play` forces a screen. Add `--theme Desert` for another look there. `--property NAME` (or 0..15) starts a new game on that property straight away, and `--clock MS` fixes the value the exe's random generator is seeded from, so the same land comes back every run.
 
-- **Holes** are built one at a time with the exe's rules (docs/GAMELOGIC.md): paint one Tee tile (G twice, or the Paint tool) and a Putting Green, then press H or click the cup green to open the hole. Its par comes from its planned length. Painting over a hole's tee or cup closes that hole until it is rebuilt. Courses made outside the tool (the demo course, saved terrain) have their tee and green pairs turned into holes when they load. Shift+H hides the story lines.
+- **Holes** are built one at a time with the exe's rules (docs/GAMELOGIC.md): paint one Tee tile (G twice, or the Paint tool) and a Putting Green, then press H or click the cup green to open the hole. Its par comes from its planned length. Painting over a hole's tee or cup closes that hole until it is rebuilt. Courses made outside the tool (the demo course, saved terrain) have their tee and green pairs turned into holes when they load.
 - **Golfers** follow the exe's rules (docs/GAMELOGIC.md): invited members come in pairs, walk and play every hole, use the amenities, pay a green fee equal to their mood at the end of each hole, and quit for good when their mood falls below zero. Happy members upgrade their membership and bring friends.
 - **Fun** sums each hole's mood changes the way the exe does. Happy golfers pay more, unhappy ones less.
 - **Money:** you start with §100,000 (confirmed from the publisher's golf.exe and the property screen). The green fee defaults to 1000 per hole, from the scale seen in course reports. Upkeep and wages are charged every game day (120 seconds). When cash stays below zero the board sends warnings and then ends the game, in four steps (the days are placeholders). Sandbox mode never charges.
@@ -660,7 +660,7 @@ Previous and Next buttons, Left and Right (or PageUp, PageDown, Space), or a cli
 or a click outside the box close it. (The title menu has no Preferences, as in the original.) `--screen keys` opens it for
 stills, `SG_KEYS_PAGE=N` on page N (from 0).
 
-Messages appear at the top of the screen as in the original (the message window): a translucent strip with nobody speaking, or a framed box with the speaker's ball portrait, the newly unlocked building or an icon; a new message replaces the one showing, minor ones wait until it is gone, and Repeat Last Message (Information menu) brings the last one back. On Easy, during the first year, your pro gives advice in a line over his head, in the exe's words. Paused shows at the top centre. Golfer stories play as in the original: a pair that fits a story from your Themes folder gets it at the first tee, and its lines appear at the top as the two walk together (Shift+H hides them); good moods carry it to a Happy Ending, which unlocks a landmark. Special visitors (the Corporate CEO, the County commissioner, the Wealthy heiress) come once your ratings earn them; please them and they invest, approve a land expansion (the TRACTS FOR SALE screen opens) or donate a landmark. Donated and owned landmarks can be placed with the building tool. Story text is read from your disc at run time and is not stored in this project.
+Messages appear at the top of the screen as in the original (the message window): a translucent strip with nobody speaking, or a framed box with the speaker's ball portrait, the newly unlocked building or an icon; a new message replaces the one showing, minor ones wait until it is gone, and Repeat Last Message (Information menu) brings the last one back. On Easy, during the first year, your pro gives advice in a line over his head, in the exe's words. Paused shows at the top centre. Golfer stories play as in the original: a pair that fits a story from your Themes folder gets it at the first tee, and when the two walk together while you watch them close up (the closest zoom, the owner well inside the screen, no message up) the next scene plays: its lines appear over the two golfers, each with the speaker's portrait, the partner's reply a moment after the opening line (the Message history extra keeps them too); good moods carry it to a Happy Ending, which unlocks a landmark. Special visitors (the Corporate CEO, the County commissioner, the Wealthy heiress) come once your ratings earn them; please them and they invest, approve a land expansion (the TRACTS FOR SALE screen opens) or donate a landmark. Donated and owned landmarks can be placed with the building tool. Story text is read from your disc at run time and is not stored in this project.
 
 ## Your pro (Gary Golf)
 
@@ -733,7 +733,8 @@ compare pixel for pixel with the build before the extras).
   Customise's Update Bio edits; *Edit bio* or B types one here) and everything the golfer has said on the course this game,
   newest first, good thoughts in green and bad ones in red (kept with the save, the last 60 per golfer).
 - **Message history** (**Shift+M**, *Information, Message history*, or a click on the ticker): every ticker message with
-  its date and its speaker's portrait or picture, newest first, the last thousand, saved with the game. A click on a message
+  its date and its speaker's portrait or picture, and each golfer story line (speaker, story and line), newest first, the
+  last thousand, saved with the game. A click on a message
   takes the camera to the golfer it is about (and opens the card) or to the place it is about.
 - **Name tags** (with the People line of the Info page; **Shift+H** hides them and shows them again until the game is
   closed, and does nothing while the extra is off): the golfer or employee under the pointer gets a small tag with the

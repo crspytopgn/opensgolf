@@ -13,8 +13,8 @@
 //! The scratch copy is a game of its own (`App::with_clock`), loaded by the game's own load (`App::load_save_into` without
 //! art: no textures, portraits, scripts or messages). Before the comparison it takes from the live game what a load in the
 //! same session keeps or what the game hands the simulation before each tick, which a save rightly does not hold: each
-//! golfer's screen position (`sx`, `sy`: set from the camera on every drawn frame), the ticker's busy flag, the advisor's
-//! and the close view's flags, the snapshots still to queue, the pointer's tile, the scripted runs' aiming, the tiles
+//! golfer's screen position (`sx`, `sy`: set from the camera on every drawn frame), the ticker's busy and message-up flags, the
+//! advisor's and the close view's flags, the snapshots still to queue, the pointer's tile, the scripted runs' aiming, the tiles
 //! retyped since the wildlife looked, the staff code's golfer copies and the cosmetic generator when the save has none.
 //! The live game's course copy of the staff's weeds and growth, which every game tick refreshes from the staff's tiles
 //! before anything reads it (`app::weeds_into`; the load does the same), is compared as the next tick will see it. The
@@ -55,6 +55,7 @@ struct Kept {
     ticker_busy: bool,
     advisor: bool,
     view_close: bool,
+    message_up: bool,
     show_snapshots: bool,
     award_snaps: Vec<(usize, (i32, i32))>,
     hover_tile: Option<(i32, i32)>,
@@ -74,6 +75,7 @@ impl Kept {
             ticker_busy: c.ticker_busy,
             advisor: c.advisor,
             view_close: c.view_close,
+            message_up: c.message_up,
             show_snapshots: c.show_snapshots,
             award_snaps: c.award_snaps.clone(),
             hover_tile: a.hover_tile,
@@ -405,6 +407,7 @@ fn scratch_fingerprint(s: SaveGame, k: &Kept) -> Result<(Fingerprint, Vec<(Strin
     c.ticker_busy = k.ticker_busy;
     c.advisor = k.advisor;
     c.view_close = k.view_close;
+    c.message_up = k.message_up;
     c.show_snapshots = k.show_snapshots;
     c.award_snaps = k.award_snaps.clone();
     if std::env::var("SG_SELFCHECK_BREAK").is_ok_and(|v| v.trim() == "1") {

@@ -193,13 +193,18 @@ impl Art {
     /// The head's 140 x 140 cell alone: a stock head from the halo page, a custom one from its own portrait file.
     #[allow(clippy::too_many_arguments)]
     pub fn halo_cell(&self, g: &mut Gfx, s: &Ui, female: bool, head: u8, e: usize, x: f32, y: f32) {
+        self.halo_cell_in(g, s, female, head, e, (x, y, 140.0, 140.0));
+    }
+
+    /// `halo_cell` stretched over `dst` (x, y, w, h); a negative width mirrors it about x.
+    pub fn halo_cell_in(&self, g: &mut Gfx, s: &Ui, female: bool, head: u8, e: usize, dst: (f32, f32, f32, f32)) {
         let gi = (!female) as usize;
         let e = e.min(2) as f32;
         if head < 19 {
             let (sx, sy) = ((head / 2) as f32 * 140.0, (head & 1) as f32 * 420.0 + e * 140.0);
-            s.image_part(g, &self.halo[gi], x, y, sx, sy, 140.0, 140.0);
+            s.image_scaled(g, &self.halo[gi], dst, (sx, sy, 140.0, 140.0));
         } else if let Some(img) = self.heads[gi].get(head as usize - 19) {
-            s.image_part(g, img, x, y, 0.0, e * 140.0, 140.0, 140.0);
+            s.image_scaled(g, img, dst, (0.0, e * 140.0, 140.0, 140.0));
         }
     }
 
