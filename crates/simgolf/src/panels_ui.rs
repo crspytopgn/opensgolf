@@ -1514,11 +1514,8 @@ impl App {
             i if i >= 0 => {
                 // the three tree buttons paint the theme's tree, pine and palm tiles
                 let Some(k) = Self::paint_index_of(tile_id(i as usize)) else { return false };
-                self.tool = 0;
-                self.paint_idx = k;
                 // picking a brush rolls its variant (0x41eaa0); the green always starts as a plain green
-                self.paint_variant = if PAINT[k].ty == 1 { Some((k, 0)) } else { None };
-                self.edit = true;
+                self.pick_brush(k);
             }
             _ => return false,
         }
