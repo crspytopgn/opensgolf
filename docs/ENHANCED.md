@@ -99,7 +99,7 @@ decoded terrain light (`sg_core::terrain::Lighting`, `light_direction`) and the 
 | Water reflections (`reflections`) | on | Trees, buildings and golfers mirrored in the water, rippling; stronger sun glitter at golden hour; the water lapping at the shore (see *Water reflections*). |
 | Wind (`wind`) | on | A wind for each day: trees, palms, bushes and grasses sway, flags fly downwind, the rain and the clouds follow it (see *Wind*). |
 | Evening lights (`evening-lights`) | on | With the time of day: lit windows, lamps with pools of light and fireflies at dusk (see *Evening lights*). |
-| Seasons (`seasons`) | on | Blossom and fresh greens in spring, autumn colours in September and October, frost and dew on spring and autumn mornings (see *Seasons*). |
+| Seasons (`seasons`) | on | Blossom and fresh greens in spring, autumn colours in September and October, frost on spring and autumn mornings (see *Seasons*). |
 | After the rain (`after-rain`) | on | With rain: wet, glossy ground and puddles during and after a rainy day, now and then a rainbow (see *After the rain*). |
 | Grass tufts (`grass`) | on | Tiny tufts of grass, a few pixels at the art's own pixel size, standing up from the rough and the deep rough and swaying in the wind; none on fairways, greens or tees. Only at the closest zoom level. |
 | Lightning (`lightning`) | off | Flashes and distant flicker in heavy rain where the climate is wet (see *Climate*), never in the desert. |
@@ -413,8 +413,7 @@ tree; the grass turns a little golden. Palms and cacti do not change. The trees 
 (foliage picked by hue, 48° to 178°), made when the season moves on by an eighth and cached; the grass is tinted in the
 terrain shader (green pixels of grassy ground only). Per theme: no autumn or blossom in the tropics, little in the
 desert, a little less on the links. With the time of day, early mornings in March, April and October have frost lying
-in patches (more in hollows) and, in spring and autumn, dew or rime glinting in the sun (tiny twinkling sparkles, on
-level ground only).
+in patches (more in hollows, on level ground only).
 
 ### After the rain
 
@@ -527,7 +526,7 @@ The port's own, each its own tick, all with the time of day (without it there is
   the riser are squares of the art's pixel size in the sprites' depth order (render.rs draws them with the lamps), tinted
   by the dawn light as the sprites are; a soft dark disc under each, drawn with the evening's pools, is the watered grass.
 - **Frost** (*Frost on cold mornings, melting by late morning*, Weather, on): the seasons' frost on a tick of its own
-  (*Seasons* keeps the blossom, the autumn colours and the dew), on cold mornings from March to mid April and in October
+  (*Seasons* keeps the blossom and the autumn colours), on cold mornings from March to mid April and in October
   (and full in a late-winter cold snap, fx_winter.rs), from dawn to phase 0.2. None where the theme has no winter: the
   desert's frost was taken out with the tropics'. The terrain shader lays it on the grass (fairways, greens and tees
   included) as an even pale sheen with a fine grain of brighter rime when it is full, and as it thins the sheen melts back
