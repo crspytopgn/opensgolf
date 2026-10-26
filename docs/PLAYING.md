@@ -57,7 +57,7 @@ copies leave them out), only the Sims' voices in `SimsFX`, or lacks more than a 
 when the game starts and the ticker on every start (sg_core::mixer `shortfall`; the console or log has a `sound:` line
 with the counts). The browser page also sums up what it found after loading the files, in large type on the start page
 (and again there on the next visit, as "Last time: ...") and over the game once (20 seconds, or until tapped when
-something is missing): "OpenSGolf 0.5.10. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
+something is missing): "OpenSGolf 0.5.11. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
 big). Art ✓, music: N, Sims' voices: N." The console's `files:` line adds the compression methods the zip used.
 Deflate64 (Windows' own zipper, for big files such as the sounds), BZip2, LZMA and PPMd (7-Zip's, Keka's and The
 Unarchiver's stronger settings), which iPad's Files app cannot unpack (it shows such folders empty), are read by the
@@ -1327,8 +1327,7 @@ The **Weather** page and the newer Atmosphere options (docs/ENHANCED.md has the 
   rain slants and the clouds drift with it.
 - *Lamps and fireflies at dusk* (on, with the time of day): from sunset lamps light up beside the buildings and along the
   paths, and fireflies drift over the rough on parkland and tropical courses.
-- *Seasons* (on): blossom on the trees and fresh greens in March and April, autumn colours in September and October, and
-  dew on spring and autumn mornings (with the time of day). Palms, cacti and conifers barely change.
+- *Seasons* (on): blossom on the trees and fresh greens in March and April, autumn colours in September and October. Palms, cacti and conifers barely change.
 - *Wet ground, puddles and rainbows* (on, with rain): during a rainy day and drying through the next the ground is darker
   and glossy, puddles fill on level fairway and rough and shrink as they dry, and about every other time the sun comes out
   after rain a rainbow stands in the sky.
@@ -1404,6 +1403,11 @@ the pointer; Tab again for a plain green). Painting it lays a green drawn with t
 over an existing green it turns that green tricky (or back to plain) at no cost, as in the original (0x420561). A hole
 whose cup tile is tricky is harder to putt: golfers' putting accuracy drops by 10 (0x424120). The original also has a
 sideways kick for a ball bouncing on a tricky green (0x4289e0), but its test can never pass, so neither game does it.
+
+**Sand trap shapes.** The Sand Trap brush has four shapes; picking the brush (its button or s) deals one at random and
+Tab turns it to the next, and the shape under the pointer is the one laid, as in the original (0x41eac4, 0x42059d).
+Painted over an existing sand trap it turns that tile to the new shape at no cost. (Until 0.6 the port laid every tile in
+one shape whatever the pointer showed, issue #104.)
 
 Golfers name what they look at in their scenery comments as the original does: the tile's stored location splits as
 `loc % 50, loc / 50` (0x469b00), and a landmark is called by its short name (0x4074a0 with 0), so the eyesore water

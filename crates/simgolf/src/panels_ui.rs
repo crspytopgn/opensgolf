@@ -257,6 +257,12 @@ fn design_strip(kind: i32) -> Option<Strip> {
     Some(Strip { dx, count, scale })
 }
 
+/// Whether a click goes to the open panel's click routine, as the main frame routes it (0x41e400): below y 480 and right of
+/// the dock (x 200 on); a click above it is the course's, so it never re-applies the strip's design.
+fn in_panel_band(px: f32, py: f32) -> bool {
+    px.floor() as i32 >= 200 && py.floor() as i32 > 480
+}
+
 /// The exe sprite and palette of design i of a strip.
 fn strip_sprite(kind: i32, i: i32) -> (u16, u8) {
     let n = i as u16;
@@ -1508,11 +1514,8 @@ impl App {
             i if i >= 0 => {
                 // the three tree buttons paint the theme's tree, pine and palm tiles
                 let Some(k) = Self::paint_index_of(tile_id(i as usize)) else { return false };
-                self.tool = 0;
-                self.paint_idx = k;
                 // picking a brush rolls its variant (0x41eaa0); the green always starts as a plain green
-                self.paint_variant = if PAINT[k].ty == 1 { Some((k, 0)) } else { None };
-                self.edit = true;
+                self.pick_brush(k);
             }
             _ => return false,
         }
@@ -1560,12 +1563,16 @@ impl App {
             }
             _ => {
                 // any other click in the panel picks the design last under the pointer on the strip (0x434ac0's default);
-                // the click itself is not a button press
+                // the click itself is not a button press. Only a click in the panel's band reaches it (`in_panel_band`): a
+                // click on the course keeps the chosen design, though the pointer crossed other designs on its way up
+                // (issue #103)
                 if let Some((kind, st, mask)) = self.open_strip() {
                     let (px, py) = self.pstate.mouse;
                     let hot = st.hit(mask, px, py);
                     if hot != -1 {
                         self.design_hover = self.strip_design(kind, hot);
+                    } else if !in_panel_band(px, py) {
+                        return false;
                     }
                     if self.design_hover != -1 || kind == land::K_LANDMARK {
                         self.design = (self.design_hover != -1).then_some((kind, self.design_hover));
@@ -1731,6 +1738,18 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_a_click_in_the_panel_band_re_applies_the_strip_design() {
+        // issue #103: the windmill chosen, the pointer crosses its upper neighbour on the way to the course, and the click
+        // on the course must not make that neighbour the design
+        let st = design_strip(land::K_LANDMARK).unwrap();
+        let (wx, wy) = st.at(11);
+        let (nx, ny) = st.at(10);
+        assert!(in_panel_band(wx as f32, wy as f32) && in_panel_band(nx as f32, ny as f32));
+        assert!(!in_panel_band(400.0, 300.0) && !in_panel_band(wx as f32, 480.0) && in_panel_band(wx as f32, 481.0));
+        assert!(!in_panel_band(150.0, 560.0), "the dock's corner is not the panel");
+    }
 
     #[test]
     fn every_terrain_button_has_its_description() {

@@ -408,6 +408,9 @@ fn load_ui(app: &mut App, g: &mut Gfx) -> bool {
 
 /// The interface art (at start up, and again when the graphics mode changes). False when the title art is missing.
 fn load_art(app: &mut App, g: &mut Gfx) -> bool {
+    // the old art's textures (deleted at the frame's end, gfx.rs Deferred) go now, before the new ones are made, so a
+    // switch (HD, a theme, Enhanced) never holds both in memory
+    g.ctx.commit_frame();
     let mut img = |rel: &str, magenta: bool, key: Option<u32>| ui::load_pcx(g, &app.game_path(&format!("Interface/{rel}")), magenta, key);
     let base = img("TitleBASE.pcx", false, None);
     let un = img("TitleUnSel.pcx", true, None);
@@ -1333,6 +1336,12 @@ impl Stage {
             }
         }
         app.terrain = Terrain::demo_course(40, 40, app.seed);
+        // the demo's tees have no holes: the round mark (their variant byte is Terrain.dll's tee set, 1.. the arrows)
+        for i in 0..app.terrain.ty.len() {
+            if app.terrain.ty[i] == sg_core::terrain::TT_TEE {
+                app.terrain.variation[i] = 0;
+            }
+        }
         app.land = None;
         // the graphics mode, before any art is loaded: Classic unless HD was chosen (--hd or the saved choice) and a pack exists
         if let Some(d) = &o.hd_pack {
@@ -2127,11 +2136,7 @@ impl Stage {
             for (i, it) in items.iter().enumerate() {
                 if panel_item_rect(i, cols).has(vx, vy) {
                     match it.kind {
-                        0 => {
-                            app.tool = 0;
-                            app.paint_idx = it.arg;
-                            app.edit = true;
-                        }
+                        0 => app.pick_brush(it.arg),
                         1 => {
                             app.tool = 2;
                             app.path_kind = it.arg as i32;
@@ -2361,7 +2366,8 @@ impl Stage {
             app.edit = true;
             app.tool = 0;
             if let Some(i) = PAINT.iter().position(|p| p.ty == ty as i32 && p.vbyte == 0) {
-                app.paint_idx = i;
+                // and rolls its variant, as the button does (issue #104)
+                app.pick_brush(i);
             }
         };
         if act.map_or(aiming && !shift, controls::is_aim) {

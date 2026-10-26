@@ -199,7 +199,11 @@ Washer id 3, Landmark id 4 and Home Site id 5 too).
 Click (`FUN_00434ac0`, exact): slot 0 sets tool 3; slot 1 tool 0; slot 2 tool 5 (or none when no home site is left); slot 3
 tool 1 and design 0; slot 4 tool 4 with design -1 (pick from the strip); slot 5 tool 2 with a random design `rand(4)`; slot 6 tool
 16 with `rand(7)`; slot 9 tool 19 with `rand(8)`; slot 7 shows the undo help text and switches to undo mode. Clicking elsewhere
-on the panel while a variant tool is armed re-applies the stored design (`DAT_005a9f50`).
+on the panel while a variant tool is armed makes the design the one last under the pointer on the strip (`DAT_005a9f50`, which
+the strip's draw sets each frame a design is hovered and never clears) into the placed design (`DAT_005a9f60`). The main frame
+only routes a click here when it is right of the dock and below the panel's top (x >= 200 and y > 480, 0x41e459); a click on
+the course never reaches it, so the chosen design stays though the pointer crossed other designs on its way up (issue #103).
+Flower beds, scenic trees and bridges are random only when their button is pressed (above); placing never re-rolls a design.
 
 Variant strips (exact structure, art not mapped): benches 5 designs, landmarks 14 (only designs whose bit is set in
 `DAT_00543cfc`; sandbox sets 0x3fff), scenic bridge 8, flower beds 15 (5 x 3), scenic trees 7. The strip background pieces,

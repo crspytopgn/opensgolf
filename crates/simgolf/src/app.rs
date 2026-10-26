@@ -1484,9 +1484,15 @@ impl App {
         }
     }
 
-    /// Path overlay (our own model): every path tile gets a centre piece, plus an arm toward each path neighbour, cut out of the
-    /// game's cross shaped Path.tga (arms 0..0.33 / 0.66..1 of the tile, centre between).
+    /// Path overlay, as Terrain.dll draws a path tile (0x100108f0): an arm toward each neighbour with a path, a third of the
+    /// tile wide from its centre to the edge, cut from the cross shaped `Path.tga` (texture 0.33..0.67 across, the third at
+    /// the arm's end along), then the centre's four triangles as `sg_core::terrain::path_centre` picks them (`PathInside.tga`
+    /// between two arms, `PathCurve.tga` rounding the sides without one). A path joined to the clubhouse uses the `X` art,
+    /// one that isn't the plain art (the tile's +0x209 byte, which layPath and updatePath set from the exe's flag 0x40,
+    /// wrapper 0x44a410; the texture slot is 0x21 with it, 0x20 without).
     fn build_paths(&mut self, g: &mut Gfx) {
+        // the Path styles extra (paths_lamps.rs) draws both arts in its material: there an unjoined path keeps its muddy tint
+        let styled = self.club.extras.path_material() != 0;
         let t = &self.terrain;
         if t.path_kind.is_empty() {
             return;
@@ -1501,11 +1507,8 @@ impl App {
         let joined_at =
             |tx: i32, ty: i32| connected.as_ref().is_none_or(|j| !sg_core::course::inside(tx, ty) || j[sg_core::course::idx(tx, ty)]);
         let (ox, oz) = (-t.w as f32 * TILE_SIZE * 0.5, -t.h as f32 * TILE_SIZE * 0.5);
-        struct Piece {
-            r: [f32; 4],
-            disc: bool,
-        }
-        let mut jobs: Vec<(bool, &'static str, Vec<Vert>)> = Vec::new();
+        // (rank, joined, file, triangles): the arms go down before the centres, as in the DLL's tile draw
+        let mut jobs: Vec<(u8, bool, &'static str, Vec<Vert>)> = Vec::new();
         for ty in 0..t.h {
             for tx in 0..t.w {
                 let kind = t.path_at(tx, ty);
@@ -1527,30 +1530,12 @@ impl App {
                 let s = t.path_at(tx, ty + 1) != 0;
                 let w = t.path_at(tx - 1, ty) != 0;
                 let e = t.path_at(tx + 1, ty) != 0;
-                let links = n as i32 + s as i32 + w as i32 + e as i32;
-                let file = if kind == 2 { "PathX.tga" } else { "Path.tga" };
-                let disc_file = if kind == 2 { "PathCurveX.tga" } else { "PathCurve.tga" };
-                let (a, b) = (0.33f32, 0.67f32);
-                let straight = (n && s && !w && !e) || (w && e && !n && !s);
-                let mut pieces = Vec::new();
-                if links >= 3 || straight {
-                    pieces.push(Piece { r: [a, a, b, b], disc: false });
-                } else {
-                    pieces.push(Piece { r: [0.22, 0.22, 0.78, 0.78], disc: true });
-                }
-                if n {
-                    pieces.push(Piece { r: [a, 0.0, b, a], disc: false });
-                }
-                if s {
-                    pieces.push(Piece { r: [a, b, b, 1.0], disc: false });
-                }
-                if w {
-                    pieces.push(Piece { r: [0.0, a, a, b], disc: false });
-                }
-                if e {
-                    pieces.push(Piece { r: [b, a, 1.0, b], disc: false });
-                }
                 let joined = joined_at(tx, ty);
+                let [arm_file, inside_file, curve_file] = if joined {
+                    ["PathX.tga", "PathInsideX.tga", "PathCurveX.tga"]
+                } else {
+                    ["Path.tga", "PathInside.tga", "PathCurve.tga"]
+                };
                 let vert = |wx: f32, wz: f32, u: f32, v: f32| {
                     let y = t.height_at(wx, wz) + 1.5;
                     let e = 12.0;
@@ -1560,37 +1545,73 @@ impl App {
                     let l = (nx * nx + ny * ny + nz * nz).sqrt();
                     let mut vv = Vert::new(wx, y, wz, u, v);
                     vv.normal = [nx / l, ny / l, nz / l];
-                    if !joined {
-                        vv.color = [0.45, 0.32, 0.22, 1.0]; // unconnected paths: the same artwork in a muddy brown
+                    if styled && !joined {
+                        vv.color = [0.45, 0.32, 0.22, 1.0];
                     }
                     vv
                 };
-                for p in &pieces {
+                // a point of the tile (u, v in 0..1, v = 0 the north edge) with its texture coordinates
+                let q = |u: f32, v: f32, tu: f32, tv: f32| vert(ox + (tx as f32 + u) * TILE_SIZE, oz + (ty as f32 + v) * TILE_SIZE, tu, tv);
+                let (a, b) = (1.0f32 / 3.0, 2.0f32 / 3.0);
+                // arms: (u0, v0, u1, v1) on the tile; the texture's third at that end along the arm, the same across
+                // (and whether it runs along v, and whether it is on the far side, south or east)
+                let arms = [
+                    (n, [a, 0.0, b, 0.5], true, false),
+                    (s, [a, 0.5, b, 1.0], true, true),
+                    (w, [0.0, a, 0.5, b], false, false),
+                    (e, [0.5, a, 1.0, b], false, true),
+                ];
+                for (on, r, along_v, far) in arms {
+                    if !on {
+                        continue;
+                    }
+                    // the half tile from the centre to the edge takes the texture's outer third: 0.5 -> 1/3 or 2/3, edge -> 0 or 1
+                    let tex = |c: f32| if far { a + c * b } else { c * b };
                     let mut v = Vec::new();
                     const D: i32 = 2;
                     for j in 0..D {
                         for i in 0..D {
-                            let u0 = p.r[0] + (p.r[2] - p.r[0]) * i as f32 / D as f32;
-                            let u1 = p.r[0] + (p.r[2] - p.r[0]) * (i + 1) as f32 / D as f32;
-                            let v0 = p.r[1] + (p.r[3] - p.r[1]) * j as f32 / D as f32;
-                            let v1 = p.r[1] + (p.r[3] - p.r[1]) * (j + 1) as f32 / D as f32;
-                            // Disc pieces map the whole texture onto the rectangle.
-                            let tu = |u: f32| if p.disc { (u - p.r[0]) / (p.r[2] - p.r[0]) } else { u };
-                            let tv = |v: f32| if p.disc { (v - p.r[1]) / (p.r[3] - p.r[1]) } else { v };
-                            let q =
-                                |u: f32, vv: f32| vert(ox + (tx as f32 + u) * TILE_SIZE, oz + (ty as f32 + vv) * TILE_SIZE, tu(u), tv(vv));
-                            let (q00, q10, q11, q01) = (q(u0, v0), q(u1, v0), q(u1, v1), q(u0, v1));
+                            let u0 = r[0] + (r[2] - r[0]) * i as f32 / D as f32;
+                            let u1 = r[0] + (r[2] - r[0]) * (i + 1) as f32 / D as f32;
+                            let v0 = r[1] + (r[3] - r[1]) * j as f32 / D as f32;
+                            let v1 = r[1] + (r[3] - r[1]) * (j + 1) as f32 / D as f32;
+                            let p = |u: f32, vv: f32| {
+                                let (tu, tv) = if along_v { (u, tex(vv)) } else { (tex(u), vv) };
+                                q(u, vv, tu, tv)
+                            };
+                            let (q00, q10, q11, q01) = (p(u0, v0), p(u1, v0), p(u1, v1), p(u0, v1));
                             v.extend_from_slice(&[q00, q10, q11, q00, q11, q01]);
                         }
                     }
-                    jobs.push((joined, if p.disc { disc_file } else { file }, v));
+                    jobs.push((0, joined, arm_file, v));
+                }
+                // the centre's triangles (NW, NE, SW, SE): two edge midpoints and the centre, the same part of the texture,
+                // split once more so they follow the ground
+                let centre = sg_core::terrain::path_centre(sg_core::terrain::path_mask(n, s, e, w));
+                let tris = [[(0.0, 0.5), (0.5, 0.0)], [(0.5, 0.0), (1.0, 0.5)], [(0.0, 0.5), (0.5, 1.0)], [(0.5, 1.0), (1.0, 0.5)]];
+                for (piece, [p1, p2]) in centre.into_iter().zip(tris) {
+                    let file = match piece {
+                        2 => inside_file,
+                        3 => curve_file,
+                        _ => continue,
+                    };
+                    let c = (0.5f32, 0.5f32);
+                    let mid = |p: (f32, f32), r: (f32, f32)| ((p.0 + r.0) * 0.5, (p.1 + r.1) * 0.5);
+                    let (m1, m2, m3) = (mid(c, p1), mid(p1, p2), mid(p2, c));
+                    let p = |pt: (f32, f32)| q(pt.0, pt.1, pt.0, pt.1);
+                    let mut v = Vec::new();
+                    for tri in [[c, m1, m3], [m1, p1, m2], [m3, m2, p2], [m1, m2, m3]] {
+                        v.extend(tri.map(p));
+                    }
+                    jobs.push((1, joined, file, v));
                 }
             }
         }
+        jobs.sort_by_key(|j| j.0);
         let mut paths: BTreeMap<usize, (TextureId, Vec<Vert>)> = BTreeMap::new();
         let mut mud: BTreeMap<usize, (TextureId, Vec<Vert>)> = BTreeMap::new();
         let mut order: HashMap<&'static str, usize> = HashMap::new();
-        for (joined, file, v) in jobs {
+        for (_, joined, file, v) in jobs {
             // (the Path styles and lamps extra's materials: paths_lamps.rs)
             let Some(tex) = self.path_texture(g, file) else { continue };
             let next = order.len();
@@ -1889,6 +1910,39 @@ impl App {
             decor,
             ..Default::default()
         });
+    }
+
+    /// The pictures of the holes' tee tiles (sg_core::decor::tee_arrow): the exe rewrites a tee's variant byte as it draws the
+    /// tile each frame (0x4120ae) and the terrain is redrawn when one changes (opening a hole, turning the view). The port keeps
+    /// the picture in the renderer's terrain only, so the land and its saves are as before.
+    fn update_tee_arrows(&mut self) {
+        use sg_core::course::{f, idx, inside, t};
+        let camera = 2 * ((self.rot / 90.0).round() as i32).rem_euclid(4);
+        let c = &self.course;
+        let mut changed = false;
+        for a in 0..self.terrain.w {
+            for b in 0..self.terrain.h {
+                if !inside(a, b) {
+                    continue;
+                }
+                let i = idx(a, b);
+                let h = (c.flags[i] & f::LOW) as usize;
+                if c.ty[i] != t::TEE || h == 0 || h >= self.club.holes.len() {
+                    continue;
+                }
+                let o = self.terrain.tile_index(a, b);
+                if self.terrain.ty[o] != sg_core::terrain::TT_TEE {
+                    continue;
+                }
+                let r = &self.club.holes[h];
+                let v = sg_core::decor::tee_arrow(r.par, r.tee_facing, r.flags, camera);
+                if self.terrain.variation[o] != v {
+                    self.terrain.variation[o] = v;
+                    changed = true;
+                }
+            }
+        }
+        self.dirty |= changed;
     }
 
     /// Flags on the cup tiles and tee markers on the open holes' tees, as the exe draws them every frame.
@@ -2816,6 +2870,7 @@ impl App {
         self.update_weed_props();
         self.update_tree_growth();
         self.update_decor_props();
+        self.update_tee_arrows();
         for p in self.props.iter_mut() {
             if p.animated {
                 if let Some(b) = p.body {
@@ -3259,9 +3314,12 @@ impl App {
     pub fn paint_tiles(&mut self, tiles: &[(i32, i32)]) {
         let pe = &PAINT[self.paint_idx];
         // the green brush's byte: a plain or a tricky green (Tab)
+        // and the sand trap's: its shape, the one the pointer shows (issue #104)
         let want = if pe.ty == 1 {
             self.paint_brush_variant();
             self.green_brush_byte()
+        } else if pe.ty == 7 {
+            self.sand_brush_byte()
         } else {
             pe.vbyte
         };
@@ -3334,16 +3392,25 @@ impl App {
             }
             // the green brush over a green only turns it plain or tricky: the exe sets the variant byte at 0x420561 and
             // leaves before the charge and the new-tile bookkeeping, since the type stays the same
-            if old == new && new == 1 {
-                let ti = self.terrain.tile_index(x, y);
-                self.terrain.variation[ti] = want as u8;
-                if let Some(l) = self.land.as_mut() {
-                    l.var[li] = want as u8;
+            // a sand trap over sand turns it the same way, free (0x42059d writes the byte before the same-type exit at
+            // 0x4205ef), unless the tile's flag 0x200 keeps its byte
+            let keep = new == 7 && self.land.as_ref().is_some_and(|l| l.flags[li] & 0x200 != 0);
+            if old == new && (new == 1 || new == 7) {
+                if !keep {
+                    let ti = self.terrain.tile_index(x, y);
+                    self.terrain.variation[ti] = want as u8;
+                    if let Some(l) = self.land.as_mut() {
+                        l.var[li] = want as u8;
+                    }
                 }
                 continue;
             }
-            // tees use this byte as their look
-            let vb = if pe.ty == 0 { ((x * 7 + y * 13) as u32 % 5) as i32 } else { want };
+            // a new tee is drawn with the round mark (0x420760 clears its variant byte) until its hole opens (tee_arrows)
+            let vb = match self.land.as_ref() {
+                _ if pe.ty == 0 => 0,
+                Some(l) if keep => l.var[li] as i32,
+                _ => want,
+            };
             self.econ.spend_to(economy::LEDGER_BUILD_COURSE, cost as f64 * Economy::UNIT);
             let hb = (self.club.next_hole as usize).min(18);
             if !self.econ.free {
@@ -3442,8 +3509,26 @@ impl App {
         self.refresh_trees();
     }
 
-    /// The brush's variant (0x5a34f0): rolled when the brush is first used (the green always starts at 0, 0x41eaa0), one up
-    /// with each Tab.
+    /// Arms terrain brush `k` (PAINT): picking a brush, from its button or its key, rolls its variant at once, a random 0..2
+    /// (0x41eac4 `rand(3)` into 0x5a34f0), the green's 0 (0x41eade), so the shape the pointer shows is the one painted and
+    /// Tab turns it from the start (issue #104: the roll waited for the first tile, so the first click changed the shape and
+    /// Tabs before it were lost).
+    pub fn pick_brush(&mut self, k: usize) {
+        self.tool = 0;
+        self.paint_idx = k;
+        self.edit = true;
+        let v = if PAINT[k].ty == 1 { 0 } else { self.exe_rng.below(3) };
+        self.paint_variant = Some((k, v));
+    }
+
+    /// The variant byte a sand trap tile takes from the brush (0x42059d: variant % 12 + 12, written on every tile the brush
+    /// touches while its flag 0x200 is clear); Terrain.dll draws SandBunker1..4 by its low two bits, turned by the view.
+    pub(crate) fn sand_brush_byte(&mut self) -> i32 {
+        self.paint_brush_variant().rem_euclid(12) + 12
+    }
+
+    /// The brush's variant (0x5a34f0): rolled when the brush is picked (`pick_brush`), or when first used by a test hook that
+    /// armed it directly (the green always starts at 0, 0x41eaa0), one up with each Tab.
     fn paint_brush_variant(&mut self) -> i32 {
         match self.paint_variant {
             Some((k, v)) if k == self.paint_idx => v,
@@ -4951,6 +5036,39 @@ mod tests {
         a.terrain.paint(20, 20, 4, 0);
         a.sync_course();
         assert_ne!(a.exe_rng.state, before);
+    }
+
+    #[test]
+    fn a_sand_trap_is_painted_the_way_the_pointer_shows_it_turned() {
+        // issue #104: the shape picked with Tab must be the one placed
+        let mut a = building_game();
+        a.econ.cash = 1e7;
+        let k = PAINT.iter().position(|p| p.ty == 7).unwrap();
+        a.pick_brush(k);
+        let (_, v0) = a.paint_variant.expect("picking the brush rolls its variant");
+        assert!((0..3).contains(&v0));
+        // two Tabs (main.rs), then a tile
+        for _ in 0..2 {
+            let (k, v) = a.paint_variant.unwrap();
+            a.paint_variant = Some((k, v + 1));
+        }
+        a.paint_tiles(&[(20, 20)]);
+        let ti = a.terrain.tile_index(20, 20);
+        let li = (20 * land::mn() + 20) as usize;
+        assert_eq!(a.terrain.ty[ti], 7);
+        assert_eq!(a.terrain.variation[ti] as i32, (v0 + 2) % 12 + 12, "the terrain draws the brush's shape");
+        assert_eq!(a.land.as_ref().unwrap().var[li], a.terrain.variation[ti], "and the land keeps it");
+        assert_eq!(a.paint_variant, Some((k, v0 + 2)), "painting keeps the turn");
+        // one more Tab and the same tile again: turned, free (0x42059d before the same-type exit)
+        a.paint_variant = Some((k, v0 + 3));
+        let cash = a.econ.cash;
+        a.paint_tiles(&[(20, 20)]);
+        assert_eq!(a.terrain.variation[ti] as i32 & 3, (v0 + 3) & 3);
+        assert_eq!(a.econ.cash, cash);
+        // the green still starts plain
+        let g = PAINT.iter().position(|p| p.ty == 1).unwrap();
+        a.pick_brush(g);
+        assert_eq!(a.paint_variant, Some((g, 0)));
     }
 
     #[test]

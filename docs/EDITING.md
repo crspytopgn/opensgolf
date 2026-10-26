@@ -28,10 +28,16 @@ drawn as a wall. The keyboard's round brush (no panel art) moves each corner of 
 
 ## Paths and extra tile types
 
-Paths are an overlay on top of the terrain, one flag per tile (0 none, 1 gravel, 2 paved). This is OUR model: how the original
-stores and connects paths lives in golf.exe, which is not read. Terrain.dll only gives the artwork: `Path.tga`, `PathCurve.tga`,
-`PathCap.tga`, `PathInside.tga` and the paved `*X.tga` versions (64x64 with alpha). The game cuts a centre piece and an arm
-toward each neighbouring path tile out of the cross shaped `Path.tga`, and uses the round `PathCurve.tga` for path ends and bends.
+Paths are an overlay on top of the terrain, one flag per tile (0 none, 1 gravel, 2 paved: the port's own; the exe has one
+Pathway and both values draw alike). Each path tile is drawn as Terrain.dll draws it (0x100108f0, `App::build_paths`): an
+arm toward each neighbouring path tile, a third of the tile wide from the centre to the edge, cut from the cross shaped
+`Path.tga`; then the centre's four triangles (centre and two edge midpoints) by the tile's neighbours
+(`sg_core::terrain::path_centre`, the jump table of 0x100116d0): `PathInside.tga` between two arms, `PathCurve.tga` on the
+sides with no neighbour, nothing elsewhere. So a lone tile is a round dot, a path end is rounded, a bend has a filled inside
+and a rounded outside, and a straight run is all arm. A path joined to the clubhouse uses the grey `*X.tga` art, one that is
+not the plain (tan) art: the tile's byte +0x209, which layPath and updatePath set from the exe's flag 0x40 (texture slot 0x21
+with it, 0x20 without; loader 0x10007c00: per slot Path, PathCap, PathInside, PathCurve). `PathCap.tga` is loaded but
+never drawn.
 Like Terrain.dll (its draw flag, Tile+0x20a, docs/PARITY.md), no path is drawn on a tee, green, fairway, firm fairway, pot
 bunker or building tile: the ground shows, and the neighbouring paths' arms stop at its edge.
 `PathCap` and `PathInside` are not used yet.
@@ -124,7 +130,8 @@ The golfer route and clubhouse position belong to the demo and are not saved; th
 ## Clubhouse connection, hole report and staff
 
 - A path is joined when the exe's clubhouse flood reaches it (tile flag 0x40, `Land::joined_tiles`); the terrain renderer gets
-  that flag with each path (layPath, wrapper 0x44a410). Unjoined paths are drawn in a muddy brown (the look is the port's own).
+  that flag with each path (layPath, wrapper 0x44a410), which picks the art: grey `PathX` joined, tan `Path` not (see Paths
+  above). With the Path styles extra's materials an unjoined path is tinted a muddy brown instead (the port's own).
 - The console's course summary (after every edit) lists each open hole's par and yards and how many path tiles are joined.
 - Shift+C, Shift+R, Shift+G, Shift+V hire a Club Pro, Ranger, Groundskeeper or Soda Vendor. Ctrl with the same key fires one. The title bar shows fun, attitude (red/yellow/green) and staff count.
 - Effects, wages and fun deltas are placeholders. A Ranger speeds play by 20%, a Club Pro and Soda Vendor raise fun. Wages are 30, 25, 20 and 15 a day.
