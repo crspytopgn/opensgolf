@@ -1362,6 +1362,12 @@ impl Stage {
             }
         }
         app.terrain = Terrain::demo_course(40, 40, app.seed);
+        // the demo's tees have no holes: the round mark (their variant byte is Terrain.dll's tee set, 1.. the arrows)
+        for i in 0..app.terrain.ty.len() {
+            if app.terrain.ty[i] == sg_core::terrain::TT_TEE {
+                app.terrain.variation[i] = 0;
+            }
+        }
         app.land = None;
         // the graphics mode, before any art is loaded: Classic unless HD was chosen (--hd or the saved choice) and a pack exists
         if let Some(d) = &o.hd_pack {
