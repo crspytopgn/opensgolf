@@ -146,7 +146,7 @@ const PAGE_LINES: [&[ExtrasLine]; 5] = {
             G(x::MORE_VISITORS),
             G(2), // hardcore
         ],
-        &[Calendar, G(8), G(9)],
+        &[Calendar, G(8), G(9), G(x::NO_WEEDS)],
         // path styles and lamps, Tab turns buildings (only the picture turns), random trees, the desert's Ravine and Brush art
         &[G(x::PATHS), G(0), U(21), U(23)],
         // People, extra reports, messages, path help, home-site details
@@ -219,6 +219,7 @@ const GAME_DESC: [&str; sg_core::extras::OPTION_KEYS.len()] = [
     "STR_EXTRAS_DESC_WEATHER",
     "STR_EXTRAS_DESC_PATHS",
     "STR_EXTRAS_DESC_MORE_VISITORS",
+    "STR_EXTRAS_DESC_NO_WEEDS",
 ];
 const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_PEOPLE",

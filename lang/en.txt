@@ -1409,6 +1409,7 @@ STR_EXTRAS_DESC_SET_PAR                 :Minus and plus buttons on Hole Stats ch
 STR_EXTRAS_DESC_SEASON_SPEED            :The calendar runs at half or a quarter speed while golfers, staff and bills keep their pace, so each year holds more golf.
 STR_EXTRAS_DESC_PAUSE_CALENDAR          :The date stands still: golfers keep coming and paying, but no month or year ends, so no interest and no board review.
 STR_EXTRAS_DESC_FREEZE_MOODS            :Golfers' moods never drop. Good moments still cheer them up, and nobody leaves unhappy.
+STR_EXTRAS_DESC_NO_WEEDS                :Dandelions stop spreading and unhappy golfers no longer start them, so the course stays clear without groundskeepers. The ones already there stay until pulled.
 STR_EXTRAS_DESC_UNLOCK_ALL              :Every building, home site and landmark of the theme is on the panels from the start, as in Sandbox Mode.
 STR_EXTRAS_DESC_LEFTIES                 :About one golfer in ten is left-handed: a mirrored swing, and the ball curves the other way. Your pro can be one too.
 STR_EXTRAS_DESC_WEATHER                 :Rain and snow slow the ball and keep some golfers at home; desert heat waves speed it up. Gentle over a year.
@@ -1442,6 +1443,7 @@ STR_EXTRAS_SPEED_QUARTER                :1/4x
 STR_EXTRAS_PAUSE_CALENDAR               : Sandbox: pause the calendar
 STR_EXTRAS_FREEZE_MOODS                 : Sandbox: freeze golfer happiness
 STR_EXTRAS_UNLOCK_ALL                   : Sandbox: unlock all buildings and landmarks
+STR_EXTRAS_NO_WEEDS                     : Sandbox: no new dandelions
 # Left-handed golfers (sg_core::extras): about one golfer in ten, and a tick for your pro on Customise Golfer
 STR_EXTRAS_LEFTIES                      : Left-handed golfers
 STR_SET_PAR_1                           :Change hole {HOLE} from par {OLD} to par {NEW}?

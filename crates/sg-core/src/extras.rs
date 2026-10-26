@@ -30,6 +30,10 @@
 //!   Enhanced graphics' time of day.
 //! * `more_visitors`: More visitors: touring pros and invented celebrities come to play now and then (sg_core::visitors,
 //!   data/visitors.toml); pros pay more and rate the course, celebrities draw a few extra golfers.
+//! * `no_weeds`: Sandbox: no new dandelions. Weeds no longer spread over the course (staff::spread_weeds is not run) and
+//!   unhappy golfers no longer start them where they stand (Club's mood change), so
+//!   a course needs no groundskeepers or landmarks to keep it clear (issue #105); the ones already there stay until
+//!   pulled.
 //!
 //! Freeze happiness and Unlock all are named "Sandbox: ..." in the Extras box as they are what a sandbox player wants
 //! most, but each works in a normal game too. The Extras box shows Slower seasons and Pause the calendar as one line,
@@ -61,13 +65,14 @@ pub struct Extras {
     /// Path styles and lamps: 0 off, else 1 + the course's path style (`PATH_STYLE_KEYS`).
     pub path_style: u8,
     pub more_visitors: bool,
+    pub no_weeds: bool,
 }
 
 /// The options in the order the Extras box lists them (text keys of their lines). Option 6 has three values (a line with
 /// {VALUE}, `SPEED_KEYS`), the others are ticks; `Extras::option` and `Extras::set_option` read and set them by index.
 /// New options are appended so bits and saves keep working; the page each is shown on (Gameplay, Sandbox or Looks) is
 /// extras_ui.rs `PAGE_LINES`'s.
-pub const OPTION_KEYS: [&str; 14] = [
+pub const OPTION_KEYS: [&str; 15] = [
     "STR_EXTRAS_ROTATE",
     "STR_EXTRAS_CUT_CONTENT",
     "STR_EXTRAS_HARDCORE",
@@ -82,6 +87,7 @@ pub const OPTION_KEYS: [&str; 14] = [
     "STR_EXTRAS_WEATHER",
     "STR_EXTRAS_PATHS",
     "STR_EXTRAS_MORE_VISITORS",
+    "STR_EXTRAS_NO_WEEDS",
 ];
 
 /// The option of `OPTION_KEYS` that is Weather that matters.
@@ -94,6 +100,8 @@ pub const LEFTIES: usize = 10;
 pub const PATHS: usize = 12;
 /// The option of `OPTION_KEYS` that is More visitors.
 pub const MORE_VISITORS: usize = 13;
+/// The option of `OPTION_KEYS` that is Sandbox: no new dandelions.
+pub const NO_WEEDS: usize = 14;
 
 /// The option of `OPTION_KEYS` that is the calendar speed.
 pub const SEASON_SPEED: usize = 6;
@@ -127,6 +135,7 @@ impl Extras {
         weather: false,
         path_style: 1,
         more_visitors: false,
+        no_weeds: false,
     };
 
     /// The extras of the "OpenSGolf" preset: the looks, and the light gameplay extras that add to the game without changing
@@ -150,6 +159,7 @@ impl Extras {
         // purely cosmetic and nothing changes until the player picks a style or places a lamp
         path_style: 1,
         more_visitors: false,
+        no_weeds: false,
     };
 
     /// Everything off (the original game).
@@ -159,7 +169,7 @@ impl Extras {
 
     /// The options as bits (the `X:` test hook and `--extras`): one bit per tick in `OPTION_KEYS` order, except that the
     /// calendar speed takes two (bits 6 and 7), so the ticks after it sit one bit further on (8 to 12), Path styles and lamps
-    /// takes three (13 to 15) and More visitors is bit 16. The first six keep the bits they always had.
+    /// takes three (13 to 15), More visitors is bit 16 and Sandbox: no new dandelions bit 17. The first six keep the bits they always had.
     pub fn bits(&self) -> u32 {
         self.rotate as u32
             | (self.cut_content as u32) << 1
@@ -175,6 +185,7 @@ impl Extras {
             | (self.weather as u32) << 12
             | (self.path_style.min(PATH_STYLES) as u32) << 13
             | (self.more_visitors as u32) << 16
+            | (self.no_weeds as u32) << 17
     }
 
     pub fn from_bits(b: u32) -> Extras {
@@ -193,6 +204,7 @@ impl Extras {
             weather: b & 1 << 12 != 0,
             path_style: ((b >> 13) & 7).min(PATH_STYLES as u32) as u8,
             more_visitors: b & 1 << 16 != 0,
+            no_weeds: b & 1 << 17 != 0,
         }
     }
 
@@ -213,6 +225,7 @@ impl Extras {
             WEATHER => self.weather as u8,
             PATHS => self.path_style.min(PATH_STYLES),
             MORE_VISITORS => self.more_visitors as u8,
+            NO_WEEDS => self.no_weeds as u8,
             _ => 0,
         }
     }
@@ -235,6 +248,7 @@ impl Extras {
             WEATHER => self.weather = on,
             PATHS => self.path_style = v.min(PATH_STYLES),
             MORE_VISITORS => self.more_visitors = on,
+            NO_WEEDS => self.no_weeds = on,
             _ => {}
         }
     }

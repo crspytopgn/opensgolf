@@ -1025,6 +1025,8 @@ impl Club {
             && self.game & game::EDITOR == 0
             && id != 0x2f
             && c.landmark_bits(self.g[g].x, self.g[g].y) & 2 == 0
+            // OpenSGolf extras: Sandbox: no new dandelions (issue #105)
+            && !self.extras.no_weeds
         {
             let (a, b) = (self.g[g].x >> 10, self.g[g].y >> 10);
             if inside(a, b) {

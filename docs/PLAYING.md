@@ -563,8 +563,10 @@ On the **Sandbox** page:
   fourteen landmarks of the theme are on the panels from the start, as in Sandbox Mode; the unlock announcements are not
   made. Upgrading a building still needs a Country Club course (10 holes), as in Sandbox Mode. Unticking it takes back only
   what the course has not earned; landmarks the club owns stay.
+- **Sandbox: no new dandelions.** *(Noticeable)* Dandelions and other weeds stop spreading over the course and unhappy golfers no longer start them, so it stays
+  clear without groundskeepers or the landmarks that keep weeds away. The ones already there stay until pulled.
 
-The two "Sandbox:" switches and a stopped calendar are what a Sandbox Mode game (unlimited money) is most often wanted
+The "Sandbox:" switches and a stopped calendar are what a Sandbox Mode game (unlimited money) is most often wanted
 with, but each works in a normal game too.
 
 On the **Looks** page:

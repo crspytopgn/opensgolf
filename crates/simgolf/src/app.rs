@@ -4388,7 +4388,10 @@ impl App {
                     e.active = true;
                 }
             }
-            staff::spread_weeds(&self.terrain, &mut self.staff_tiles, self.game_tick, self.difficulty, &mut self.exe_rng, &mut out);
+            // OpenSGolf extras: Sandbox: no new dandelions (issue #105)
+            if !self.club.extras.no_weeds {
+                staff::spread_weeds(&self.terrain, &mut self.staff_tiles, self.game_tick, self.difficulty, &mut self.exe_rng, &mut out);
+            }
             staff::grow_weeds(&mut self.staff_tiles, &mut self.exe_rng);
         }
         for gi in 0..golf::SLOTS {
