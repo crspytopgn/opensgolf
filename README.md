@@ -138,6 +138,8 @@ helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a fe
   the right button (a right click stays the original's undo).
 - **Drag to place** (interface extra): drag to lay a row of benches, flower beds, ball washers, willows or bridges, with
   the row and its cost shown before you let go; and *Original* and *Modern* control presets on the Change keys screen.
+- **Mouse aim and swing** (interface extra): aim your pro with the mouse as on a touch screen: a click sets the
+  target, a drag moves it or looks round the hole, and the round Swing button takes the shot.
 - **Random trees** (interface extra): every tree planted takes a random size and species of its kind, and every scenic
   tree a random one of the seven.
 - **The desert's Ravine and Brush art** (interface extra, issue #89): the original's desert draws the Ravine as dry weeds

@@ -346,9 +346,9 @@ Select Difficulty has a **Game** box next to Course size. A click steps through 
 - **Custom**: your own mix, as you ticked it in Preferences. Once you have a mix of your own, Custom brings it back after
   you tried a preset; until then the Game box skips it.
 
-Every preset leaves alone what is yours to choose: the two pauses, the update check, the three controls ticks (zoom
+Every preset leaves alone what is yours to choose: the two pauses, the update check, the controls ticks (zoom
 towards the pointer, drag to place, right-drag panning: the *Original* and *Modern controls* presets of Change keys set
-those) and *Fix the original game's bugs*. Only *Original* also turns Enhanced graphics off; the others leave your
+those; and mouse aim and swing, which no preset sets) and *Fix the original game's bugs*. Only *Original* also turns Enhanced graphics off; the others leave your
 graphics as they are. The box says **Custom** whenever your ticks are no preset (also with every extra off but Enhanced
 graphics on). The choice is saved and is what new games start with. The same choice is the first line of the extras box
 (below), so you can change it later, also during a game.
@@ -429,7 +429,8 @@ along its top; a click on a tab, Left and Right or Tab turn them). A banner unde
 - **Helpers** (helpers): "Saves you effort. Play is unchanged." (autosave, save pictures, course sharing, import and
   export saved games, the two pauses,
   and under the *Controls:* name the three ticks the Change keys' *Original* and *Modern controls* presets set: drag to
-  place, zoom towards the pointer, right-drag panning; also further down)
+  place, zoom towards the pointer, right-drag panning; also further down; then *Controls: aim and swing with the mouse as
+  by touch*, see *Mouse aim and swing* below)
 
 *Check for updates when the game starts* and *Fix the original game's bugs* are ticks of Preferences > More, not in this
 box (see *The title menu* and docs/FIXES.md).
@@ -941,6 +942,20 @@ The port's own camera helpers (crates/simgolf/src/views.rs); nothing changes unt
   #67); that drag is now the **Right-drag panning** extra (Helpers page, *Controls: right-drag moves the course*; off by
   default, off for settings saved by 0.4.7, and part of the *Modern controls* preset): with it on, a drag with the right button moves the course and a right click that does not move (less than 5
   pixels) does the original's on release. The middle button and the arrow keys always move the course.
+- **Mouse aim and swing**: an OpenSGolf extra (Preferences, *Game options...*, Helpers page, *Controls: aim and swing
+  with the mouse as by touch*), off by default and in no preset; the extras presets leave it as you have it. In the
+  original (and with it off) your pro's shot follows the pointer and a click on the course shoots at once. With it on,
+  the mouse aims as a finger does on a phone or tablet (see *Aiming your pro and placing buildings by touch* under
+  *Touch*), with the left button down for the finger: while your pro waits, moving the mouse aims nothing; a click on the
+  course sets the target (the ring with the distance and club above it, the aim line and the Player panel as for a
+  hovered spot); press on or near the target and drag to move it (it is lifted a fingertip and a half above the
+  pointer, joined to it by a thin line) and drag it to the screen's edge to scroll there; a press-and-drag anywhere else
+  on the course moves the view (it never shoots). Letting go does nothing: click the round **Swing** button (lower right,
+  above the panel) to take the shot, the same shot a click on that spot makes. The small button with a sight above it
+  puts the view back on your pro's ball, and the first aim of a run says how in the ticker. The shot shape keys (s f d h
+  l) and the Player panel's ovals, the wheel, the middle button, the right button (and its drag with the Right-drag
+  panning extra), the arrow and turn keys work as before. Only the shot: buildings are placed with a click as before,
+  and the other touch buttons stay a touch screen's. The browser build has it too (touch.rs, `mouse_swing_down`).
 
 **Ctrl+Z** (Cmd+Z on a Mac) undoes the last click or drag with a building or terrain tool that changed the course:
 terrain, paths, holes, buildings and garden items. The whole game goes back to just before it, money included, as if that moment had been saved and loaded.
@@ -1238,7 +1253,8 @@ press the round **Swing** button (left of the touch buttons' foot) or **Place** 
 there: the same shot or placement a click on that spot makes. Tapping elsewhere just moves the target. The shot shapes stay
 on the Player panel's ovals; two fingers still move, zoom and turn the view, and holding a finger still is still the right
 click. Paths and the terrain brushes (tees and greens among them) paint directly as before, as does a row kind with the
-Drag to place extra. Moving a mouse puts hovering back.
+Drag to place extra. Moving a mouse puts hovering back (but for the shot with the *Mouse aim and swing* extra, which aims
+this way with the mouse too: see *Camera bookmarks and the mouse*).
 
 Test hooks (scripted stills): `SG_TOUCH=1` counts the screen as touched, so the touch buttons show; `SG_TAP="x,y;hold:x,y;
 down:x,y;key:B;..."` taps, holds for a long press or puts a finger down and leaves it (a pressed button), at window

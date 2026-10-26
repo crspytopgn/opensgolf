@@ -3419,3 +3419,8 @@ STR_HD_MAKE_STOPPED                     :Stopped making HD graphics. Preferences
 STR_HD_MAKE_DONE                        :The HD graphics are ready and switched on (Preferences, Graphics switches them off).
 STR_HD_MAKE_FAILED                      :Making HD graphics stopped: {ERR}
 STR_HD_MAKE_WRITE_FAILED                :{FILE} could not be written (is the disk full?)
+
+# Mouse aim and swing (OpenSGolf extras, extras.rs mouse_swing; touch.rs)
+STR_EXTRAS_MOUSE_SWING                  : Controls: aim and swing with the mouse as by touch
+STR_EXTRAS_DESC_MOUSE_SWING             :Aim your pro as on a touch screen: a click sets the target, a drag moves it or looks round, the round Swing button shoots.
+STR_MOUSE_SWING_HINT                    :Click to set the target, drag it to aim, drag the course to look round. Then click Swing.

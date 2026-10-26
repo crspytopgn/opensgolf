@@ -60,6 +60,11 @@
 //!   every other theme. A look (the Looks page): each tile is drawn with the other's textures and the two buttons trade
 //!   pictures; tiles, saves and play are as before.
 //!
+//! * mouse aim and swing (touch.rs): with the mouse, the pro's shot is aimed and taken as by touch: a click sets the
+//!   target, a drag from it moves it, a drag elsewhere looks round, and the round Swing button shoots. Off, a click on the
+//!   course aims and shoots at once as in the original. Left alone by the presets, as the controls presets' ticks are: it
+//!   changes what the original's click does.
+//!
 //! With every extra off the game draws and plays exactly as before they existed (each hook asks its switch first).
 use serde::{Deserialize, Serialize};
 use std::cell::Cell;
@@ -94,13 +99,14 @@ pub struct Settings {
     pub random_trees: bool,
     pub save_files: bool,
     pub desert_art: bool,
+    pub mouse_swing: bool,
 }
 
 impl Settings {
     /// The interface extras of the "Original + helpers" and "OpenSGolf" presets (extras_ui.rs `Preset`): every helper and
     /// look, without the ticks the presets leave as the player has them (`Settings::kept`: the two pauses, which change when
-    /// the game runs, the update check, which goes online, and the three the Change keys' controls presets set: zoom towards
-    /// the pointer, drag to place, right-drag panning). Those are false here.
+    /// the game runs, the update check, which goes online, the three the Change keys' controls presets set: zoom towards
+    /// the pointer, drag to place, right-drag panning, and mouse aim and swing). Those are false here.
     pub const HELPERS: Settings = Settings {
         people: true,
         history: true,
@@ -126,6 +132,7 @@ impl Settings {
         random_trees: true,
         save_files: true,
         desert_art: true,
+        mouse_swing: false,
     };
     pub const ALL_OFF: Settings = Settings {
         people: false,
@@ -152,6 +159,7 @@ impl Settings {
         random_trees: false,
         save_files: false,
         desert_art: false,
+        mouse_swing: false,
     };
 
     /// The ticks as the Extras box's checkbox bits (in `UI_KEYS` order).
@@ -181,6 +189,7 @@ impl Settings {
             self.random_trees,
             self.save_files,
             self.desert_art,
+            self.mouse_swing,
         ]
         .iter()
         .enumerate()
@@ -214,6 +223,7 @@ impl Settings {
             random_trees: on(21),
             save_files: on(22),
             desert_art: on(23),
+            mouse_swing: on(24),
         }
     }
 
@@ -224,7 +234,7 @@ impl Settings {
 
     /// These ticks with the ones a preset leaves alone taken from `from`: the two pauses, the update check (a plain
     /// Preferences line, not in the Extras box) and the controls presets' ticks (zoom towards the pointer, drag to place,
-    /// right-drag panning).
+    /// right-drag panning), and mouse aim and swing, which changes what the original's click does, like them.
     pub fn with_kept(&self, from: &Settings) -> Settings {
         Settings {
             pause_background: from.pause_background,
@@ -233,6 +243,7 @@ impl Settings {
             zoom_pointer: from.zoom_pointer,
             drag_place: from.drag_place,
             right_drag: from.right_drag,
+            mouse_swing: from.mouse_swing,
             ..*self
         }
     }
@@ -247,7 +258,7 @@ impl Default for Settings {
 
 /// The interface extras' lines on the Extras box's Interface page (extras_ui.rs), one tick per extra in `Settings::bits`
 /// order (text keys in lang/en.txt).
-pub const UI_KEYS: [&str; 24] = [
+pub const UI_KEYS: [&str; 25] = [
     "STR_EXTRAS_PEOPLE",
     "STR_EXTRAS_HISTORY",
     "STR_EXTRAS_NAME_TAGS",
@@ -272,6 +283,7 @@ pub const UI_KEYS: [&str; 24] = [
     "STR_EXTRAS_RANDOM_TREES",
     "STR_EXTRAS_SAVE_FILES",
     "STR_EXTRAS_DESERT_ART",
+    "STR_EXTRAS_MOUSE_SWING",
 ];
 
 thread_local! {
@@ -348,6 +360,10 @@ pub fn home_details() -> bool {
 }
 pub fn right_drag() -> bool {
     settings().right_drag
+}
+/// Mouse aim and swing: the mouse aims the pro's shot as a finger does (touch.rs).
+pub fn mouse_swing() -> bool {
+    settings().mouse_swing
 }
 pub fn random_trees() -> bool {
     settings().random_trees
@@ -1047,6 +1063,21 @@ mod tests {
     }
 
     #[test]
+    fn mouse_swing_is_off_unless_ticked_and_the_presets_leave_it() {
+        // ticks saved before it (every extra of 0.5 on): the mouse aims and shoots with one click, as in the original
+        let v: serde_json::Value = serde_json::json!({ "people": true, "right_drag": true, "desert_art": true });
+        assert!(!from_json(&v).mouse_swing && from_json(&v).right_drag);
+        assert!(from_json(&serde_json::json!({ "mouse_swing": true })).mouse_swing);
+        assert!(!Settings::ALL_OFF.mouse_swing && !Settings::default().mouse_swing && !Settings::HELPERS.mouse_swing);
+        let m = Settings { mouse_swing: true, ..Settings::ALL_OFF };
+        assert_eq!(m.bits(), 1 << 24, "after every older tick");
+        assert_eq!(Settings::from_bits(m.bits()), m);
+        // the presets leave it as the player has it
+        assert_eq!(m.preset_part(), Settings::ALL_OFF);
+        assert!(Settings::HELPERS.with_kept(&m).mouse_swing && !Settings::HELPERS.with_kept(&Settings::ALL_OFF).mouse_swing);
+    }
+
+    #[test]
     fn save_files_follow_course_sharing_from_older_ticks() {
         for sharing in [false, true] {
             let v: serde_json::Value = serde_json::json!({ "people": true, "sharing": sharing, "random_trees": true });
@@ -1063,7 +1094,7 @@ mod tests {
         let f = Settings { save_files: true, ..Settings::ALL_OFF };
         assert_eq!(f.bits(), 1 << 22);
         assert_eq!(Settings::from_bits(f.bits()), f);
-        assert_eq!(UI_KEYS.len(), 24);
+        assert_eq!(UI_KEYS.len(), 25);
     }
 
     #[test]

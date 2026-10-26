@@ -2051,6 +2051,8 @@ impl Stage {
     pub(crate) fn pointer_preview(&mut self) {
         let app = &mut self.app;
         let what = app.touch_target_for();
+        // Mouse aim and swing (OpenSGolf extras): the mouse sets the shot's target as a finger does
+        app.touch_target.mouse = extras::mouse_swing();
         app.touch_target.sync(what);
         let touch_hit = app.touch_target.active(what).then_some(app.touch_target.target);
         if app.screen == Screen::Play {
@@ -3294,11 +3296,15 @@ impl EventHandler for Stage {
         sysdiag::event(sysdiag::Ev::Mouse);
         self.gamepad_mouse_moved(x, y);
         let (dx, dy) = (x - self.mouse.0, y - self.mouse.1);
-        // a mouse (not a finger) moved: hovering previews again (touch.rs)
-        if !self.by_finger() && dx * dx + dy * dy >= 16.0 {
+        // a mouse (not a finger) moved: hovering previews again (touch.rs), but for the shot's target with Mouse aim and swing
+        // (OpenSGolf extras), which the mouse sets as a finger does
+        let mouse_aims = self.app.touch_target.mouse && self.app.touch_target_for() == Some(crate::touch::TargetFor::Aim);
+        if !self.by_finger() && dx * dx + dy * dy >= 16.0 && !mouse_aims {
             self.app.touch_target.pointer_moved();
         }
         self.mouse = (x, y);
+        // a left press Mouse aim and swing took: the target follows, or the view pans (touch.rs)
+        self.mouse_swing_move(x, y);
         if self.app.photo.is_some() {
             self.photo_motion(x, y, dx, dy);
             return;
@@ -3576,6 +3582,10 @@ impl EventHandler for Stage {
         if button != MouseButton::Left && button != MouseButton::Right {
             return;
         }
+        // Mouse aim and swing (OpenSGolf extras): its Swing and Centre buttons take a left press first, as for a finger
+        if button == MouseButton::Left && self.mouse_swing_down(x, y, false) {
+            return;
+        }
         let (vx, vy) = self.app.view.to_virtual(x, y);
         // the interface hidden (u): a click goes to the course
         let ui_ok = self.app.ui_ok && !self.app.hud_hidden();
@@ -3631,6 +3641,11 @@ impl EventHandler for Stage {
         {
             return;
         }
+        // with Mouse aim and swing (OpenSGolf extras) a left press on the course while the pro waits is a finger's: a click
+        // sets the target, a drag moves it or looks round, and the Swing button shoots (touch.rs)
+        if button == MouseButton::Left && self.mouse_swing_down(x, y, true) {
+            return;
+        }
         // a finger's tap with the pro waiting or a building in hand sets the touch target instead (touch.rs): the Swing or
         // Place button then acts on it
         if button == MouseButton::Left && self.app.touch_target_for().is_some() && self.target_tap(x, y) {
@@ -3675,6 +3690,10 @@ impl EventHandler for Stage {
     fn mouse_button_up_event(&mut self, button: MouseButton, x: f32, y: f32) {
         let button = if button == MouseButton::Left && std::mem::take(&mut self.ctrl_click) { MouseButton::Right } else { button };
         if std::mem::take(&mut self.showcase_up) {
+            return;
+        }
+        // the release of a left press Mouse aim and swing took (touch.rs)
+        if button == MouseButton::Left && self.mouse_swing_up(x, y) {
             return;
         }
         if self.app.photo.is_some() {
