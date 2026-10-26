@@ -107,6 +107,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.5.9" date="2026-10-26">
+      <description>
+        <p>Problem reports now say why a game file could not be opened, and list what its folder holds, to track down missing pictures.</p>
+      </description>
+    </release>
     <release version="0.5.8" date="2026-10-25">
       <description>
         <p>Builds from GitHub can count play time anonymously (one count per 15 minutes played, no personal data), with a notice and an off switch in Preferences. Store builds, including this one, leave it out entirely.</p>
