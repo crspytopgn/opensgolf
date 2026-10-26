@@ -255,3 +255,41 @@ jobs:
           files: dist/*
           make_latest: true
           generate_release_notes: true
+
+  stores:
+    # After the release: the Homebrew cask (crspytopgn/homebrew-tap) and winget's manifest (microsoft/winget-pkgs) move to
+    # the new version. Each needs a token secret (docs/RELEASING.md, "Store updates"); without it the step says so and
+    # does nothing, and a store that fails never fails the release, which is already published.
+    needs: publish
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - name: Homebrew cask
+        shell: bash
+        env:
+          TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then echo "::warning::HOMEBREW_TAP_TOKEN is not set: update the Homebrew cask by hand (docs/RELEASING.md)"; exit 0; fi
+          v="${VERSION#v}"
+          url="https://github.com/crspytopgn/opensgolf/releases/download/$VERSION"
+          sum=$(curl -fsSL "$url/SHA256SUMS" | awk '$2 == "opensgolf-macos.zip" { print $1 }')
+          test ${#sum} = 64
+          git clone -q "https://x-access-token:$TOKEN@github.com/crspytopgn/homebrew-tap.git" tap
+          cd tap
+          sed -i -E "s/^  version \"[^\"]+\"/  version \"$v\"/; s/^  sha256 \"[0-9a-f]+\"/  sha256 \"$sum\"/" Casks/opensgolf.rb
+          git diff --stat
+          if git diff --quiet; then echo "the cask is already at $v"; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qam "opensgolf $v"
+          git push -q origin HEAD
+      - name: winget
+        shell: pwsh
+        env:
+          TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          if (-not $env:TOKEN) { Write-Output "::warning::WINGET_TOKEN is not set: update winget's manifest by hand (docs/RELEASING.md)"; exit 0 }
+          $v = $env:VERSION.TrimStart("v")
+          $url = "https://github.com/crspytopgn/opensgolf/releases/download/$env:VERSION"
+          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          # a pull request to microsoft/winget-pkgs from the token's account, its installers and hashes from the release
+          .\wingetcreate.exe update crspytopgn.OpenSGolf --version $v --urls "$url/opensgolf-windows.zip|x64" "$url/opensgolf-windows-arm64.zip|arm64" --submit --token $env:TOKEN
+          if ($LASTEXITCODE -ne 0) { Write-Output "::warning::wingetcreate could not update crspytopgn.OpenSGolf (is the package in winget yet?)"; exit 0 }
