@@ -252,6 +252,19 @@
   .tray .actions { margin: 0; padding: 0; }
   .tray .hint { margin: 0; font-size: 12.5px; color: #c7d3cc; }
   .tray .hint b { color: var(--gold); font: 700 15px/1.2 var(--head); display: block; }
+  /* while the CD spins: what it is doing, how far and how long (the line under the page says the same for screen readers) */
+  .tray.busy .hint, .tray.busy .actions { display: none; }
+  .progress { color: #e9f1ec; }
+  .tray .progress p { margin: 0; font-size: 12.5px; color: #e9f1ec; }
+  .pstage b { color: var(--gold); font: 700 15px/1.3 var(--head); display: block; }
+  .pbar { margin: 8px 0 6px; height: 14px; border-radius: 7px; background: rgba(255, 255, 255, 0.14); overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4); }
+  .pbar span { display: block; height: 100%; width: 0; border-radius: 7px; transition: width 0.25s ease;
+    background: linear-gradient(180deg, #ffe27a, #ffc21f); }
+  .pbar.wait span { width: 35%; animation: pwait 1.2s ease-in-out infinite alternate; }
+  @keyframes pwait { from { margin-left: 0; } to { margin-left: 65%; } }
+  @media (prefers-reduced-motion: reduce) { .pbar.wait span { animation: none; width: 100%; opacity: 0.5; } }
+  .tray .progress .ptime { color: #c4d4ca; }
   .cd { --cd: 184px; position: relative; flex: 0 0 auto; width: calc(var(--cd) + 12px); height: calc(var(--cd) + 12px); padding: 6px;
     border: 0; border-radius: 50%; background: radial-gradient(circle, #101417 0 60%, #1a2024 70%, #2a3238 100%); cursor: pointer;
     box-shadow: inset 0 3px 8px rgba(0,0,0,0.8), 0 1px 0 rgba(255,255,255,0.15); -webkit-tap-highlight-color: transparent; }
@@ -597,6 +610,11 @@
                     <label class="btn">Choose game folder<input id="folder" type="file" webkitdirectory directory multiple></label>
                     <label class="btn ghost">Or a .zip or CD image<input id="zip" type="file" accept=".zip,.iso,.cdr,.dmg"></label>
                   </div>
+                  <div class="progress" id="prog" hidden aria-hidden="true">
+                    <p class="pstage"><b id="pstage">Working</b><span id="pcount"></span></p>
+                    <div class="pbar"><span id="pfill"></span></div>
+                    <p class="ptime" id="ptime"></p>
+                  </div>
                 </div>
               </div>
               <p class="tip"><svg aria-hidden="true"><use href="#i-sound"/></svg><strong>Want the original sounds and music?</strong> Use the SimGolf CD or an image of it
@@ -854,7 +872,10 @@
   const cd = document.getElementById("cd");
   function sgSpin(job) {
     cd.classList.add("loading"); cd.setAttribute("aria-busy", "true");
-    return Promise.resolve(job).finally(() => { cd.classList.remove("loading"); cd.removeAttribute("aria-busy"); });
+    sgProgressBegin();
+    return Promise.resolve(job).finally(() => {
+      cd.classList.remove("loading"); cd.removeAttribute("aria-busy"); sgProgressEnd();
+    });
   }
   document.getElementById("folder").addEventListener("change", e => sgSpin(sgLoadFolder(e.target.files)));
   document.getElementById("zip").addEventListener("change", e => sgSpin(sgLoadZip(e.target.files[0])));
