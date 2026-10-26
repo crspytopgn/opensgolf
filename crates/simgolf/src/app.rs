@@ -767,7 +767,7 @@ pub struct App {
     pub theme_icons: [Image; 4],
     pub report_art: Image,
     pub dock_art: Image,
-    /// H toggles the advisor and story banners.
+    /// The Preferences' "Advisor and first-time messages" option.
     pub show_advisor: bool,
     /// Open dock panel: 0 none, 1 terrain (and Amenities), 2 buildings (and Elevation), 3 employees, 4 golfers, 5 player.
     pub panel: i32,
@@ -775,10 +775,6 @@ pub struct App {
     pub dock_hover: i32,
     /// List row under the mouse in an open panel.
     pub panel_hover: i32,
-    /// Lines of a story file from the disc (read at run time, never stored in the project). "A|text" or "B|text".
-    pub story_lines: Vec<String>,
-    pub story_title: String,
-    pub story_until: u32,
     pub hole_stats: Vec<HoleStat>,
     pub ui_ok: bool,
     pub view: crate::ui::View,
@@ -1085,9 +1081,6 @@ impl App {
             panel: 0,
             dock_hover: -1,
             panel_hover: -1,
-            story_lines: Vec::new(),
-            story_title: String::new(),
-            story_until: 0,
             hole_stats: Vec::new(),
             ui_ok: false,
             view: crate::ui::View::default(),
@@ -2519,6 +2512,7 @@ impl App {
         self.club.ticker_busy = self.ticker.busy() || self.card.is_some();
         self.club.advisor = self.show_advisor;
         self.club.view_close = self.exe_zoom() > 3.0;
+        self.club.message_up = self.ticker.showing;
         self.club.show_snapshots = self.show_snapshots;
         self.club.tick(&mut self.course, &mut self.exe_rng, tick);
         // test hook: SG_GOLFER_LOG=N prints the golfers every N game ticks (how many play, queue and are frozen, their moods
@@ -2652,15 +2646,11 @@ impl App {
                         self.keep_thought(g, 0x32, arg);
                     }
                     if let Some(line) = self.club.story_line(g) {
-                        let story = self.club.g[g].story;
-                        self.story_title = self.club.stories.title(story).trim().to_string();
+                        let title = self.club.stories.title(self.club.g[g].story).trim().to_string();
                         let who = self.club.name(g);
-                        println!("[{:6.1}s] story '{}': {who}: {line}", self.sim_time, self.story_title);
-                        self.story_lines.push(format!("{who}|{line}"));
-                        if self.story_lines.len() > 2 {
-                            self.story_lines.remove(0);
-                        }
-                        self.story_until = self.game_tick + 90;
+                        println!("[{:6.1}s] story '{title}': {who}: {line}", self.sim_time);
+                        // drawn over the golfer while the thought lasts (thoughts_ui.rs); the message history keeps it
+                        self.keep_story_line(g, &format!("{who} ({title}): {line}"));
                     }
                 }
                 golf::Event::Thought { g, id, arg } => {
@@ -2753,7 +2743,7 @@ impl App {
         let lazy: usize = self.sprites.iter().map(|s| s.tex.iter().filter(|t| t.is_some()).count()).sum();
         format!(
             "props={} (weeds {} ambient {} objects {} trees {} shown {}) sprite_tex={lazy} outfit_tex={} red_tex={} textures={} snapshots={} batches={}/{}/{}/{} members={} roster={} \
-             event_log={} history={} out={} shot_recs={} ledger={} hole_stats={} ball_trail={} voices={} story={}",
+             event_log={} history={} out={} shot_recs={} ledger={} hole_stats={} ball_trail={} voices={}",
             self.props.len(),
             self.props.iter().filter(|p| p.weed).count(),
             self.props.iter().filter(|p| p.ambient).count(),
@@ -2778,7 +2768,6 @@ impl App {
             self.hole_stats.len(),
             self.ball_trail.len(),
             self.slot_voices.len(),
-            self.story_lines.len(),
         )
     }
 
@@ -3248,8 +3237,6 @@ impl App {
     /// Loads the theme pack's stories (every *.txt in its Themes folder, or the Standard folder's when it has none, listed in
     /// case-insensitive name order as the original's file system does), its celebrities and its pro golfers.
     pub fn load_story(&mut self) {
-        self.story_lines.clear();
-        self.story_title.clear();
         let pack = THEME_PACKS.get(self.theme_pack).copied().unwrap_or("Standard").replace(' ', "_");
         let list = |dir: &Path| -> Vec<(String, String)> {
             let mut files: Vec<PathBuf> = sg_core::fsutil::list_dir(dir)
