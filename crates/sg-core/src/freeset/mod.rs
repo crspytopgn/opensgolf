@@ -15,6 +15,7 @@
 //! except where the engine lists a folder by file type (terrain textures, heads) or reads a palette: those are BMP and PCX.
 mod baked;
 mod enc;
+mod face;
 mod icon;
 pub mod paint;
 mod people;
