@@ -33,7 +33,7 @@ pub const MAX_URL: usize = 6000;
 pub const KEEP: usize = 30;
 
 /// The longest warning kept (a path in it can be long).
-const LINE_MAX: usize = 300;
+const LINE_MAX: usize = 600;
 
 static RECENT: Mutex<VecDeque<(String, u32)>> = Mutex::new(VecDeque::new());
 
