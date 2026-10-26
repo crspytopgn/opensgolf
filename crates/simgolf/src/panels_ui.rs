@@ -929,7 +929,7 @@ impl App {
                     let sp = &self.sprites[k].s;
                     let (w, hh, ax, ay) = (sp.w as f32, sp.h as f32, sp.anchor_x as f32, sp.anchor_y as f32);
                     let f = frame.min(sp.frames_per_view.max(1) - 1);
-                    let tex = self.sprite_texture(g, k, 3, f);
+                    let tex = self.sprite_texture_whole(g, k, 3, f);
                     let im = Image { tex: Some(tex), w, h: hh };
                     s.image_scaled(g, &im, (r.x + 31.0 - ax, r.y + 24.0 - ay, w, hh), (0.0, 0.0, w, hh));
                 }
@@ -1053,7 +1053,7 @@ impl App {
             let sp = &self.sprites[si].s;
             let f = sp.frames_per_view - 1;
             let (w, h, ax, ay) = (sp.w as f32, sp.h as f32, sp.anchor_x as f32, sp.anchor_y as f32);
-            let tex = self.sprite_texture(g, si, 0, f);
+            let tex = self.sprite_texture_whole(g, si, 0, f);
             // the extras' pages fit each picture to the strip's height (their art comes in any size)
             let extra_page = kind == land::K_LANDMARK && self.strip_page_shown().is_some_and(|p| p != crate::extras_ui::PAGE_OWNED);
             let k = if extra_page { st.scale.min(44.0 / h.max(1.0)) } else { st.scale };
@@ -1411,7 +1411,7 @@ impl App {
             let fi = sp.frame_index(view.rem_euclid(sp.views.max(1)), f % sp.frames_per_view.max(1));
             let (w, h) = (sp.frames[fi].w as f32, sp.frames[fi].h as f32);
             let (axx, ayy) = (sp.anchor_x as f32, sp.anchor_y as f32);
-            let tex = self.sprite_texture(g, k, view.rem_euclid(sp.views.max(1)), f % sp.frames_per_view.max(1));
+            let tex = self.sprite_texture_whole(g, k, view.rem_euclid(sp.views.max(1)), f % sp.frames_per_view.max(1));
             s.image(g, &Image { tex: Some(tex), w, h }, ax - axx, ay - ayy);
         }
     }

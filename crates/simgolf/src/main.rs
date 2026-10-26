@@ -17,6 +17,7 @@
 #[cfg(target_os = "android")]
 mod android;
 mod app;
+mod atlas;
 mod audio;
 #[cfg(target_os = "macos")]
 mod autorelease;
@@ -2611,6 +2612,7 @@ impl Stage {
         // land outside the property (type 20) is not drawn, so it shows black
         let clear = PassAction::clear_color(0.0, 0.0, 0.0, 1.0);
         self.g.ctx.begin_pass(target, clear);
+        self.g.atlas_frame();
         enhanced::begin_frame();
         // OpenSGolf extras: People > Follow keeps the camera on its target (extras.rs)
         app.follow_tick();

@@ -1,6 +1,8 @@
 //! Drawing: the course (terrain, paths, walls), sprites in painter's order, the ball, the edit cursor, and the 2D screens (title
 //! menu, select difficulty, heads-up display with the dock). The property chooser and land screen are in world_ui, the
 //! course report in info_ui.
+use crate::atlas::STex;
+use miniquad::TextureId;
 use crate::app::*;
 use crate::gfx::{Gfx, Mat4, Mode, Uniforms, Vert};
 use crate::ui::{money, rgb, rgba, text_width, wrap_text, Screen as Ui};
@@ -137,7 +139,8 @@ impl App {
         self.draw_lines(g, u, &bx, true, 1.0, [1.0, 0.95, 0.3, 1.0]);
     }
 
-    /// A person's frame in the palette of an outfit, recoloured on first use and cached.
+    /// A person's frame in the palette of an outfit, recoloured on first use and cached (in Classic, in the sprite atlas,
+    /// atlas.rs).
     pub(crate) fn outfit_texture(
         &mut self,
         g: &mut Gfx,
@@ -145,15 +148,73 @@ impl App {
         view: i32,
         frame: i32,
         o: sg_core::bodies::Outfit,
-    ) -> Option<miniquad::TextureId> {
+    ) -> Option<STex> {
+        let i = self.sprites[si].s.frame_index(view, frame);
+        if crate::packart::active() {
+            if let Some(t) = self.pack_outfit_texture(g, si, i, o) {
+                return Some(STex::whole(t));
+            }
+        }
+        if self.sprites[si].s.indexed.is_empty() {
+            return None;
+        }
+        if let Some(&(t, slot)) = self.outfit_atlas.get(&(si, i, o)) {
+            if g.atlas_valid(slot) {
+                return Some(t);
+            }
+            self.outfit_atlas.remove(&(si, i, o));
+        }
+        if let Some(&t) = self.outfit_tex.get(&(si, i, o)) {
+            return Some(STex::whole(t));
+        }
+        if !self.outfit_pals.contains_key(&o) {
+            let pal = self.swaps.compose(&o)?;
+            self.outfit_pals.insert(o, pal);
+        }
+        let pal = self.outfit_pals[&o];
+        let img = sg_core::sprites::recolour(&self.sprites[si].s, i, &pal)?;
+        if !crate::packart::active() {
+            if let Some((t, slot)) = g.atlas_texture(&img) {
+                self.outfit_atlas.insert((si, i, o), (t, slot));
+                return Some(t);
+            }
+        }
+        if self.outfit_tex.len() > 6000 {
+            // half of them go (never every texture at once: the golfers on screen would all be made again together)
+            let mut keys: Vec<_> = self.outfit_tex.keys().copied().collect();
+            keys.truncate(keys.len() / 2);
+            for k in keys {
+                if let Some(t) = self.outfit_tex.remove(&k) {
+                    g.ctx.delete_texture(t);
+                }
+            }
+        }
+        let t = g.texture(&img, false);
+        self.outfit_tex.insert((si, i, o), t);
+        Some(STex::whole(t))
+    }
+
+    /// A frame as a texture of its own (the interface's pictures of people and things, drawn whole).
+    pub(crate) fn sprite_texture_whole(&mut self, g: &mut Gfx, si: usize, view: i32, frame: i32) -> TextureId {
+        let i = self.sprites[si].s.frame_index(view, frame);
+        if let Some(t) = self.sprites[si].tex[i] {
+            return t;
+        }
+        let t = match self.sprite_texture_made(g, si, i) {
+            Some(t) => t,
+            None => g.texture(&self.sprites[si].s.frames[i], false),
+        };
+        self.sprites[si].tex[i] = Some(t);
+        t
+    }
+
+    /// A recoloured frame as a texture of its own (the customise screen's figure).
+    pub(crate) fn outfit_texture_whole(&mut self, g: &mut Gfx, si: usize, view: i32, frame: i32, o: sg_core::bodies::Outfit) -> Option<TextureId> {
         let i = self.sprites[si].s.frame_index(view, frame);
         if crate::packart::active() {
             if let Some(t) = self.pack_outfit_texture(g, si, i, o) {
                 return Some(t);
             }
-        }
-        if self.sprites[si].s.indexed.is_empty() {
-            return None;
         }
         if let Some(&t) = self.outfit_tex.get(&(si, i, o)) {
             return Some(t);
@@ -164,37 +225,48 @@ impl App {
         }
         let pal = self.outfit_pals[&o];
         let img = sg_core::sprites::recolour(&self.sprites[si].s, i, &pal)?;
-        if self.outfit_tex.len() > 6000 {
-            for (_, t) in self.outfit_tex.drain() {
-                g.ctx.delete_texture(t);
-            }
-        }
         let t = g.texture(&img, false);
         self.outfit_tex.insert((si, i, o), t);
         Some(t)
     }
 
-    pub(crate) fn sprite_texture(&mut self, g: &mut Gfx, si: usize, view: i32, frame: i32) -> miniquad::TextureId {
-        let i = self.sprites[si].s.frame_index(view, frame);
-        if let Some(t) = self.sprites[si].tex[i] {
-            return t;
-        }
+    /// A frame's texture from a content pack's art or HD art, when either is on.
+    fn sprite_texture_made(&mut self, g: &mut Gfx, si: usize, i: usize) -> Option<TextureId> {
         if crate::packart::active() {
             if let Some(t) = self.pack_sprite_texture(g, si, i) {
-                self.sprites[si].tex[i] = Some(t);
-                return t;
+                return Some(t);
             }
         }
         if crate::hd::active() {
             if let Some(img) = self.hd.sprites.get(&si).and_then(|h| h.frame(i)) {
-                let t = g.texture_hd(&img);
-                self.sprites[si].tex[i] = Some(t);
+                return Some(g.texture_hd(&img));
+            }
+        }
+        None
+    }
+
+    pub(crate) fn sprite_texture(&mut self, g: &mut Gfx, si: usize, view: i32, frame: i32) -> STex {
+        let i = self.sprites[si].s.frame_index(view, frame);
+        if let Some(t) = self.sprites[si].tex[i] {
+            return STex::whole(t);
+        }
+        if let Some(&(t, slot)) = self.sprite_atlas.get(&(si, i)) {
+            if g.atlas_valid(slot) {
                 return t;
             }
+            self.sprite_atlas.remove(&(si, i));
+        }
+        if let Some(t) = self.sprite_texture_made(g, si, i) {
+            self.sprites[si].tex[i] = Some(t);
+            return STex::whole(t);
+        }
+        if let Some((t, slot)) = g.atlas_texture(&self.sprites[si].s.frames[i]) {
+            self.sprite_atlas.insert((si, i), (t, slot));
+            return t;
         }
         let t = g.texture(&self.sprites[si].s.frames[i], false);
         self.sprites[si].tex[i] = Some(t);
-        t
+        STex::whole(t)
     }
 
     /// Props as camera-facing quads. Sprites are pre-rendered, so they ignore lighting and depth: ground overlays first, then
@@ -240,10 +312,12 @@ impl App {
             let view = app.prop_view(&p, si, quarter);
             let sp = &app.sprites[si].s;
             let (w, h, ax, ay) = (sp.w as f32, sp.h as f32, sp.anchor_x as f32, sp.anchor_y as f32);
-            let tex = match p.outfit.filter(|_| !shadow) {
+            let st = match p.outfit.filter(|_| !shadow) {
                 Some(o) => app.outfit_texture(g, si, view, p.frame, o).unwrap_or_else(|| app.sprite_texture(g, si, view, p.frame)),
                 None => app.sprite_texture(g, si, view, p.frame),
             };
+            // (Enhanced graphics draws whole textures: the atlas is Classic's, atlas.rs)
+            let tex = st.id;
             // Enhanced graphics only: the art's own shadow frame, softened (fx.rs)
             let tex = if shadow && crate::fx::active() { app.fx_shadow(g, si, view, p.frame, tex).unwrap_or(tex) } else { tex };
             // Enhanced graphics only: the time of day, rain and clouds tint the pre-lit sprite (fx_light.rs); the seasons
@@ -262,8 +336,11 @@ impl App {
             let (t, b) = (ay * s, -(h - ay) * s); // up is positive
                                                   // a mirrored prop (a left-handed golfer's swing) is flipped left to right about its anchor
             let flip = if p.mirror { -1.0 } else { 1.0 };
+            // the frame's place on its texture (all of it, or its part of an atlas page)
+            let uv = if tex == st.id { st } else { STex::whole(tex) };
             let c = |cx: f32, cy: f32, tu: f32, tv: f32| {
                 let cx = cx * flip;
+                let (tu, tv) = uv.at(tu, tv);
                 let v = Vert::new(p.x + rx * cx + ux * cy, y + ry * cx + uy * cy, p.z + rz * cx + uz * cy, tu, tv);
                 match tint {
                     Some(t) => v.col(t),

@@ -321,7 +321,7 @@ impl App {
         let i = sp.frame_index(view, frame);
         let (w, h, ax, ay) = (sp.w as f32, sp.h as f32, sp.anchor_x as f32, sp.anchor_y as f32);
         let tex = match look {
-            Look::Ghost => self.sprite_texture(g, si, view, frame),
+            Look::Ghost => self.sprite_texture_whole(g, si, view, frame),
             Look::Red => match self.red_tex.get(&(si, i)) {
                 Some(&t) => t,
                 None => {

@@ -746,6 +746,10 @@ pub struct App {
     pub swaps: sg_core::bodies::Swaps,
     pub outfit_pals: HashMap<sg_core::bodies::Outfit, [u8; 768]>,
     pub outfit_tex: HashMap<(usize, usize, sg_core::bodies::Outfit), miniquad::TextureId>,
+    /// Classic's sprite atlas (atlas.rs): where each frame (sprite, frame) and each recoloured frame (sprite, frame,
+    /// outfit) was put.
+    pub sprite_atlas: HashMap<(usize, usize), (crate::atlas::STex, crate::atlas::Slot)>,
+    pub outfit_atlas: HashMap<(usize, usize, sg_core::bodies::Outfit), (crate::atlas::STex, crate::atlas::Slot)>,
     /// Red silhouettes of sprite frames (sprite, frame), for a building preview that will not fit.
     pub red_tex: HashMap<(usize, usize), miniquad::TextureId>,
     /// The terrain brushes' tile pictures under the pointer (Data/parkland.pcx, desert, tropical, links: the exe's theme order).
@@ -1068,6 +1072,8 @@ impl App {
             swaps: Default::default(),
             outfit_pals: HashMap::new(),
             outfit_tex: HashMap::new(),
+            sprite_atlas: HashMap::new(),
+            outfit_atlas: HashMap::new(),
             red_tex: HashMap::new(),
             tool_tiles: [Image::default(); 4],
             cliffs: Image::default(),
@@ -2171,6 +2177,11 @@ impl App {
                 g.ctx.delete_texture(t);
             }
         }
+        // the recoloured frames and the atlas were made from these sprites (by their indices)
+        for (_, t) in self.outfit_tex.drain() {
+            g.ctx.delete_texture(t);
+        }
+        self.forget_atlas(g);
         self.sprite_index.clear();
         self.hd.sprites.clear();
         self.pack_art.clear();
@@ -2185,6 +2196,13 @@ impl App {
         self.populate_props();
         self.register_portraits(g);
         true
+    }
+
+    /// Empties Classic's sprite atlas (atlas.rs) and where the frames were put in it: the art or how it is drawn changed.
+    pub fn forget_atlas(&mut self, g: &mut Gfx) {
+        self.sprite_atlas.clear();
+        self.outfit_atlas.clear();
+        g.atlas_clear();
     }
 
     // ---- golfers and the club -----------------------------------------------------------------------------------------------
@@ -2698,7 +2716,7 @@ impl App {
         let c = &self.club;
         let lazy: usize = self.sprites.iter().map(|s| s.tex.iter().filter(|t| t.is_some()).count()).sum();
         format!(
-            "props={} (weeds {} ambient {} objects {} trees {} shown {}) sprite_tex={lazy} outfit_tex={} red_tex={} textures={} snapshots={} batches={}/{}/{}/{} members={} roster={} \
+            "props={} (weeds {} ambient {} objects {} trees {} shown {}) sprite_tex={lazy} outfit_tex={} atlas={}+{} red_tex={} textures={} snapshots={} batches={}/{}/{}/{} members={} roster={} \
              event_log={} history={} out={} shot_recs={} ledger={} hole_stats={} ball_trail={} voices={} story={}",
             self.props.len(),
             self.props.iter().filter(|p| p.weed).count(),
@@ -2707,6 +2725,8 @@ impl App {
             self.props.iter().filter(|p| p.tree).count(),
             self.props.iter().filter(|p| !p.hidden).count(),
             self.outfit_tex.len(),
+            self.sprite_atlas.len(),
+            self.outfit_atlas.len(),
             self.red_tex.len(),
             self.textures.len(),
             self.snapshots.len(),

@@ -441,7 +441,7 @@ impl App {
                 let fr = &sp.frames[sp.frame_index(view, f)];
                 (fr.w as f32, fr.h as f32, sp.anchor_x as f32, sp.anchor_y as f32)
             };
-            let tex = self.sprite_texture(g, si, view, f);
+            let tex = self.sprite_texture_whole(g, si, view, f);
             let im = Image { tex: Some(tex), w, h };
             if k == 1.0 {
                 s.image(g, &im, x - ax, y - ay);

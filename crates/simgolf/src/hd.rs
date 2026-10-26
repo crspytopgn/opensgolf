@@ -220,6 +220,7 @@ impl App {
         self.rebuild_batches(g);
         // sprites: kept in place (props, clips and queues hold their indices); only their textures and HD frames change
         self.hd.sprites.clear();
+        self.forget_atlas(g);
         let keys: Vec<(String, usize)> = self.sprite_index.iter().filter_map(|(k, v)| v.map(|i| (k.clone(), i))).collect();
         for (key, i) in keys {
             for t in self.sprites[i].tex.iter_mut().filter_map(Option::take) {

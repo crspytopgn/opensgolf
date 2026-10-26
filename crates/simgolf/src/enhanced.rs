@@ -843,6 +843,7 @@ impl App {
         for (_, t) in self.outfit_tex.drain() {
             g.ctx.delete_texture(t);
         }
+        self.forget_atlas(g);
     }
 }
 
