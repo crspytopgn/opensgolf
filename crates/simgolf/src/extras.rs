@@ -87,6 +87,9 @@ pub struct Settings {
     pub pause_events: bool,
     pub landing_map: bool,
     pub hole_comments: bool,
+    /// Check for updates when the game starts: on from 0.6 (stored as "check_updates", which reads as on when missing, so
+    /// every player gets it once; the old "update_check" key, off by default before, is no longer read).
+    #[serde(rename = "check_updates", default = "on")]
     pub update_check: bool,
     pub graphs: bool,
     pub zoom_pointer: bool,
@@ -286,6 +289,11 @@ pub const UI_KEYS: [&str; 25] = [
     "STR_EXTRAS_MOUSE_SWING",
 ];
 
+/// The update check's value when settings.json has none (`Settings::update_check`).
+fn on() -> bool {
+    true
+}
+
 thread_local! {
     static SETTINGS: Cell<Settings> = const { Cell::new(Settings::ALL_OFF) };
 }
@@ -407,7 +415,7 @@ pub fn saved() -> Settings {
 /// autosave, save pictures and sharing, which came after the People screen, follow its tick in ticks saved before them.
 fn from_json(v: &serde_json::Value) -> Settings {
     if !v.is_object() {
-        return Settings::ALL_OFF;
+        return Settings { update_check: true, ..Settings::ALL_OFF };
     }
     let mut s: Settings = serde_json::from_value(v.clone()).unwrap_or_default();
     if v.get("autosave").is_none() {
@@ -437,10 +445,7 @@ fn upgrade_off(v: &serde_json::Value, s: &mut Settings) {
     if v.is_object() && v.get("hole_comments").is_none() {
         s.hole_comments = false;
     }
-    // the update check goes online: off unless ticked
-    if v.get("update_check").is_none() {
-        s.update_check = false;
-    }
+    // the update check (0.6: "check_updates", on unless unticked since; `Settings::update_check`) is not upgraded here
     // the history graphs keep more with the game, and zooming towards the pointer changes the original's zoom: both read
     // as off from ticks saved before them
     if v.get("graphs").is_none() {
@@ -943,11 +948,13 @@ mod tests {
         for m in 0..1024 {
             assert_eq!(Settings::from_bits(m).bits(), m);
         }
-        // settings.json without the ticks at all (written before the extras, or only by other screens): all off
+        // settings.json without the ticks at all (written before the extras, or only by other screens): all off but the
+        // update check (on from 0.6)
         assert_eq!(Settings::default(), Settings::ALL_OFF);
-        assert_eq!(from_json(&serde_json::Value::Null), Settings::ALL_OFF);
+        let checking = Settings { update_check: true, ..Settings::ALL_OFF };
+        assert_eq!(from_json(&serde_json::Value::Null), checking);
         let file: serde_json::Value = serde_json::from_str("{\"hd\": {\"enabled\": false}, \"controls\": {}}").unwrap();
-        assert_eq!(from_json(&file[SETTINGS_KEY]), Settings::ALL_OFF);
+        assert_eq!(from_json(&file[SETTINGS_KEY]), checking);
         // the first ticks (People to path help) as the first version saved them: as saved, the later ones off but for the
         // three that follow the People screen
         let v: serde_json::Value = serde_json::from_str(
@@ -964,6 +971,8 @@ mod tests {
             autosave: true,
             save_pictures: true,
             sharing: true,
+            // on from 0.6 for every file without its own tick
+            update_check: true,
             ..Settings::ALL_OFF
         };
         assert_eq!(s, want);
@@ -984,6 +993,18 @@ mod tests {
     }
 
     #[test]
+    fn the_update_check_is_on_once_from_0_6_and_stays_as_the_player_sets_it() {
+        // an older file's update tick (off by default then) is not read: on
+        let v: serde_json::Value = serde_json::from_str("{\"people\": true, \"update_check\": false}").unwrap();
+        assert!(from_json(&v).update_check);
+        // unticked since: off, and saved as such
+        let v: serde_json::Value = serde_json::from_str("{\"check_updates\": false}").unwrap();
+        let s = from_json(&v);
+        assert!(!s.update_check);
+        assert_eq!(serde_json::to_value(s).unwrap()["check_updates"], serde_json::Value::Bool(false));
+    }
+
+    #[test]
     fn ticks_saved_before_the_insight_extras_read_them_as_off() {
         let v: serde_json::Value = serde_json::from_str("{\"people\": true, \"autosave\": true, \"sharing\": true}").unwrap();
         let mut s: Settings = serde_json::from_value(v.clone()).unwrap();
@@ -994,7 +1015,7 @@ mod tests {
         let mut s: Settings = serde_json::from_value(v.clone()).unwrap();
         upgrade_off(&v, &mut s);
         assert!(s.landing_map && s.hole_comments);
-        assert!(!s.update_check, "the update check reads as off from ticks saved before it");
+        assert!(s.update_check, "the update check reads as on from ticks saved before 0.6");
         assert!(!s.graphs && !s.zoom_pointer, "the graphs and zooming to the pointer read as off from older ticks");
         let v: serde_json::Value = serde_json::from_str("{\"graphs\": true, \"zoom_pointer\": true}").unwrap();
         let mut g: Settings = serde_json::from_value(v.clone()).unwrap();
