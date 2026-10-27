@@ -65,6 +65,14 @@
 //!   course aims and shoots at once as in the original. Left alone by the presets, as the controls presets' ticks are: it
 //!   changes what the original's click does.
 //!
+//! * right click puts the tool away (main.rs right_click): with a tool in hand (a terrain brush, the elevation tools,
+//!   a building), a right click on the course puts it down, as Space does, instead of the original's: a terrain brush's
+//!   right click is the undo's, which twice on a hole's tee or green takes the hole away. Left alone by the presets.
+//!
+//! * the interface at the screen's edges (enhanced.rs widescreen): on a wide screen with Classic graphics, the HUD goes
+//!   to the window's edges as Enhanced graphics' Widescreen tick puts it, instead of staying in the 800 x 600 middle. A
+//!   look: the art and the game are the same.
+//!
 //! With every extra off the game draws and plays exactly as before they existed (each hook asks its switch first).
 use serde::{Deserialize, Serialize};
 use std::cell::Cell;
@@ -103,6 +111,14 @@ pub struct Settings {
     pub save_files: bool,
     pub desert_art: bool,
     pub mouse_swing: bool,
+    /// A right click puts the tool in hand away (OpenSGolf extras; the original's right click with a terrain brush is the
+    /// undo's, main.rs right_click).
+    #[serde(default)]
+    pub right_drop: bool,
+    /// The HUD at the window's edges on a wide screen with Classic graphics too (enhanced.rs widescreen; Enhanced graphics
+    /// has its own Widescreen tick).
+    #[serde(default)]
+    pub wide_ui: bool,
 }
 
 impl Settings {
@@ -136,6 +152,8 @@ impl Settings {
         save_files: true,
         desert_art: true,
         mouse_swing: false,
+        right_drop: false,
+        wide_ui: true,
     };
     pub const ALL_OFF: Settings = Settings {
         people: false,
@@ -163,6 +181,8 @@ impl Settings {
         save_files: false,
         desert_art: false,
         mouse_swing: false,
+        right_drop: false,
+        wide_ui: false,
     };
 
     /// The ticks as the Extras box's checkbox bits (in `UI_KEYS` order).
@@ -193,6 +213,8 @@ impl Settings {
             self.save_files,
             self.desert_art,
             self.mouse_swing,
+            self.right_drop,
+            self.wide_ui,
         ]
         .iter()
         .enumerate()
@@ -227,6 +249,8 @@ impl Settings {
             save_files: on(22),
             desert_art: on(23),
             mouse_swing: on(24),
+            right_drop: on(25),
+            wide_ui: on(26),
         }
     }
 
@@ -247,6 +271,7 @@ impl Settings {
             drag_place: from.drag_place,
             right_drag: from.right_drag,
             mouse_swing: from.mouse_swing,
+            right_drop: from.right_drop,
             ..*self
         }
     }
@@ -261,7 +286,7 @@ impl Default for Settings {
 
 /// The interface extras' lines on the Extras box's Interface page (extras_ui.rs), one tick per extra in `Settings::bits`
 /// order (text keys in lang/en.txt).
-pub const UI_KEYS: [&str; 25] = [
+pub const UI_KEYS: [&str; 27] = [
     "STR_EXTRAS_PEOPLE",
     "STR_EXTRAS_HISTORY",
     "STR_EXTRAS_NAME_TAGS",
@@ -287,6 +312,8 @@ pub const UI_KEYS: [&str; 25] = [
     "STR_EXTRAS_SAVE_FILES",
     "STR_EXTRAS_DESERT_ART",
     "STR_EXTRAS_MOUSE_SWING",
+    "STR_EXTRAS_RIGHT_DROP",
+    "STR_EXTRAS_WIDE_UI",
 ];
 
 /// The update check's value when settings.json has none (`Settings::update_check`).
@@ -372,6 +399,16 @@ pub fn right_drag() -> bool {
 /// Mouse aim and swing: the mouse aims the pro's shot as a finger does (touch.rs).
 pub fn mouse_swing() -> bool {
     settings().mouse_swing
+}
+
+/// Whether the HUD goes to the window's edges with Classic graphics too (enhanced.rs widescreen).
+pub fn wide_ui() -> bool {
+    settings().wide_ui
+}
+
+/// Whether a right click puts the tool in hand away (main.rs right_click).
+pub fn right_drop() -> bool {
+    settings().right_drop
 }
 pub fn random_trees() -> bool {
     settings().random_trees
@@ -1115,7 +1152,7 @@ mod tests {
         let f = Settings { save_files: true, ..Settings::ALL_OFF };
         assert_eq!(f.bits(), 1 << 22);
         assert_eq!(Settings::from_bits(f.bits()), f);
-        assert_eq!(UI_KEYS.len(), 25);
+        assert_eq!(UI_KEYS.len(), 27);
     }
 
     #[test]

@@ -3439,3 +3439,9 @@ STR_HD_MAKE_WRITE_FAILED                :{FILE} could not be written (is the dis
 STR_EXTRAS_MOUSE_SWING                  : Controls: aim and swing with the mouse as by touch
 STR_EXTRAS_DESC_MOUSE_SWING             :Aim your pro as on a touch screen: a click sets the target, a drag moves it or looks round, the round Swing button shoots.
 STR_MOUSE_SWING_HINT                    :Click to set the target, drag it to aim, drag the course to look round. Then click Swing.
+# Right click puts the tool away (OpenSGolf extras, extras.rs right_drop; main.rs right_click)
+STR_EXTRAS_RIGHT_DROP                   : Controls: right click puts the tool away
+STR_EXTRAS_DESC_RIGHT_DROP              :A right click (B on a controller) drops the brush or tool in hand, as Space does, instead of the original's undo.
+# The interface at the screen's edges (OpenSGolf extras, extras.rs wide_ui; enhanced.rs widescreen)
+STR_EXTRAS_WIDE_UI                      : Interface at the screen's edges
+STR_EXTRAS_DESC_WIDE_UI                 :On a wide screen the dock, panels and money go to the screen's edges, as with Enhanced graphics' Widescreen.

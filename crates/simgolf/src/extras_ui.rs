@@ -148,9 +148,10 @@ const PAGE_LINES: [&[ExtrasLine]; 5] = {
         ],
         &[Calendar, G(8), G(9), G(x::NO_WEEDS)],
         // path styles and lamps, Tab turns buildings (only the picture turns), random trees, the desert's Ravine and Brush art
-        &[G(x::PATHS), G(0), U(21), U(23)],
+        &[G(x::PATHS), G(0), U(21), U(23), U(26)],
         // People, extra reports, messages, path help, home-site details
-        &[Group(0), Group(1), Group(2), U(4), U(19)],
+        // and with the building helpers, right click puts the tool away
+        &[Group(0), Group(1), Group(2), U(4), U(19), U(25)],
         // autosave, save pictures, sharing, import and export saved games, the two pauses, then the three the controls presets set: drag to place, zoom
         // towards the pointer, right-drag panning, and with them mouse aim and swing
         &[U(5), U(6), U(7), U(22), U(8), U(9), U(15), U(14), U(20), U(24)],
@@ -247,6 +248,8 @@ const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_SAVE_FILES",
     "STR_EXTRAS_DESC_DESERT_ART",
     "STR_EXTRAS_DESC_MOUSE_SWING",
+    "STR_EXTRAS_DESC_RIGHT_DROP",
+    "STR_EXTRAS_DESC_WIDE_UI",
 ];
 
 /// A line's description (what ticking it changes; for the preset line, what the preset in use is).
@@ -886,7 +889,7 @@ mod tests {
         }
         assert_eq!(PAGES.len(), PAGE_LINES.len());
         assert_eq!(BANNERS.len(), PAGES.len());
-        assert_eq!(page_lines(3).len(), 5, "the Info page's five lines");
+        assert_eq!(page_lines(3).len(), 6, "the Info page's six lines");
     }
 
     #[test]
@@ -899,7 +902,7 @@ mod tests {
             }
         }
         // looks: only the picture changes
-        for l in [ExtrasLine::Game(0), ExtrasLine::Game(x::PATHS), ExtrasLine::Ui(21), ExtrasLine::Ui(23)] {
+        for l in [ExtrasLine::Game(0), ExtrasLine::Game(x::PATHS), ExtrasLine::Ui(21), ExtrasLine::Ui(23), ExtrasLine::Ui(26)] {
             assert_eq!(page_of(l), Some(2), "{l:?}");
         }
         // animals cost money and lift moods: gameplay, a light touch
@@ -943,7 +946,7 @@ mod tests {
         assert_eq!(foot_text(2, Some(1), &e, &ui), (sg_core::lang::tr("STR_EXTRAS_DESC_PATHS"), true));
         assert_eq!(foot_text(2, Some(0), &e, &ui), (sg_core::lang::tr("STR_PRESET_DESC_ORIGINAL"), true));
         assert_eq!(foot_text(0, Some(0), &Extras::OPENSGOLF, &Settings::HELPERS).0, sg_core::lang::tr("STR_PRESET_DESC_OPENSGOLF"));
-        assert!(!foot_text(2, Some(5), &e, &ui).1);
+        assert!(!foot_text(2, Some(6), &e, &ui).1);
         assert!(!foot_text(3, None, &e, &ui).1);
     }
 

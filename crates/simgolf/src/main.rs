@@ -2028,6 +2028,11 @@ impl Stage {
     /// away; otherwise it is the undo's: the first right click on a tile names what an undo there would do, the second
     /// undoes it (App::right_click_undo). A terrain brush and the Undo button's undo mode stay in hand.
     fn right_click(&mut self, x: f32, y: f32) {
+        // Right click puts the tool away (OpenSGolf extras): any tool in hand is put down, as Space puts it down
+        if extras::right_drop() && self.app.edit {
+            self.app.edit = false;
+            return;
+        }
         let hit = self.app.pick_ground(x, y);
         let app = &mut self.app;
         if app.edit && app.tool == 1 {

@@ -289,8 +289,10 @@ pub fn smooth_edges() -> bool {
     smooth_ui()
 }
 pub fn widescreen() -> bool {
-    // pixel-perfect scaling keeps the picture 800 x 600 in its border: the HUD stays in it
-    on(|s| s.widescreen && !s.pixel_perfect)
+    // pixel-perfect scaling keeps the picture 800 x 600 in its border: the HUD stays in it. With Classic graphics the
+    // interface extra "the interface at the screen's edges" asks for the same (extras.rs wide_ui).
+    let s = settings();
+    !s.pixel_perfect && ((s.enabled && s.widescreen) || crate::extras::wide_ui())
 }
 pub fn terrain_filter() -> bool {
     on(|s| s.terrain_filter)
