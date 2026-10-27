@@ -1423,6 +1423,9 @@ impl App {
         self.terrain.sand_phase = ((self.rot / 90.0).round() as i32).rem_euclid(4);
         // the free base set draws all its water in one look with a shore against land (sg_core::terrain::Terrain::water_one)
         self.terrain.water_one = self.content.loaded.first().is_some_and(|b| b == sg_core::packs::FREE);
+        // Classic shades the ground with Terrain.dll's normals, smooth across tile edges (issue #112); Enhanced graphics
+        // keeps the per-tile normals its look was made with (sg_core::terrain::vertex_normals)
+        self.terrain.own_tile_normals = crate::enhanced::settings().enabled || crate::fx::active();
         self.sync_tile_corners();
         self.desert_art_built = self.desert_art();
         let mut map: BTreeMap<usize, (TextureId, Vec<Vert>)> = BTreeMap::new();

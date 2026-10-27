@@ -1803,6 +1803,7 @@ impl Land {
             sand_phase: 0,
             water_one: false,
             tile_corner: Vec::new(),
+            own_tile_normals: false,
         };
         let mut seed = crate::rng::Rng::new(0x9e37_79b9 ^ self.slot.property as u32);
         for a in 0..mn() {
@@ -2196,6 +2197,7 @@ mod tile_item_tests {
             sand_phase: 0,
             water_one: false,
             tile_corner: Vec::new(),
+            own_tile_normals: false,
         };
         Land::from_terrain(&t, 0)
     }
