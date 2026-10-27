@@ -35,8 +35,8 @@ game starts. When it is done HD switches itself on (no restart), a box says so, 
 
 | | scale | size | time |
 |---|---|---|---|
-| *Make it* | ×4 | about 0.8 GB | measured on the device; about 10 minutes on an 8-core laptop, 25 on a 4-core one |
-| *Make a smaller one* | ×2 | about 0.4 GB | the same (the model always works at ×4; ×2 is its output halved) |
+| *Make it* | ×4 | about 1.2 GB | measured on the device; about 10 minutes on an 8-core laptop, 25 on a 4-core one |
+| *Make a smaller one* | ×2 | about 0.6 GB | the same (the model always works at ×4; ×2 is its output halved) |
 
 The upscaler is Real-ESRGAN's small general model (realesr-general-wdn-x4v3, BSD-3-Clause, Xintao Wang), run on the
 processor in plain Rust (`crates/sg-core/src/aiscale.rs`, 2.4 MB of weights): no graphics card, no download, the same

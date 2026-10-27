@@ -82,6 +82,8 @@ pub struct Spec {
 /// the corner pre-pass) plus a part per upscaled pixel. Measured on the whole game (about 245 million source pixels): 33 s
 /// at x2 and 50 s at x4 on four threads of a 2020s laptop core.
 const XBRZ_US_PER_PX: (f64, f64) = (0.44, 0.0235);
+/// PNG bytes of the AI upscaler's pack for one of xBRZ's (measured on the whole game: 614 MB at x2 for 392 MB).
+const AI_BYTES: f64 = 1.57;
 /// The share of the pictures' pixels the AI upscaler works out (the opaque ones and the clear ones near them), measured on
 /// the whole game.
 const AI_WORKED_SHARE: f64 = 0.49;
@@ -625,7 +627,8 @@ impl App {
     fn hd_make_ask(&mut self, again: bool) {
         let plan = Plan::new(&self.game_dir, None);
         let n = threads();
-        let est = |scale: u32| (mb(plan.bytes(scale)), minutes(plan.ai_seconds(scale, n)));
+        // the AI's pictures carry more detail and compress less than xBRZ's (measured on the whole game: 614 MB at x2)
+        let est = |scale: u32| (mb(plan.bytes(scale) * AI_BYTES), minutes(plan.ai_seconds(scale, n)));
         let (b4, t4) = est(4);
         let (b2, t2) = est(2);
         let mut text = String::new();
