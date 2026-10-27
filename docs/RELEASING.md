@@ -65,3 +65,9 @@ it the step leaves a warning and does nothing, and a failed store update never f
   package to be in winget already, and that account to have signed Microsoft's CLA once).
 
 F-Droid needs nothing: its bot reads the new tag (the recipe's `AutoUpdateMode`). Flathub is updated by hand.
+
+## What's new (CHANGELOG.md)
+
+Each minor version (0.6, 0.7, ...) has a section in `CHANGELOG.md`: its highlights in plain words, and its fix releases as
+short lines. Add to it with every release; the release workflow puts the version's section at the top of its GitHub release
+page, and the README, the browser page and Preferences > More link to the file.

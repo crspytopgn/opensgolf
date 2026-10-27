@@ -167,6 +167,10 @@
     text-shadow: 0 1px 0 #0b2f63, 0 2px 6px rgba(0, 20, 50, 0.8); }
   .tagline { margin: 6px 0 0; font-size: 13px; max-width: 470px; color: #fff; padding: 6px 10px; border-radius: 6px;
     background: rgba(8, 36, 80, 0.62); border: 1px solid rgba(255, 255, 255, 0.25); }
+  /* the changelog, beside the downloads (CHANGELOG.md) */
+  .dl .whatsnew { font: bold 12.5px/1.5 var(--ui); color: #fff; text-shadow: 0 1px 2px rgba(0, 20, 50, 0.9); text-decoration: none;
+    border: 1px solid rgba(255, 255, 255, 0.85); border-radius: 999px; padding: 0 9px; white-space: nowrap; }
+  .dl .whatsnew:hover { text-decoration: underline; }
   .dl { margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
   .dl .btn { min-height: 38px; padding: 0 16px; font-size: 14px; flex: 0 0 auto; }
   .dl .btn[hidden] { display: none; }
@@ -538,6 +542,7 @@
               <a data-os="linux" href="https://github.com/crspytopgn/opensgolf/releases/latest/download/opensgolf-linux-x86_64.AppImage">Linux</a> ·
               <a data-os="android" href="https://github.com/crspytopgn/opensgolf/releases/latest/download/opensgolf-android.apk">Android</a> ·
               <a href="https://github.com/crspytopgn/opensgolf/releases/latest">all downloads</a></span>
+            <a class="whatsnew" href="https://github.com/crspytopgn/opensgolf/blob/main/CHANGELOG.md" target="_blank" rel="noopener">★ What's new</a>
           </div>
         </div>
         <div class="shot" role="img" aria-label="OpenSGolf playing with the original SimGolf files"></div>
@@ -809,7 +814,7 @@
     </div>
 
     <footer>
-      <p><span id="version">OpenSGolf</span></p>
+      <p><span id="version">OpenSGolf</span> · <a href="https://github.com/crspytopgn/opensgolf/blob/main/CHANGELOG.md" target="_blank" rel="noopener">What's new</a></p>
       <div class="badges" aria-hidden="true">
         <span><i>GPL</i><b>FREE SOFTWARE</b></span>
         <span class="g"><i>100%</i><b>FAN MADE</b></span>

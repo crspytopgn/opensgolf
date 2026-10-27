@@ -45,6 +45,8 @@ click away.
 The quickest way to play is in the browser: [crspytopgn.github.io/opensgolf](https://crspytopgn.github.io/opensgolf/).
 Nothing needs installing.
 
+**What's new:** every version's big features are in [CHANGELOG.md](CHANGELOG.md).
+
 Downloads for every system ([all releases](https://github.com/crspytopgn/opensgolf/releases)):
 
 | System | Download | Notes |

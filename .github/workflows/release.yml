@@ -246,8 +246,25 @@ jobs:
           echo "signed with public key $(openssl pkey -inform DER -in "$key" -pubout -outform DER | tail -c 32 | od -An -tx1 | tr -d ' \n')"
           rm -f "$key"
           test "$(stat -c %s SHA256SUMS.sig)" = 64
+      - name: Release notes (this version's section of CHANGELOG.md)
+        # "## 0.6 (...)" up to the next "## ": the highlights of the minor version (a 0.6.x fix release shows them too),
+        # above GitHub's list of the changes since the last release
+        run: |
+          python3 - "$VERSION" <<'PY'
+          import re, sys
+          v = sys.argv[1].lstrip("v")
+          minor = ".".join(v.split(".")[:2])
+          text = open("src/CHANGELOG.md", encoding="utf-8").read()
+          m = re.search(r"^## " + re.escape(minor) + r" \(.*?(?=^## |\Z)", text, re.S | re.M)
+          body = m.group(0).strip() if m else ""
+          body = body.replace("](docs/", "](https://github.com/crspytopgn/opensgolf/blob/main/docs/")
+          body += "\n\nEverything, version by version: [CHANGELOG.md](https://github.com/crspytopgn/opensgolf/blob/main/CHANGELOG.md)\n"
+          open("release-notes.md", "w", encoding="utf-8").write(body)
+          print(body)
+          PY
       - uses: softprops/action-gh-release@v2
         with:
+          body_path: release-notes.md
           # a run by hand creates the tag on the commit it built
           tag_name: ${{ env.VERSION }}
           target_commitish: ${{ github.sha }}
