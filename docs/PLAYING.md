@@ -353,6 +353,22 @@ graphics as they are. The box says **Custom** whenever your ticks are no preset 
 graphics on). The choice is saved and is what new games start with. The same choice is the first line of the extras box
 (below), so you can change it later, also during a game.
 
+### How would you like to play? and What's new
+
+The first time the title menu shows (and once after updating from a version before 0.6), a box asks **How would you
+like to play?**: *The original game*, *Original + helpers* or *The full OpenSGolf*, the first three presets above. Esc, a
+right-click or a click outside the box keeps your settings exactly as they are (for a new player, the original game).
+It is asked once (settings.json's `welcome_shown`).
+
+After the game is updated to a version with new highlights, a **What's new in OpenSGolf** box lists them once
+(settings.json's `last_version_seen`; a new player does not get it). *Try it* next to a highlight that is an option
+switches it on (or opens its Preferences page); *See everything that's new* opens the changelog in your browser, as
+does Preferences > More > *What's new...* at any time.
+
+Neither box shows in scripted runs (`--png`, `--time`, `--screen`). Test hooks for stills: `SG_WELCOME=1` and
+`SG_WHATSNEW=1` show the box on the title menu whatever settings.json says, and write nothing
+(`SG_WELCOME=1 BIN --game DIR --screen menu --png out.png --time 3`).
+
 ## Preferences
 
 System Functions > Preferences starts with the original's own four ticks, exactly as the original has them: **Show

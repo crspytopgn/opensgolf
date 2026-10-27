@@ -114,6 +114,7 @@ mod ui;
 mod undo;
 mod update;
 mod views;
+mod welcome;
 mod wild_ui;
 mod world_ui;
 mod year_ui;
@@ -1212,6 +1213,8 @@ fn apply_edit_spec(app: &mut App, spec: &str) {
 impl Stage {
     fn new(o: Options) -> Stage {
         let mut g = Gfx::new();
+        // a new player (no settings saved yet), before anything writes settings.json (welcome.rs)
+        welcome::note_first_start();
         // the content packs first: their art, sounds and data replace the game's before anything is read (an App deals
         // its first property offer from the data when it is made)
         gamefiles::set_headless(o.png_out.is_some());
@@ -1385,6 +1388,8 @@ impl Stage {
         controls::init();
         // the support reminder's play time (support.rs)
         app.support = support::init();
+        // the welcome boxes (welcome.rs): never in stills or tests (SG_WELCOME and SG_WHATSNEW force them)
+        app.welcome = welcome::init(o.png_out.is_some() || o.time != 0.0 || o.screen.is_some());
         // the play-time count (playcount.rs; the port's own): nothing in stills, tests or store builds; the start count
         app.playcount = playcount::init(app.support.record.played, o.png_out.is_some() || o.time != 0.0 || o.screen.is_some());
         // the text size (textsize.rs; Preferences' Text size line)
@@ -1709,6 +1714,18 @@ impl Stage {
             self.app.support_answer(r);
             return;
         }
+        // the welcome boxes (welcome.rs): Esc, a right-click or a click outside keeps the settings as they are
+        if kind == popup_ui::PopupKind::Welcome {
+            self.app.close_popup();
+            self.app.welcome_answer(&mut self.g, r);
+            return;
+        }
+        if kind == popup_ui::PopupKind::WhatsNew {
+            if !self.app.whatsnew_pick(&mut self.g, r) && self.app.popup.as_ref().is_some_and(|p| p.kind == kind) {
+                self.app.close_popup();
+            }
+            return;
+        }
         let Some(k) = r else {
             self.app.close_popup();
             return;
@@ -1769,7 +1786,7 @@ impl Stage {
             // the Cheats box's Done (cheats_ui.rs; the cheats themselves are used while it stays open)
             PopupKind::Cheats => {}
             // answered above
-            PopupKind::Support => {}
+            PopupKind::Support | PopupKind::Welcome | PopupKind::WhatsNew => {}
             PopupKind::QuickLoad => {
                 if k == 0 {
                     self.app.quick_load(&mut self.g);
@@ -1967,6 +1984,11 @@ impl Stage {
             // Support OpenSGolf (support.rs): the project's Buy Me a Coffee page in the browser; Preferences stays
             Line::Support => {
                 self.app.open_support_page();
+                self.app.open_popup(from);
+            }
+            // What's new... (welcome.rs): the changelog in the browser; Preferences stays
+            Line::WhatsNew => {
+                self.app.open_changelog();
                 self.app.open_popup(from);
             }
             Line::MakeHd => {
@@ -3140,6 +3162,8 @@ impl EventHandler for Stage {
             app.open_popup(popup_ui::PopupKind::CareerOver);
         }
         // the support reminder at a natural pause, when it is due (support.rs; scripted stills only with SG_SUPPORT)
+        // the welcome boxes first, once each, at the title menu (welcome.rs): the support box waits behind them
+        app.welcome_frame();
         app.support_frame(self.png_out.is_none());
         app.screen_audio();
         self.pointer_preview();
@@ -3487,7 +3511,9 @@ impl EventHandler for Stage {
         }
         if self.app.screen == Screen::Popup {
             // the support reminder: a right-click is Maybe later (support.rs)
-            if button == MouseButton::Right && self.app.popup.as_ref().is_some_and(|p| p.kind == popup_ui::PopupKind::Support) {
+            // and Esc for the welcome boxes (welcome.rs)
+            let own = |k| matches!(k, popup_ui::PopupKind::Support | popup_ui::PopupKind::Welcome | popup_ui::PopupKind::WhatsNew);
+            if button == MouseButton::Right && self.app.popup.as_ref().is_some_and(|p| own(p.kind)) {
                 self.popup_done(None);
                 return;
             }

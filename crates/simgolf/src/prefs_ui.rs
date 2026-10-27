@@ -46,6 +46,8 @@ pub enum Line {
     Report,
     /// Support OpenSGolf (the port's own, support.rs): the project's Buy Me a Coffee page
     Support,
+    /// What's new... (the port's own, welcome.rs): the changelog in the browser
+    WhatsNew,
     /// Count my play time (anonymous) (the port's own, playcount.rs; not in store builds)
     PlayCount,
 }
@@ -100,7 +102,7 @@ pub fn items(kind: PopupKind, c: &Ctx) -> Vec<Line> {
         PopupKind::PrefsMore => [FixBugs, UpdateCheck]
             .into_iter()
             .chain(c.update_now.then_some(UpdateNow))
-            .chain([Search, Report, Support])
+            .chain([Search, Report, WhatsNew, Support])
             .chain(c.play_count.then_some(PlayCount))
             .collect(),
         _ => Vec::new(),
@@ -158,6 +160,7 @@ pub fn label(l: Line, c: &Ctx, text: u32) -> String {
         Search => "STR_MENU_PREFS_SEARCH",
         Report => "STR_MENU_PREFS_REPORT",
         Support => "STR_MENU_PREFS_SUPPORT",
+        WhatsNew => "STR_MENU_PREFS_WHATSNEW",
         PlayCount => "STR_MENU_PREFS_PLAYCOUNT",
     };
     tr(key).to_string()
@@ -227,6 +230,7 @@ pub fn desc_key(l: Line, c: &Ctx) -> Option<&'static str> {
         Search => "STR_PREFS_DESC_SEARCH",
         Report => "STR_PREFS_DESC_REPORT",
         Support => "STR_PREFS_DESC_SUPPORT",
+        WhatsNew => "STR_PREFS_DESC_WHATSNEW",
         PlayCount => "STR_PREFS_DESC_PLAYCOUNT",
     })
 }
@@ -257,7 +261,7 @@ pub fn place_key(l: Line) -> &'static str {
     match l {
         Hd | MakeHd | RemoveHd | Enhanced | PixelPerfect | EnhancedSettings => "STR_SEARCH_PLACE_GRAPHICS",
         Files | Content | Language => "STR_SEARCH_PLACE_FILES",
-        FixBugs | UpdateCheck | UpdateNow | Search | Report | Support | PlayCount => "STR_SEARCH_PLACE_MORE",
+        FixBugs | UpdateCheck | UpdateNow | Search | Report | WhatsNew | Support | PlayCount => "STR_SEARCH_PLACE_MORE",
         _ => "STR_SEARCH_PLACE_PREFS",
     }
 }
@@ -358,8 +362,8 @@ mod tests {
         // no files line in a browser, the language only with a translation, the update check now only where it can ask
         assert_eq!(items(PopupKind::PrefsFiles, &none), [Content]);
         assert_eq!(items(PopupKind::PrefsFiles, &ALL), [Files, Content, Language]);
-        assert_eq!(items(PopupKind::PrefsMore, &none), [FixBugs, UpdateCheck, Search, Report, Support]);
-        assert_eq!(items(PopupKind::PrefsMore, &ALL), [FixBugs, UpdateCheck, UpdateNow, Search, Report, Support, PlayCount]);
+        assert_eq!(items(PopupKind::PrefsMore, &none), [FixBugs, UpdateCheck, Search, Report, WhatsNew, Support]);
+        assert_eq!(items(PopupKind::PrefsMore, &ALL), [FixBugs, UpdateCheck, UpdateNow, Search, Report, WhatsNew, Support, PlayCount]);
         for kind in [PopupKind::PrefsGraphics, PopupKind::PrefsFiles, PopupKind::PrefsMore] {
             for l in items(kind, &ALL) {
                 assert!(desc_key(l, &ALL).is_some(), "{l:?}");
@@ -369,7 +373,7 @@ mod tests {
         // the note under the bug fixes is no option
         let l = lines(PopupKind::PrefsMore, &ALL, 100);
         assert!(l[2].starts_with(NOTE));
-        assert_eq!(l.iter().filter(|s| s.starts_with(' ')).count(), 7);
+        assert_eq!(l.iter().filter(|s| s.starts_with(' ')).count(), 8);
         // and the time played under Support OpenSGolf is a note too
         let support = l.iter().position(|s| s == &label(Support, &ALL, 100)).unwrap();
         assert_eq!(l[support + 1], format!("{NOTE}Your time played: 0 minutes."));
