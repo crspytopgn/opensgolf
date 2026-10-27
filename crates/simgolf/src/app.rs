@@ -1423,6 +1423,9 @@ impl App {
         self.terrain.sand_phase = ((self.rot / 90.0).round() as i32).rem_euclid(4);
         // the free base set draws all its water in one look with a shore against land (sg_core::terrain::Terrain::water_one)
         self.terrain.water_one = self.content.loaded.first().is_some_and(|b| b == sg_core::packs::FREE);
+        // Classic shades the ground with Terrain.dll's normals, smooth across tile edges (issue #112); Enhanced graphics
+        // keeps the per-tile normals its look was made with (sg_core::terrain::vertex_normals)
+        self.terrain.own_tile_normals = crate::enhanced::settings().enabled || crate::fx::active();
         self.sync_tile_corners();
         self.desert_art_built = self.desert_art();
         let mut map: BTreeMap<usize, (TextureId, Vec<Vert>)> = BTreeMap::new();
@@ -2213,6 +2216,7 @@ impl App {
         }
         self.catalog = cat;
         self.theme = theme;
+        sg_core::land::set_name_theme(self.exe_theme());
         for s in self.sprites.drain(..) {
             for t in s.tex.into_iter().flatten() {
                 g.ctx.delete_texture(t);
@@ -2248,6 +2252,7 @@ impl App {
         self.water_depth = sg_core::wildlife::water_depth(&self.course);
         self.course.door = self.club_anchor();
         self.course.theme = self.exe_theme();
+        land::set_name_theme(self.course.theme);
         if self.course.objects.first().map(|o| o.kind) != Some(land::K_CLUBHOUSE) {
             let (a, b) = self.course.door;
             self.course.objects.insert(0, land::Object { kind: land::K_CLUBHOUSE, a, b, dir: 0, flags: 0x40, sub: 0, val: 0 });

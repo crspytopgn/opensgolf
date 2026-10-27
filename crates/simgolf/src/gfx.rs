@@ -713,7 +713,46 @@ struct Deferred {
     /// Textures deleted during the frame, deleted for real when it ends: a draw queued earlier in the frame (a batch, the cast
     /// shadows' list of outlines) may still name one, and a texture made meanwhile must not take its place under the same
     /// name (that drew one frame of every cast shadow from the wrong pictures when their cache was emptied, large and hard).
-    doomed: Vec<TextureId>,
+    /// Render passes too (issue #111, see `Doomed`).
+    doomed: Doomed<RenderPass, TextureId>,
+}
+
+/// What the frame deleted, deleted for real when it ends (`Deferred`).
+///
+/// miniquad's `delete_render_pass` deletes the pass's textures as well (colour, depth, resolve), at once, while the game
+/// deletes those textures itself too (they are its own: hd.rs, fx.rs, fx_reflect.rs, fx_shadow.rs), which comes later,
+/// at the frame's end. A window resized with multisampling or a window sized effect on made a new texture of the new
+/// size between the two, under the GL name the pass had just freed; the frame's end then deleted that new texture. The
+/// window stayed black, or (as a later texture, a font atlas, took the name) showed text glyphs all over it, until the
+/// game was started again, whatever size the window went back to (issue #111). Deleting the passes at the frame's end
+/// too keeps every name taken until then; the passes go first, and a texture already gone with its pass is deleted a
+/// second time at no cost, nothing having been made since (GL ignores a name that is no longer a texture).
+struct Doomed<P, T> {
+    passes: Vec<P>,
+    textures: Vec<T>,
+}
+
+impl<P: PartialEq, T: PartialEq> Doomed<P, T> {
+    fn new() -> Self {
+        Doomed { passes: Vec::new(), textures: Vec::new() }
+    }
+
+    fn pass(&mut self, p: P) {
+        if !self.passes.contains(&p) {
+            self.passes.push(p);
+        }
+    }
+
+    fn texture(&mut self, t: T) {
+        if !self.textures.contains(&t) {
+            self.textures.push(t);
+        }
+    }
+
+    /// The passes and the textures to delete now, in that order, and the lists emptied.
+    fn take(&mut self) -> (Vec<P>, Vec<T>) {
+        (std::mem::take(&mut self.passes), std::mem::take(&mut self.textures))
+    }
 }
 
 impl Deferred {
@@ -721,7 +760,7 @@ impl Deferred {
         let cap = 16384;
         let vb = inner.new_buffer(BufferType::VertexBuffer, BufferUsage::Stream, BufferSource::empty::<Vert>(cap));
         let ib = inner.new_buffer(BufferType::IndexBuffer, BufferUsage::Immutable, BufferSource::slice(&seq_indices(cap)));
-        Deferred { inner, queue, vb, ib, cap, doomed: Vec::new() }
+        Deferred { inner, queue, vb, ib, cap, doomed: Doomed::new() }
     }
 
     /// Draws the waiting batches (before anything else reaches the renderer).
@@ -811,8 +850,8 @@ impl RenderingBackend for Deferred {
         self.inner.render_pass_color_attachments(render_pass)
     }
     fn delete_render_pass(&mut self, render_pass: RenderPass) {
-        self.submit();
-        self.inner.delete_render_pass(render_pass)
+        // at the frame's end with its textures (`doomed`)
+        self.doomed.pass(render_pass);
     }
     fn new_pipeline(&mut self, layout: &[BufferLayout], attrs: &[VertexAttribute], shader: ShaderId, p: PipelineParams) -> Pipeline {
         self.submit();
@@ -843,9 +882,7 @@ impl RenderingBackend for Deferred {
     }
     fn delete_texture(&mut self, texture: TextureId) {
         // at the frame's end (`doomed`)
-        if !self.doomed.contains(&texture) {
-            self.doomed.push(texture);
-        }
+        self.doomed.texture(texture);
     }
     fn delete_shader(&mut self, program: ShaderId) {
         self.submit();
@@ -885,7 +922,11 @@ impl RenderingBackend for Deferred {
     }
     fn commit_frame(&mut self) {
         self.submit();
-        for t in std::mem::take(&mut self.doomed) {
+        let (passes, textures) = self.doomed.take();
+        for p in passes {
+            self.inner.delete_render_pass(p);
+        }
+        for t in textures {
             self.inner.delete_texture(t);
         }
         self.inner.commit_frame()
@@ -899,6 +940,84 @@ impl RenderingBackend for Deferred {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// GL's texture names as Mesa and the Windows drivers hand them out: the lowest free name first, so a deleted name is
+    /// soon taken again. A pass owns its textures as miniquad's do (its deletion deletes them).
+    #[derive(Default)]
+    struct FakeGl {
+        live: Vec<bool>,
+        passes: Vec<Vec<usize>>,
+    }
+
+    impl FakeGl {
+        fn new_texture(&mut self) -> usize {
+            match self.live.iter().position(|l| !l) {
+                Some(n) => {
+                    self.live[n] = true;
+                    n
+                }
+                None => {
+                    self.live.push(true);
+                    self.live.len() - 1
+                }
+            }
+        }
+        fn new_pass(&mut self, textures: Vec<usize>) -> usize {
+            self.passes.push(textures);
+            self.passes.len() - 1
+        }
+        fn delete_texture(&mut self, t: usize) {
+            self.live[t] = false;
+        }
+        fn delete_pass(&mut self, p: usize) {
+            for t in std::mem::take(&mut self.passes[p]) {
+                self.delete_texture(t);
+            }
+        }
+    }
+
+    /// Issue #111: a window target of the old size goes (its pass, then its textures, as hd.rs free_target and the
+    /// effects' targets do) and one of the new size is made in the same frame. The new texture must outlive the frame.
+    #[test]
+    fn resized_target_survives_the_frame() {
+        // the old way: the pass went at once and took its texture's name with it, the texture itself at the frame's end
+        let mut gl = FakeGl::default();
+        let old = gl.new_texture();
+        let pass = gl.new_pass(vec![old]);
+        gl.delete_pass(pass);
+        let mut doomed = vec![old];
+        let new = gl.new_texture();
+        assert_eq!(new, old, "the freed name is taken again");
+        for t in doomed.drain(..) {
+            gl.delete_texture(t);
+        }
+        assert!(!gl.live[new], "the old way deleted the new target");
+
+        // now: the pass waits for the frame's end with the texture
+        let mut gl = FakeGl::default();
+        let font = gl.new_texture();
+        let old = gl.new_texture();
+        let pass = gl.new_pass(vec![old]);
+        let mut doomed: Doomed<usize, usize> = Doomed::new();
+        doomed.pass(pass);
+        doomed.texture(old);
+        doomed.texture(old);
+        let new = gl.new_texture();
+        assert_ne!(new, old);
+        let (passes, textures) = doomed.take();
+        assert_eq!((passes.len(), textures.len()), (1, 1));
+        for p in passes {
+            gl.delete_pass(p);
+        }
+        for t in textures {
+            gl.delete_texture(t);
+        }
+        assert!(gl.live[new] && gl.live[font] && !gl.live[old]);
+        // the next frame's texture (a font atlas at the new size) takes the freed name, and nothing deletes it
+        let atlas = gl.new_texture();
+        assert_eq!(atlas, old);
+        assert!(doomed.take() == (Vec::new(), Vec::new()));
+    }
 
     /// The precision of each non-sampler uniform a shader stage declares: its own qualifier, else the stage's default for
     /// floats (highp in a vertex shader, the `precision` statement's in a fragment shader; "either" when that depends on

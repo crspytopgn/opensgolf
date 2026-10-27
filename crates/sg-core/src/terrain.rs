@@ -314,6 +314,11 @@ pub struct Terrain {
     /// flattened tile steps away from its neighbours and the step is closed by a retaining wall. Empty: the shared corners.
     #[serde(skip)]
     pub tile_corner: Vec<[i8; 4]>,
+    /// Vertex normals from the tile's own triangles only, as the port shaded the ground before issue #112 (kept for Enhanced
+    /// graphics, whose look is tuned to it); off, they take the neighbours' triangles too, as Terrain.dll does
+    /// (`vertex_normals`).
+    #[serde(skip)]
+    pub own_tile_normals: bool,
 }
 
 pub const MAX_LEVEL: i32 = 24;
@@ -977,6 +982,84 @@ pub fn view_uv(u: f32, v: f32, phase: i32) -> (f32, f32) {
     }
 }
 
+/// The 8 triangles of a tile as (row, column) points of its 3 x 3 patch, in Terrain.dll's record order (quadrants NW, NE, SW,
+/// SE, two each). The tile is a fan of eight triangles round its centre, each holding half of one tile edge (the edge its
+/// blend variation belongs to), so every quadrant is split along the diagonal from the tile corner to the centre: NW and SE
+/// along one diagonal, NE and SW along the other.
+const TILE_TRIS: [[(usize, usize); 3]; 8] = [
+    [(0, 0), (1, 0), (1, 1)],
+    [(0, 0), (1, 1), (0, 1)],
+    // NE: corner (0,2); first the north half edge, then the east one
+    [(0, 1), (1, 1), (0, 2)],
+    [(1, 1), (1, 2), (0, 2)],
+    // SW: corner (2,0); first the west half edge, then the south one
+    [(1, 0), (2, 0), (1, 1)],
+    [(2, 0), (2, 1), (1, 1)],
+    [(1, 1), (2, 1), (2, 2)],
+    [(1, 1), (2, 2), (1, 2)],
+];
+
+/// The unit face normals of a tile's 8 triangles (`TILE_TRIS` order) from its own patch heights, turned to face up
+/// (Terrain.dll 0x10011d60: the cross product of the triangle's two edges, normalised).
+fn tile_face_normals(t: &Terrain, tx: i32, ty: i32) -> [[f32; 3]; 8] {
+    let hgt = t.patch_heights(tx, ty);
+    let half = TILE_SIZE * 0.5;
+    let p = |(j, k): (usize, usize)| [k as f32 * half, hgt[j][k], j as f32 * half];
+    let mut out = [[0f32, 1.0, 0.0]; 8];
+    for (o, ix) in out.iter_mut().zip(&TILE_TRIS) {
+        let (a, b, c) = (p(ix[0]), p(ix[1]), p(ix[2]));
+        let (ux, uy, uz) = (b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+        let (vx, vy, vz) = (c[0] - a[0], c[1] - a[1], c[2] - a[2]);
+        let mut n = [uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx];
+        let len = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
+        if len > 0.0 {
+            n = n.map(|c| c / len);
+        }
+        if n[1] < 0.0 {
+            n = n.map(|c| -c);
+        }
+        *o = n;
+    }
+    out
+}
+
+/// The normals of tile (tx, ty)'s 3 x 3 vertex patch ([row][column]): at each point the sum of the unit face normals of the
+/// triangles that meet it, normalised. Terrain.dll (Tile::calcNormals 0x10012cf0: the centre from the tile's 8 triangles;
+/// 0x10011ef0 once per corner: the corner and its edge midpoints from the tile's triangles and those of the neighbours on
+/// that side, the diagonal one included, where they exist) takes every triangle on the map that meets the point, so an edge
+/// midpoint sums 4 triangles and a corner 8, each neighbour's from its own vertices. With `own_tile_normals` (Enhanced
+/// graphics; the port's earlier shading) only the tile's own triangles count.
+pub fn vertex_normals(t: &Terrain, tx: i32, ty: i32) -> [[[f32; 3]; 3]; 3] {
+    let reach = if t.own_tile_normals { 0 } else { 1 };
+    let mut sum = [[[0f32; 3]; 3]; 3];
+    for dy in -reach..=reach {
+        for dx in -reach..=reach {
+            let (nx, ny) = (tx + dx, ty + dy);
+            if !t.inside(nx, ny) {
+                continue;
+            }
+            let faces = tile_face_normals(t, nx, ny);
+            for (n, ix) in faces.iter().zip(&TILE_TRIS) {
+                for &(j, k) in ix {
+                    // the point in this tile's patch, if it is one
+                    let (pj, pk) = (j as i32 + 2 * dy, k as i32 + 2 * dx);
+                    if (0..3).contains(&pj) && (0..3).contains(&pk) {
+                        let s = &mut sum[pj as usize][pk as usize];
+                        for c in 0..3 {
+                            s[c] += n[c];
+                        }
+                    }
+                }
+            }
+        }
+    }
+    for n in sum.iter_mut().flatten() {
+        let len = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
+        *n = if len > 0.0 { n.map(|c| c / len) } else { [0.0, 1.0, 0.0] };
+    }
+    sum
+}
+
 /// Appends the 8 triangles of tile (tx,ty). Tile = 3x3 vertex patch (corners, edge midpoints, centre), 50 units apart; quadrants
 /// split along their NW-SE diagonal; UVs 0, 0.5, 1. Sand (type 7) tiles are dished 13 units like the original. World X/Z are
 /// centred on the map: x = tx*100 - w*50.
@@ -1024,59 +1107,21 @@ pub fn build_tile_triangles(t: &Terrain, tx: i32, ty: i32, out: &mut Vec<TileTri
         water_one_type(t, ttype).unwrap_or_else(|| texture_type_for(ttype, vbyte, ttype, t.desert, t.sand_phase))
     };
     let use_set = if ttype == TT_TEE as i32 { vbyte } else { set };
-    // Terrain.dll keeps a 3 x 3 vertex patch per tile (the global vertex array is 3W x 3H, so tiles share no vertices) with
-    // one normal per vertex: the sum of the unit face normals of the tile's triangles that use it, normalised. So a slope is
-    // shaded smoothly inside a tile rather than per triangle.
     type Tri = ([Vertex; 3], [(usize, usize); 3], usize);
     let mut tris_all: Vec<Tri> = Vec::with_capacity(8);
-    for q in 0..4 {
-        let (j, k) = (q / 2, q % 2);
-        // The tile is a fan of eight triangles round its centre, each holding half of one tile edge (the edge its blend
-        // variation belongs to), so every quadrant is split along the diagonal from the tile corner to the centre: NW and SE
-        // along one diagonal, NE and SW along the other.
-        let idx: [[(usize, usize); 3]; 2] = if j == k {
-            [[(j, k), (j + 1, k), (j + 1, k + 1)], [(j, k), (j + 1, k + 1), (j, k + 1)]]
-        } else if k == 1 {
-            // NE: corner (0,2); first the north half edge, then the east one
-            [[(0, 1), (1, 1), (0, 2)], [(1, 1), (1, 2), (0, 2)]]
-        } else {
-            // SW: corner (2,0); first the west half edge, then the south one
-            [[(1, 0), (2, 0), (1, 1)], [(2, 0), (2, 1), (1, 1)]]
-        };
-        for (s, ix) in idx.iter().enumerate() {
-            tris_all.push(([vtx(ix[0].0, ix[0].1), vtx(ix[1].0, ix[1].1), vtx(ix[2].0, ix[2].1)], *ix, q * 2 + s));
-        }
+    for (r, ix) in TILE_TRIS.iter().enumerate() {
+        tris_all.push(([vtx(ix[0].0, ix[0].1), vtx(ix[1].0, ix[1].1), vtx(ix[2].0, ix[2].1)], *ix, r));
     }
-    let mut sum = [[[0f32; 3]; 3]; 3];
-    for (tri, ix, _) in &tris_all {
-        let (ux, uy, uz) = (tri[1].x - tri[0].x, tri[1].y - tri[0].y, tri[1].z - tri[0].z);
-        let (vx, vy, vz) = (tri[2].x - tri[0].x, tri[2].y - tri[0].y, tri[2].z - tri[0].z);
-        let (mut nx, mut ny, mut nz) = (uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx);
-        let len = (nx * nx + ny * ny + nz * nz).sqrt();
-        if len > 0.0 {
-            nx /= len;
-            ny /= len;
-            nz /= len;
-        }
-        if ny < 0.0 {
-            nx = -nx;
-            ny = -ny;
-            nz = -nz;
-        }
-        for &(j, k) in ix {
-            sum[j][k][0] += nx;
-            sum[j][k][1] += ny;
-            sum[j][k][2] += nz;
-        }
-    }
+    // Terrain.dll keeps a 3 x 3 vertex patch per tile (the global vertex array is 3W x 3H, so tiles share no vertices) with
+    // one normal per vertex: the sum of the unit face normals of every triangle on the map that meets that point, its own
+    // tile's and the neighbours' (Tile::calcNormals 0x10012cf0 and its corner pass 0x10011ef0), normalised. So a slope is
+    // shaded smoothly across tile edges too (issue #112). Enhanced graphics keeps the port's earlier per-tile sums
+    // (`own_tile_normals`).
+    let normals = vertex_normals(t, tx, ty);
     for (tri, ix, r) in tris_all {
         let mut tt = TileTri { tex_type, set: use_set, variation: var[r], v: tri };
         for (v, &(j, k)) in tt.v.iter_mut().zip(&ix) {
-            let n = sum[j][k];
-            let len = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
-            if len > 0.0 {
-                (v.nx, v.ny, v.nz) = (n[0] / len, n[1] / len, n[2] / len);
-            }
+            (v.nx, v.ny, v.nz) = (normals[j][k][0], normals[j][k][1], normals[j][k][2]);
         }
         out.push(tt);
     }
@@ -1272,5 +1317,59 @@ mod tests {
         build_tile_triangles(&t, 4, 4, &mut v);
         assert_eq!(v.len(), 8);
         assert!(v.iter().all(|tri| tri.v.iter().all(|p| p.ny >= 0.0)));
+    }
+
+    /// Issue #112: Terrain.dll sums the face normals of every triangle that meets a vertex, the neighbours' too, so the
+    /// vertices two tiles share get the same normal and a hill is shaded smoothly across tile edges, not in hard tiles.
+    #[test]
+    fn vertex_normals_are_smooth_across_tiles() {
+        let mut t = Terrain::demo_course(10, 10, 9);
+        t.ty.iter_mut().for_each(|v| *v = TT_ROUGH);
+        t.corner.iter_mut().for_each(|c| *c = 0);
+        // a hill top at corner (5, 5): every tile round it has one raised corner
+        t.raise_corner(5, 5, 3);
+        let n = |t: &Terrain, x: i32, y: i32, j: usize, k: usize| vertex_normals(t, x, y)[j][k];
+        let close = |a: [f32; 3], b: [f32; 3]| (0..3).all(|c| (a[c] - b[c]).abs() < 1e-5);
+        // the hill top, as the four tiles meeting there have it: straight up
+        for (x, y, j, k) in [(4, 4, 2, 2), (5, 4, 2, 0), (4, 5, 0, 2), (5, 5, 0, 0)] {
+            assert!(close(n(&t, x, y, j, k), [0.0, 1.0, 0.0]), "{x},{y}: {:?}", n(&t, x, y, j, k));
+        }
+        // the edge midpoint between tiles (4, 4) and (5, 4), and the corner (5, 4) the four tiles share
+        assert!(close(n(&t, 4, 4, 1, 2), n(&t, 5, 4, 1, 0)));
+        for (x, y, j, k) in [(4, 3, 2, 2), (5, 3, 2, 0), (4, 4, 0, 2), (5, 4, 0, 0)] {
+            assert!(close(n(&t, x, y, j, k), n(&t, 5, 4, 0, 0)));
+        }
+        // a corner sums the unit normals of the eight triangles round it
+        let mut sum = [0f32; 3];
+        for (x, y, j, k) in [(4, 4, 2, 2), (5, 4, 2, 0), (4, 5, 0, 2), (5, 5, 0, 0)] {
+            for (f, ix) in tile_face_normals(&t, x, y).iter().zip(&TILE_TRIS) {
+                if ix.contains(&(j, k)) {
+                    (0..3).for_each(|c| sum[c] += f[c]);
+                }
+            }
+        }
+        assert!(sum[1] > 7.0 && sum[1] < 8.0);
+        // the port's earlier per-tile normals (Enhanced graphics): a tile sees only its own slope there
+        t.own_tile_normals = true;
+        assert!(!close(n(&t, 5, 5, 0, 0), [0.0, 1.0, 0.0]));
+        assert!(!close(n(&t, 4, 4, 1, 2), n(&t, 5, 4, 1, 0)));
+        // and build_tile_triangles hands the vertices these normals
+        t.own_tile_normals = false;
+        let mut v = Vec::new();
+        build_tile_triangles(&t, 5, 5, &mut v);
+        let top = v[0].v[0];
+        assert!(close([top.nx, top.ny, top.nz], [0.0, 1.0, 0.0]));
+    }
+
+    /// Flat ground keeps the straight-up normal with either rule (Classic pixels on flat land do not change).
+    #[test]
+    fn flat_ground_normals_point_up() {
+        let mut t = Terrain::demo_course(10, 10, 9);
+        t.corner.iter_mut().for_each(|c| *c = 0);
+        t.ty.iter_mut().for_each(|v| *v = TT_ROUGH);
+        for own in [false, true] {
+            t.own_tile_normals = own;
+            assert!(vertex_normals(&t, 3, 3).iter().flatten().all(|n| *n == [0.0, 1.0, 0.0]));
+        }
     }
 }

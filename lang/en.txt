@@ -1848,7 +1848,7 @@ STR_ROUTING_INCREASE                    :Things which INCREASE home value:
 STR_ROUTING_INCREASE_WATER              :Close to water and trees.
 STR_ROUTING_INCREASE_FUN                :Close to a fun golf hole.
 STR_ROUTING_INCREASE_TOP                :Close to a top 100 or top 18 hole.
-STR_ROUTING_INCREASE_MARINA             :Building a Marina
+STR_ROUTING_INCREASE_MARINA             :Building a {BUILDING}
 STR_ROUTING_DECREASE                    :Things which DECREASE home value:
 STR_ROUTING_DECREASE_UNFUN              :Close to an unfun hole.
 STR_ROUTING_DECREASE_BUILDING           :Close to another building.
@@ -2197,6 +2197,16 @@ STR_BUILDING_WILLOW_TREE                :Willow Tree
 STR_BUILDING_TV_TOWER                   :TV Tower
 STR_BUILDING_TV_BOOTH                   :TV Booth
 STR_BUILDING_SCENIC_BRIDGE              :Scenic Bridge
+# The theme's own names for the Snack Bar, Swim Club, Marina and Airstrip (the exe copies them over the table at theme load)
+STR_BUILDING_TENNIS_COURT               :Tennis Court
+STR_BUILDING_SPA                        :Spa
+STR_BUILDING_HELIPAD                    :Helipad
+STR_BUILDING_CASINO                     :Casino
+STR_BUILDING_THEME_PARK                 :Theme Park
+STR_BUILDING_PUB                        :Pub
+STR_BUILDING_STABLE                     :Stable
+STR_BUILDING_CHURCH                     :Church
+STR_BUILDING_CASTLE                     :Castle
 
 # Animal names (the exe's kind table 0x4c1998), as the habitat labels and the golfers' thoughts use them
 STR_ANIMAL_ELK                          :Elk
