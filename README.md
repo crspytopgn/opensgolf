@@ -213,7 +213,10 @@ versions must stay open under the same terms. The bundled Liberation Sans font i
 packs (mods) choose their own licence; the free base set is GPL-2.0-or-later too. The built-in HD maker's pixel-art
 upscaler (`crates/sg-core/src/xbrz.rs`) was written for OpenSGolf to the rules and constants of the xBRZ algorithm by Zenju
 (xBRZ 1.8, <https://sourceforge.net/projects/xbrz/>, GPL-3.0, itself based on Hyllian's xBR); GPL-3.0 is among the
-versions OpenSGolf's licence allows.
+versions OpenSGolf's licence allows. Its AI upscaler (`crates/sg-core/src/aiscale.rs`) runs Real-ESRGAN's
+realesr-general-wdn-x4v3 model by Xintao Wang, whose weights are bundled (`crates/sg-core/data/`) under the BSD 3-Clause
+licence ([crates/sg-core/data/LICENSE-Real-ESRGAN.txt](crates/sg-core/data/LICENSE-Real-ESRGAN.txt)), which is compatible
+with the GPL.
 
 ## Supporting the project
 
@@ -309,9 +312,11 @@ GitHub Pages.
 and **Classic stays the default and byte-identical** with it off. Turn it on in System Functions → Preferences → Graphics, or with
 `--enhanced` / `--classic-render` (`--fx` for just the effects). See [docs/ENHANCED.md](docs/ENHANCED.md).
 
-An opt-in **HD mode** draws the game's art upscaled ×4 (or ×2). Making it is one click: Preferences → Graphics → *Make HD
-graphics from my SimGolf files...* upscales your own copy's art on your machine (built-in xBRZ upscaler, or Real-ESRGAN when
-it is installed; a minute or two on a desktop, in the background while you play), then turns HD on. The upscaled art is a
+An opt-in **HD mode** (beta) draws the game's art upscaled ×4 (or ×2). Making it is one click: Preferences → Graphics →
+*Make HD graphics from my SimGolf files (beta)...* redraws your own copy's art on your computer or phone with an AI upscaler
+built into the game (no graphics card or download needed; the box says how long it takes on your device, often 10 to 30
+minutes, in the background while you play), then turns HD on by itself. *Remove HD graphics...* switches back and frees
+the space. Not in browsers yet. The upscaled art is a
 derivative of EA's art, so it is always made by you from your own copy (in the game, or with `tools/hd_pack/hd_pack.py`);
 it is never shipped, downloaded from this project, or to be shared. Switch it in Preferences → Graphics (*HD graphics*),
 with `--hd` / `--classic`, or `--hd-pack DIR`. See [docs/HD.md](docs/HD.md).

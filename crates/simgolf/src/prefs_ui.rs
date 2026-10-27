@@ -28,6 +28,8 @@ pub enum Line {
     Hd,
     /// Make HD graphics from my SimGolf files... (hd_make.rs)
     MakeHd,
+    /// Remove HD graphics... (hd_make.rs): back to Classic and the pack deleted
+    RemoveHd,
     Enhanced,
     PixelPerfect,
     EnhancedSettings,
@@ -64,6 +66,8 @@ pub struct Ctx {
     pub played: u64,
     /// What the Make HD graphics line offers (hd_make.rs; none on the free graphics).
     pub make_hd: Option<crate::hd_make::Offer>,
+    /// There is an HD pack to remove (and no run making one).
+    pub remove_hd: bool,
 }
 
 /// The rows at the foot of each box kept for the description (as the Extras box's, extras_ui::FOOT_LINES).
@@ -86,9 +90,12 @@ pub fn items(kind: PopupKind, c: &Ctx) -> Vec<Line> {
     use Line::*;
     match kind {
         PopupKind::Prefs => vec![Thoughts, Advisor, Animals, Sound, GameOptions, Graphics, Controls, TextSize, GameFiles, More],
-        PopupKind::PrefsGraphics => {
-            [Hd].into_iter().chain(c.make_hd.map(|_| MakeHd)).chain([Enhanced, PixelPerfect, EnhancedSettings]).collect()
-        }
+        PopupKind::PrefsGraphics => [Hd]
+            .into_iter()
+            .chain(c.make_hd.map(|_| MakeHd))
+            .chain(c.remove_hd.then_some(RemoveHd))
+            .chain([Enhanced, PixelPerfect, EnhancedSettings])
+            .collect(),
         PopupKind::PrefsFiles => c.files.map(|_| Files).into_iter().chain([Content]).chain(c.languages.then_some(Language)).collect(),
         PopupKind::PrefsMore => [FixBugs, UpdateCheck]
             .into_iter()
@@ -136,6 +143,7 @@ pub fn label(l: Line, c: &Ctx, text: u32) -> String {
                 _ => tr("STR_PREFS_MAKE_HD").to_string(),
             };
         }
+        RemoveHd => "STR_PREFS_REMOVE_HD",
         Enhanced => "STR_MENU_PREFS_ENHANCED_ON",
         PixelPerfect => "STR_ENHANCED_PIXEL_PERFECT",
         EnhancedSettings => "STR_MENU_PREFS_ENHANCED",
@@ -205,6 +213,7 @@ pub fn desc_key(l: Line, c: &Ctx) -> Option<&'static str> {
         More => "STR_PREFS_DESC_MORE",
         Hd => "STR_PREFS_DESC_HD",
         MakeHd => "STR_PREFS_DESC_MAKE_HD",
+        RemoveHd => "STR_PREFS_DESC_REMOVE_HD",
         Enhanced => "STR_PREFS_DESC_ENHANCED",
         PixelPerfect => "STR_PREFS_DESC_PIXEL_PERFECT",
         EnhancedSettings => "STR_PREFS_DESC_ENHANCED_SETTINGS",
@@ -246,7 +255,7 @@ pub fn foot_text(kind: PopupKind, c: &Ctx, k: Option<usize>, armed: bool) -> (St
 pub fn place_key(l: Line) -> &'static str {
     use Line::*;
     match l {
-        Hd | MakeHd | Enhanced | PixelPerfect | EnhancedSettings => "STR_SEARCH_PLACE_GRAPHICS",
+        Hd | MakeHd | RemoveHd | Enhanced | PixelPerfect | EnhancedSettings => "STR_SEARCH_PLACE_GRAPHICS",
         Files | Content | Language => "STR_SEARCH_PLACE_FILES",
         FixBugs | UpdateCheck | UpdateNow | Search | Report | Support | PlayCount => "STR_SEARCH_PLACE_MORE",
         _ => "STR_SEARCH_PLACE_PREFS",
@@ -263,6 +272,7 @@ impl crate::app::App {
             play_count: crate::playcount::AVAILABLE,
             played: self.support.record.played.max(0.0) as u64,
             make_hd: self.hd_make_offer(),
+            remove_hd: self.hd_remove_offer(),
         }
     }
 
@@ -310,6 +320,7 @@ mod tests {
         play_count: true,
         played: 0,
         make_hd: Some(crate::hd_make::Offer::Make),
+        remove_hd: true,
     };
 
     #[test]
@@ -339,7 +350,8 @@ mod tests {
         let none = Ctx::default();
         assert_eq!(items(PopupKind::PrefsGraphics, &none), [Hd, Enhanced, PixelPerfect, EnhancedSettings]);
         // Make HD graphics only with the original files in use
-        assert_eq!(items(PopupKind::PrefsGraphics, &ALL), [Hd, MakeHd, Enhanced, PixelPerfect, EnhancedSettings]);
+        assert_eq!(items(PopupKind::PrefsGraphics, &ALL), [Hd, MakeHd, RemoveHd, Enhanced, PixelPerfect, EnhancedSettings]);
+        assert!(opens(RemoveHd));
         let running = Ctx { make_hd: Some(crate::hd_make::Offer::Running(42)), ..ALL };
         assert!(label(MakeHd, &running, 100).contains("42"));
         assert!(opens(MakeHd));

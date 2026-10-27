@@ -406,7 +406,7 @@ and replaces it. The pack is made from EA's art: keep it to yourself. Nothing ch
 Test hooks: `--make-hd` makes the pack from the `--game` folder into `--hd-pack DIR` (else `<save folder>/HD`) and exits,
 saying how long it took (`--hd-scale 2|4`, default 4; `--hd-method xbrz|realesrgan`; `--hd-only TEXT` only the sources
 whose path holds TEXT; `--hd-step` works the browser's way, a step at a time on one thread; `--hd-resume` keeps what an
-earlier run made); `--screen hd-make` opens the line's question.
+earlier run made); `--screen hd-make` opens the line's question, `--screen hd-remove` Remove HD graphics' one.
 
 ## OpenSGolf extras (optional, not in the original)
 

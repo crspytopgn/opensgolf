@@ -721,6 +721,8 @@ fn open_screen(app: &mut App, screen: Option<&str>) {
         }
         // Preferences > Graphics > Make HD graphics from my SimGolf files...: its question (hd_make.rs)
         Some("hd-make") if app.ui_ok => app.hd_make_open(),
+        // Remove HD graphics...: its question (hd_make.rs)
+        Some("hd-remove") if app.ui_ok => app.hd_remove_ask(),
         Some(s) if app.ui_ok => {
             app.test_title_screen(s, true);
         }
@@ -1592,6 +1594,11 @@ impl Stage {
         if let Some(msg) = hd_msg {
             app.show_toast(&msg);
         }
+        // "Make HD graphics" left unfinished when the game was closed carries on in the background (hd_make.rs; not in
+        // scripted stills)
+        if o.png_out.is_none() {
+            app.hd_make_carry_on();
+        }
         if let Some(msg) = app.content.notice.take() {
             app.show_toast(&msg);
         }
@@ -1965,6 +1972,10 @@ impl Stage {
             Line::MakeHd => {
                 self.app.prefs_stack.clear();
                 self.app.hd_make_open();
+            }
+            Line::RemoveHd => {
+                self.app.prefs_stack.clear();
+                self.app.hd_remove_ask();
             }
             _ => {}
         }
@@ -2810,6 +2821,8 @@ impl Stage {
         }
         // the OpenSGolf extras' tab strip over the F1 to F10 reports (report_tabs.rs)
         self.app.draw_report_tabs(&mut self.g);
+        // a run of "Make HD graphics" going on with its box closed: its corner note (hd_make.rs)
+        self.app.draw_hd_badge(&mut self.g);
         self.app.draw_notice(&mut self.g);
         // pixel-perfect scaling's border round the picture (ui.rs; nothing when it is off), under the touch layer
         if self.app.photo.is_none() {
@@ -3091,6 +3104,13 @@ impl EventHandler for Stage {
         // "Use my SimGolf files...": a .zip being unpacked or a folder being copied (gamefiles.rs)
         self.app.poll_import();
         // "Make HD graphics from my SimGolf files..." under way, and HD switched on once the pack is made (hd_make.rs)
+        // Remove HD graphics' OK: Classic again, then the pack deleted (hd_make.rs)
+        if std::mem::take(&mut self.app.hd.remove_pending) {
+            if self.app.switch_hd(&mut self.g, false) {
+                self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
+            }
+            self.app.hd_remove();
+        }
         if self.app.poll_hd_make() {
             if self.app.hd.enabled {
                 self.app.switch_hd(&mut self.g, false);
@@ -3443,6 +3463,13 @@ impl EventHandler for Stage {
             let (vx, vy) = self.app.view.to_virtual(x, y);
             self.app.notice_pointer(vx, vy, button == MouseButton::Left);
             return;
+        }
+        // the corner note of a run of "Make HD graphics" brings its box back (hd_make.rs)
+        if button == MouseButton::Left {
+            let (vx, vy) = self.app.view.to_virtual(x, y);
+            if self.app.hd_badge_click(vx, vy) {
+                return;
+            }
         }
         if self.app.photo.is_some() {
             self.photo_button(true, button, x, y);
@@ -4041,7 +4068,8 @@ fn attach_console() {
 #[cfg(not(target_arch = "wasm32"))]
 fn make_hd_cli(o: &Options) -> i32 {
     let method = match o.hd_method.as_deref() {
-        None | Some("xbrz") => hd_make::Method::Xbrz,
+        None | Some("ai") => hd_make::Method::Ai,
+        Some("xbrz") => hd_make::Method::Xbrz,
         #[cfg(not(target_os = "android"))]
         Some("realesrgan") => match hd_make::esrgan::find() {
             Some(exe) => hd_make::Method::Esrgan(exe),
@@ -4051,7 +4079,7 @@ fn make_hd_cli(o: &Options) -> i32 {
             }
         },
         Some(m) => {
-            eprintln!("--hd-method {m}: xbrz or realesrgan");
+            eprintln!("--hd-method {m}: ai, xbrz or realesrgan");
             return 1;
         }
     };
@@ -4062,6 +4090,7 @@ fn make_hd_cli(o: &Options) -> i32 {
         method,
         resume: o.hd_resume,
         only: o.hd_only.clone(),
+        first: None,
         threads: std::thread::available_parallelism().map_or(1, |n| n.get()),
     };
     hd_make::cli(spec, o.hd_step)

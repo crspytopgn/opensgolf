@@ -1474,6 +1474,7 @@ mod tests {
             play_count: true,
             played: 0,
             make_hd: Some(crate::hd_make::Offer::Make),
+            remove_hd: true,
         };
         let free = Ctx { files: Some(("Use the free graphics", true)), ..all };
         let mut long = Vec::new();

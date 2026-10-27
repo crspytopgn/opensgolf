@@ -36,6 +36,8 @@ pub struct HdState {
     pub sprites: HashMap<usize, HdSprite>,
     /// The anti-aliased frame target.
     pub msaa: Option<MsaaTarget>,
+    /// Remove HD graphics was confirmed: the next frame switches HD off and deletes the pack (hd_make.rs).
+    pub remove_pending: bool,
 }
 
 struct Entry {

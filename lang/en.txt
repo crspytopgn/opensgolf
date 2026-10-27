@@ -3403,30 +3403,35 @@ STR_MENU_PREFS_PLAYCOUNT                : Count my play time (anonymous)
 STR_PREFS_DESC_PLAYCOUNT                :One count per 15 minutes played and one at start: only system and version, no names or saves. Offline counts are sent later.
 
 # Making HD graphics from the player's own files (the port's own, hd_make.rs; docs/HD.md)
-STR_PREFS_MAKE_HD                       : Make HD graphics from my SimGolf files...
-STR_PREFS_MAKE_HD_AGAIN                 : Make HD graphics again...
+STR_PREFS_MAKE_HD                       : Make HD graphics from my SimGolf files (beta)...
+STR_PREFS_MAKE_HD_AGAIN                 : Make HD graphics again (beta)...
 STR_PREFS_MAKE_HD_RESUME                : Finish making HD graphics...
 STR_PREFS_MAKE_HD_RUNNING               : Making HD graphics: {PCT}% (show)
-STR_PREFS_DESC_MAKE_HD                  :Upscales the game's art from your own files into an HD pack on this device, then turns HD on.
-STR_HD_MAKE_ASK                         :Make HD graphics? The game upscales its {PICTURES} pictures from your own SimGolf files, on this device: about {SIZE} and {TIME}. You can play on meanwhile, stop at any time and carry on later. The pack is made from EA's art: keep it to yourself, do not share it.
-STR_HD_MAKE_ASK_BROWSER                 :Make HD graphics? The game upscales its {PICTURES} pictures twice their size from your own SimGolf files, here in this browser, which keeps them with your game files: about {SIZE} and {TIME}. You can play on meanwhile (more slowly), stop at any time and carry on later. Keep the pack to yourself.
+STR_PREFS_REMOVE_HD                     : Remove HD graphics...
+STR_PREFS_DESC_REMOVE_HD                :Back to Classic graphics, and the HD pack deleted to free its space. You can make it again.
+STR_HD_REMOVE_ASK                       :Remove the HD graphics? The game goes back to Classic graphics and the HD pack is deleted from this device, freeing {SIZE}. You can make it again at any time.
+STR_HD_REMOVE_ASK_PLAIN                 :Remove the HD graphics? The game goes back to Classic graphics and the HD pack is deleted from this browser. You can make it again at any time.
+STR_HD_REMOVE_OK                        :Remove them
+STR_HD_REMOVED                          :The HD graphics are removed and the game is back to Classic graphics.
+STR_PREFS_DESC_MAKE_HD                  :Beta: an AI upscaler in the game redraws the art from your files, on this device, then turns HD on.
+STR_HD_MAKE_ASK                         :Make HD graphics (beta)? An AI upscaler built into the game redraws its {PICTURES} pictures from your own SimGolf files, on this device: about {SIZE} and {TIME} here. HD switches itself on when it is done, with no restart. You can play on meanwhile, stop at any time and carry on later. The pack is made from EA's art: keep it to yourself, do not share it.
+STR_HD_MAKE_ASK_BROWSER                 :Make HD graphics (beta)? An AI upscaler built into the game redraws its {PICTURES} pictures twice their size from your own SimGolf files, here in this browser, which keeps them with your game files: about {SIZE} and {TIME} here. You can play on meanwhile (more slowly), stop at any time and carry on later. Keep the pack to yourself.
 STR_HD_MAKE_AGAIN_NOTE                  :You have an HD pack already: making it again replaces it.
 STR_HD_MAKE_BIG                         :Make it (4 times the size: {SIZE}, {TIME})
 STR_HD_MAKE_SMALL                       :Make a smaller one (twice the size: {SIZE}, {TIME})
 STR_HD_MAKE_X2                          :Make it (twice the size: {SIZE}, {TIME})
-STR_HD_MAKE_BEST                        :Make it with Real-ESRGAN (best quality; slow without a strong graphics card)
-STR_HD_MAKE_QUICK                       :Make it with the built-in upscaler ({SIZE}, {TIME})
 STR_HD_MAKE_ASK_RESUME                  :Making HD graphics was stopped before it was done. Carry on where it stopped?
 STR_HD_MAKE_RESUME                      :Carry on
 STR_HD_MAKE_RESTART                     :Start again
 STR_HD_MAKE_MINUTE                      :about a minute
 STR_HD_MAKE_MINUTES                     :about {N} minutes
 STR_HD_MAKE_LEFT_UNKNOWN                :working out how long
-STR_HD_MAKE_PROGRESS                    :Making HD graphics from your SimGolf files: {PCT}% done ({PICTURES} pictures), {LEFT} to go. HD turns on when it is done.
+STR_HD_MAKE_PROGRESS                    :Making HD graphics from your SimGolf files: {PCT}% done ({PICTURES} pictures), {LEFT} to go. HD switches itself on when it is done: there is nothing else to do.
 STR_HD_MAKE_STOP                        :Stop (carry on later)
-STR_HD_MAKE_HIDE                        :Keep playing
+STR_HD_MAKE_HIDE                        :Keep playing (the top of the screen shows how far it is)
+STR_HD_MAKE_BADGE                       :HD graphics (beta): {PCT}%, {LEFT} to go
 STR_HD_MAKE_STOPPED                     :Stopped making HD graphics. Preferences, Graphics carries on where it stopped.
-STR_HD_MAKE_DONE                        :The HD graphics are ready and switched on (Preferences, Graphics switches them off).
+STR_HD_MAKE_DONE                        :HD graphics are on now, with no restart needed, and stay on next time. Preferences, Graphics switches them off or removes them.
 STR_HD_MAKE_FAILED                      :Making HD graphics stopped: {ERR}
 STR_HD_MAKE_WRITE_FAILED                :{FILE} could not be written (is the disk full?)
 

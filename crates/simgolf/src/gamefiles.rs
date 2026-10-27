@@ -296,6 +296,8 @@ pub enum Action {
     SkipVersion,
     /// An answer about making HD graphics (hd_make.rs).
     HdMake(crate::hd_make::Choice),
+    /// Remove HD graphics' OK (hd_make.rs): switched off and deleted at the next frame, which has the graphics to hand.
+    HdRemove,
 }
 
 /// The crash report the box offers to copy.
@@ -614,6 +616,7 @@ impl App {
             Action::UpdateNow => self.update_now(),
             Action::SkipVersion => self.skip_update(),
             Action::HdMake(c) => self.hd_make_answer(c),
+            Action::HdRemove => self.hd.remove_pending = true,
         }
     }
 

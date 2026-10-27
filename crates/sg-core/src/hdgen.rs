@@ -344,6 +344,63 @@ pub fn upscale(p: &Picture, scale: u32) -> Rgba {
     finish(p, crate::xbrz::scale(&upscaler_input(p), scale), scale)
 }
 
+/// The manifest's method of the built-in AI upscaler (aiscale).
+pub const METHOD_AI: &str = "ai:realesr-general-wdn-x4v3";
+/// The texture's own pixels wrapped round it for the AI upscaler (its reach is much longer than xBRZ's few pixels).
+const AI_WRAP_PAD: u32 = 16;
+
+/// A picture upscaled with the built-in AI upscaler (x2 or x4; other scales with xBRZ): the colours from the model, the
+/// transparency from xBRZ's upscale of the same picture, as with Real-ESRGAN. A mask (grey levels, not a picture) keeps
+/// xBRZ's.
+pub fn upscale_ai(p: &Picture, scale: u32) -> Rgba {
+    let mut out = upscale(p, scale);
+    if p.mask || !(scale == 2 || scale == 4) {
+        return out;
+    }
+    // the colours with the clear pixels filled from their opaque neighbours (as the model would see nothing there)
+    let (src, pad) = if p.wrap { (pad_wrap(&p.img, AI_WRAP_PAD), AI_WRAP_PAD) } else { (p.img.clone(), 0) };
+    let fill = fill_colours(&src);
+    let (w, h) = (src.w as usize, src.h as usize);
+    let rgb: Vec<u8> = fill.iter().flat_map(|c| *c).collect();
+    // what is used: the opaque pixels (all of a texture's own, none of the wrapped border)
+    let need: Vec<bool> = (0..w * h)
+        .map(|i| {
+            let (x, y) = ((i % w) as u32, (i / w) as u32);
+            let inside = x >= pad && y >= pad && x < pad + p.img.w && y < pad + p.img.h;
+            inside && (p.wrap || src.px[i * 4 + 3] != 0)
+        })
+        .collect();
+    if !need.iter().any(|&n| n) {
+        return out;
+    }
+    let big = crate::aiscale::upscale4(&rgb, w, h, Some(&need));
+    let bw = w * 4;
+    let (ow, s) = (out.w as usize, scale as usize);
+    let o = pad as usize * 4;
+    for (i, q) in out.px.chunks_exact_mut(4).enumerate() {
+        if q[3] == 0 {
+            continue;
+        }
+        let (x, y) = (i % ow, i / ow);
+        // x4: the model's pixel; x2: the mean of its 2 x 2
+        let k = 4 / s;
+        let mut sum = [0u32; 3];
+        for dy in 0..k {
+            for dx in 0..k {
+                let b = ((o + y * k + dy) * bw + o + x * k + dx) * 3;
+                for c in 0..3 {
+                    sum[c] += big[b + c] as u32;
+                }
+            }
+        }
+        let n = (k * k) as u32;
+        for c in 0..3 {
+            q[c] = ((sum[c] + n / 2) / n) as u8;
+        }
+    }
+    out
+}
+
 // ---- the manifest ------------------------------------------------------------------------------------------------------------
 
 /// A pack's manifest: what hd_pack.py's write_manifest writes.

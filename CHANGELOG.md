@@ -16,7 +16,9 @@ Enhanced graphics and HD.
   browsers.
 - **Enhanced graphics keep up on big screens and slower machines.** In a browser they draw at up to 1440p and stretch to a 4K
   screen, and when the game runs slowly they ease off a step at a time by themselves.
-- **Make HD graphics from your own SimGolf files**, on your own device (Preferences > Graphics).
+- **Make HD graphics from your own SimGolf files (beta):** an AI upscaler built into the game redraws the art sharper,
+  on your own computer or phone, while you play (Preferences > Graphics). It switches itself on when it is done, and
+  *Remove HD graphics* undoes it. Not in browsers yet.
 - **A new cast of cartoon faces** for the free graphics' golfers.
 - **Checks for a new version when the game starts** and offers it, saying nothing if there is none (Preferences > More
   switches it off).

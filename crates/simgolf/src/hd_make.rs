@@ -23,12 +23,10 @@ const SETTINGS_KEY: &str = "hd_make";
 /// What the player chose in the boxes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Choice {
-    /// x4 with xBRZ.
+    /// x4 with the AI upscaler.
     Big,
-    /// x2 with xBRZ.
+    /// x2 with the AI upscaler.
     Small,
-    /// x4 with Real-ESRGAN.
-    Best,
     /// Carry on with the run not finished.
     Resume,
     /// Start again instead of carrying on: the first box.
@@ -41,6 +39,8 @@ pub enum Choice {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Method {
     Xbrz,
+    /// The built-in AI upscaler (sg_core::aiscale): every system, on the processor.
+    Ai,
     /// Real-ESRGAN's executable (desktop).
     #[cfg_attr(any(target_arch = "wasm32", target_os = "android"), allow(dead_code))]
     Esrgan(PathBuf),
@@ -54,6 +54,7 @@ impl Method {
     pub fn name(&self) -> String {
         match self {
             Method::Xbrz => hdgen::METHOD_XBRZ.to_string(),
+            Method::Ai => hdgen::METHOD_AI.to_string(),
             Method::Esrgan(_) => format!("realesrgan:{ESRGAN_MODEL}"),
         }
     }
@@ -70,6 +71,8 @@ pub struct Spec {
     pub resume: bool,
     /// Only sources whose path contains this (a test hook).
     pub only: Option<String>,
+    /// The course's theme (app::THEMES index): its pictures are made first, then those of no theme, then the other themes'.
+    pub first: Option<usize>,
     /// Worker threads (natively).
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     pub threads: usize,
@@ -79,6 +82,28 @@ pub struct Spec {
 /// the corner pre-pass) plus a part per upscaled pixel. Measured on the whole game (about 245 million source pixels): 33 s
 /// at x2 and 50 s at x4 on four threads of a 2020s laptop core.
 const XBRZ_US_PER_PX: (f64, f64) = (0.44, 0.0235);
+/// The share of the pictures' pixels the AI upscaler works out (the opaque ones and the clear ones near them), measured on
+/// the whole game.
+const AI_WORKED_SHARE: f64 = 0.49;
+
+/// Source pixels a second one thread of this device upscales with the AI upscaler: timed once, on a small picture (about a
+/// tenth of a second on a laptop), so the estimates are this device's own.
+pub fn ai_speed() -> f64 {
+    static SPEED: std::sync::OnceLock<f64> = std::sync::OnceLock::new();
+    *SPEED.get_or_init(|| {
+        let (w, h) = (24, 24);
+        let rgb: Vec<u8> = (0..w * h * 3).map(|i| (i * 37 % 251) as u8).collect();
+        // the first run widens the model's weights: not timed
+        sg_core::aiscale::upscale4(&rgb[..8 * 8 * 3], 8, 8, None);
+        let t = crate::app::now();
+        sg_core::aiscale::upscale4(&rgb, w, h, None);
+        let s = (crate::app::now() - t).max(1e-3);
+        let speed = (w * h) as f64 / s;
+        println!("HD: this device upscales {speed:.0} pixels a second a thread with the AI upscaler");
+        speed
+    })
+}
+
 /// PNG bytes per source pixel and unit of scale, for the estimate (measured likewise: 0.40 GB at x2, 0.79 GB at x4).
 const BYTES_PER_PX_SCALE: f64 = 0.8;
 
@@ -112,6 +137,12 @@ impl Plan {
         let slow = if cfg!(target_arch = "wasm32") { 2.0 } else { 1.0 };
         let (fixed, per) = XBRZ_US_PER_PX;
         self.total_px() as f64 * (fixed + per * (scale * scale) as f64) / 1e6 * slow / threads.max(1) as f64
+    }
+
+    /// Seconds with the AI upscaler on `threads` threads of this device, from its own speed ([`ai_speed`]): the model's
+    /// work on the share of the pictures' pixels it works out, plus xBRZ's for the transparency.
+    pub fn ai_seconds(&self, scale: u32, threads: usize) -> f64 {
+        self.total_px() as f64 * AI_WORKED_SHARE / ai_speed() / threads.max(1) as f64 + self.seconds(scale, threads)
     }
 }
 
@@ -168,11 +199,26 @@ fn start_manifest(spec: &Spec, plan: Plan, shared: &Shared) -> Vec<Source> {
             todo.push((s, px));
         }
     }
+    if let Some(t) = spec.first {
+        todo.sort_by_key(|(s, _)| theme_order(&s.rel, t));
+    }
     shared.total_px.store(total, Ordering::Relaxed);
     shared.done_px.store(done, Ordering::Relaxed);
     *shared.manifest.lock().unwrap_or_else(|e| e.into_inner()) = m;
     shared.dirty.store(true, Ordering::Relaxed);
     todo.into_iter().map(|(s, _)| s).collect()
+}
+
+/// Where a source comes in a run that does the theme `first` first: 0 that theme's, 1 no theme's, 2 another theme's.
+fn theme_order(rel: &str, first: usize) -> u8 {
+    // the words the game files' folders and names give each theme (app::THEMES' order)
+    const KEYS: [&str; 4] = ["park", "link", "des", "trop"];
+    let rel = rel.to_lowercase();
+    match KEYS.iter().position(|k| rel.contains(k)) {
+        Some(k) if k == first => 0,
+        Some(_) => 2,
+        None => 1,
+    }
 }
 
 /// Writes a picture of the pack. Err: the file could not be written (a full disk).
@@ -247,6 +293,7 @@ fn worker(spec: &Spec, shared: &Shared, todo: &[Source], next: &AtomicUsize) {
         if (n >= batch_size || !more) && !batch.is_empty() {
             let pics: Vec<Vec<sg_core::assets::Rgba>> = match &spec.method {
                 Method::Xbrz => batch.iter().map(|p| p.pictures.iter().map(|q| hdgen::upscale(q, spec.scale)).collect()).collect(),
+                Method::Ai => batch.iter().map(|p| p.pictures.iter().map(|q| hdgen::upscale_ai(q, spec.scale)).collect()).collect(),
                 #[cfg(not(target_os = "android"))]
                 Method::Esrgan(exe) => match esrgan::run(exe, &batch, spec.scale) {
                     Ok(v) => v,
@@ -417,7 +464,10 @@ impl Stepper {
             }
             let Some((p, done)) = self.cur.as_mut() else { continue };
             if let Some(pic) = p.pictures.get(done.len()) {
-                done.push(hdgen::upscale(pic, self.spec.scale));
+                done.push(match self.spec.method {
+                    Method::Ai => hdgen::upscale_ai(pic, self.spec.scale),
+                    _ => hdgen::upscale(pic, self.spec.scale),
+                });
             }
             if done.len() == p.pictures.len() {
                 let Some((p, pics)) = self.cur.take() else { continue };
@@ -531,7 +581,8 @@ impl App {
         if let Some(f) = running() {
             return Some(Offer::Running((f * 100.0) as u8));
         }
-        if self.on_free_set() || !hdgen::is_game_folder(&self.game_dir) {
+        // not in a browser yet: the AI upscaler runs there on one thread without the vector unit, hours for the game's art
+        if cfg!(target_arch = "wasm32") || self.on_free_set() || !hdgen::is_game_folder(&self.game_dir) {
             return None;
         }
         let pack = sg_core::fsutil::exists(self.hd.pack_dir.join("manifest.json"));
@@ -574,15 +625,7 @@ impl App {
     fn hd_make_ask(&mut self, again: bool) {
         let plan = Plan::new(&self.game_dir, None);
         let n = threads();
-        let esrgan = {
-            #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
-            {
-                esrgan::find().is_some()
-            }
-            #[cfg(any(target_arch = "wasm32", target_os = "android"))]
-            false
-        };
-        let est = |scale: u32| (mb(plan.bytes(scale)), minutes(plan.seconds(scale, n)));
+        let est = |scale: u32| (mb(plan.bytes(scale)), minutes(plan.ai_seconds(scale, n)));
         let (b4, t4) = est(4);
         let (b2, t2) = est(2);
         let mut text = String::new();
@@ -599,10 +642,6 @@ impl App {
         let (confirm, alt) = if browser {
             lines.push(format!(" {}", trf("STR_HD_MAKE_X2", &[("SIZE", &b2), ("TIME", &t2)])));
             (Choice::Small, None)
-        } else if esrgan {
-            lines.push(format!(" {}", tr("STR_HD_MAKE_BEST")));
-            lines.push(format!(" {}", trf("STR_HD_MAKE_QUICK", &[("SIZE", &b4), ("TIME", &t4)])));
-            (Choice::Best, Some(Choice::Big))
         } else {
             lines.push(format!(" {}", trf("STR_HD_MAKE_BIG", &[("SIZE", &b4), ("TIME", &t4)])));
             lines.push(format!(" {}", trf("STR_HD_MAKE_SMALL", &[("SIZE", &b2), ("TIME", &t2)])));
@@ -629,26 +668,36 @@ impl App {
             return;
         }
         let (scale, method, resume) = match c {
-            Choice::Big => (4, Method::Xbrz, false),
-            Choice::Small => (2, Method::Xbrz, false),
-            Choice::Best => match self.esrgan() {
-                Some(m) => (4, m, false),
-                None => (4, Method::Xbrz, false),
-            },
+            Choice::Big => (4, Method::Ai, false),
+            Choice::Small => (2, Method::Ai, false),
             _ => match unfinished() {
                 Some((scale, name)) => {
-                    let m = if name.starts_with("realesrgan") { self.esrgan().unwrap_or(Method::Xbrz) } else { Method::Xbrz };
+                    let m = if name.starts_with("realesrgan") {
+                        self.esrgan().unwrap_or(Method::Ai)
+                    } else if name == hdgen::METHOD_XBRZ {
+                        Method::Xbrz
+                    } else {
+                        Method::Ai
+                    };
                     (scale, m, true)
                 }
-                None => (4, Method::Xbrz, true),
+                None => (4, Method::Ai, true),
             },
         };
         if !resume {
             // a new pack in place of the one there (the old pictures are written over)
             sg_core::fsutil::remove_file(self.hd.pack_dir.join("manifest.json"));
         }
-        let spec =
-            Spec { game: self.game_dir.clone(), out: self.hd.pack_dir.clone(), scale, method, resume, only: None, threads: threads() };
+        let spec = Spec {
+            game: self.game_dir.clone(),
+            out: self.hd.pack_dir.clone(),
+            scale,
+            method,
+            resume,
+            only: None,
+            first: Some(self.theme),
+            threads: threads(),
+        };
         set_unfinished(Some(&spec));
         println!("HD: making a x{scale} pack with {} into {}", spec.method.name(), spec.out.display());
         start(spec, None);
@@ -691,9 +740,95 @@ impl App {
         let mut lines = wrap(&trf("STR_HD_MAKE_PROGRESS", &[("PCT", &pct), ("PICTURES", &pics), ("LEFT", &left)]), 560.0);
         lines.push(format!(" {}", tr("STR_HD_MAKE_STOP")));
         lines.push(format!(" {}", tr("STR_HD_MAKE_HIDE")));
-        let sel = self.notice.as_ref().and_then(|n| n.sel);
+        // first shown with Keep playing lit, so one click or Enter goes back to the game; after that the pointer's choice
+        let sel = if shown.is_empty() { Some(1) } else { self.notice.as_ref().and_then(|n| n.sel) };
         self.notice = Some(Notice { lines: lines.clone(), confirm: Some(Action::HdMake(Choice::Stop)), alt: None, sel });
         JOB.with(|j| j.borrow_mut().as_mut().map(|j| j.shown = lines));
+    }
+
+    /// At start: a run the player began and did not finish (the game was closed) carries on by itself in the background,
+    /// with only the corner note showing (a click on it brings the box back, with Stop).
+    pub fn hd_make_carry_on(&mut self) {
+        if self.ui_ok && self.hd_make_offer() == Some(Offer::Resume) {
+            self.hd_make_answer(Choice::Resume);
+            JOB.with(|j| j.borrow_mut().as_mut().map(|j| j.visible = false));
+            if self.notice.as_ref().is_some_and(|n| n.confirm == Some(Action::HdMake(Choice::Stop))) {
+                self.notice = None;
+            }
+        }
+    }
+
+    /// Whether Preferences > Graphics offers Remove HD graphics: a pack is there and no run is making one.
+    pub fn hd_remove_offer(&self) -> bool {
+        running().is_none() && sg_core::fsutil::exists(self.hd.pack_dir.join("manifest.json"))
+    }
+
+    /// The pack's files and their bytes (0 where the size cannot be read, as in a browser).
+    fn pack_files(&self) -> (Vec<PathBuf>, u64) {
+        let files = sg_core::fsutil::walk(&self.hd.pack_dir);
+        #[cfg(not(target_arch = "wasm32"))]
+        let bytes = files.iter().filter_map(|f| std::fs::metadata(f).ok()).map(|m| m.len()).sum();
+        #[cfg(target_arch = "wasm32")]
+        let bytes = 0;
+        (files, bytes)
+    }
+
+    /// Remove HD graphics...: what it does and the space it frees, then OK or Cancel.
+    pub fn hd_remove_ask(&mut self) {
+        let (_, bytes) = self.pack_files();
+        let text =
+            if bytes > 0 { trf("STR_HD_REMOVE_ASK", &[("SIZE", &mb(bytes as f64))]) } else { tr("STR_HD_REMOVE_ASK_PLAIN").to_string() };
+        let mut lines = wrap(&text, 560.0);
+        lines.extend(["STR_HD_REMOVE_OK", "STR_GAME_FILES_NOT_NOW"].map(|k| format!(" {}", tr(k))));
+        self.notice = Some(Notice { lines, confirm: Some(Action::HdRemove), alt: None, sel: Some(1) });
+    }
+
+    /// Deletes the pack (HD is already off) and any run not finished; says so.
+    pub fn hd_remove(&mut self) {
+        let (files, _) = self.pack_files();
+        for f in &files {
+            sg_core::fsutil::remove_file(f);
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        let _ = std::fs::remove_dir_all(&self.hd.pack_dir);
+        set_unfinished(None);
+        println!("HD: pack removed ({} files)", files.len());
+        self.show_notice(tr("STR_HD_REMOVED"));
+    }
+
+    /// The corner note while a run goes on with its box closed: its text and where it is (800 x 600 units), or None.
+    fn hd_badge(&self) -> Option<(String, crate::render::Rect)> {
+        let (frac, elapsed, visible) =
+            JOB.with(|j| j.borrow().as_ref().map(|j| (j.shared.fraction(), crate::app::now() - j.started, j.visible)))?;
+        if visible || self.notice.is_some() || !self.ui_ok {
+            return None;
+        }
+        let pct = (frac * 100.0) as u32;
+        let left =
+            if frac > 0.02 && elapsed > 3.0 { minutes(elapsed * (1.0 - frac) / frac) } else { tr("STR_HD_MAKE_LEFT_UNKNOWN").to_string() };
+        let t = trf("STR_HD_MAKE_BADGE", &[("PCT", &pct), ("LEFT", &left)]);
+        let w = crate::ui::text_width(&t, 15.0) + 20.0;
+        Some((t, crate::render::Rect { x: 400.0 - w / 2.0, y: 8.0, w, h: 22.0 }))
+    }
+
+    /// Draws the corner note (over the game, under a box).
+    pub fn draw_hd_badge(&mut self, g: &mut crate::gfx::Gfx) {
+        let Some((t, r)) = self.hd_badge() else { return };
+        let s = crate::ui::Screen::new(self.draw_w, self.draw_h);
+        s.fill(g, r.x, r.y, r.w, r.h, crate::ui::rgba(0.1, 0.1, 0.3, 0.85));
+        s.text_centered(g, 400.0, r.y + 4.0, &t, 15.0, crate::ui::rgb(1.0, 1.0, 0.8));
+        g.flush();
+    }
+
+    /// A click on the corner note brings the progress box back. True when it took the click.
+    pub fn hd_badge_click(&mut self, vx: f32, vy: f32) -> bool {
+        match self.hd_badge() {
+            Some((_, r)) if r.has(vx, vy) => {
+                self.hd_make_open();
+                true
+            }
+            _ => false,
+        }
     }
 
     /// Each frame: the run's progress (a browser's next pictures), and once it is over its outcome. True when a pack was
@@ -745,7 +880,8 @@ impl App {
                     job.spec.method.name()
                 );
                 set_unfinished(None);
-                self.show_toast(tr("STR_HD_MAKE_DONE"));
+                // a box that stays until it is read: what happened, that nothing else is needed, and how to undo it
+                self.show_notice(tr("STR_HD_MAKE_DONE"));
                 true
             }
         }
