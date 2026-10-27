@@ -118,6 +118,14 @@ second "Overgrowth" (probably a copy-paste slip in the original).
   their vertex sums are normalised), global ambient default 0.2. The glTexEnvi call passes the texture target (0xde1) where
   GL_TEXTURE_ENV belongs, so it fails and textures stay in GL_MODULATE. `changeLighting` (+-0.1 on the ambient, diffuse
   0.9, specular 1 1 0.9) is not imported by the exe. Port: `sg_core::terrain::Lighting::shade`, the shader in gfx.rs.
+* Vertex normals (Tile::calcNormals 0x10012cf0, run while the tile's dirty byte at Tile+0x244 is set): the centre gets the
+  normalised sum of the tile's 8 face normals (record + 0x2c, each the normalised cross product of the triangle's edges,
+  0x10011d60); then once per corner (0x10011ef0 with N/S and W/E) the corner and its edge midpoints get the sums of the unit
+  face normals of every triangle meeting them, in this tile and in the neighbours on that side and the diagonal one where
+  they exist (each neighbour's from its own vertices): 8 triangles at a corner, 4 at an edge midpoint. So the vertices
+  two tiles share end up with the same normal and the ground is shaded smoothly across tile edges (issue #112: the port
+  summed only the tile's own triangles, so hills showed hard-edged dark tiles in Classic). Port:
+  `sg_core::terrain::vertex_normals`; Enhanced graphics keeps the per-tile sums (`Terrain::own_tile_normals`).
 
 ## Edge blending (per-triangle texture variation)
 

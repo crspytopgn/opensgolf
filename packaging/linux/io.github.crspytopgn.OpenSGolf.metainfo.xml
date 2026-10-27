@@ -116,6 +116,18 @@
         <p>Two new options, both off until switched on: aim and swing with the mouse the way touch screens do, and no new dandelions in sandbox games.</p>
       </description>
     </release>
+    <release version="0.5.13" date="2026-10-27">
+      <description>
+        <p>Fixed the picture going black or jumbled after resizing or maximising the window (with multisampling, HD or some Enhanced effects on).</p>
+        <p>Classic graphics shade hills smoothly, as the original does, instead of in hard tile-sized steps.</p>
+        <p>Each theme's own buildings have their names again: the desert's Spa, Helipad and Casino, the links' Pub, Stable, Church and Castle, the parkland's Tennis Court and the tropical Theme Park.</p>
+      </description>
+    </release>
+    <release version="0.5.12" date="2026-10-26">
+      <description>
+        <p>Golfer stories play as in the original: the lines show in bubbles over the two golfers with their portraits, and a scene plays only while you watch the pair close up, instead of in a box in the middle of the screen wherever you look.</p>
+      </description>
+    </release>
     <release version="0.5.11" date="2026-10-26">
       <description>
         <p>Placing a landmark, flower bed or scenic tree now places the one you chose: a click on the course no longer picks the item the pointer passed over on the way.</p>

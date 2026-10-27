@@ -712,12 +712,14 @@ impl App {
                     let t = tr("STR_ROUTING_LOW");
                     s.text(g, 142.0, row(206.0), t, fx(t, 150.0), ink);
                 }
+                // the last line names the theme's building (the report 0x456be0, on its home values tab, appends the table's Marina entry to "Building a ")
+                let marina = trf("STR_ROUTING_INCREASE_MARINA", &[("BUILDING", &land::building_name(land::K_MARINA))]);
                 let inc = [
                     tr("STR_ROUTING_INCREASE"),
                     tr("STR_ROUTING_INCREASE_WATER"),
                     tr("STR_ROUTING_INCREASE_FUN"),
                     tr("STR_ROUTING_INCREASE_TOP"),
-                    tr("STR_ROUTING_INCREASE_MARINA"),
+                    marina.as_str(),
                 ];
                 let dec = [
                     tr("STR_ROUTING_DECREASE"),

@@ -778,7 +778,7 @@ impl Stage {
         let mut raw = vec![0u8; (w * h * 4) as usize];
         self.g.ctx.texture_read_pixels(color, &mut raw);
         self.g.ctx.delete_render_pass(pass);
-        // (deleting the pass deleted its textures)
+        // (the pass's deletion, made by the commit below, deletes its textures)
         let _ = depth;
         self.g.ctx.commit_frame();
         self.app.draw_w = ow;

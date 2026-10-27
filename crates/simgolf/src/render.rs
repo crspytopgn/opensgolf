@@ -782,9 +782,9 @@ impl App {
                 for &k in OFFERED_KINDS.iter() {
                     let k = k as usize;
                     if self.build_available(k) {
-                        let (name, _, price) = sg_core::data::buildings()[k];
+                        let price = sg_core::data::buildings()[k].2;
                         v.push(PanelItem {
-                            label: format!("{}  {}", sg_core::lang::text(name), money(price as i64 * 100)),
+                            label: format!("{}  {}", sg_core::land::building_name(k as i32), money(price as i64 * 100)),
                             kind: 4,
                             arg: k,
                         });
