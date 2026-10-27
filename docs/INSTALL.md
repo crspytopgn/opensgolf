@@ -11,6 +11,12 @@ Windows programs and a Mac's `__MACOSX` files; afterwards the .zip is no longer 
 `SimGolf` folder next to the program; the full list is in [PLAYING.md](PLAYING.md#your-own-simgolf-files)). *Use the free
 graphics* goes back. No Terminal and no options are needed (`--game DIR` remains for scripts).
 
+**Package managers.** On Windows, [Scoop](https://scoop.sh)'s games bucket has it: `scoop bucket add games`, then
+`scoop install opensgolf` (and `scoop update opensgolf` for a new release). On macOS, the project's own
+[Homebrew](https://brew.sh) tap: `brew install --cask crspytopgn/tap/opensgolf`. The game updates itself (*Update now* on the
+title menu), so Homebrew leaves it to that; `brew upgrade --greedy opensgolf` updates it through Homebrew instead. Both
+install the same packages as the release page.
+
 If your copy's `Sounds` and `SimsFX` folders are empty (some downloaded copies leave the sounds out), the game still
 plays, with the free OpenSGolf sounds, and says so once when it starts (the browser page too, after loading the files); a
 full installed copy or the CD has the original's. A .zip is read whether it was made with normal (Deflate) compression or

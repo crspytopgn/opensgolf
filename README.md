@@ -58,6 +58,13 @@ Downloads for every system ([all releases](https://github.com/crspytopgn/opensgo
 | Steam Deck | [Linux AppImage](https://github.com/crspytopgn/opensgolf/releases/latest/download/opensgolf-linux-x86_64.AppImage) | Add it to Steam as a non-Steam game; it starts full screen in Game Mode and plays with the Deck's controls. |
 | iPhone and iPad | [Browser version](https://crspytopgn.github.io/opensgolf/) | Works by touch in Safari; hold it sideways. |
 
+Or install it with a package manager:
+
+| System | Command |
+|---|---|
+| Windows ([Scoop](https://scoop.sh)) | `scoop bucket add games` then `scoop install opensgolf` |
+| macOS ([Homebrew](https://brew.sh)) | `brew install --cask crspytopgn/tap/opensgolf` |
+
 Every download is a real app that runs offline; the browser version is there for devices without one (iPhone and iPad)
 or for a quick try. Controllers (Xbox, PlayStation, Switch, Steam Deck) work on Windows, macOS, Linux and in the browser.
 The Windows and macOS warnings appear because the project has no paid code-signing certificate. Details for each system
