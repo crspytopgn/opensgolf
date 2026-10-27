@@ -71,7 +71,8 @@
 //!
 //! * the interface at the screen's edges (enhanced.rs widescreen): on a wide screen with Classic graphics, the HUD goes
 //!   to the window's edges as Enhanced graphics' Widescreen tick puts it, instead of staying in the 800 x 600 middle. A
-//!   look: the art and the game are the same.
+//!   look: the art and the game are the same. On by default and left alone by the presets (the original only ran at
+//!   4:3, where it changes nothing).
 //!
 //! With every extra off the game draws and plays exactly as before they existed (each hook asks its switch first).
 use serde::{Deserialize, Serialize};
@@ -116,8 +117,9 @@ pub struct Settings {
     #[serde(default)]
     pub right_drop: bool,
     /// The HUD at the window's edges on a wide screen with Classic graphics too (enhanced.rs widescreen; Enhanced graphics
-    /// has its own Widescreen tick).
-    #[serde(default)]
+    /// has its own Widescreen tick). On by default (missing reads as on, as the update check): the original only ran at
+    /// 4:3, where nothing moves, so there is no original wide-screen layout to keep.
+    #[serde(default = "on")]
     pub wide_ui: bool,
 }
 
@@ -125,7 +127,8 @@ impl Settings {
     /// The interface extras of the "Original + helpers" and "OpenSGolf" presets (extras_ui.rs `Preset`): every helper and
     /// look, without the ticks the presets leave as the player has them (`Settings::kept`: the two pauses, which change when
     /// the game runs, the update check, which goes online, the three the Change keys' controls presets set: zoom towards
-    /// the pointer, drag to place, right-drag panning, and mouse aim and swing). Those are false here.
+    /// the pointer, drag to place, right-drag panning, mouse aim and swing, right click puts the tool away, and the interface at
+    /// the screen's edges, on by default). Those are false here.
     pub const HELPERS: Settings = Settings {
         people: true,
         history: true,
@@ -153,7 +156,7 @@ impl Settings {
         desert_art: true,
         mouse_swing: false,
         right_drop: false,
-        wide_ui: true,
+        wide_ui: false,
     };
     pub const ALL_OFF: Settings = Settings {
         people: false,
@@ -272,6 +275,7 @@ impl Settings {
             right_drag: from.right_drag,
             mouse_swing: from.mouse_swing,
             right_drop: from.right_drop,
+            wide_ui: from.wide_ui,
             ..*self
         }
     }
@@ -452,7 +456,7 @@ pub fn saved() -> Settings {
 /// autosave, save pictures and sharing, which came after the People screen, follow its tick in ticks saved before them.
 fn from_json(v: &serde_json::Value) -> Settings {
     if !v.is_object() {
-        return Settings { update_check: true, ..Settings::ALL_OFF };
+        return Settings { update_check: true, wide_ui: true, ..Settings::ALL_OFF };
     }
     let mut s: Settings = serde_json::from_value(v.clone()).unwrap_or_default();
     if v.get("autosave").is_none() {
@@ -986,9 +990,9 @@ mod tests {
             assert_eq!(Settings::from_bits(m).bits(), m);
         }
         // settings.json without the ticks at all (written before the extras, or only by other screens): all off but the
-        // update check (on from 0.6)
+        // update check and the interface at the screen's edges (both on from 0.6)
         assert_eq!(Settings::default(), Settings::ALL_OFF);
-        let checking = Settings { update_check: true, ..Settings::ALL_OFF };
+        let checking = Settings { update_check: true, wide_ui: true, ..Settings::ALL_OFF };
         assert_eq!(from_json(&serde_json::Value::Null), checking);
         let file: serde_json::Value = serde_json::from_str("{\"hd\": {\"enabled\": false}, \"controls\": {}}").unwrap();
         assert_eq!(from_json(&file[SETTINGS_KEY]), checking);
@@ -1008,8 +1012,9 @@ mod tests {
             autosave: true,
             save_pictures: true,
             sharing: true,
-            // on from 0.6 for every file without its own tick
+            // on from 0.6 for every file without their own ticks
             update_check: true,
+            wide_ui: true,
             ..Settings::ALL_OFF
         };
         assert_eq!(s, want);
@@ -1153,6 +1158,18 @@ mod tests {
         assert_eq!(f.bits(), 1 << 22);
         assert_eq!(Settings::from_bits(f.bits()), f);
         assert_eq!(UI_KEYS.len(), 27);
+    }
+
+    #[test]
+    fn the_interface_at_the_edges_is_on_unless_switched_off_and_the_presets_leave_it() {
+        assert!(from_json(&serde_json::json!({ "people": true })).wide_ui, "missing: on");
+        assert!(!from_json(&serde_json::json!({ "wide_ui": false })).wide_ui, "switched off: stays off");
+        let off = Settings { wide_ui: false, ..Settings::HELPERS };
+        assert!(!Settings::HELPERS.with_kept(&off).wide_ui && Settings::ALL_OFF.with_kept(&checking_on()).wide_ui);
+    }
+
+    fn checking_on() -> Settings {
+        Settings { wide_ui: true, ..Settings::ALL_OFF }
     }
 
     #[test]

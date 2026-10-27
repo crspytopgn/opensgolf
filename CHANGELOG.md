@@ -24,8 +24,9 @@ Enhanced graphics and HD.
   switches it off).
 - **The game says when some of your SimGolf files cannot be read**, instead of quietly leaving things off the course.
 - **New options:** aim and swing with the mouse the way touch screens do; *right click puts the tool away* (B on a
-  controller), so a brush left in hand no longer undoes a hole's tee or green; *the interface at the screen's edges* on wide
-  screens with Classic graphics too (on big TVs the dock and money no longer sit in the middle); and *Sandbox: no new
+  controller), so a brush left in hand no longer undoes a hole's tee or green; and on wide screens the interface now sits at the
+  screen's edges with Classic graphics too (on big TVs the dock and money no longer sit in the middle; Looks switches it
+  back); and *Sandbox: no new
   dandelions*.
 
 **Fix releases before it**

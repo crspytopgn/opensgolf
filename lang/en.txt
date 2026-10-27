@@ -3444,4 +3444,4 @@ STR_EXTRAS_RIGHT_DROP                   : Controls: right click puts the tool aw
 STR_EXTRAS_DESC_RIGHT_DROP              :A right click (B on a controller) drops the brush or tool in hand, as Space does, instead of the original's undo.
 # The interface at the screen's edges (OpenSGolf extras, extras.rs wide_ui; enhanced.rs widescreen)
 STR_EXTRAS_WIDE_UI                      : Interface at the screen's edges
-STR_EXTRAS_DESC_WIDE_UI                 :On a wide screen the dock, panels and money go to the screen's edges, as with Enhanced graphics' Widescreen.
+STR_EXTRAS_DESC_WIDE_UI                 :On a wide screen the dock, panels and money sit at the screen's edges (on by default; off keeps them in the 4:3 middle).
