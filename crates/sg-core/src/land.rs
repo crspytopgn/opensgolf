@@ -342,9 +342,42 @@ pub fn border_class(ty: u8, desert: bool) -> u8 {
     }
 }
 
-/// The name of a building or object kind (the data tables' `BUILDINGS`), "" for an unknown kind.
+/// The theme whose building names [`building_name`] gives (the exe's theme number: 0 Parkland, 1 Desert, 2 Tropical, 3
+/// Links); `NO_THEME` until a theme is loaded, which keeps the table's own names.
+static NAME_THEME: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(NO_THEME);
+const NO_THEME: u8 = 0xff;
+
+/// Sets the theme the building names follow. The exe does this as it loads a theme (the theme loader 0x43dbe0): it
+/// copies that theme's names over four entries of its object table, so every screen that names a building from the table
+/// (the Add Buildings panel, the hover box, the unlock message, the ledger, Home Values) shows the theme's name.
+pub fn set_name_theme(exe_theme: u8) {
+    NAME_THEME.store(exe_theme.min(3), std::sync::atomic::Ordering::Relaxed);
+}
+
+/// The kinds whose name depends on the theme, and each theme's name for them (EXACT: the strings the theme loader 0x43dbe0 copies
+/// over the table's Snack Bar, Swim Club, Marina and Airstrip entries), by the exe's theme number.
+const THEMED_KINDS: [i32; 4] = [7, 9, 12, 14];
+const THEMED_NAMES: [[&str; 4]; 4] = [
+    ["STR_BUILDING_SNACK_BAR", "STR_BUILDING_TENNIS_COURT", "STR_BUILDING_MARINA", "STR_BUILDING_AIRSTRIP"],
+    ["STR_BUILDING_SNACK_BAR", "STR_BUILDING_SPA", "STR_BUILDING_HELIPAD", "STR_BUILDING_CASINO"],
+    ["STR_BUILDING_SNACK_BAR", "STR_BUILDING_SWIM_CLUB", "STR_BUILDING_MARINA", "STR_BUILDING_THEME_PARK"],
+    ["STR_BUILDING_PUB", "STR_BUILDING_STABLE", "STR_BUILDING_CHURCH", "STR_BUILDING_CASTLE"],
+];
+
+/// The name of a building or object kind in a theme (the exe's theme number; `NO_THEME` for the table's own names), "" for
+/// an unknown kind. A data pack's own name for a kind (docs/MODDING.md) is kept in every theme.
+pub fn building_name_in(kind: i32, exe_theme: u8) -> &'static str {
+    let Some(b) = crate::data::buildings().get(kind.max(0) as usize).filter(|_| kind >= 0) else { return "" };
+    let themed = THEMED_KINDS.iter().position(|&k| k == kind).filter(|_| exe_theme <= 3 && b.0 == BUILDINGS[kind as usize].0);
+    match themed {
+        Some(i) => tr(THEMED_NAMES[exe_theme as usize][i]),
+        None => crate::lang::text(b.0),
+    }
+}
+
+/// The name of a building or object kind (the data tables' `BUILDINGS`) in the loaded theme, "" for an unknown kind.
 pub fn building_name(kind: i32) -> &'static str {
-    crate::data::buildings().get(kind.max(0) as usize).filter(|_| kind >= 0).map(|b| crate::lang::text(b.0)).unwrap_or("")
+    building_name_in(kind, NAME_THEME.load(std::sync::atomic::Ordering::Relaxed))
 }
 
 /// Buildings and objects: (name key, footprint edge in tiles, price in money units), by the exe's object kind.
@@ -2264,6 +2297,30 @@ mod tile_item_tests {
         for (tile, want) in [((21, 12), 1), ((29, 28), 2), ((6, 33), 3)] {
             let (x, y) = at(tile.0, tile.1);
             assert_eq!(c.nearest(K_SNACK_BAR, x, y).0, want, "from {tile:?}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod building_name_tests {
+    use super::*;
+
+    /// Issue #110: the four themed kinds take the loaded theme's names (the exe's theme switch), every other kind keeps its
+    /// own, and with no theme loaded the table's names stand.
+    #[test]
+    fn themed_names_follow_the_theme() {
+        let names = |t: u8| THEMED_KINDS.map(|k| building_name_in(k, t));
+        assert_eq!(names(0), ["Snack Bar", "Tennis Court", "Marina", "Airstrip"]);
+        assert_eq!(names(1), ["Snack Bar", "Spa", "Helipad", "Casino"]);
+        assert_eq!(names(2), ["Snack Bar", "Swim Club", "Marina", "Theme Park"]);
+        assert_eq!(names(3), ["Pub", "Stable", "Church", "Castle"]);
+        assert_eq!(names(NO_THEME), ["Snack Bar", "Swim Club", "Marina", "Airstrip"]);
+        for t in [0, 1, 2, 3, NO_THEME] {
+            assert_eq!(building_name_in(K_CLUBHOUSE, t), "Clubhouse");
+            assert_eq!(building_name_in(6, t), "Putting Green");
+            assert_eq!(building_name_in(13, t), "Resort Hotel");
+            assert_eq!(building_name_in(-1, t), "");
+            assert_eq!(building_name_in(99, t), "");
         }
     }
 }

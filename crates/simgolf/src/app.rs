@@ -2213,6 +2213,7 @@ impl App {
         }
         self.catalog = cat;
         self.theme = theme;
+        sg_core::land::set_name_theme(self.exe_theme());
         for s in self.sprites.drain(..) {
             for t in s.tex.into_iter().flatten() {
                 g.ctx.delete_texture(t);
@@ -2248,6 +2249,7 @@ impl App {
         self.water_depth = sg_core::wildlife::water_depth(&self.course);
         self.course.door = self.club_anchor();
         self.course.theme = self.exe_theme();
+        land::set_name_theme(self.course.theme);
         if self.course.objects.first().map(|o| o.kind) != Some(land::K_CLUBHOUSE) {
             let (a, b) = self.course.door;
             self.course.objects.insert(0, land::Object { kind: land::K_CLUBHOUSE, a, b, dir: 0, flags: 0x40, sub: 0, val: 0 });
