@@ -1,8 +1,10 @@
 //! Pre-rendered sprites (trees, buildings, golfers...). Layout facts come from the Firaxis header extension of the .flc files,
 //! see docs/SPRITES.md.
-use crate::assets::{read_pcx_palette, to_rgba, Rgba};
+use crate::assets::{read_pcx_palette, to_rgba_parts, Rgba};
 use crate::flc::decode_flc;
+use std::borrow::Cow;
 use std::path::Path;
+use std::sync::Arc;
 
 /// World units covered by one sprite pixel. The sprites were rendered for the 800x600 camera, whose orthographic window is
 /// 1767 world units wide (see docs/TERRAIN.md): 1767 / 800.
@@ -20,11 +22,35 @@ pub struct Sprite {
     pub frame_ms: u32,
     pub view_mask: u32,
     pub shadow: bool,
-    /// View-major, RGBA, transparent where the key colour was.
-    pub frames: Vec<Rgba>,
-    /// The palette indices of each frame, kept for golfer and celebrity clips, which are recoloured per person
-    /// (sg_core::bodies); empty for everything else.
-    pub indexed: Vec<Vec<u8>>,
+    /// View-major; `frame` gives a frame's RGBA, transparent where the key colour was.
+    pub frames: Vec<Frame>,
+}
+
+/// What a .flc frame's palette indices are drawn as.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    /// The palette's colours.
+    Plain,
+    /// The palette's colours, and the indices kept for recolouring: a golfer's or a celebrity's clip, recoloured per person
+    /// (sg_core::bodies).
+    Person,
+    /// Translucent black (a shadow sprite).
+    Shadow,
+}
+
+/// One frame of a sprite.
+///
+/// A frame read from a .flc keeps its palette indices and is made RGBA each time it is asked for (`Sprite::frame`), which
+/// is when the game makes its texture or an effect's picture from it, both kept. The port's own: a game holds every frame
+/// of the sprites it has loaded (some 31,000 when it starts, about 7,000 more as golfers of each new body come), while only
+/// those drawn ever become textures; kept as RGBA they took four times the memory, four fifths of the game's heap, and the
+/// browser's memory never shrinks again.
+#[derive(Clone, Debug)]
+pub enum Frame {
+    /// A .flc frame: w x h palette indices (255 the transparent key) and its palette, shared with the sprite's other frames.
+    Indexed { w: u32, h: u32, idx: Vec<u8>, pal: Arc<[u8; 768]>, kind: Kind },
+    /// RGBA pixels (a content pack's sheet, a picture the game makes).
+    Rgba(Rgba),
 }
 
 impl Sprite {
@@ -35,6 +61,97 @@ impl Sprite {
         // damaged copy's) shows its last frame instead of reading past the end
         ((view * self.frames_per_view + f) as usize).min(self.frames.len().saturating_sub(1))
     }
+
+    /// Frame `i` as RGBA (made from the palette indices for a .flc frame, so worth keeping when it is needed again).
+    pub fn frame(&self, i: usize) -> Cow<'_, Rgba> {
+        match &self.frames[i] {
+            Frame::Rgba(img) => Cow::Borrowed(img),
+            Frame::Indexed { w, h, idx, pal, kind } => Cow::Owned(expand(*w, *h, idx, pal, *kind)),
+        }
+    }
+
+    /// Frame `i`'s width and height.
+    pub fn frame_size(&self, i: usize) -> (u32, u32) {
+        match &self.frames[i] {
+            Frame::Rgba(img) => (img.w, img.h),
+            Frame::Indexed { w, h, .. } => (*w, *h),
+        }
+    }
+
+    /// The palette indices of frame `i` of a golfer's or a celebrity's clip, for recolouring (None for anything else).
+    pub fn indexed(&self, i: usize) -> Option<&[u8]> {
+        match self.frames.get(i)? {
+            Frame::Indexed { idx, kind: Kind::Person, .. } => Some(idx),
+            _ => None,
+        }
+    }
+
+    /// Whether the frames can be recoloured per person (`indexed`): a golfer's or a celebrity's clip read from a .flc.
+    pub fn recolourable(&self) -> bool {
+        matches!(self.frames.first(), Some(Frame::Indexed { kind: Kind::Person, .. }))
+    }
+}
+
+/// A .flc frame's RGBA: the palette's colours with the key transparent and the neighbours' colours spread under it, or a
+/// shadow's translucent black.
+fn expand(w: u32, h: u32, idx: &[u8], pal: &[u8; 768], kind: Kind) -> Rgba {
+    let mut img = to_rgba_parts(w, h, idx, pal, Some(255));
+    if kind != Kind::Shadow {
+        // Texture filtering must not pull the key colour into the edges: spread neighbour colours outwards.
+        let (w, h) = (img.w as i32, img.h as i32);
+        for _pass in 0..2 {
+            let mut next = img.px.clone();
+            for y in 0..h {
+                for x in 0..w {
+                    let i = ((y * w + x) * 4) as usize;
+                    if img.px[i + 3] != 0 {
+                        continue;
+                    }
+                    'search: for dy in -1..=1 {
+                        for dx in -1..=1 {
+                            let (nx, ny) = (x + dx, y + dy);
+                            if nx < 0 || ny < 0 || nx >= w || ny >= h {
+                                continue;
+                            }
+                            let q = ((ny * w + nx) * 4) as usize;
+                            if img.px[q + 3] != 0 && next[i..i + 3] != img.px[q..q + 3] {
+                                let (r, g, b) = (img.px[q], img.px[q + 1], img.px[q + 2]);
+                                next[i] = r;
+                                next[i + 1] = g;
+                                next[i + 2] = b;
+                                break 'search;
+                            }
+                        }
+                    }
+                }
+            }
+            img.px = next;
+        }
+    } else {
+        for i in 0..(w * h) as usize {
+            if idx[i] == 255 {
+                continue;
+            }
+            // jgl's blit (0x10013400) draws indices 0xf8..0xfc through the exe's shading tables (0x824148, built by
+            // 0x461830): 0xf8 to 0xfb scale the screen pixel's 5-bit channels by 4/8, 5/8, 6/8 and 7/8 (black at
+            // 1/2, 3/8, 1/4 and 1/8 strength here). Other indices keep the earlier ramp reading (white = lightest).
+            let alpha = match idx[i] {
+                0xf8 => 128,
+                0xf9 => 96,
+                0xfa => 64,
+                0xfb => 32,
+                k => {
+                    let dens = 1.0 - pal[k as usize * 3] as f32 / 255.0;
+                    (70.0 + dens * 90.0) as u8
+                }
+            };
+            img.px[i * 4] = 0;
+            img.px[i * 4 + 1] = 0;
+            img.px[i * 4 + 2] = 0;
+            img.px[i * 4 + 3] = alpha;
+        }
+    }
+    img
 }
 
 /// Loads a sprite .flc. Palette index 255 is the transparent key colour (magenta or cyan depending on the file). For shadow
@@ -56,75 +173,25 @@ pub fn load_sprite(flc_path: &Path, shadow: bool, palette_pcx: Option<&Path>) ->
         anchor_x: if f.has_ext { (f.canvas_w / 2) as i32 - f.crop_x as i32 } else { f.w as i32 / 2 },
         anchor_y: if f.has_ext { (f.canvas_h / 2) as i32 - f.crop_y as i32 } else { f.h as i32 },
         frames: Vec::with_capacity(f.frames.len()),
-        indexed: Vec::new(),
     };
     let lower = flc_path.to_string_lossy().to_lowercase().replace('\\', "/");
     let people = !shadow && ["/male/", "/female/", "/celebs/"].iter().any(|d| lower.contains(d));
-    for src in &f.frames {
-        if people {
-            out.indexed.push(src.idx.clone());
-        }
-        let mut ix = src.clone();
-        if let Some(p) = over {
-            ix.pal = p;
-        }
-        let mut img = to_rgba(&ix, Some(255));
-        if !shadow {
-            // Texture filtering must not pull the key colour into the edges: spread neighbour colours outwards.
-            let (w, h) = (img.w as i32, img.h as i32);
-            for _pass in 0..2 {
-                let mut next = img.px.clone();
-                for y in 0..h {
-                    for x in 0..w {
-                        let i = ((y * w + x) * 4) as usize;
-                        if img.px[i + 3] != 0 {
-                            continue;
-                        }
-                        'search: for dy in -1..=1 {
-                            for dx in -1..=1 {
-                                let (nx, ny) = (x + dx, y + dy);
-                                if nx < 0 || ny < 0 || nx >= w || ny >= h {
-                                    continue;
-                                }
-                                let q = ((ny * w + nx) * 4) as usize;
-                                if img.px[q + 3] != 0 && next[i..i + 3] != img.px[q..q + 3] {
-                                    let (r, g, b) = (img.px[q], img.px[q + 1], img.px[q + 2]);
-                                    next[i] = r;
-                                    next[i + 1] = g;
-                                    next[i + 2] = b;
-                                    break 'search;
-                                }
-                            }
-                        }
-                    }
-                }
-                img.px = next;
-            }
-        } else {
-            for i in 0..(ix.w * ix.h) as usize {
-                if ix.idx[i] == 255 {
-                    continue;
-                }
-                // jgl's blit (0x10013400) draws indices 0xf8..0xfc through the exe's shading tables (0x824148, built by
-                // 0x461830): 0xf8 to 0xfb scale the screen pixel's 5-bit channels by 4/8, 5/8, 6/8 and 7/8 (black at
-                // 1/2, 3/8, 1/4 and 1/8 strength here). Other indices keep the earlier ramp reading (white = lightest).
-                let alpha = match ix.idx[i] {
-                    0xf8 => 128,
-                    0xf9 => 96,
-                    0xfa => 64,
-                    0xfb => 32,
-                    k => {
-                        let dens = 1.0 - ix.pal[k as usize * 3] as f32 / 255.0;
-                        (70.0 + dens * 90.0) as u8
-                    }
-                };
-                img.px[i * 4] = 0;
-                img.px[i * 4 + 1] = 0;
-                img.px[i * 4 + 2] = 0;
-                img.px[i * 4 + 3] = alpha;
-            }
-        }
-        out.frames.push(img);
+    let kind = if shadow {
+        Kind::Shadow
+    } else if people {
+        Kind::Person
+    } else {
+        Kind::Plain
+    };
+    // the frames of a file nearly always share one palette: kept once
+    let mut shared: Option<Arc<[u8; 768]>> = None;
+    for src in f.frames {
+        let pal = over.unwrap_or(src.pal);
+        let pal = match &shared {
+            Some(p) if **p == pal => p.clone(),
+            _ => shared.insert(Arc::new(pal)).clone(),
+        };
+        out.frames.push(Frame::Indexed { w: src.w, h: src.h, idx: src.idx, pal, kind });
     }
     if out.frames.is_empty() {
         return Err(format!("{}: no frames", flc_path.display()));
@@ -134,7 +201,7 @@ pub fn load_sprite(flc_path: &Path, shadow: bool, palette_pcx: Option<&Path>) ->
 
 /// One frame of a person clip in the given palette: index 255 is transparent.
 pub fn recolour(s: &Sprite, frame: usize, pal: &[u8; 768]) -> Option<Rgba> {
-    let idx = s.indexed.get(frame)?;
+    let idx = s.indexed(frame)?;
     let mut img = Rgba::new(s.w, s.h);
     for (i, &c) in idx.iter().enumerate() {
         let c = c as usize;
@@ -151,13 +218,44 @@ mod tests {
     #[test]
     fn frame_index_stays_in_the_file() {
         // a header promising 8 views of 4 frames over a file holding 3 frames (docs/FIXES.md 5)
-        let s = Sprite { views: 8, frames_per_view: 4, frames: vec![Rgba::new(1, 1); 3], ..Default::default() };
+        let s = Sprite { views: 8, frames_per_view: 4, frames: vec![Frame::Rgba(Rgba::new(1, 1)); 3], ..Default::default() };
         for v in -9..20 {
             for f in -9..20 {
                 assert!(s.frame_index(v, f) < 3);
             }
         }
-        let s = Sprite { views: 2, frames_per_view: 3, frames: vec![Rgba::new(1, 1); 6], ..Default::default() };
+        let s = Sprite { views: 2, frames_per_view: 3, frames: vec![Frame::Rgba(Rgba::new(1, 1)); 6], ..Default::default() };
         assert_eq!(s.frame_index(1, 2), 5);
+    }
+
+    #[test]
+    fn indexed_frames_are_made_rgba_on_use() {
+        let mut pal = [0u8; 768];
+        pal[3..6].copy_from_slice(&[10, 20, 30]); // entry 1
+        pal[0xf9 * 3] = 0; // a shadow's 3/8 strength entry
+        pal[255 * 3..].copy_from_slice(&[255, 0, 255]); // the key
+        let pal = Arc::new(pal);
+        let sprite = |idx: [u8; 2], kind| Sprite {
+            w: 2,
+            h: 1,
+            frames: vec![Frame::Indexed { w: 2, h: 1, idx: idx.to_vec(), pal: pal.clone(), kind }],
+            ..Default::default()
+        };
+        // a plain frame: the palette's colours, the key transparent with its neighbour's colour spread under it
+        let s = sprite([1, 255], Kind::Plain);
+        assert_eq!(s.frame(0).px, [10, 20, 30, 255, 10, 20, 30, 0]);
+        assert_eq!(s.frame_size(0), (2, 1));
+        assert!(!s.recolourable() && s.indexed(0).is_none());
+        // a shadow: translucent black, the key left clear
+        let s = sprite([255, 0xf9], Kind::Shadow);
+        assert_eq!(s.frame(0).px, [255, 0, 255, 0, 0, 0, 0, 96]);
+        // a person's clip keeps its indices for the outfits
+        let s = sprite([1, 255], Kind::Person);
+        assert!(s.recolourable());
+        assert_eq!(s.indexed(0), Some(&[1u8, 255][..]));
+        assert_eq!(recolour(&s, 0, &pal).unwrap().px, [10, 20, 30, 255, 255, 0, 255, 0]);
+        // RGBA frames are lent as they are
+        let s = Sprite { frames: vec![Frame::Rgba(Rgba::new(2, 2))], ..Default::default() };
+        assert!(matches!(s.frame(0), Cow::Borrowed(_)));
     }
 }

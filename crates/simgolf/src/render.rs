@@ -148,7 +148,7 @@ impl App {
                 return Some(STex::whole(t));
             }
         }
-        if self.sprites[si].s.indexed.is_empty() {
+        if !self.sprites[si].s.recolourable() {
             return None;
         }
         if let Some(&(t, slot)) = self.outfit_atlas.get(&(si, i, o)) {
@@ -195,7 +195,7 @@ impl App {
         }
         let t = match self.sprite_texture_made(g, si, i) {
             Some(t) => t,
-            None => g.texture(&self.sprites[si].s.frames[i], false),
+            None => g.texture(&self.sprites[si].s.frame(i), false),
         };
         self.sprites[si].tex[i] = Some(t);
         t
@@ -260,11 +260,11 @@ impl App {
             self.sprites[si].tex[i] = Some(t);
             return STex::whole(t);
         }
-        if let Some((t, slot)) = g.atlas_texture(&self.sprites[si].s.frames[i]) {
+        if let Some((t, slot)) = g.atlas_texture(&self.sprites[si].s.frame(i)) {
             self.sprite_atlas.insert((si, i), (t, slot));
             return t;
         }
-        let t = g.texture(&self.sprites[si].s.frames[i], false);
+        let t = g.texture(&self.sprites[si].s.frame(i), false);
         self.sprites[si].tex[i] = Some(t);
         STex::whole(t)
     }

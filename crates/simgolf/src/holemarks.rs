@@ -11,7 +11,7 @@ use crate::ui::{line_rgba, rgb, Screen as Ui};
 use sg_core::analysis::KINDS;
 use sg_core::assets::decode_pcx;
 use sg_core::lang::{tr, trf};
-use sg_core::sprites::Sprite;
+use sg_core::sprites::{Frame, Sprite};
 
 /// Exe colour words used here (0x8000 plus 15-bit RGB): the analysis title, its rule, the black of shadows and circles.
 const CYAN: u32 = 0x3ff;
@@ -68,8 +68,7 @@ impl App {
                 frame_ms: 0,
                 view_mask: 0,
                 shadow: false,
-                frames: vec![img],
-                indexed: Vec::new(),
+                frames: vec![Frame::Rgba(img)],
             };
             self.sprites.push(GlSprite { s, tex: vec![None] });
             self.sprites.len() - 1
