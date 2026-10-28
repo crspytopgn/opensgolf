@@ -1,0 +1,1 @@
+* A green painted beside a putting green no longer joins it, and gets its flag

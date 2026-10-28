@@ -3464,9 +3464,7 @@ impl App {
             }
             // tees and greens go through the hole tool's bookkeeping (the hole being built gets its tee or cup)
             if old <= 1 || new <= 1 {
-                let green_next = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-                    .iter()
-                    .any(|&(ex, ey)| self.terrain.inside(x + ex, y + ey) && self.terrain.ty[self.terrain.tile_index(x + ex, y + ey)] == 1);
+                let green_next = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|&(ex, ey)| self.green_joins(x + ex, y + ey));
                 if !self.club.paint_hole_tile(&mut self.course, x, y, old, new, green_next) {
                     continue;
                 }
@@ -3623,6 +3621,15 @@ impl App {
 
     /// The variant byte the green brush gives a green (0x420561): 0xff for the tricky green (an odd variant, Tab), else 0.
     /// Terrain.dll draws a green whose byte has bit 0x80 with the TrickyGreen textures, and the golfers read the same bit.
+    /// Whether tile (x, y) is a green that a green painted beside it joins, for the hole tool's rule that a green next to
+    /// another starts no hole without a tee (0x41fee2). The exe counts a putting green's tiles too, so a green painted against
+    /// one got no flag (#128); with "Fix original bugs" a putting green is a building of its own and is not counted.
+    fn green_joins(&self, x: i32, y: i32) -> bool {
+        self.terrain.inside(x, y)
+            && self.terrain.ty[self.terrain.tile_index(x, y)] == 1
+            && !(crate::enhanced::fix_bugs() && self.terrain.on_putting_green(x, y))
+    }
+
     pub(crate) fn green_brush_byte(&self) -> i32 {
         let v = match self.paint_variant {
             Some((k, v)) if k == self.paint_idx => v,
@@ -3859,9 +3866,7 @@ impl App {
         if matches!(undone, land::Undone::Refund(_)) && new != old && (old <= land::T_GREEN || new <= land::T_GREEN) {
             // taking a tee or a green away goes through the hole tool's bookkeeping, as painting over it does: the hole it
             // belonged to is out of play (par 0) until it is rebuilt
-            let green_next = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-                .iter()
-                .any(|&(ex, ey)| self.terrain.inside(x + ex, y + ey) && self.terrain.ty[self.terrain.tile_index(x + ex, y + ey)] == 1);
+            let green_next = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|&(ex, ey)| self.green_joins(x + ex, y + ey));
             self.club.paint_hole_tile(&mut self.course, x, y, old, new, green_next);
         }
         let Some(land) = self.land.as_mut() else { return };

@@ -319,6 +319,10 @@ pub struct Terrain {
     /// (`vertex_normals`).
     #[serde(skip)]
     pub own_tile_normals: bool,
+    /// The tiles of a putting green's lot (`Land::putting_greens_to`), not saved: with "Fix original bugs" they keep their
+    /// border against greens painted beside them (`tile_relation`, #128). Empty: none.
+    #[serde(skip)]
+    pub putting_green: Vec<bool>,
 }
 
 pub const MAX_LEVEL: i32 = 24;
@@ -467,6 +471,11 @@ impl Terrain {
         // stable random look
         let h = (x as u32).wrapping_mul(73856093) ^ (y as u32).wrapping_mul(19349663) ^ (ty as u32).wrapping_mul(83492791);
         self.set[i] = ((h >> 7) % 5) as u8;
+    }
+
+    /// Whether tile (x, y) is part of a putting green's lot.
+    pub fn on_putting_green(&self, x: i32, y: i32) -> bool {
+        self.inside(x, y) && self.putting_green.get(self.tile_index(x, y)).copied().unwrap_or(false)
     }
 
     pub fn set_wall(&mut self, x: i32, y: i32, dir: i32, on: bool) {
@@ -899,6 +908,10 @@ pub fn tile_relation(t: &Terrain, x: i32, y: i32, nx: i32, ny: i32) -> i32 {
         return if level == 0 || (level == 1 && nl == 2) { 2 } else { 1 };
     }
     if type_class(mt as i32, t.desert) != type_class(nt as i32, t.desert) {
+        return 1;
+    }
+    // the exe blends a putting green into a green painted beside it (#128); fixed, the putting green keeps its border
+    if crate::fixes::on() && t.on_putting_green(x, y) != t.on_putting_green(nx, ny) {
         return 1;
     }
     if mt != nt {

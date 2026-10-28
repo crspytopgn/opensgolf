@@ -107,6 +107,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.6.3" date="2026-10-28">
+      <description>
+        <p>A green painted beside a putting green no longer joins it, and gets its flag.</p>
+      </description>
+    </release>
     <release version="0.6.2" date="2026-10-28">
       <description>
         <p>The pine tree brush no longer shows a path tile under the pointer.</p>
