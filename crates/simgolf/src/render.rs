@@ -260,11 +260,13 @@ impl App {
             self.sprites[si].tex[i] = Some(t);
             return STex::whole(t);
         }
-        if let Some((t, slot)) = g.atlas_texture(&self.sprites[si].s.frame(i)) {
+        // the frame made RGBA once, for the atlas or else its own texture
+        let img = self.sprites[si].s.frame(i);
+        if let Some((t, slot)) = g.atlas_texture(&img) {
             self.sprite_atlas.insert((si, i), (t, slot));
             return t;
         }
-        let t = g.texture(&self.sprites[si].s.frame(i), false);
+        let t = g.texture(&img, false);
         self.sprites[si].tex[i] = Some(t);
         STex::whole(t)
     }
