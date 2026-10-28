@@ -250,7 +250,16 @@ impl Stage {
         if pressed & btn::RS != 0 {
             self.app.repeat_message();
         }
+        // Y on the course is the game speed's one button, which cycles (the ] key steps and stops: App::step_speed);
+        // elsewhere (photo mode) it is ] as before
+        let speed_button = self.app.screen == crate::app::Screen::Play && self.app.photo.is_none();
+        if speed_button && pressed & btn::Y != 0 {
+            self.app.cycle_speed();
+        }
         for &(b, k) in &KEYS {
+            if speed_button && b == btn::Y {
+                continue;
+            }
             if pressed & b != 0 {
                 self.key_down_event(k, none, false);
             }

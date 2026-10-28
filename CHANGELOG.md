@@ -26,8 +26,8 @@ Enhanced graphics and HD.
 - **New options:** aim and swing with the mouse the way touch screens do; *right click puts the tool away* (B on a
   controller), so a brush left in hand no longer undoes a hole's tee or green; and on wide screens the interface now sits at the
   screen's edges with Classic graphics too (on big TVs the dock and money no longer sit in the middle; Looks switches it
-  back); and *Sandbox: no new
-  dandelions*.
+  back); *Sandbox: no new
+  dandelions*; and **[** now slows the game down as **]** speeds it up, each stopping at the end instead of going round.
 
 **Fix releases before it**
 

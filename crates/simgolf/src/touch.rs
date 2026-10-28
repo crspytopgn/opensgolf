@@ -864,6 +864,11 @@ impl Stage {
             self.app.centre_on_pro();
             return;
         }
+        // the speed's one button cycles normal, x2 and x4 (the keys step and stop: App::step_speed)
+        if b == Btn::Speed {
+            self.app.cycle_speed();
+            return;
+        }
         let i = crate::controls::action(b.action());
         let d = crate::controls::ACTIONS[i].default;
         self.play_action(d.key, d.shift, Some(i));

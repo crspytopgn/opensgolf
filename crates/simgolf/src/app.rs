@@ -1203,6 +1203,36 @@ impl App {
         Some((msg, boxed))
     }
 
+    /// The port's own game speed one step faster or slower (normal, x2, x4), stopping at either end; says the speed.
+    pub fn step_speed(&mut self, faster: bool) {
+        self.speed = match (self.speed, faster) {
+            (1, true) => 2,
+            (_, true) => 4,
+            (4, false) => 2,
+            (_, false) => 1,
+        };
+        self.say_speed();
+    }
+
+    /// The game speed's single button (a controller's Y, the touch button): normal, x2, x4, then normal again.
+    pub fn cycle_speed(&mut self) {
+        self.speed = match self.speed {
+            1 => 2,
+            2 => 4,
+            _ => 1,
+        };
+        self.say_speed();
+    }
+
+    fn say_speed(&mut self) {
+        let name = match self.speed {
+            1 => tr("STR_TOAST_SPEED_NORMAL"),
+            2 => tr("STR_TOAST_SPEED_FAST"),
+            _ => tr("STR_TOAST_SPEED_FASTEST"),
+        };
+        self.show_toast(name);
+    }
+
     pub fn show_toast(&mut self, msg: &str) {
         self.toast = msg.to_string();
         self.toast_until = self.clock + 3.0;

@@ -2417,8 +2417,8 @@ STR_KEYS_WASD                           :Scroll, with the WASD camera on (Change
 STR_KEYS_HEAD_TIME                      :Time
 STR_KEYS_K_PAUSE                        :Shift+P
 STR_KEYS_PAUSE                          :Pause / go on
-STR_KEYS_K_SPEED                        :]
-STR_KEYS_SPEED                          :Game speed: normal, x2, x4
+STR_KEYS_K_SPEED                        :[ / ]
+STR_KEYS_SPEED                          :Game speed slower / faster (normal, x2, x4)
 STR_KEYS_HEAD_BUILD                     :Building the course
 STR_KEYS_K_GREEN                        :g
 STR_KEYS_GREEN                          :Green tool; again: tee tool
@@ -2570,7 +2570,8 @@ STR_CTL_TURN_BACK                       :Turn back / clubhouse
 STR_CTL_PHOTO_MODE                      :Photo mode
 STR_CTL_HIDE_INTERFACE                  :Hide the interface
 STR_CTL_PAUSE                           :Pause
-STR_CTL_SPEED                           :Game speed
+STR_CTL_SLOWER                          :Game speed: slower
+STR_CTL_SPEED                           :Game speed: faster
 STR_CTL_GREEN                           :Green / tee tool
 STR_CTL_FAIRWAY                         :Fairway tool
 STR_CTL_ROUGH                           :Rough tool

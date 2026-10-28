@@ -2538,20 +2538,10 @@ impl Stage {
                 app.card = None;
                 app.xs.follow = None;
             }
-            // the port's own game speed (the original has none): ] cycles normal, x2 and x4
-            KeyCode::RightBracket => {
-                app.speed = match app.speed {
-                    1 => 2,
-                    2 => 4,
-                    _ => 1,
-                };
-                let name = match app.speed {
-                    1 => tr("STR_TOAST_SPEED_NORMAL"),
-                    2 => tr("STR_TOAST_SPEED_FAST"),
-                    _ => tr("STR_TOAST_SPEED_FASTEST"),
-                };
-                app.show_toast(name);
-            }
+            // the port's own game speed (the original has none): ] faster, [ slower, each stopping at x4 and normal (#119;
+            // a controller's Y and the touch button, a single button, cycle: App::cycle_speed)
+            KeyCode::RightBracket => app.step_speed(true),
+            KeyCode::LeftBracket => app.step_speed(false),
             // Tab turns the next building; with the elevation tool it also steps the brush (one point, 2x2, area)
             // the Rotate extra's Tab (extras_ui.rs) comes first; nothing when it is off
             KeyCode::Tab if app.extras_tab() => {}
