@@ -37,6 +37,14 @@ Enhanced graphics and HD.
   rough reaches the map's edge (#118). As in the original, the desert's rough also counts as its own ground for weeds,
   spectators and what golfers think of it.
 
+**Fix releases**
+
+- **0.6.1:** a first-start box to choose how to play (the four presets), and What's new in 0.6 once after updating; Game
+  options' Helpers page split into Saves and Controls, and every page's options listed most wanted first; typing in the bug report form opened from *Report a problem* no
+  longer loses what you type, and the form's platform and base set come filled in; the version on the title screen; loading a
+  save in the browser no longer freezes for seconds while the golfers' animations load; with Fix original bugs, a new
+  game's free building beside the clubhouse no longer stands past the edge of a small property (#125).
+
 **Fix releases before it**
 
 - **0.5.13:** the picture no longer goes black or jumbled after resizing the window; Classic shades hills smoothly as the

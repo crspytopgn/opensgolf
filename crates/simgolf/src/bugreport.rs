@@ -113,66 +113,44 @@ pub struct Facts {
     pub files: Vec<String>,
 }
 
-/// The "Screenshots, save file, log" field: the files to drag in, then the system line and the warnings as a code block.
-fn extra_field(f: &Facts, log: &[String], system: &str) -> String {
+/// The report's text file (written with the save and the screenshot, for the player to drag into the form): the system
+/// line, then the recent warnings. GitHub's form is no longer filled in with it: a long text put into a form's big box
+/// through the address made the box lose what the player typed (0.6.0), so only one-line fields are filled in now.
+pub fn text_file(f: &Facts) -> String {
     let mut t = String::new();
-    if !f.files.is_empty() {
-        t += &trf("STR_BUGREPORT_FORM_FILES", &[("FILES", &f.files.join(", "))]);
-        t += "\n\n";
-    }
-    t += "```\n";
-    t += system;
-    t.push('\n');
-    if log.is_empty() {
+    t += &f.system;
+    t.push_str("\n\n");
+    if f.log.is_empty() {
         t += tr("STR_BUGREPORT_FORM_NO_LOG");
         t.push('\n');
     } else {
         t += tr("STR_BUGREPORT_FORM_LOG");
         t.push('\n');
-        for l in log {
+        for l in &f.log {
             t += l;
             t.push('\n');
         }
     }
-    t += "```";
     t
 }
 
-fn url_of(f: &Facts, log: &[String], system: &str) -> String {
-    format!(
-        "{FORM}&version={}&platform={}&baseset={}&what={}&extra={}",
-        escape(&f.version),
-        escape(f.platform),
-        escape(f.base),
-        escape(tr("STR_BUGREPORT_FORM_WHAT")),
-        escape(&extra_field(f, log, system))
-    )
+fn url_of(f: &Facts, system: &str) -> String {
+    format!("{FORM}&version={}&platform={}&baseset={}&system={}", escape(&f.version), escape(f.platform), escape(f.base), escape(system))
 }
 
-/// The filled-in form's address, at most `MAX_URL` long: the oldest warnings are left out first, then the system line is
-/// cut short.
+/// The filled-in form's address, at most `MAX_URL` long (the system line cut short if need be). Only the form's one-line
+/// fields are filled in (version, platform, base set, system); "What happened" starts with the form's own prompt and the
+/// files (the text file with the warnings among them) are named in the box the player sees after OK.
 pub fn form_url(f: &Facts) -> String {
-    let mut log: &[String] = &f.log;
+    let mut sys: String = f.system.clone();
     loop {
-        let u = url_of(f, log, &f.system);
-        if u.len() <= MAX_URL {
+        let u = url_of(f, &sys);
+        if u.len() <= MAX_URL || sys.is_empty() {
             return u;
         }
-        if log.is_empty() {
-            break;
-        }
-        log = &log[1..];
-    }
-    let mut sys: String = f.system.clone();
-    while !sys.is_empty() {
         let n = sys.chars().count();
         sys = sys.chars().take(n * 3 / 4).collect();
-        let u = url_of(f, &[], &sys);
-        if u.len() <= MAX_URL {
-            return u;
-        }
     }
-    url_of(f, &[], "")
 }
 
 /// A report's files' common name: "OpenSGolf report" and the date and time (UTC, as photos are named).
@@ -336,17 +314,26 @@ impl App {
                 failed = Some(path.display().to_string());
             }
         }
-        if let Some(f) = &failed {
-            warn(&format!("report: could not write {f}"));
-        }
-        let facts = Facts {
+        let mut facts = Facts {
             version: crate::update::VERSION.to_string(),
             platform: platform_here(),
             base: base_option(self.on_free_set()),
             system: self.report_system_line(gl),
             log: recent(),
-            files: files.clone(),
+            files: Vec::new(),
         };
+        // the system line and the warnings, as a text file to attach with the others
+        let name = format!("{stem}.txt");
+        let path = dir.join(&name);
+        if sg_core::fsutil::write_file(&path, text_file(&facts).as_bytes()) {
+            files.push(name);
+        } else {
+            failed = Some(path.display().to_string());
+        }
+        if let Some(f) = &failed {
+            warn(&format!("report: could not write {f}"));
+        }
+        facts.files = files.clone();
         let url = form_url(&facts);
         for f in &files {
             println!("report: wrote {}", dir.join(f).display());
@@ -385,43 +372,23 @@ mod tests {
 
     const TEMPLATE: &str = include_str!("../../../.github/ISSUE_TEMPLATE/bug.yml");
 
-    /// The options of the template's dropdown `id`.
-    fn options(id: &str) -> Vec<String> {
-        let at = TEMPLATE.find(&format!("id: {id}")).unwrap();
-        let line = TEMPLATE[at..].lines().find(|l| l.trim_start().starts_with("options:")).unwrap();
-        let list = line.split_once('[').unwrap().1.rsplit_once(']').unwrap().0;
-        list.split(", ").map(|s| s.trim().to_string()).collect()
-    }
-
     #[test]
-    fn every_platform_and_base_set_is_one_of_the_forms_options() {
-        let platforms = options("platform");
-        for (os, web, touch) in [
-            ("windows", false, false),
-            ("macos", false, false),
-            ("linux", false, false),
-            ("freebsd", false, false),
-            ("android", false, false),
-            ("ios", false, false),
-            ("unknown", true, false),
-            ("unknown", true, true),
-        ] {
-            let p = platform_option(os, web, touch);
-            assert!(platforms.iter().any(|o| o == p), "{p} for {os}");
+    fn the_address_fills_the_forms_one_line_fields_only() {
+        // the field ids the address fills are the template's, and each is a one-line input (a big box filled in through
+        // the address lost what the player typed)
+        for id in ["version", "platform", "baseset", "system"] {
+            let at = TEMPLATE.find(&format!("id: {id}\n")).unwrap_or_else(|| panic!("{id}"));
+            let kind = TEMPLATE[..at].rsplit("- type: ").next().unwrap().lines().next().unwrap().trim();
+            assert_eq!(kind, "input", "{id}");
         }
+        // What happened starts with the prompt the game used to fill in
+        assert!(TEMPLATE.contains("What I did:"));
         assert_eq!(platform_option("windows", false, false), "Windows");
         assert_eq!(platform_option("macos", false, false), "macOS");
         assert_eq!(platform_option("android", false, true), "Android");
         assert_eq!(platform_option("unknown", true, false), "Browser (desktop)");
         assert_eq!(platform_option("unknown", true, true), "Browser (phone or tablet)");
-        let bases = options("baseset");
-        assert!(bases.iter().any(|o| o == base_option(true)));
-        assert!(bases.iter().any(|o| o == base_option(false)));
         assert_ne!(base_option(true), base_option(false));
-        // the field ids the address fills are the template's
-        for id in ["what", "version", "platform", "baseset", "extra"] {
-            assert!(TEMPLATE.contains(&format!("id: {id}\n")), "{id}");
-        }
     }
 
     #[test]
@@ -448,22 +415,18 @@ mod tests {
     fn the_address_fills_the_fields_and_keeps_to_its_length() {
         let u = form_url(&facts(3, 10));
         assert!(u.starts_with("https://github.com/crspytopgn/opensgolf/issues/new?template=bug.yml&version=0.5.5&platform=Linux&"));
-        assert!(u.contains("&baseset=Original%20game%20files&"));
-        assert!(u.contains("&what=") && u.contains("&extra="));
-        // nothing unescaped past the parameters' own & and =
-        let extra = u.split("&extra=").nth(1).unwrap();
-        assert!(!extra.contains(['&', '=', ' ', '\n', '#']));
-        assert!(extra.contains("Mesa%20%26%20co") && extra.contains("sprite%3A%20line%202"));
-        assert!(extra.contains("OpenSGolf%20report%202026-10-24%2012-00-00.sgs"));
-        // a long log: the oldest lines go first, the newest stay
-        let long = facts(KEEP, LINE_MAX);
-        let u = form_url(&long);
-        assert!(u.len() <= MAX_URL, "{}", u.len());
-        assert!(u.contains(&escape(long.log.last().unwrap())));
-        assert!(!u.contains(&escape(&long.log[0])));
+        assert!(u.contains("&baseset=Original%20game%20files&system=OpenSGolf%200.5.5"));
+        // no big box is filled in
+        assert!(!u.contains("&what=") && !u.contains("&extra="));
+        let sys = u.split("&system=").nth(1).unwrap();
+        assert!(!sys.contains(['&', '=', ' ', '\n', '#']) && sys.contains("Mesa%20%26%20co"));
         // a system line too long on its own is cut short
         let huge = Facts { system: "y".repeat(10_000), ..facts(0, 0) };
         assert!(form_url(&huge).len() <= MAX_URL);
+        // the warnings go in the text file, newest last
+        let t = text_file(&facts(3, 10));
+        assert!(t.starts_with("OpenSGolf 0.5.5 on linux") && t.contains("sprite: line 2"));
+        assert!(text_file(&facts(0, 0)).contains(tr("STR_BUGREPORT_FORM_NO_LOG")));
     }
 
     #[test]

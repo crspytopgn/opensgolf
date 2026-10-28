@@ -25,6 +25,11 @@ pub fn saved() -> Extras {
     serde_json::from_value(settings_json()[SETTINGS_KEY].clone()).unwrap_or_default()
 }
 
+/// Saves the extras new games start with.
+pub fn save_next(e: &Extras) {
+    save(e);
+}
+
 fn save(e: &Extras) {
     let mut v = settings_json();
     if let Ok(x) = serde_json::to_value(e) {
@@ -40,20 +45,27 @@ fn save(e: &Extras) {
 /// The Extras box's pages (tabs along its top, drawn as the Enhanced graphics box's), sorted by the three classes of extra
 /// so the player sees at a glance which ticks touch the game: GAMEPLAY changes how the game plays (the Gameplay and
 /// Sandbox pages, each line tagged with how much), LOOKS changes only how it looks (the Looks page), HELPER shows
-/// information or saves effort (the Info and Helpers pages); the last two leave play exactly as it is. Only the page a line
+/// information or saves effort (the Info, Saves and Controls pages); the last three leave play exactly as it is. Only the page a line
 /// is shown on follows this; the extras' bits, saves and settings keep their order.
-pub const PAGES: [&str; 5] =
-    ["STR_EXTRAS_PAGE_GAMEPLAY", "STR_EXTRAS_PAGE_SANDBOX", "STR_EXTRAS_PAGE_LOOKS", "STR_EXTRAS_PAGE_INFO", "STR_EXTRAS_PAGE_HELPERS"];
+pub const PAGES: [&str; 6] = [
+    "STR_EXTRAS_PAGE_GAMEPLAY",
+    "STR_EXTRAS_PAGE_SANDBOX",
+    "STR_EXTRAS_PAGE_LOOKS",
+    "STR_EXTRAS_PAGE_INFO",
+    "STR_EXTRAS_PAGE_SAVES",
+    "STR_EXTRAS_PAGE_CONTROLS",
+];
 /// The last page whose lines change how the game plays (Gameplay and Sandbox, before it): their lines carry a tag.
 const LAST_TAGGED_PAGE: u8 = 1;
 
 /// Each page's banner, the line under the tabs that says what its ticks change.
-pub const BANNERS: [&str; 5] = [
+pub const BANNERS: [&str; 6] = [
     "STR_EXTRAS_BANNER_GAMEPLAY",
     "STR_EXTRAS_BANNER_SANDBOX",
     "STR_EXTRAS_BANNER_LOOKS",
     "STR_EXTRAS_BANNER_INFO",
-    "STR_EXTRAS_BANNER_HELPERS",
+    "STR_EXTRAS_BANNER_SAVES",
+    "STR_EXTRAS_BANNER_CONTROLS",
 ];
 
 /// The hint shown where the description of the line under the pointer goes while there is none: on the tagged pages, what
@@ -135,32 +147,35 @@ const UPDATE_CHECK: usize = 12;
 #[cfg(test)]
 const RETIRED_DESERT_ART: usize = 23;
 
-/// The option lines of each page, in order (the gameplay page from the lightest touch to the biggest change). Slower
+/// The option lines of each page, in order (each page's most wanted first). Slower
 /// seasons and Pause the calendar (options 6 and 7) are the Sandbox page's Calendar line; the Info page's groups stand for
 /// their ticks (`GROUPS`); the update check is on Preferences itself.
-const PAGE_LINES: [&[ExtrasLine]; 5] = {
+const PAGE_LINES: [&[ExtrasLine]; 6] = {
     use sg_core::extras as x;
     use ExtrasLine::{Calendar, Game as G, Group, Ui as U};
+    // each page's lines in the order players are likeliest to want them, the experimental cut content last
     [
         &[
-            G(4), // animals
+            G(x::WEATHER),
+            G(x::MORE_VISITORS),
             G(x::LEFTIES),
             G(3), // higher staff limits
             G(5), // set par
-            G(CUT),
-            G(x::WEATHER),
-            G(x::MORE_VISITORS),
+            G(4), // animals
             G(2), // hardcore
+            G(CUT),
         ],
-        &[Calendar, G(8), G(9), G(x::NO_WEEDS)],
-        // path styles and lamps, Tab turns buildings (only the picture turns), random trees, the interface at the edges
-        &[G(x::PATHS), G(0), U(21), U(26)],
-        // People, extra reports, messages, path help, home-site details
-        // and with the building helpers, right click puts the tool away
-        &[Group(0), Group(1), Group(2), U(4), U(19), U(25)],
-        // autosave, save pictures, sharing, import and export saved games, the two pauses, then the three the controls presets set: drag to place, zoom
-        // towards the pointer, right-drag panning, and with them mouse aim and swing
-        &[U(5), U(6), U(7), U(22), U(8), U(9), U(15), U(14), U(20), U(24)],
+        // unlock all, no new dandelions, freeze moods, the calendar (slower seasons, pause)
+        &[G(9), G(x::NO_WEEDS), G(8), Calendar],
+        // the interface at the edges, path styles and lamps, random trees, Tab turns buildings (only the picture turns)
+        &[U(26), G(x::PATHS), U(21), G(0)],
+        // People, extra reports, messages, home-site details, path help
+        &[Group(0), Group(1), Group(2), U(19), U(4)],
+        // autosave, import and export saved games, sharing, save pictures
+        &[U(5), U(22), U(7), U(6)],
+        // zoom towards the pointer, right click puts the tool away, drag to place, right-drag panning, mouse aim and swing
+        // (the three the controls presets set and the two that change what the original's mouse does), then the two pauses
+        &[U(14), U(25), U(15), U(20), U(24), U(8), U(9)],
     ]
 };
 
@@ -277,9 +292,10 @@ pub fn foot_text(page: u8, k: Option<usize>, e: &Extras, ui: &crate::extras::Set
     }
 }
 
-/// The most option lines a page has (every page is drawn that tall).
+/// The most option lines a page has (every page is drawn that tall), counting lines a page hides (the cut content off the
+/// original files), so the box keeps its size either way.
 fn most_lines() -> usize {
-    (0..PAGES.len() as u8).map(|p| page_lines(p).len()).max().unwrap_or(0)
+    PAGE_LINES.iter().map(|p| p.len()).max().unwrap_or(0)
 }
 
 /// The widest tag pill (they are all drawn this wide, so they line up).
@@ -896,7 +912,7 @@ mod tests {
         }
         assert_eq!(PAGES.len(), PAGE_LINES.len());
         assert_eq!(BANNERS.len(), PAGES.len());
-        assert_eq!(page_lines(3).len(), 6, "the Info page's six lines");
+        assert_eq!(page_lines(3).len(), 5, "the Info page's five lines");
     }
 
     #[test]
@@ -920,9 +936,14 @@ mod tests {
         assert_eq!(tag(ExtrasLine::Calendar), Some(Tag::Noticeable));
         assert_eq!(tag(ExtrasLine::Game(x::LEFTIES)), Some(Tag::Light));
         assert_eq!(page_of(ExtrasLine::Ui(5)), Some(4), "autosave");
-        // the controls presets' ticks sit together at the end of the Helpers page, mouse aim and swing after them
-        assert_eq!(page_lines(4)[6..], [ExtrasLine::Ui(15), ExtrasLine::Ui(14), ExtrasLine::Ui(20), ExtrasLine::Ui(24)]);
-        assert_eq!(page_lines(4)[2..4], [ExtrasLine::Ui(7), ExtrasLine::Ui(22)], "import and export next to sharing");
+        // the Controls page holds the mouse ticks, the most wanted first, then the two pauses
+        assert_eq!(page_lines(5), [14, 25, 15, 20, 24, 8, 9].map(ExtrasLine::Ui));
+        // the Saves page holds the saving and sharing ticks only, autosave first
+        assert_eq!(page_lines(4), [ExtrasLine::Ui(5), ExtrasLine::Ui(22), ExtrasLine::Ui(7), ExtrasLine::Ui(6)]);
+        // the most wanted first: weather on Gameplay, the interface at the edges on Looks; the experimental line last
+        assert_eq!(page_lines(0)[0], ExtrasLine::Game(x::WEATHER));
+        assert_eq!(page_lines(2)[0], ExtrasLine::Ui(26));
+        assert_eq!(page_lines(0).last(), Some(&ExtrasLine::Game(CUT)));
         assert_eq!((page_of(ExtrasLine::Preset), tag(ExtrasLine::Preset)), (None, None));
         assert_eq!(page_of(ExtrasLine::Ui(UPDATE_CHECK)), None);
     }
@@ -934,7 +955,7 @@ mod tests {
         assert!(!page_lines(0).contains(&ExtrasLine::Game(CUT)));
         let n = popup_lines(0, &Extras::default(), &Settings::ALL_OFF).len();
         show_cut_content(true);
-        // the box keeps its size either way (the Helpers page is as long)
+        // the box keeps its size either way (most_lines counts the hidden line)
         assert_eq!(popup_lines(0, &Extras::default(), &Settings::ALL_OFF).len(), n);
     }
 
@@ -950,7 +971,7 @@ mod tests {
         }
         // the foot shows the line's description (the box's option 0 is the preset line), or the page's hint with none
         let (e, ui) = (Extras::default(), Settings::ALL_OFF);
-        assert_eq!(foot_text(2, Some(1), &e, &ui), (sg_core::lang::tr("STR_EXTRAS_DESC_PATHS"), true));
+        assert_eq!(foot_text(2, Some(2), &e, &ui), (sg_core::lang::tr("STR_EXTRAS_DESC_PATHS"), true));
         assert_eq!(foot_text(2, Some(0), &e, &ui), (sg_core::lang::tr("STR_PRESET_DESC_ORIGINAL"), true));
         assert_eq!(foot_text(0, Some(0), &Extras::OPENSGOLF, &Settings::HELPERS).0, sg_core::lang::tr("STR_PRESET_DESC_OPENSGOLF"));
         assert!(!foot_text(2, Some(6), &e, &ui).1);

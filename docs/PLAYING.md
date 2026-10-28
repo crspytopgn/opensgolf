@@ -57,7 +57,7 @@ copies leave them out), only the Sims' voices in `SimsFX`, or lacks more than a 
 when the game starts and the ticker on every start (sg_core::mixer `shortfall`; the console or log has a `sound:` line
 with the counts). The browser page also sums up what it found after loading the files, in large type on the start page
 (and again there on the next visit, as "Last time: ...") and over the game once (20 seconds, or until tapped when
-something is missing): "OpenSGolf 0.6.0. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
+something is missing): "OpenSGolf 0.6.1. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
 big). Art ✓, music: N, Sims' voices: N." The console's `files:` line adds the compression methods the zip used.
 Deflate64 (Windows' own zipper, for big files such as the sounds), BZip2, LZMA and PPMd (7-Zip's, Keka's and The
 Unarchiver's stronger settings), which iPad's Files app cannot unpack (it shows such folders empty), are read by the
@@ -172,7 +172,7 @@ browser or another device does not have them, so back them up. On the start page
   then in Load Previous Game.
 
 **In the game**, with the Import and export saved games extra on (System Functions > Preferences > Game options,
-Helpers; not in the original; up to 0.4.9 it was part of Course sharing, so settings from then with Course sharing on
+Saves; not in the original; up to 0.4.9 it was part of Course sharing, so settings from then with Course sharing on
 have it on),
 Load Previous Game has two buttons of the port's own under the list: **Import a save file...** (the system's file
 picker, or the browser's) adds a saved game, a shared course (`.sgch`, to the championship courses), a text file with a
@@ -332,8 +332,8 @@ Everything OpenSGolf adds is optional, and every option belongs to one of three 
   Enhanced graphics). Play is exactly the original's.
 - **Helpers**: shows you more or saves you effort (the People screen, extra reports, message history, autosave, import
   and export of saved games, the pauses, the mouse helpers). Play is exactly the original's.
-- **Gameplay**: changes how the game plays (animals to buy, more staff, set par, weather, visitors, hardcore, the
-  calendar and the sandbox switches). Each carries a tag saying how much: *Light touch*, *Noticeable*, *Big change*, or
+- **Gameplay**: changes how the game plays (weather, visitors, left-handed golfers, more staff, set par, animals to
+  buy, hardcore, the calendar and the sandbox switches). Each carries a tag saying how much: *Light touch*, *Noticeable*, *Big change*, or
   *Experimental*.
 
 Select Difficulty has a **Game** box next to Course size. A click steps through four **presets**:
@@ -341,7 +341,7 @@ Select Difficulty has a **Game** box next to Course size. A click steps through 
 - **Original**: every OpenSGolf extra off and Classic graphics; the game exactly as it was. A new player starts here.
 - **Original + helpers**: every helper and every look on, nothing that changes how the game plays.
 - **OpenSGolf**: the helpers and looks, plus the light gameplay extras that do not change the game's balance: higher
-  staff limits and buyable animals (not weather, more visitors, hardcore, left-handed golfers, set par, the cut content,
+  staff limits, turning buildings and buyable animals (not weather, more visitors, hardcore, left-handed golfers, set par, the cut content,
   the calendar or the sandbox switches, which you tick yourself).
 - **Custom**: your own mix, as you ticked it in Preferences. Once you have a mix of your own, Custom brings it back after
   you tried a preset; until then the Game box skips it.
@@ -352,6 +352,29 @@ those; and mouse aim and swing, which no preset sets) and *Fix the original game
 graphics as they are. The box says **Custom** whenever your ticks are no preset (also with every extra off but Enhanced
 graphics on). The choice is saved and is what new games start with. The same choice is the first line of the extras box
 (below), so you can change it later, also during a game.
+
+### How would you like to play? and What's new
+
+The first time the title menu shows for a new player (no settings saved yet), a box asks **How would you like to
+play?** with the four presets above, each with a line on what it means: *The original game*, *Original + helpers*,
+*OpenSGolf* and *Custom*. A choice puts the preset in use exactly as choosing it in Preferences > Game options does
+(gameplay and interface extras; your pauses, update check and controls ticks stay); *Custom* opens Game options to tick
+your own mix. Nothing is marked as the current choice, and Esc, a right-click or a click outside the box keeps the
+settings as they are (the original game). It is asked once (settings.json's `welcome_shown`, false until the box has
+shown, so closing the game before it comes up asks again next time).
+
+A player updating (a settings.json from an earlier version) gets **What's new in OpenSGolf 0.6** instead, once: the
+version's highlights, with a *Try it* pill next to those that are options (*Mouse aim and swing*, *Right click puts the
+tool away*, *Sandbox: no new dandelions*; the pill says *On* once it is), and for *HD graphics (beta)* one that opens
+Preferences > Graphics' *Make HD graphics...* question (only with your own SimGolf files, not on the free graphics or in
+a browser). *See everything that's new* opens the changelog in your browser, as does Preferences > More > *What's
+new...* at any time. The box remembers the minor version shown (settings.json's `last_version_seen`, e.g. `0.6`), so a
+fix release such as 0.6.1 does not show it again; a new player, who gets the first box, never sees it for the version
+they started with.
+
+Neither box shows in scripted runs (`--png`, `--time`, `--screen`). Test hooks for stills: `SG_WELCOME=1` and
+`SG_WHATSNEW=1` show the box on the title menu whatever settings.json says, and write nothing
+(`SG_WELCOME=1 BIN --game DIR --screen menu --png out.png --time 3`).
 
 ## Preferences
 
@@ -426,11 +449,12 @@ along its top; a click on a tab, Left and Right or Tab turn them). A banner unde
   clickable ticker**; **Path help**; **Home-site details**. A grouped line ticks or unticks its members together; if only
   some of them are on (ticks saved by an older version, or Shift+H's tags), it says *(some on)* and a click turns them all
   on. Each member keeps its own tick in settings.json, so older versions read them as before.
-- **Helpers** (helpers): "Saves you effort. Play is unchanged." (autosave, save pictures, course sharing, import and
-  export saved games, the two pauses,
-  and under the *Controls:* name the three ticks the Change keys' *Original* and *Modern controls* presets set: drag to
-  place, zoom towards the pointer, right-drag panning; also further down; then *Controls: aim and swing with the mouse as
-  by touch*, see *Mouse aim and swing* below)
+- **Saves** (saves): "Keeps, shows and shares your games. Play is unchanged." (autosave, save pictures, course sharing,
+  import and export saved games)
+- **Controls** (controls): "Changes what the mouse does and when the game pauses. Play is unchanged." (the three ticks
+  the Change keys' *Original* and *Modern controls* presets set: drag to place, zoom towards the pointer, right-drag
+  panning; *Aim and swing with the mouse as by touch*, see *Mouse aim and swing* below; *Right click puts the tool
+  away*; then the two pauses). Until 0.6.0 the Saves and Controls lines were one Helpers page.
 
 *Check for updates when the game starts* and *Fix the original game's bugs* are ticks of Preferences > More, not in this
 box (see *The title menu* and docs/FIXES.md).
@@ -614,7 +638,7 @@ confirmation box; `R:N,1` sets it at once); `--edit "X:BITS"` sets the extras of
 presses the Tab of the first extra with the pointer on tile x,y; `--edit "S:page[,design]"` opens the Amenities panel with the
 landmark tool on strip page 0 (own), 1 (cut) or 2 (animals); `--edit "b:x,y,4,t"` places landmark type t (19..32 the cut ones,
 100 + kind an animal pair); `--edit "M:6"` opens the extras box (`M:6,P` on page P: 0 Gameplay, 1 Sandbox, 2
-Looks, 3 Info, 4 Helpers; `SG_POPUP_MOUSE="x,y"` leaves the pointer on the box there, so the foot shows that line's
+Looks, 3 Info, 4 Saves, 5 Controls; `SG_POPUP_MOUSE="x,y"` leaves the pointer on the box there, so the foot shows that line's
 description: at 800 x 600 the preset line is at y 138 and a page's first option at y 282). Path styles and lamps: the style is bits 13 to 15 of `--extras` and `X:` (8192 times 1 original paths, 2
 brick, 3 gravel, 4 dark stone, 5 boardwalk), `--edit "S:3"` opens the lamp page, `--edit "b:x,y,4,200"` places a lamp post
 on tile x,y, and `SG_FX_HOUR=0.95` (night) lights the lanterns for stills.
@@ -732,7 +756,7 @@ names). They only add a screen, a tag, a strip, a button or a save: helpers (and
 Ravine and Brush art), none of them
 changes how the game plays. A new player starts with them off; the *Original + helpers* and *OpenSGolf* presets turn
 them on in one click (the two pauses and the three controls ticks excepted, which stay as you set them), and System
-Functions, Preferences, *Game options...* ticks them on its Info and Helpers pages (the Info page by groups) and
+Functions, Preferences, *Game options...* ticks them on its Info, Saves and Controls pages (the Info page by groups) and
 Looks page (kept in `settings.json` under `ui_extras`, one tick each; a tick missing there reads as off, and so do they
 all when settings.json has no `ui_extras` at all, as in settings from before the extras or written only by other
 screens), and `--no-extras` turns them all off for one run. With every tick off the game draws and plays exactly as before (the stills of every report, panel and menu
@@ -842,13 +866,13 @@ compare pixel for pixel with the build before the extras).
   starts. It says nothing unless a newer version is out; then a box offers **Update now**, **Skip this version** (that
   version is not offered at start again, a newer one is; kept in `settings.json` as `update_skip`) or **Not now**. Only
   GitHub is contacted. The browser version has nothing to check.
-- **Zoom towards the pointer** (*Controls: zoom towards the pointer* on the Helpers page; off, set by the Change keys'
+- **Zoom towards the pointer** (*Zoom towards the pointer* on the Controls page; off, set by the Change keys'
   *Original* and *Modern controls* presets and left alone by the extras presets: it changes how the original's zoom feels):
   the mouse wheel keeps the ground under the pointer where it is on the screen as it zooms, and a two-finger pinch the
   ground between the fingers, instead of zooming about the middle of the screen. It works at the original's three zoom
   levels and with Enhanced graphics' smooth zoom (frame by frame as the zoom eases). z, x and the dock's zoom buttons
   still zoom about the middle.
-- **Drag to place** (*Controls: drag to place...* on the Helpers page; off, set by the controls presets like zooming
+- **Drag to place** (*Drag to place...* on the Controls page; off, set by the controls presets like zooming
   towards the pointer: it changes what the original's drag does): with
   benches, flower beds, ball washers, willows or scenic bridges armed, hold the left button and drag to lay a row of them
   along the straight line from the tile you pressed to the tile you let go, one on every tile of the line (one per
@@ -927,7 +951,7 @@ The port's own camera helpers (crates/simgolf/src/views.rs); nothing changes unt
   Shift+Alt+1 to 4 go back to a bookmark and Ctrl+Shift+1 to 4 keep one (for keyboards whose F keys need Fn).
 - **Middle button drag**: dragging with the middle mouse button moves the course whatever tool is held (with the smooth
   camera it coasts on when let go).
-- **Zoom towards the pointer**: an OpenSGolf extra (Preferences, *Game options...*, Helpers page, *Controls: zoom
+- **Zoom towards the pointer**: an OpenSGolf extra (Preferences, *Game options...*, Controls page, *Controls: zoom
   towards the pointer*), off by default and part of the *Modern controls* preset: see *OpenSGolf extras* above.
 - **The right button** is the original's: on the course a right click with a building, path or amenity tool in hand,
   a message showing, a golfer's card open or an employee being moved only puts that away; with an elevation tool it
@@ -935,10 +959,10 @@ The port's own camera helpers (crates/simgolf/src/views.rs); nothing changes unt
   in green over it what an undo there would do ("Reset to rough", "Remove Path", "Demolish Snack Bar") and a second right
   click on the same tile undoes it, money back as the Undo button's tool gives it (a terrain brush and the Undo tool stay
   in hand). OpenSGolf up to 0.4.7 dragged the course with the right button instead and had no right-click undo (issue
-  #67); that drag is now the **Right-drag panning** extra (Helpers page, *Controls: right-drag moves the course*; off by
+  #67); that drag is now the **Right-drag panning** extra (Controls page, *Right-drag moves the course*; off by
   default, off for settings saved by 0.4.7, and part of the *Modern controls* preset): with it on, a drag with the right button moves the course and a right click that does not move (less than 5
   pixels) does the original's on release. The middle button and the arrow keys always move the course.
-- **Mouse aim and swing**: an OpenSGolf extra (Preferences, *Game options...*, Helpers page, *Controls: aim and swing
+- **Mouse aim and swing**: an OpenSGolf extra (Preferences, *Game options...*, Controls page, *Aim and swing
   with the mouse as by touch*), off by default and in no preset; the extras presets leave it as you have it. In the
   original (and with it off) your pro's shot follows the pointer and a click on the course shoots at once. With it on,
   the mouse aims as a finger does on a phone or tablet (see *Aiming your pro and placing buildings by touch* under
@@ -1059,7 +1083,7 @@ changed every key does what it did before.
   the one in use is lit yellow). *Original controls* puts every key back to the original's and turns the WASD camera,
   *Zoom towards the pointer*, *Drag to place*, *Right-drag panning* and Enhanced graphics' *Smooth camera* tick off. *Modern controls* puts
   every key back to its default with the WASD camera on, and turns *Zoom towards the pointer*, *Drag to place* and
-  *Right-drag panning* (OpenSGolf extras, Helpers page, the three *Controls:* lines; the extras presets leave them
+  *Right-drag panning* (OpenSGolf extras, Controls page, the three *Controls:* lines; the extras presets leave them
   alone) and the *Smooth camera* tick (which counts only while Enhanced graphics is on: the
   preset never switches Enhanced graphics itself) on. They only set those existing options, which stay changeable one by
   one; click the other preset to undo one (keys you moved yourself are not kept by either).
@@ -1094,18 +1118,18 @@ Functions menu is left as it is). System Functions → Preferences → *More...*
 the course (Change keys can move it), open a small box that says what will happen, with an *Include a screenshot* tick (ticked), *OK, open the form* (the
 box's tick and Enter too) and *Cancel* (Esc too). OK:
 
-- opens the project's bug report form on GitHub in your browser, already filled in: the version, the platform, the base
-  set (your SimGolf files or the free set), and in *Screenshots, save file, log* a short system line (system and
-  processor, the graphics driver's names, Enhanced graphics on or off, HD and the content packs in use, the gameplay and
-  interface extras as numbers, the window size) with the game's last 30 warnings and errors (a picture that could not be
-  read, a pack's problem, a failed save; the game keeps no log file of its own). The address stays under 6,000
-  characters (the oldest warnings are left out first);
-- writes a copy of the game being played (an ordinary saved game, `.sgs`) and, when ticked, a screenshot of the screen
-  under the box (`.png`), both named `OpenSGolf report <date> <time>` (UTC), to a **Reports** folder in the save folder,
+- opens the project's bug report form on GitHub in your browser with its one-line fields filled in: the version, the
+  platform, the base set (your SimGolf files or the free set) and *System*, a short system line (system and processor,
+  the graphics driver's names, Enhanced graphics on or off, HD and the content packs in use, the gameplay and interface
+  extras as numbers, the window size). *What happened* starts with the form's own prompt. The big boxes are not filled in
+  through the address (0.6.0 did, and a box filled in that way lost what the player typed);
+- writes a copy of the game being played (an ordinary saved game, `.sgs`), a text file (`.txt`) with the system line
+  and the game's last 30 warnings and errors (a picture that could not be read, a pack's problem, a failed save; the game
+  keeps no log file of its own) and, when ticked, a screenshot of the screen under the box (`.png`), all named `OpenSGolf report <date> <time>` (UTC), to a **Reports** folder in the save folder,
   and opens that folder in the file manager (Explorer, the Finder, or the desktop's own through xdg-open). A box says
   which files to drag into the form. On the title screens there is no game to copy.
 - In the browser the form opens in a new tab (if the browser blocks it, a note over the game has the link to tap), and
-  the two files are downloaded instead. On Android they go in `Android/data/org.opensgolf.game/files/Reports` (next to
+  the files are downloaded instead. On Android they go in `Android/data/org.opensgolf.game/files/Reports` (next to
   Photos; a computer sees it over USB), and the box says where.
 
 Nothing is sent by the game: you read the form, say what happened and submit it yourself (a GitHub account is needed).

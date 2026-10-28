@@ -273,7 +273,7 @@ mod tests {
         let rain = search("rain", false, &p);
         assert!(rain.iter().any(|&h| matches!(h, Hit::Enhanced(i) if enhanced::OPTIONS[i].key == "fx_rain")));
         let sandbox = search("sandbox:", false, &p);
-        let want: Vec<_> = [8, 9, sg_core::extras::NO_WEEDS].into_iter().map(|i| Hit::Extra(ExtrasLine::Game(i))).collect();
+        let want: Vec<_> = [9, sg_core::extras::NO_WEEDS, 8].into_iter().map(|i| Hit::Extra(ExtrasLine::Game(i))).collect();
         assert_eq!(sandbox, want, "the three sandbox switches");
         // words in any order and case, each must be there
         assert_eq!(search("NORMAL calendar", false, &p), vec![Hit::Extra(ExtrasLine::Calendar)]);

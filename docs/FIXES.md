@@ -142,3 +142,12 @@ EXACT (0x435570 hit test, 0x435760 draw): below the closest zoom the Golfers pan
 columns 121 apart), so a click centred the map on another golfer than the one under the pointer, and the compact list's
 further columns could not be clicked at all. With the setting the click takes the cell as drawn:
 crates/simgolf/src/member_panel.rs:56.
+
+## 12. A free building past the edge of a small property (#125)
+
+EXACT (0x470a60): the properties that come with a building beside the clubhouse (Jurassic Springs' kind 13 and four
+others) put it on the far side unless the tile past it is off the land, but the generator marks the land the player does
+not own only at its end (the acres at 0x4720e8, after the clubhouse at 0x471618), so that test never sees the owned edge.
+On the smallest deals the building could stand partly past the edge, over the cliff. With the setting the building takes
+the other side of the clubhouse when its lot would leave the owned square (`generate`, crates/sg-core/src/land.rs); the
+generator makes the same draws, so the rest of the map is the exe's. New games only: a saved game keeps its buildings.

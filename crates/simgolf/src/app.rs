@@ -712,6 +712,8 @@ pub struct App {
     pub comfort: crate::comfort::State,
     /// The support reminder's play time and asks (support.rs; the port's own, kept in settings.json, never in saves).
     pub support: crate::support::State,
+    /// The welcome boxes (welcome.rs).
+    pub welcome: crate::welcome::State,
     /// The play-time count (playcount.rs; the port's own, kept in settings.json, never in saves).
     pub playcount: crate::playcount::State,
     /// The Change keys screen, the hidden interface and the save's content packs question (controls_ui.rs).
@@ -1027,6 +1029,7 @@ impl App {
             xs: Default::default(),
             comfort: Default::default(),
             support: Default::default(),
+            welcome: Default::default(),
             playcount: Default::default(),
             ctl: Default::default(),
             scen: Default::default(),
@@ -2478,6 +2481,28 @@ impl App {
         found
     }
 
+    /// The length of a golfer clip from its file header alone, without decoding its frames (a loaded course has many
+    /// bodies, and decoding all their clips at once took seconds in the browser); the clip itself loads when drawn. False
+    /// when the header cannot tell (no header extension, a content pack sheet that may differ), and the clip is loaded.
+    fn golfer_clip_length(&mut self, id: i32) -> bool {
+        if crate::packart::active() || self.golfer_clips.contains_key(&id) {
+            return false;
+        }
+        let Some(&(base, name)) = GOLFER_CLIPS.iter().rev().find(|(b, _)| *b <= id && id - *b <= 8) else { return false };
+        let body = (id - base) as usize;
+        let Some(prefix) = GOLFER_BODIES.get(body).filter(|p| !p.is_empty()) else { return false };
+        let name = if base == 0x28 && body >= 5 { "NormalSwing" } else { name };
+        let path = self.game_path(&format!("Flics/{prefix}_{name}.flc"));
+        let Some(fpv) = sg_core::fsutil::read_file(&path).and_then(|d| sg_core::flc::header_frames_per_view(&d)) else {
+            return false;
+        };
+        match self.club.clip_frames.get_mut(id as usize) {
+            Some(slot) => *slot = fpv.max(1) as _,
+            None => return false,
+        }
+        true
+    }
+
     /// Makes sure the clip lengths of every body on the course are known to the golfer animation.
     fn load_golfer_bodies(&mut self) {
         for g in 0..golf::SLOTS {
@@ -2491,7 +2516,9 @@ impl App {
             }
             self.golfer_clips.insert(1000 + look, (None, None));
             for &(base, _) in GOLFER_CLIPS.iter() {
-                self.golfer_clip(base + look);
+                if !self.golfer_clip_length(base + look) {
+                    self.golfer_clip(base + look);
+                }
             }
         }
     }

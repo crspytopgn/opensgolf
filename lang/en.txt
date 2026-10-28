@@ -1385,13 +1385,15 @@ STR_EXTRAS_PAGE_GAMEPLAY                :Gameplay
 STR_EXTRAS_PAGE_SANDBOX                 :Sandbox
 STR_EXTRAS_PAGE_LOOKS                   :Looks
 STR_EXTRAS_PAGE_INFO                    :Info
-STR_EXTRAS_PAGE_HELPERS                 :Helpers
+STR_EXTRAS_PAGE_SAVES                   :Saves
+STR_EXTRAS_PAGE_CONTROLS                :Controls
 # each page's banner under the tabs
 STR_EXTRAS_BANNER_GAMEPLAY              :Changes how the game plays.
 STR_EXTRAS_BANNER_SANDBOX               :Bends the rules for relaxed play.
 STR_EXTRAS_BANNER_LOOKS                 :Changes how it looks. Play is unchanged.
 STR_EXTRAS_BANNER_INFO                  :Shows more about your club. Play is unchanged.
-STR_EXTRAS_BANNER_HELPERS               :Saves you effort. Play is unchanged.
+STR_EXTRAS_BANNER_SAVES                 :Keeps, shows and shares your games. Play is unchanged.
+STR_EXTRAS_BANNER_CONTROLS              :Changes what the mouse does and when the game pauses. Play is unchanged.
 # the pill at the right end of a gameplay or sandbox line: how much it changes the game
 STR_EXTRAS_TAG_LIGHT                    :Light touch
 STR_EXTRAS_TAG_NOTICEABLE               :Noticeable
@@ -2791,7 +2793,7 @@ STR_EXTRAS_LANDING_MAP                  : Landing map: where shots on a hole end
 STR_EXTRAS_HOLE_COMMENTS                : Comments by hole, this month and last (Shift+I)
 STR_EXTRAS_UPDATE_CHECK                 : Check for updates when the game starts (online)
 STR_EXTRAS_GRAPHS                       : History graphs: the club and each hole month by month (Shift+Y)
-STR_EXTRAS_ZOOM_POINTER                 : Controls: zoom towards the pointer
+STR_EXTRAS_ZOOM_POINTER                 : Zoom towards the pointer
 STR_MENU_SYSTEM_SHARE                   : Share course (copy a course code)
 STR_FILES_PASTE_CODE                    :Paste a course code
 STR_FILES_CHALLENGE                     :Challenge: beat {DESIGNER}'s record of {SCORE}
@@ -3130,7 +3132,7 @@ STR_FILES_CHEATED                       :Cheats used
 STR_CUST_LEFT_HANDED                    :Left-handed
 # drag to place (an OpenSGolf extra, build_tools.rs): its tick on the Extras box's Interface page, and the row's count and
 # total cost shown by the pointer while dragging (the sandbox shows the count only)
-STR_EXTRAS_DRAG_PLACE                   : Controls: drag to place rows of benches and the like
+STR_EXTRAS_DRAG_PLACE                   : Drag to place rows of benches and the like
 STR_ROW_COST                            :{ITEMS} items: {MONEY}
 STR_ROW_ITEMS                           :{ITEMS} items
 # the Change keys screen's presets (controls.rs Preset): the buttons, and the line under them once one is clicked
@@ -3263,7 +3265,7 @@ STR_NET_BUSY                            :{URL}: the server takes no more request
 STR_NET_HTTP                            :{URL}: the server answered HTTP {CODE}
 
 # Right-drag panning (OpenSGolf extras, issue #67)
-STR_EXTRAS_RIGHT_DRAG                   : Controls: right-drag moves the course
+STR_EXTRAS_RIGHT_DRAG                   : Right-drag moves the course
 STR_EXTRAS_DESC_RIGHT_DRAG              :Drag with the right button to move the course; a right click still undoes, as in the original. Part of the Modern controls preset (Change keys).
 
 # Random trees (OpenSGolf extras, issue #68)
@@ -3278,7 +3280,7 @@ STR_PRESET_CUSTOM                       :Custom
 STR_EXTRAS_PRESET                       : Preset: {VALUE}
 STR_PRESET_DESC_ORIGINAL                :Every OpenSGolf extra off: the game exactly as it was. Click for the next preset; your pauses and controls stay as you set them.
 STR_PRESET_DESC_HELPERS                 :Every helper and look on (People, reports, autosave, path styles...) and nothing that changes how the game plays.
-STR_PRESET_DESC_OPENSGOLF               :The helpers and looks, plus light gameplay extras: higher staff limits and buyable animals.
+STR_PRESET_DESC_OPENSGOLF               :The helpers and looks, plus a few small extras that keep the game's balance, such as higher staff limits and turning buildings.
 STR_PRESET_DESC_CUSTOM                  :Your own mix of ticks. A click steps through the presets; Custom brings your own mix back.
 STR_EXTRAS_TAG_EXPERIMENTAL             :Experimental
 STR_EXTRAS_CALENDAR                     : Calendar: {VALUE}
@@ -3364,9 +3366,9 @@ STR_MENU_PREFS_REPORT                   : Report a problem...
 STR_PREFS_DESC_REPORT                   :Opens a filled-in bug report form and keeps a copy of this game to attach. Nothing is sent until you submit.
 STR_CTL_REPORT_PROBLEM                  :Report a problem (opens the bug report form, asks first)
 STR_BUGREPORT_TITLE                     :Report a problem
-STR_BUGREPORT_EXPLAIN                   :This opens the project's bug report form on GitHub in your browser, filled in with the game's version, your system and its recent warnings.\nA copy of this game (and a screenshot, if ticked) goes in the Reports folder in your save folder, which opens too: drag the files into the form.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
-STR_BUGREPORT_EXPLAIN_WEB               :This opens the project's bug report form on GitHub in a new tab, filled in with the game's version, your browser and its recent warnings.\nA copy of this game (and a screenshot, if ticked) is downloaded: drag the files into the form.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
-STR_BUGREPORT_EXPLAIN_ANDROID           :This opens the project's bug report form on GitHub in your browser, filled in with the game's version, your phone and its recent warnings.\nA copy of this game (and a screenshot, if ticked) goes in the Reports folder next to the game's Photos, for you to attach.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
+STR_BUGREPORT_EXPLAIN                   :This opens the project's bug report form on GitHub in your browser, filled in with the game's version and your system.\nA copy of this game, its recent warnings (and a screenshot, if ticked) go in the Reports folder in your save folder, which opens too: drag the files into the form.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
+STR_BUGREPORT_EXPLAIN_WEB               :This opens the project's bug report form on GitHub in a new tab, filled in with the game's version and your browser.\nA copy of this game, its recent warnings (and a screenshot, if ticked) are downloaded: drag the files into the form.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
+STR_BUGREPORT_EXPLAIN_ANDROID           :This opens the project's bug report form on GitHub in your browser, filled in with the game's version and your phone.\nA copy of this game, its recent warnings (and a screenshot, if ticked) go in the Reports folder next to the game's Photos, for you to attach.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
 STR_BUGREPORT_SCREENSHOT                : Include a screenshot
 STR_BUGREPORT_OPEN                      : OK, open the form
 STR_BUGREPORT_CANCEL                    : Cancel
@@ -3375,8 +3377,6 @@ STR_BUGREPORT_DONE_WEB                  :The bug report form is open in a new ta
 STR_BUGREPORT_DONE_ANDROID              :The bug report form is open in your browser. These files are in {FOLDER} for you to attach (a computer sees the folder over USB): {FILES}.
 STR_BUGREPORT_DONE_NO_FILES             :The bug report form is open in your browser. Say what happened and submit it when you're ready.
 STR_BUGREPORT_NO_BROWSER                :No browser could be opened. The form's address is on the clipboard: paste it into a browser.
-STR_BUGREPORT_FORM_WHAT                 :What I did:\n\nWhat I expected:\n\nWhat happened instead:\n
-STR_BUGREPORT_FORM_FILES                :Please attach these files from the game's Reports folder (drag them here): {FILES}
 STR_BUGREPORT_FORM_LOG                  :Recent warnings:
 STR_BUGREPORT_FORM_NO_LOG               :No warnings so far.
 STR_KEYS_K_REPORT_PROBLEM               :Shift+F8
@@ -3394,11 +3394,44 @@ STR_SUPPORT_NO_BROWSER                  :No browser could be opened. The address
 STR_MENU_PREFS_SUPPORT                  : Support OpenSGolf...
 STR_MENU_PREFS_PLAYED_NOTE              :Your time played: {TIME}.
 STR_TITLE_PLAYED                        :{TIME} played
+STR_TITLE_VERSION                       :OpenSGolf {VERSION}
 STR_TIME_HOUR                           :1 hour
 STR_TIME_HOURS                          :{N} hours
 STR_TIME_MINUTE                         :1 minute
 STR_TIME_MINUTES                        :{N} minutes
 STR_PREFS_DESC_SUPPORT                  :Opens OpenSGolf's Buy Me a Coffee page in your browser. The game stays free and complete either way.
+# The welcome boxes (the port's own, welcome.rs; docs/PLAYING.md "How would you like to play?"). The choices start with a
+# space (options); the notes under them are wrapped by the game. The four choices are the four presets (STR_PRESET_*).
+STR_WELCOME_TITLE                       :How would you like to play?
+STR_WELCOME_ORIGINAL                    : The original game
+STR_WELCOME_ORIGINAL_NOTE               :Everything exactly as it was in 2002.
+STR_WELCOME_HELPERS                     : Original + helpers
+STR_WELCOME_HELPERS_NOTE                :The same game, with helpers that show more and save clicks.
+STR_WELCOME_OPENSGOLF                   : OpenSGolf
+STR_WELCOME_OPENSGOLF_NOTE              :The helpers and looks, plus small extras that keep the game's balance.
+STR_WELCOME_CUSTOM                      : Custom
+STR_WELCOME_CUSTOM_NOTE                 :Your own mix: opens Game options to tick each extra yourself.
+STR_WELCOME_CHANGE                      :You can change this any time in Preferences > Game options.
+# "What's new" after an update ({VERSION} is e.g. 0.6). Each highlight is a line (starting with a space) and a note.
+STR_WHATSNEW_TITLE                      :What's new in OpenSGolf {VERSION}
+STR_WHATSNEW_SMOOTH                     : Smoother play
+STR_WHATSNEW_SMOOTH_NOTE                :No more short freezes, and the course draws faster.
+STR_WHATSNEW_HD                         : HD graphics (beta)
+STR_WHATSNEW_HD_NOTE                    :Sharper art, made in the game from your own SimGolf files.
+STR_WHATSNEW_SWING                      : Mouse aim and swing
+STR_WHATSNEW_SWING_NOTE                 :Aim and swing your pro's shots with the mouse, as on a touch screen.
+STR_WHATSNEW_RIGHT                      : Right click puts the tool away
+STR_WHATSNEW_RIGHT_NOTE                 :A brush left in hand no longer undoes a hole's tee or green.
+STR_WHATSNEW_WEEDS                      : Sandbox: no new dandelions
+STR_WHATSNEW_WEEDS_NOTE                 :Dandelions stop spreading, so the course stays clear.
+STR_WHATSNEW_MORE                       : And more
+STR_WHATSNEW_MORE_NOTE                  :Wide-screen interface, update check, [ ] for speed, desert fixes.
+STR_WHATSNEW_ALL                        : See everything that's new
+STR_WHATSNEW_OK                         : OK
+STR_WHATSNEW_TRY                        :Try it
+STR_WHATSNEW_ON                         :On
+STR_MENU_PREFS_WHATSNEW                 : What's new...
+STR_PREFS_DESC_WHATSNEW                 :Opens the list of what's new in each version (the changelog) in your browser.
 STR_PLAYCOUNT_NOTICE                    :OpenSGolf counts anonymous play time (no personal data). Turn it off in Preferences > More.
 STR_MENU_PREFS_PLAYCOUNT                : Count my play time (anonymous)
 STR_PREFS_DESC_PLAYCOUNT                :One count per 15 minutes played and one at start: only system and version, no names or saves. Offline counts are sent later.
@@ -3437,11 +3470,11 @@ STR_HD_MAKE_FAILED                      :Making HD graphics stopped: {ERR}
 STR_HD_MAKE_WRITE_FAILED                :{FILE} could not be written (is the disk full?)
 
 # Mouse aim and swing (OpenSGolf extras, extras.rs mouse_swing; touch.rs)
-STR_EXTRAS_MOUSE_SWING                  : Controls: aim and swing with the mouse as by touch
+STR_EXTRAS_MOUSE_SWING                  : Aim and swing with the mouse as by touch
 STR_EXTRAS_DESC_MOUSE_SWING             :Aim your pro as on a touch screen: a click sets the target, a drag moves it or looks round, the round Swing button shoots.
 STR_MOUSE_SWING_HINT                    :Click to set the target, drag it to aim, drag the course to look round. Then click Swing.
 # Right click puts the tool away (OpenSGolf extras, extras.rs right_drop; main.rs right_click)
-STR_EXTRAS_RIGHT_DROP                   : Controls: right click puts the tool away
+STR_EXTRAS_RIGHT_DROP                   : Right click puts the tool away
 STR_EXTRAS_DESC_RIGHT_DROP              :A right click (B on a controller) drops the brush or tool in hand, as Space does, instead of the original's undo.
 # The interface at the screen's edges (OpenSGolf extras, extras.rs wide_ui; enhanced.rs widescreen)
 STR_EXTRAS_WIDE_UI                      : Interface at the screen's edges
