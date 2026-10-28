@@ -147,33 +147,35 @@ const UPDATE_CHECK: usize = 12;
 #[cfg(test)]
 const RETIRED_DESERT_ART: usize = 23;
 
-/// The option lines of each page, in order (the gameplay page from the lightest touch to the biggest change). Slower
+/// The option lines of each page, in order (each page's most wanted first). Slower
 /// seasons and Pause the calendar (options 6 and 7) are the Sandbox page's Calendar line; the Info page's groups stand for
 /// their ticks (`GROUPS`); the update check is on Preferences itself.
 const PAGE_LINES: [&[ExtrasLine]; 6] = {
     use sg_core::extras as x;
     use ExtrasLine::{Calendar, Game as G, Group, Ui as U};
+    // each page's lines in the order players are likeliest to want them, the experimental cut content last
     [
         &[
-            G(4), // animals
+            G(x::WEATHER),
+            G(x::MORE_VISITORS),
             G(x::LEFTIES),
             G(3), // higher staff limits
             G(5), // set par
-            G(CUT),
-            G(x::WEATHER),
-            G(x::MORE_VISITORS),
+            G(4), // animals
             G(2), // hardcore
+            G(CUT),
         ],
-        &[Calendar, G(8), G(9), G(x::NO_WEEDS)],
-        // path styles and lamps, Tab turns buildings (only the picture turns), random trees, the interface at the edges
-        &[G(x::PATHS), G(0), U(21), U(26)],
-        // People, extra reports, messages, path help, home-site details
-        &[Group(0), Group(1), Group(2), U(4), U(19)],
-        // autosave, save pictures, sharing, import and export saved games
-        &[U(5), U(6), U(7), U(22)],
-        // the three the controls presets set (drag to place, zoom towards the pointer, right-drag panning), mouse aim and
-        // swing and right click puts the tool away, which change what the original's mouse does, then the two pauses
-        &[U(15), U(14), U(20), U(24), U(25), U(8), U(9)],
+        // unlock all, no new dandelions, freeze moods, the calendar (slower seasons, pause)
+        &[G(9), G(x::NO_WEEDS), G(8), Calendar],
+        // the interface at the edges, path styles and lamps, random trees, Tab turns buildings (only the picture turns)
+        &[U(26), G(x::PATHS), U(21), G(0)],
+        // People, extra reports, messages, home-site details, path help
+        &[Group(0), Group(1), Group(2), U(19), U(4)],
+        // autosave, import and export saved games, sharing, save pictures
+        &[U(5), U(22), U(7), U(6)],
+        // zoom towards the pointer, right click puts the tool away, drag to place, right-drag panning, mouse aim and swing
+        // (the three the controls presets set and the two that change what the original's mouse does), then the two pauses
+        &[U(14), U(25), U(15), U(20), U(24), U(8), U(9)],
     ]
 };
 
@@ -934,14 +936,14 @@ mod tests {
         assert_eq!(tag(ExtrasLine::Calendar), Some(Tag::Noticeable));
         assert_eq!(tag(ExtrasLine::Game(x::LEFTIES)), Some(Tag::Light));
         assert_eq!(page_of(ExtrasLine::Ui(5)), Some(4), "autosave");
-        // the controls presets' ticks open the Controls page, mouse aim and swing after them
-        assert_eq!(
-            page_lines(5)[..5],
-            [ExtrasLine::Ui(15), ExtrasLine::Ui(14), ExtrasLine::Ui(20), ExtrasLine::Ui(24), ExtrasLine::Ui(25)]
-        );
-        // the Saves page holds the saving and sharing ticks only
-        assert_eq!(page_lines(4), [ExtrasLine::Ui(5), ExtrasLine::Ui(6), ExtrasLine::Ui(7), ExtrasLine::Ui(22)]);
-        assert_eq!(page_lines(4)[2..4], [ExtrasLine::Ui(7), ExtrasLine::Ui(22)], "import and export next to sharing");
+        // the Controls page holds the mouse ticks, the most wanted first, then the two pauses
+        assert_eq!(page_lines(5), [14, 25, 15, 20, 24, 8, 9].map(ExtrasLine::Ui));
+        // the Saves page holds the saving and sharing ticks only, autosave first
+        assert_eq!(page_lines(4), [ExtrasLine::Ui(5), ExtrasLine::Ui(22), ExtrasLine::Ui(7), ExtrasLine::Ui(6)]);
+        // the most wanted first: weather on Gameplay, the interface at the edges on Looks; the experimental line last
+        assert_eq!(page_lines(0)[0], ExtrasLine::Game(x::WEATHER));
+        assert_eq!(page_lines(2)[0], ExtrasLine::Ui(26));
+        assert_eq!(page_lines(0).last(), Some(&ExtrasLine::Game(CUT)));
         assert_eq!((page_of(ExtrasLine::Preset), tag(ExtrasLine::Preset)), (None, None));
         assert_eq!(page_of(ExtrasLine::Ui(UPDATE_CHECK)), None);
     }
@@ -969,7 +971,7 @@ mod tests {
         }
         // the foot shows the line's description (the box's option 0 is the preset line), or the page's hint with none
         let (e, ui) = (Extras::default(), Settings::ALL_OFF);
-        assert_eq!(foot_text(2, Some(1), &e, &ui), (sg_core::lang::tr("STR_EXTRAS_DESC_PATHS"), true));
+        assert_eq!(foot_text(2, Some(2), &e, &ui), (sg_core::lang::tr("STR_EXTRAS_DESC_PATHS"), true));
         assert_eq!(foot_text(2, Some(0), &e, &ui), (sg_core::lang::tr("STR_PRESET_DESC_ORIGINAL"), true));
         assert_eq!(foot_text(0, Some(0), &Extras::OPENSGOLF, &Settings::HELPERS).0, sg_core::lang::tr("STR_PRESET_DESC_OPENSGOLF"));
         assert!(!foot_text(2, Some(6), &e, &ui).1);

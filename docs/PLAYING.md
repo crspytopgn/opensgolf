@@ -332,8 +332,8 @@ Everything OpenSGolf adds is optional, and every option belongs to one of three 
   Enhanced graphics). Play is exactly the original's.
 - **Helpers**: shows you more or saves you effort (the People screen, extra reports, message history, autosave, import
   and export of saved games, the pauses, the mouse helpers). Play is exactly the original's.
-- **Gameplay**: changes how the game plays (animals to buy, more staff, set par, weather, visitors, hardcore, the
-  calendar and the sandbox switches). Each carries a tag saying how much: *Light touch*, *Noticeable*, *Big change*, or
+- **Gameplay**: changes how the game plays (weather, visitors, left-handed golfers, more staff, set par, animals to
+  buy, hardcore, the calendar and the sandbox switches). Each carries a tag saying how much: *Light touch*, *Noticeable*, *Big change*, or
   *Experimental*.
 
 Select Difficulty has a **Game** box next to Course size. A click steps through four **presets**:

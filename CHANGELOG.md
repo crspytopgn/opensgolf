@@ -40,7 +40,7 @@ Enhanced graphics and HD.
 **Fix releases**
 
 - **0.6.1:** a first-start box to choose how to play (the four presets), and What's new in 0.6 once after updating; Game
-  options' Helpers page split into Saves and Controls; typing in the bug report form opened from *Report a problem* no
+  options' Helpers page split into Saves and Controls, and every page's options listed most wanted first; typing in the bug report form opened from *Report a problem* no
   longer loses what you type, and the form's platform and base set come filled in; the version on the title screen.
 
 **Fix releases before it**
