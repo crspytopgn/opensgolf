@@ -25,6 +25,11 @@ pub fn saved() -> Extras {
     serde_json::from_value(settings_json()[SETTINGS_KEY].clone()).unwrap_or_default()
 }
 
+/// Saves the extras new games start with.
+pub fn save_next(e: &Extras) {
+    save(e);
+}
+
 fn save(e: &Extras) {
     let mut v = settings_json();
     if let Ok(x) = serde_json::to_value(e) {

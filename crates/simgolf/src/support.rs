@@ -230,15 +230,7 @@ impl App {
             building: self.edit,
             pro_out: self.club.gary != -1,
             tournament: self.club.game & sg_core::golfer::game::TOURNAMENT != 0,
-            other_box: self.popup.is_some()
-                || self.notice.is_some()
-                || self.rename.is_some()
-                || self.title.save_name.is_some()
-                || self.great_shot.is_some()
-                || self.simfoto.is_some()
-                || self.photo.is_some()
-                || self.analysis.is_some()
-                || !self.ui_ok,
+            other_box: self.other_box_up(),
         };
         if !natural_pause(at, busy, self.support.forced) {
             return;
@@ -248,6 +240,20 @@ impl App {
         save(&self.support.record);
         self.hover = -1;
         self.open_popup(crate::popup_ui::PopupKind::Support);
+    }
+
+    /// Another box or message is up (a popup, a notice, the rename or save prompt, a photo), or the interface art is missing:
+    /// no box of the port's own comes up over it (this one, the welcome boxes).
+    pub fn other_box_up(&self) -> bool {
+        self.popup.is_some()
+            || self.notice.is_some()
+            || self.rename.is_some()
+            || self.title.save_name.is_some()
+            || self.great_shot.is_some()
+            || self.simfoto.is_some()
+            || self.photo.is_some()
+            || self.analysis.is_some()
+            || !self.ui_ok
     }
 
     /// The box's answer (`k` its option, None for Esc, a right-click or a click outside it).

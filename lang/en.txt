@@ -3400,6 +3400,38 @@ STR_TIME_HOURS                          :{N} hours
 STR_TIME_MINUTE                         :1 minute
 STR_TIME_MINUTES                        :{N} minutes
 STR_PREFS_DESC_SUPPORT                  :Opens OpenSGolf's Buy Me a Coffee page in your browser. The game stays free and complete either way.
+# The welcome boxes (the port's own, welcome.rs; docs/PLAYING.md "How would you like to play?"). The choices start with a
+# space (options); the notes under them are wrapped by the game. The four choices are the four presets (STR_PRESET_*).
+STR_WELCOME_TITLE                       :How would you like to play?
+STR_WELCOME_ORIGINAL                    : The original game
+STR_WELCOME_ORIGINAL_NOTE               :Everything exactly as it was in 2002.
+STR_WELCOME_HELPERS                     : Original + helpers
+STR_WELCOME_HELPERS_NOTE                :The same game, with helpers that show more and save clicks.
+STR_WELCOME_OPENSGOLF                   : OpenSGolf
+STR_WELCOME_OPENSGOLF_NOTE              :The helpers, plus light extras such as animals to buy.
+STR_WELCOME_CUSTOM                      : Custom
+STR_WELCOME_CUSTOM_NOTE                 :Your own mix: opens Game options to tick each extra yourself.
+STR_WELCOME_CHANGE                      :You can change this any time in Preferences > Game options.
+# "What's new" after an update ({VERSION} is e.g. 0.6). Each highlight is a line (starting with a space) and a note.
+STR_WHATSNEW_TITLE                      :What's new in OpenSGolf {VERSION}
+STR_WHATSNEW_SMOOTH                     : Smoother play
+STR_WHATSNEW_SMOOTH_NOTE                :No more short freezes, and the course draws faster.
+STR_WHATSNEW_HD                         : HD graphics (beta)
+STR_WHATSNEW_HD_NOTE                    :Sharper art, made in the game from your own SimGolf files.
+STR_WHATSNEW_SWING                      : Mouse aim and swing
+STR_WHATSNEW_SWING_NOTE                 :Aim and swing your pro's shots with the mouse, as on a touch screen.
+STR_WHATSNEW_RIGHT                      : Right click puts the tool away
+STR_WHATSNEW_RIGHT_NOTE                 :A brush left in hand no longer undoes a hole's tee or green.
+STR_WHATSNEW_WEEDS                      : Sandbox: no new dandelions
+STR_WHATSNEW_WEEDS_NOTE                 :Dandelions stop spreading, so the course stays clear.
+STR_WHATSNEW_MORE                       : And more
+STR_WHATSNEW_MORE_NOTE                  :Wide-screen interface, update check, [ ] for speed, desert fixes.
+STR_WHATSNEW_ALL                        : See everything that's new
+STR_WHATSNEW_OK                         : OK
+STR_WHATSNEW_TRY                        :Try it
+STR_WHATSNEW_ON                         :On
+STR_MENU_PREFS_WHATSNEW                 : What's new...
+STR_PREFS_DESC_WHATSNEW                 :Opens the list of what's new in each version (the changelog) in your browser.
 STR_PLAYCOUNT_NOTICE                    :OpenSGolf counts anonymous play time (no personal data). Turn it off in Preferences > More.
 STR_MENU_PREFS_PLAYCOUNT                : Count my play time (anonymous)
 STR_PREFS_DESC_PLAYCOUNT                :One count per 15 minutes played and one at start: only system and version, no names or saves. Offline counts are sent later.
