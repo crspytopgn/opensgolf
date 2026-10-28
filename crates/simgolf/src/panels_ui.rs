@@ -168,15 +168,16 @@ fn terrain_slot_rect(i: usize, theme: usize) -> Rect {
     }
 }
 
-/// The terrain slot under the pointer. The exe's own test for these buttons is not in the decode: the tile buttons take the
-/// diamond of their isometric slab, the trees their rectangle, trees first since they overlap the first row.
+/// The terrain slot under the pointer (0x432f90): the slots in order, tiles then trees, the first whose cell holds the point,
+/// a cell being 62 wide from the button's left and the 44 rows ending 10 above the foot of its picture. A tree is thus hit
+/// only at its foot, as a further cell of the tile rows, never over its tall picture (#142: the port took the trees' whole
+/// pictures first, so the pointer over a tree's crown, or beside it, picked the tree).
 fn terrain_slot_at(theme: usize, px: f32, py: f32) -> Option<usize> {
-    if let Some(i) = (13..16).rev().find(|&i| terrain_slot_rect(i, theme).has(px, py)) {
-        return Some(i);
-    }
-    (0..13).rev().find(|&i| {
+    let (px, py) = (px.floor(), py.floor());
+    (0..16).find(|&i| {
         let r = terrain_slot_rect(i, theme);
-        r.has(px, py) && (px - (r.x + 31.0)).abs() / 31.0 + (py - (r.y + 24.0)).abs() / 24.0 <= 1.0
+        let bottom = r.y + r.h - 10.0;
+        px >= r.x && px < r.x + 62.0 && py >= bottom - 44.0 && py < bottom
     })
 }
 
@@ -293,25 +294,29 @@ impl Strip {
         (self.left() + 0x2c + 47 * i / 2, 500 + if i & 1 != 0 { 27 } else { 0 })
     }
 
-    /// The design under a point, shown designs only: within the box its pad (47 x 40 round the anchor) and its picture
-    /// (up to 44 px above the anchor) cover, the one whose picture centre is nearest (the two rows overlap). The hover picks the design, so a box
-    /// smaller than the picture (an octagon squashed to half height, within 20) left the pick on a neighbour the pointer
-    /// had crossed on its way to the picture.
+    /// The design under a point, shown designs only (0x43231d..0x432369): within an octagon round its anchor, about 19
+    /// pixels across and 9 tall (`metric(dx, 2 dy) < 20`, 0x467170), whatever its picture; the last such design wins. The
+    /// pointer over a tall picture's top is on no design (#142: the port took the whole picture, so tall landmarks and
+    /// scenic trees were hard to pick from their neighbours); the hover stays on the last design touched, as the exe's
+    /// callers keep it (0x5a9f50).
     fn hit(&self, mask: u32, px: f32, py: f32) -> i32 {
         let (px, py) = (px.floor() as i32, py.floor() as i32);
-        let mut best = (-1, i32::MAX);
+        let metric = |a: i32, b: i32| {
+            let (a, b) = (a.abs(), b.abs());
+            if a > b {
+                (b + 2 * a) / 2
+            } else {
+                (a + 2 * b) / 2
+            }
+        };
+        let mut hit = -1;
         for i in (0..self.count).filter(|&i| mask == 0 || mask & (1 << i) != 0) {
             let (cx, cy) = self.at(i);
-            let (dx, dy) = (px - cx, py - cy);
-            if (-23..24).contains(&dx) && (-44..21).contains(&dy) {
-                // nearest picture centre (a 40 px picture stands on its anchor)
-                let d = dx * dx + (dy + 18) * (dy + 18);
-                if d < best.1 {
-                    best = (i, d);
-                }
+            if metric(px - cx, 2 * (py - cy)) < 20 {
+                hit = i;
             }
         }
-        best.0
+        hit
     }
 }
 
@@ -1033,7 +1038,11 @@ impl App {
         }
         blit(g, s, &art, if st.count & 1 != 0 { STRIP_END_ODD } else { STRIP_END_EVEN }, x, 477.0);
         let (mx, my) = self.pstate.mouse;
-        let hot = st.hit(mask, mx, my);
+        // under the pointer, else the design last under it (the exe's 0x5a9f50 keeps it)
+        let hot = match st.hit(mask, mx, my) {
+            -1 => (0..st.count).find(|&i| self.design_hover != -1 && self.strip_design(kind, i) == self.design_hover).unwrap_or(-1),
+            h => h,
+        };
         let current = self.design.filter(|d| d.0 == kind).map(|d| d.1).unwrap_or(-1);
         for i in (0..st.count).filter(|&i| mask == 0 || mask & (1 << i) != 0) {
             let (cx, cy) = st.at(i);
@@ -1779,17 +1788,17 @@ mod tests {
     }
 
     #[test]
-    fn a_strip_picture_picks_its_own_design() {
+    fn a_strip_design_is_hit_at_its_base() {
+        // issue #142: the exe's octagon round each anchor (0x43231d), not the picture standing above it
         let st = Strip { dx: 0, count: 6, scale: 1.0 };
         for i in 0..6 {
             let (cx, cy) = st.at(i);
-            // the pad, and the picture standing above the anchor
             assert_eq!(st.hit(0, cx as f32, cy as f32), i);
-            assert_eq!(st.hit(0, cx as f32 + 8.0, cy as f32 - 30.0), i, "picture of {i}");
-            assert_eq!(st.hit(0, cx as f32 - 3.0, cy as f32 - 18.0), i, "middle of {i}");
+            assert_eq!(st.hit(0, cx as f32 + 15.0, cy as f32), i, "the octagon's side of {i}");
+            assert_ne!(st.hit(0, cx as f32, cy as f32 - 30.0), i, "the top of {i}'s picture");
         }
         // hidden designs are never picked; far away nothing is
-        assert_eq!(st.hit(0b111101, st.at(1).0 as f32, st.at(1).1 as f32 - 30.0) == 1, false);
+        assert_eq!(st.hit(0b111101, st.at(1).0 as f32, st.at(1).1 as f32), -1);
         assert_eq!(st.hit(0, 10.0, 10.0), -1);
     }
 
@@ -1800,7 +1809,8 @@ mod tests {
         assert_eq!(st.left(), 402);
         assert_eq!((st.at(0), st.at(1)), ((446, 500), (469, 527)));
         assert_eq!(st.hit(0, 469.0, 527.0), 1);
-        assert_eq!(st.hit(0, 469.0, 510.0), 1);
+        assert_eq!(st.hit(0, 469.0, 520.0), 1);
+        assert_eq!(st.hit(0, 469.0, 505.0), -1, "above the octagon");
         // landmarks show only the club's
         let st = design_strip(land::K_LANDMARK).unwrap();
         assert_eq!(st.hit(1 << 3, st.at(3).0 as f32, st.at(3).1 as f32), 3);
@@ -1826,9 +1836,17 @@ mod tests {
 
     #[test]
     fn slots_and_choices() {
-        assert_eq!(terrain_slot_at(0, 301.0, 532.0), Some(0));
-        assert_eq!(terrain_slot_at(0, 332.0, 570.0), Some(7));
-        assert_eq!(terrain_slot_at(0, 735.0, 500.0), Some(13));
+        // every button's cell: 62 wide, the 44 rows ending 10 above its picture's foot (0x432f90)
+        for i in 0..16 {
+            let r = terrain_slot_rect(i, 0);
+            assert_eq!(terrain_slot_at(0, r.x + 30.0, r.y + r.h - 20.0), Some(i), "slot {i}");
+        }
+        // issue #142: the trees are hit at their foot only, not over their crowns (Parkland: 704-765 x 507-550, pine
+        // 673-734 x 546-589, palm 735-796 x 545-588)
+        assert_eq!(terrain_slot_at(0, 735.0, 530.0), Some(13));
+        assert_eq!(terrain_slot_at(0, 735.0, 500.0), None, "the tree's crown");
+        assert_eq!(terrain_slot_at(0, 700.0, 560.0), Some(14));
+        assert_eq!(terrain_slot_at(0, 780.0, 560.0), Some(15));
         assert_eq!(terrain_slot_at(0, 230.0, 590.0), None);
         assert_eq!(hire_choice_at(300.0, 175.0), Some(0));
         assert_eq!(hire_choice_at(300.0, 195.0), Some(1));
