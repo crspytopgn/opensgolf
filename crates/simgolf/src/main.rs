@@ -3220,6 +3220,8 @@ impl EventHandler for Stage {
     }
 
     fn draw(&mut self) {
+        // the edges a phone hides, for what Enhanced widescreen draws at the window's edges (ui.rs safe_extent)
+        ui::set_safe_area(ui::platform_safe_area(self.app.draw_w, self.app.draw_h));
         glass_ui::set_active(self.app.on_free_set());
         enhanced::trial_frame(self.app.clock);
         // art files of the player's copy that could not be read (app.rs take_unreadable_note)
