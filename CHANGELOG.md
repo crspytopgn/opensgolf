@@ -22,6 +22,7 @@ Enhanced graphics and HD.
 - **A new cast of cartoon faces** for the free graphics' golfers.
 - **Checks for a new version when the game starts** and offers it, saying nothing if there is none (Preferences > More
   switches it off).
+- **The terrain brush's preview keeps to its tile when zoomed out** (#115).
 - **The game says when some of your SimGolf files cannot be read**, instead of quietly leaving things off the course.
 - **New options:** aim and swing with the mouse the way touch screens do; *right click puts the tool away* (B on a
   controller), so a brush left in hand no longer undoes a hole's tee or green; and on wide screens the interface now sits at the
