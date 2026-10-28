@@ -3874,14 +3874,18 @@ impl EventHandler for Stage {
     }
 
     /// The window went to the background (focus out on X11, Windows and macOS, the page hidden or blurred in the browser,
-    /// the app paused on Android): the Pause in the background extra pauses the game (comfort.rs).
+    /// the app paused on Android): the Pause in the background extra pauses the game and its sound (comfort.rs), and the
+    /// Autosave extra saves the game (autosave.rs). In a browser this is not left for the next frame, which a hidden page
+    /// may never draw: miniquad's gl.js calls the wasm's `focus` from inside the page's visibilitychange, focus and blur
+    /// events, so the pause, the sound's sleep and the save are done before the browser can freeze or discard the page.
     fn window_minimized_event(&mut self) {
         self.app.window_hidden();
+        self.app.autosave_on_hide();
         // no play time counted in the background (support.rs)
         self.app.support.hidden = true;
     }
 
-    /// The window is back: the pause the extra made ends.
+    /// The window is back: the pause the extra made ends, and its sound goes on.
     fn window_restored_event(&mut self) {
         self.app.window_shown();
         self.app.support.hidden = false;

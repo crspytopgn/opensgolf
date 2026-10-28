@@ -30,6 +30,17 @@ function sgCanvasRect(touch, w, h, left, top) {
     return { left: Math.round(left), top: Math.round(top + (h - bh) / 2), width: Math.round(w), height: Math.round(bh) };
 }
 
+// --- the game's sound asleep in the background (the port's own; web/opensgolf.js sgSoundSleep) ----------------------------
+// What the page does with its sound context, in `state` ("running", "suspended", Safari's "interrupted", "closed", or none
+// made yet): "suspend" while the game has its sound asleep (the Pause in the background extra, with the window in the
+// background), "resume" for a context that is not running while the game's sound is awake and the page is shown, else
+// "". A context left suspended plays nothing, so a phone has no sound to keep the page running for.
+function sgSoundAction(state, asleep, hidden) {
+    if (!state || state === "closed") return "";
+    if (asleep) return state === "running" ? "suspend" : "";
+    return state !== "running" && !hidden ? "resume" : "";
+}
+
 function sgKey(p) {
     return p.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/$/, "").replace(/^\.\//, "").toLowerCase();
 }
@@ -1735,5 +1746,5 @@ function sgFilesSummary(paths, skipped = [], found = null, bad = null) {
 if (typeof module !== "undefined") {
     module.exports = { sgKey, sgSkip, sgRootOf, sgStraySound, sgPlace, sgZipEntries, sgZipRead, sgUnzip, sgInflate, sgInflateInto,
         sgBunzip2, sgUnlzma, sgUnppmd, sgZipName, sgZipPath, sgCrc32, sgFilesSummary, sgVersion, sgSoundCoding,
-        sgSoundCodings, sgPortraitAsk, sgCanvasRect };
+        sgSoundCodings, sgPortraitAsk, sgCanvasRect, sgSoundAction };
 }
