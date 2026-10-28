@@ -81,16 +81,18 @@ impl App {
     /// `autosave_on_hide` with the autosaves in `dir`. True when the game was saved.
     fn autosave_on_hide_in(&mut self, dir: &Path) -> bool {
         let tournament = self.club.game & sg_core::golfer::game::TOURNAMENT != 0;
-        if !crate::extras::autosave() || self.land.is_none() || self.on_title() || tournament {
+        // only on the course itself, where the five-minute autosave and the quick save are made: not over a report, the
+        // year's end or a tournament's results, nor the Load Previous Game list, whose autosaves would move along under it
+        if !crate::extras::autosave() || self.land.is_none() || self.screen != Screen::Play || tournament {
             return false;
         }
         if self.autosave_due - self.autosave_hidden_at.unwrap_or(0.0) < HIDE_GAP {
             return false;
         }
         let saved = self.autosave_to(dir, self.autosave_hidden_at.is_some());
-        if saved {
-            self.autosave_hidden_at = Some(self.autosave_due);
-        }
+        // tried, saved or not: a save that failed has moved the kept autosaves along once already, and the next one only
+        // replaces Latest, so failing saves do not wear the older ones away
+        self.autosave_hidden_at = Some(self.autosave_due);
         saved
     }
 
@@ -219,9 +221,13 @@ mod tests {
         crate::extras::set(crate::extras::Settings::ALL_OFF);
         assert!(!a.autosave_on_hide_in(&dir));
         assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
-        // with the extra on, the course's reports and boxes are a game's screens
+        // with the extra on, nor over a report or another of the game's screens
         crate::extras::set(crate::extras::Settings { autosave: true, ..crate::extras::Settings::ALL_OFF });
         a.screen = Screen::Finance;
+        assert!(!a.autosave_on_hide_in(&dir));
+        assert_eq!(std::fs::read_dir(&dir).unwrap().count(), 0);
+        // the course
+        a.screen = Screen::Play;
         assert!(a.autosave_on_hide_in(&dir));
         assert!(crate::app::read_save(&dir.join(FILE)).is_ok());
         let _ = std::fs::remove_dir_all(&dir);
