@@ -352,7 +352,10 @@ the theme (for example the Links set draws the Airstrip slot as a castle); that 
 At start-up the exe hands Terrain.dll one class per tile type (byte +0x26 of the terrain table): tee 0, green 1, fairway and
 firm fairway 2, rough, deep rough, mound, ravine, brush, rocks, wetlands and marsh 4, sand trap and pot bunker 7, waste bunker 8,
 the four tree types 13, water 17, out of bounds and buildings 18. In the Desert theme every type with a positive byte +0x22,
-except deep rough and sand trap, is sent as class 4. Terrain.dll does not draw out-of-bounds tiles at all.
+except deep rough and sand trap, is sent as class 4. The classes are sent (0x449400) after the theme is loaded, and the Desert's
+theme loader (0x43dbe0) has set deep rough's class byte to 5 (0x578466), so in the Desert deep rough (drawn as the green
+"Rough") is a class of its own and shows its grass collar against the desert ground, buildings, landmarks and the map's edge
+(issue #118). Terrain.dll does not draw out-of-bounds tiles at all.
 
 ### Re-check of the facts taken from the first decompile
 The routines the port relies on were compared between the earlier decompile and the complete one: 14 are identical, and two

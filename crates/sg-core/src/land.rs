@@ -333,9 +333,19 @@ pub const T_HOME_SITE: u8 = 21;
 pub const T_BUILDING: u8 = 22;
 
 /// Border class of a tile type as the exe hands it to Terrain.dll, with the Desert override.
+///
+/// The exe builds the classes it hands over (0x449400, run after the theme is loaded) from the runtime terrain table: byte
+/// +0x26 of each type, except that in the Desert every type with a positive byte +0x22 is sent as class 4, deep rough and
+/// sand trap excepted. The Desert's theme loader (0x43dbe0) has already set deep rough's class byte to 5 (it writes 5 to
+/// 0x578466, record 5 +0x26), so there deep rough, which the Desert draws as its green "Rough", is a class of its own:
+/// next to the sandy desert ground, the out-of-bounds land at the map's edge, buildings and landmarks (all class 4 there)
+/// it draws the darker grass collar, as the original does, rather than the same-class pieces that show sand round their
+/// edges (issue #118). The other themes keep deep rough in class 4 with the rough.
 pub fn border_class(ty: u8, desert: bool) -> u8 {
     let Some(t) = crate::data::get().land_types.get(ty as usize) else { return ty };
-    if desert && t.desert_group > 0 && ty != 5 && ty != 7 {
+    if desert && ty == T_DEEP_ROUGH {
+        5
+    } else if desert && t.desert_group > 0 && ty != 7 {
         4
     } else {
         t.class
@@ -1856,6 +1866,23 @@ impl Land {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn desert_deep_rough_borders_as_a_class_of_its_own() {
+        // the Desert: deep rough (its green "Rough") is class 5, so it shows the grass collar against the desert ground, the
+        // map's edge and buildings (issue #118)
+        assert_eq!(border_class(T_DEEP_ROUGH, true), 5);
+        for ty in [T_ROUGH, T_OUT, T_HOME_SITE, T_BUILDING, T_BRUSH] {
+            assert_eq!(border_class(ty, true), 4, "type {ty}");
+        }
+        assert_eq!(border_class(7, true), 7);
+        assert_eq!(border_class(T_GREEN, true), 1);
+        // the other themes: the table's own classes
+        assert_eq!(border_class(T_DEEP_ROUGH, false), 4);
+        assert_eq!(border_class(T_ROUGH, false), 4);
+        assert_eq!(border_class(T_BUILDING, false), 18);
+        assert_eq!(border_class(T_OUT, false), 18);
+    }
 
     #[test]
     fn rng_matches_the_exe_formula() {
