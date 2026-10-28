@@ -877,8 +877,9 @@ function sgFitCanvas() {
     const win = sgWindowBox();
     // a web app opened from the home screen has no bars to follow, and there the visual viewport can keep the size it had
     // before the device turned (a band left over at the top or bottom until the app was started again): the window as the
-    // page lays it out instead
-    const vv = sgHomeScreenApp() ? null : window.visualViewport;
+    // page lays it out instead. While the game wants the phone's keyboard (naming a course or a save) the visual viewport is
+    // followed all the same, so the keyboard shrinks the game rather than covering the name being typed.
+    const vv = sgHomeScreenApp() && !sgKbdWanted ? null : window.visualViewport;
     const w = vv ? vv.width : win.width || window.innerWidth, h = vv ? vv.height : win.height || window.innerHeight;
     // a phone or tablet held upright: the "turn sideways" card, and after "Play anyway" the game in a 4:3 band (files.js)
     const touch = sgTouchDevice();
