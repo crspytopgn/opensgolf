@@ -23,6 +23,11 @@ impl Undo {
         self.steps.clear();
         self.pending = None;
     }
+
+    /// Whether there is a click to undo (the touch Undo button shows only then, touch.rs).
+    pub fn can_undo(&self) -> bool {
+        !self.steps.is_empty()
+    }
 }
 
 impl App {
