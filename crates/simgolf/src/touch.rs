@@ -1412,9 +1412,9 @@ fn icon_turn(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4]) {
 
 /// Undo: a hooked arrow pointing back to the left (the usual undo picture), so it does not read as Turn's arrow going round.
 fn icon_undo(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4]) {
-    let rad = r * 0.26;
-    let w = r * 0.13;
-    let (ox, oy, from, to) = (cx - r * 0.04, cy + r * 0.08, std::f32::consts::PI * 1.5, std::f32::consts::PI * 2.5);
+    let rad = r * 0.32;
+    let w = r * 0.15;
+    let (ox, oy, from, to) = (cx - r * 0.06, cy + r * 0.1, std::f32::consts::PI * 1.5, std::f32::consts::PI * 2.5);
     shaded(g, ink, |g, dx, dy, c| {
         let n = 12;
         let p = |a: f32, rr: f32| (ox + dx + rr * a.cos(), oy + dy + rr * a.sin());
@@ -1426,11 +1426,11 @@ fn icon_undo(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4]) {
         }
         // a short tail back to the left along the bottom
         let (bx, by) = (ox + dx, oy + dy + rad);
-        let tail = r * 0.22;
+        let tail = r * 0.28;
         s.quad(g, [(bx - tail, by - w), (bx, by - w), (bx, by + w), (bx - tail, by + w)], c);
         // the head at the top, pointing left
         let (tx, ty) = (ox + dx, oy + dy - rad);
-        let (hw, len) = (w * 2.4, r * 0.3);
+        let (hw, len) = (w * 2.3, r * 0.36);
         s.quad(g, [(tx, ty - hw), (tx, ty + hw), (tx - len, ty), (tx - len, ty)], c);
     });
 }
@@ -1679,11 +1679,9 @@ mod tests {
                 for i in 0..COLUMN {
                     assert!(apart(button_centre(i, r, right), r), "undo on slot {i} at {px}");
                 }
-                for (name, c, rc) in [
-                    ("swing", swing_centre(r, right), big),
-                    ("place", place_centre(r, right), big),
-                    ("centre", centre_centre(r, right), r),
-                ] {
+                for (name, c, rc) in
+                    [("swing", swing_centre(r, right), big), ("place", place_centre(r, right), big), ("centre", centre_centre(r, right), r)]
+                {
                     assert!(apart(c, rc), "undo on {name} at {px}");
                 }
             }
