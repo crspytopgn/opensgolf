@@ -1169,7 +1169,12 @@ The same touch controls work in the browser and in the Android app (crates/simgo
 In a browser the game covers what can be seen of the page (the visual viewport), and follows Safari's address, tab and
 bottom bars as they show and hide and the device as it turns: on an iPad or iPhone the bottom of the game (the dock, a
 panel's lower row) used to sit under the bars (web/opensgolf.js `sgFitCanvas`). It is sized again a few times in the
-second after the device turns, since iOS Safari reports the new size late.
+second after the device turns, since iOS Safari reports the new size late. Opened from the home screen as a web app, where
+there are no bars, it covers the window as the page lays it out instead: there the visual viewport could keep the size it
+had before the device turned, leaving a band at the top or bottom until the app was started again. Held sideways, the game
+reaches both sides of the screen, under a phone's camera cut-out and rounded corners (the page's `viewport-fit=cover`);
+what Enhanced widescreen draws at the window's edges (the gauges, the touch buttons) stays clear of them (ui.rs
+`safe_extent`), and the home bar stays over the dock as before.
 
 SimGolf is a landscape game. A phone or tablet held upright while the game runs (in the browser) gets a card over the game
 asking to turn it sideways; turning it takes the card away, and no tap reaches the game while it is up. **Play anyway**

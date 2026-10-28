@@ -587,6 +587,45 @@ pub fn pixel_border(g: &mut Gfx, w: f32, h: f32) {
     s.fill(g, 0.0, 600.0, 800.0, b - 600.0, black);
 }
 
+thread_local! {
+    /// The edges of the window the device hides (a phone's camera cut-out, rounded corners and home bar, where the browser
+    /// lets the game draw under them): left, top, right, bottom in drawable pixels, set each frame (main.rs). None elsewhere.
+    static SAFE: std::cell::Cell<[f32; 4]> = const { std::cell::Cell::new([0.0; 4]) };
+}
+
+/// The window's hidden edges for the frames that follow, in drawable pixels (left, top, right, bottom).
+pub fn set_safe_area(px: [f32; 4]) {
+    SAFE.with(|c| c.set(px.map(|p| p.max(0.0))));
+}
+
+/// The window's hidden edges as the platform reports them, in drawable pixels of a `w` x `h` drawable: in a browser the
+/// page's CSS safe-area insets (web/opensgolf.js sgFitCanvas, as fractions of the canvas); elsewhere none, or
+/// SG_SAFE_AREA="l,t,r,b" (drawable pixels) for scripted stills of a phone's screen.
+pub fn platform_safe_area(w: f32, h: f32) -> [f32; 4] {
+    #[cfg(target_arch = "wasm32")]
+    {
+        #[link(wasm_import_module = "env")]
+        extern "C" {
+            fn sg_safe_area(side: u32) -> f32;
+        }
+        // SAFETY: the page's function takes a number and returns one
+        let f = |side| unsafe { sg_safe_area(side) };
+        [f(0) * w, f(1) * h, f(2) * w, f(3) * h]
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = (w, h);
+        static TEST: std::sync::OnceLock<[f32; 4]> = std::sync::OnceLock::new();
+        *TEST.get_or_init(|| {
+            let v: Vec<f32> = std::env::var("SG_SAFE_AREA").unwrap_or_default().split(',').filter_map(|s| s.trim().parse().ok()).collect();
+            match v[..] {
+                [l, t, r, b] => [l, t, r, b],
+                _ => [0.0; 4],
+            }
+        })
+    }
+}
+
 /// A 2D drawing session over the 800x600 virtual screen.
 pub struct Screen {
     pub view: View,
@@ -623,6 +662,16 @@ impl Screen {
         (-v.ox / v.scale, -v.oy / v.scale, (self.draw.0 - v.ox) / v.scale, (self.draw.1 - v.oy) / v.scale)
     }
 
+    /// [`Self::extent`] less the edges the device hides (set_safe_area): where Enhanced widescreen puts what it draws at the
+    /// window's edges, so a phone's camera cut-out and rounded corners do not cover the gauges or the touch buttons.
+    pub fn safe_extent(&self) -> (f32, f32, f32, f32) {
+        let (l, t, r, b) = self.extent();
+        let [sl, st, sr, _] = SAFE.with(|c| c.get()).map(|p| p / self.view.scale);
+        // the home bar at the bottom stays over the dock, as it always was in the browser: lifting the dock off the
+        // window's foot would show a strip of the course under it
+        (l + sl, t + st, r - sr, b)
+    }
+
     /// Enhanced widescreen: what follows is laid out for the 800x600 screen and drawn at this edge of the window (whole
     /// pixels away). Nothing in Classic.
     pub fn anchor(&self, a: crate::enhanced::Anchor) {
@@ -638,7 +687,7 @@ impl Screen {
         if !self.wide {
             return (0.0, 0.0);
         }
-        let (dx, dy) = a.shift(self.extent());
+        let (dx, dy) = a.shift(self.safe_extent());
         let k = self.view.scale;
         ((dx * k).round() / k, (dy * k).round() / k)
     }
@@ -1005,6 +1054,24 @@ pub fn group(n: u64) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn the_edges_a_phone_hides_narrow_where_the_window_edge_pieces_go() {
+        // an iPhone 16 Pro Max sideways at 3 drawable pixels to a CSS pixel: 2868 x 1320, the camera cut-out on the left
+        let s = super::Screen::new(2868.0, 1320.0);
+        super::set_safe_area([0.0; 4]);
+        assert_eq!(s.safe_extent(), s.extent());
+        super::set_safe_area([186.0, 0.0, 186.0, 63.0]);
+        let (l, t, r, b) = s.extent();
+        let (sl, st, sr, sb) = s.safe_extent();
+        let k = s.view.scale;
+        assert!((sl - (l + 186.0 / k)).abs() < 1e-3 && (sr - (r - 186.0 / k)).abs() < 1e-3);
+        // the top has nothing hidden, and the home bar is left over the dock
+        assert_eq!((st, sb), (t, b));
+        // still wider than the 800 x 600 screen: the edge pieces only come in from the window's sides
+        assert!(sl < 0.0 && sr > 800.0);
+        super::set_safe_area([0.0; 4]);
+    }
+
     #[test]
     fn money_format() {
         assert_eq!(super::money(1234567), "\u{a7}1,234,567");

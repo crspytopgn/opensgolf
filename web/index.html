@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<!-- viewport-fit=cover: a phone held sideways lets the game reach both sides of the screen, under its camera cut-out and
+     rounded corners, instead of leaving a band down each; the game keeps its own pieces clear of them (opensgolf.js
+     sgWindowBox, ui.rs safe_extent) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#1f6b3f">
 <meta name="description" content="OpenSGolf: Sid Meier's SimGolf, remastered. A free, open-source, fan-made golf resort game you can play right in your browser, with your own SimGolf files or free graphics.">
 <title>OpenSGolf: SimGolf, remastered, in your browser</title>
@@ -107,6 +110,9 @@
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   html, body { margin: 0; padding: 0; min-height: 100%; }
   body { min-height: 100vh; color: var(--ink); font: 14px/1.55 var(--ui); background: var(--bg2); }
+  /* a phone held sideways (viewport-fit=cover): the site panel clear of the camera cut-out and the rounded corners; the
+     backdrop and the game, fixed over the window, still reach the edges */
+  body { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
   /* the game: fixed over the whole window once it starts (the page below is hidden then) */
   /* (100dvh: iPad and iPhone Safari's 100vh is the height with their bars hidden, which put the bottom of the game, the
      dock and the panels, under the bars; opensgolf.js sgFitCanvas sizes it to the visible area as the bars come and go) */

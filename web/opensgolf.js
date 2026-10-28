@@ -168,6 +168,8 @@ miniquad_add_plugin({
     register_plugin: function (importObject) {
         const env = importObject.env;
         env.sg_keyboard = function (show) { sgKeyboard(show !== 0); };
+        // the edges of the canvas a phone hides (sgFitCanvas): side 0 left, 1 top, 2 right, 3 bottom, as a fraction
+        env.sg_safe_area = function (side) { return sgSafe[side] || 0; };
         // the frame rate cap (Enhanced graphics > Display; framerate.rs): frames a second, 0 for none
         env.sg_frame_cap = function (fps) { sgFrameCap = fps; };
         // the watch over the game's drawing (sgDrawingStopped): a frame was drawn; Enhanced graphics on or off
@@ -842,12 +844,18 @@ function sgStart() {
 function sgFitCanvas() {
     const c = document.getElementById("glcanvas");
     if (!c || c.style.display !== "block") return;
-    const vv = window.visualViewport;
-    const w = vv ? vv.width : window.innerWidth, h = vv ? vv.height : window.innerHeight;
+    const win = sgWindowBox();
+    // a web app opened from the home screen has no bars to follow, and there the visual viewport can keep the size it had
+    // before the device turned (a band left over at the top or bottom until the app was started again): the window as the
+    // page lays it out instead
+    const vv = sgHomeScreenApp() ? null : window.visualViewport;
+    const w = vv ? vv.width : win.width || window.innerWidth, h = vv ? vv.height : win.height || window.innerHeight;
     // a phone or tablet held upright: the "turn sideways" card, and after "Play anyway" the game in a 4:3 band (files.js)
     const touch = sgTouchDevice();
     sgRotateCard(sgPortraitAsk(touch, w, h, sgRotateDismissed()));
     const r = sgCanvasRect(touch, w, h, vv ? vv.offsetLeft : 0, vv ? vv.offsetTop : 0);
+    // what of the canvas the phone hides, for the game to keep its edge pieces clear of (env.sg_safe_area)
+    sgSafe = sgSafeInsets(win.insets, r, win.width || w, win.height || h);
     const css = (k, v) => { if (c.style[k] !== v) c.style[k] = v; };
     css("width", r.width + "px");
     css("height", r.height + "px");
@@ -855,6 +863,36 @@ function sgFitCanvas() {
     css("top", r.top + "px");
     // gl.js's own resize (it listens to the window's resize only, which Safari does not send for its bars)
     if (typeof resize === "function" && typeof wasm_exports !== "undefined" && wasm_exports.resize) resize(c, wasm_exports.resize);
+}
+// The edges of the canvas the phone hides, as fractions of its width and height (left, top, right, bottom; files.js
+// sgSafeInsets): what the game asks through env.sg_safe_area each frame.
+let sgSafe = [0, 0, 0, 0];
+// A box fixed over the whole window, never seen: its size is the window as the page lays it out, and its padding the
+// window's safe-area insets (the camera cut-out, the rounded corners and the home bar of a phone held sideways, which the
+// page draws under with viewport-fit=cover; 0 everywhere else).
+let sgWindowProbe = null;
+function sgWindowBox() {
+    if (!sgWindowProbe) {
+        sgWindowProbe = document.createElement("div");
+        sgWindowProbe.setAttribute("aria-hidden", "true");
+        sgWindowProbe.style.cssText = "position:fixed;left:0;top:0;right:0;bottom:0;visibility:hidden;pointer-events:none;" +
+            "box-sizing:border-box;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) " +
+            "env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)";
+        document.body.appendChild(sgWindowProbe);
+    }
+    const b = sgWindowProbe.getBoundingClientRect(), st = getComputedStyle(sgWindowProbe);
+    const px = k => parseFloat(st[k]) || 0;
+    return { width: b.width, height: b.height, insets: [px("paddingLeft"), px("paddingTop"), px("paddingRight"), px("paddingBottom")] };
+}
+// Opened from the home screen as a web app (iPhone and iPad's Add to Home Screen, an installed web app elsewhere): no
+// browser bars round the page.
+function sgHomeScreenApp() {
+    if (navigator.standalone === true) return true;
+    try {
+        return !!window.matchMedia && (matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches);
+    } catch (e) {
+        return false;
+    }
 }
 // Sized again a few times after a turn: iOS Safari reports the new size late (the first resize after a turn can still
 // carry the old one, and a bar sliding away does not always send an event).
