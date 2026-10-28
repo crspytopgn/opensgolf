@@ -94,7 +94,7 @@ impl App {
             LAND => self.cheat_buy_land(),
             _ => {
                 if let Some(i) = SWITCHES.iter().position(|&s| s == k) {
-                    // the same tick as the Extras box's (kept as the next games' default too)
+                    // the same tick as the Extras box's (this game's only)
                     let mut e = self.club.extras;
                     e.step_option(SWITCH_OPTIONS[i]);
                     self.set_extras(e);

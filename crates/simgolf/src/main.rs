@@ -2008,8 +2008,8 @@ impl Stage {
         }
     }
 
-    /// The OpenSGolf extras chosen in Preferences: the gameplay ones become the game's (and the next game's) extras, the
-    /// interface ones are put in use; both are saved.
+    /// The OpenSGolf extras chosen in Preferences: the gameplay ones become the game's extras (in a game) or the next
+    /// games' (on the title screens), the interface ones are put in use; both are saved.
     fn apply_extras(&mut self, ex: sg_core::extras::Extras, ui: extras::Settings) {
         // a mix of the player's own is kept for the presets' Custom (extras_ui.rs)
         extras_ui::remember_custom(&ex, &ui);

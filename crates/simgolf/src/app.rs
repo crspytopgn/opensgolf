@@ -5161,6 +5161,28 @@ mod tests {
     }
 
     #[test]
+    fn a_games_extras_do_not_carry_over_into_new_games() {
+        // issue #137: ticked in a game, an extra is that game's; ticked on the title screens, it is the next games'
+        let mut a = building_game();
+        a.screen = Screen::Play;
+        let next = a.extras_next;
+        let mut e = a.club.extras;
+        e.no_weeds = !e.no_weeds;
+        a.set_extras(e);
+        assert_eq!(a.club.extras.no_weeds, e.no_weeds);
+        assert_eq!(a.extras_next, next, "new games start as before");
+        a.screen = Screen::Menu;
+        assert_eq!(a.extras_shown(), next, "the title screens show the next games' extras");
+        let game = a.club.extras;
+        let mut n = next;
+        n.no_weeds = !n.no_weeds;
+        a.set_extras(n);
+        assert_eq!(a.extras_next.no_weeds, n.no_weeds);
+        assert_eq!(a.club.extras, game, "the game left on the title menu keeps its own");
+        crate::extras_ui::save_next(&next);
+    }
+
+    #[test]
     fn water_over_the_sea_keeps_its_depth() {
         // issue #132: the water brush over deep water left it deep and charged nothing, as the exe's same-type exit does
         let mut a = building_game();

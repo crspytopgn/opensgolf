@@ -466,9 +466,10 @@ slate **Experimental** (the cut content). The foot of the box describes the line
 touch screen the line last tapped); with none, it says how to read the box. Preferences > More > Search lists every option with
 its place and tag ("Game options > Gameplay · Noticeable: Weather that matters..."), and typing a tag's words (*big change*) finds the
 options so tagged. With every extra off the game plays exactly as the original. What you tick on the Gameplay, Sandbox
-and Looks pages applies to the game you are playing, is saved with that game (a save made with everything off is
-unchanged), and is what new games start with (kept in settings.json under `extras`). Which page a line is on changes
-nothing of the ticks, saves or settings.
+and Looks pages in a game applies to that game only and is saved with it (a save made with everything off is unchanged);
+new games start with what is ticked on the title screens (the box opened from the title menu, or the Game box of Select
+Difficulty; kept in settings.json under `extras`), so a sandbox game's ticks do not carry over into the next game (#137).
+Which page a line is on changes nothing of the ticks, saves or settings.
 
 On the **Gameplay** page:
 

@@ -160,7 +160,7 @@ entry is 14, the pine's type, but the sheet's 15th picture is a path, so the pin
 showed a path tile with the trees. With the setting a tree brush draws only the trees picture: `brush_cells`,
 crates/simgolf/src/cursor_ui.rs.
 
-## 14. Greens join a putting green (#128)
+## 14. Greens join a putting green (#128), rough a driving range (#139)
 
 A putting green's lot is green tiles round a building tile (`Land::place_sized`), and the exe treats them as any green:
 a green painted beside one blends into it (Terrain.dll draws no border between tiles of one class), and the hole tool's rule
@@ -168,3 +168,6 @@ that a green next to another green starts no hole without a tee (0x41fee2) count
 against it got no flag. With the setting the putting green's tiles are a group of their own: they keep their border against
 a painted green (`tile_relation`, crates/sg-core/src/terrain.rs; the lot's tiles from `Land::putting_greens_to`, not saved),
 and the hole tool does not count them as a neighbouring green (`App::green_joins`, crates/simgolf/src/app.rs).
+A driving range's lot is rough (deep rough along its far side) round a building tile, so rough painted beside it blends into
+it the same way (#139); with the setting its tiles are a group of their own as well (`Land::lots_to`). A marina's water is
+left one with the lake it stands in.
