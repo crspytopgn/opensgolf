@@ -172,7 +172,7 @@ browser or another device does not have them, so back them up. On the start page
   then in Load Previous Game.
 
 **In the game**, with the Import and export saved games extra on (System Functions > Preferences > Game options,
-Helpers; not in the original; up to 0.4.9 it was part of Course sharing, so settings from then with Course sharing on
+Saves; not in the original; up to 0.4.9 it was part of Course sharing, so settings from then with Course sharing on
 have it on),
 Load Previous Game has two buttons of the port's own under the list: **Import a save file...** (the system's file
 picker, or the browser's) adds a saved game, a shared course (`.sgch`, to the championship courses), a text file with a
@@ -426,11 +426,12 @@ along its top; a click on a tab, Left and Right or Tab turn them). A banner unde
   clickable ticker**; **Path help**; **Home-site details**. A grouped line ticks or unticks its members together; if only
   some of them are on (ticks saved by an older version, or Shift+H's tags), it says *(some on)* and a click turns them all
   on. Each member keeps its own tick in settings.json, so older versions read them as before.
-- **Helpers** (helpers): "Saves you effort. Play is unchanged." (autosave, save pictures, course sharing, import and
-  export saved games, the two pauses,
-  and under the *Controls:* name the three ticks the Change keys' *Original* and *Modern controls* presets set: drag to
-  place, zoom towards the pointer, right-drag panning; also further down; then *Controls: aim and swing with the mouse as
-  by touch*, see *Mouse aim and swing* below)
+- **Saves** (saves): "Keeps, shows and shares your games. Play is unchanged." (autosave, save pictures, course sharing,
+  import and export saved games)
+- **Controls** (controls): "Changes what the mouse does and when the game pauses. Play is unchanged." (the three ticks
+  the Change keys' *Original* and *Modern controls* presets set: drag to place, zoom towards the pointer, right-drag
+  panning; *Aim and swing with the mouse as by touch*, see *Mouse aim and swing* below; *Right click puts the tool
+  away*; then the two pauses). Until 0.6.0 the Saves and Controls lines were one Helpers page.
 
 *Check for updates when the game starts* and *Fix the original game's bugs* are ticks of Preferences > More, not in this
 box (see *The title menu* and docs/FIXES.md).
@@ -614,7 +615,7 @@ confirmation box; `R:N,1` sets it at once); `--edit "X:BITS"` sets the extras of
 presses the Tab of the first extra with the pointer on tile x,y; `--edit "S:page[,design]"` opens the Amenities panel with the
 landmark tool on strip page 0 (own), 1 (cut) or 2 (animals); `--edit "b:x,y,4,t"` places landmark type t (19..32 the cut ones,
 100 + kind an animal pair); `--edit "M:6"` opens the extras box (`M:6,P` on page P: 0 Gameplay, 1 Sandbox, 2
-Looks, 3 Info, 4 Helpers; `SG_POPUP_MOUSE="x,y"` leaves the pointer on the box there, so the foot shows that line's
+Looks, 3 Info, 4 Saves, 5 Controls; `SG_POPUP_MOUSE="x,y"` leaves the pointer on the box there, so the foot shows that line's
 description: at 800 x 600 the preset line is at y 138 and a page's first option at y 282). Path styles and lamps: the style is bits 13 to 15 of `--extras` and `X:` (8192 times 1 original paths, 2
 brick, 3 gravel, 4 dark stone, 5 boardwalk), `--edit "S:3"` opens the lamp page, `--edit "b:x,y,4,200"` places a lamp post
 on tile x,y, and `SG_FX_HOUR=0.95` (night) lights the lanterns for stills.
@@ -732,7 +733,7 @@ names). They only add a screen, a tag, a strip, a button or a save: helpers (and
 Ravine and Brush art), none of them
 changes how the game plays. A new player starts with them off; the *Original + helpers* and *OpenSGolf* presets turn
 them on in one click (the two pauses and the three controls ticks excepted, which stay as you set them), and System
-Functions, Preferences, *Game options...* ticks them on its Info and Helpers pages (the Info page by groups) and
+Functions, Preferences, *Game options...* ticks them on its Info, Saves and Controls pages (the Info page by groups) and
 Looks page (kept in `settings.json` under `ui_extras`, one tick each; a tick missing there reads as off, and so do they
 all when settings.json has no `ui_extras` at all, as in settings from before the extras or written only by other
 screens), and `--no-extras` turns them all off for one run. With every tick off the game draws and plays exactly as before (the stills of every report, panel and menu
@@ -842,13 +843,13 @@ compare pixel for pixel with the build before the extras).
   starts. It says nothing unless a newer version is out; then a box offers **Update now**, **Skip this version** (that
   version is not offered at start again, a newer one is; kept in `settings.json` as `update_skip`) or **Not now**. Only
   GitHub is contacted. The browser version has nothing to check.
-- **Zoom towards the pointer** (*Controls: zoom towards the pointer* on the Helpers page; off, set by the Change keys'
+- **Zoom towards the pointer** (*Zoom towards the pointer* on the Controls page; off, set by the Change keys'
   *Original* and *Modern controls* presets and left alone by the extras presets: it changes how the original's zoom feels):
   the mouse wheel keeps the ground under the pointer where it is on the screen as it zooms, and a two-finger pinch the
   ground between the fingers, instead of zooming about the middle of the screen. It works at the original's three zoom
   levels and with Enhanced graphics' smooth zoom (frame by frame as the zoom eases). z, x and the dock's zoom buttons
   still zoom about the middle.
-- **Drag to place** (*Controls: drag to place...* on the Helpers page; off, set by the controls presets like zooming
+- **Drag to place** (*Drag to place...* on the Controls page; off, set by the controls presets like zooming
   towards the pointer: it changes what the original's drag does): with
   benches, flower beds, ball washers, willows or scenic bridges armed, hold the left button and drag to lay a row of them
   along the straight line from the tile you pressed to the tile you let go, one on every tile of the line (one per
@@ -927,7 +928,7 @@ The port's own camera helpers (crates/simgolf/src/views.rs); nothing changes unt
   Shift+Alt+1 to 4 go back to a bookmark and Ctrl+Shift+1 to 4 keep one (for keyboards whose F keys need Fn).
 - **Middle button drag**: dragging with the middle mouse button moves the course whatever tool is held (with the smooth
   camera it coasts on when let go).
-- **Zoom towards the pointer**: an OpenSGolf extra (Preferences, *Game options...*, Helpers page, *Controls: zoom
+- **Zoom towards the pointer**: an OpenSGolf extra (Preferences, *Game options...*, Controls page, *Controls: zoom
   towards the pointer*), off by default and part of the *Modern controls* preset: see *OpenSGolf extras* above.
 - **The right button** is the original's: on the course a right click with a building, path or amenity tool in hand,
   a message showing, a golfer's card open or an employee being moved only puts that away; with an elevation tool it
@@ -935,10 +936,10 @@ The port's own camera helpers (crates/simgolf/src/views.rs); nothing changes unt
   in green over it what an undo there would do ("Reset to rough", "Remove Path", "Demolish Snack Bar") and a second right
   click on the same tile undoes it, money back as the Undo button's tool gives it (a terrain brush and the Undo tool stay
   in hand). OpenSGolf up to 0.4.7 dragged the course with the right button instead and had no right-click undo (issue
-  #67); that drag is now the **Right-drag panning** extra (Helpers page, *Controls: right-drag moves the course*; off by
+  #67); that drag is now the **Right-drag panning** extra (Controls page, *Right-drag moves the course*; off by
   default, off for settings saved by 0.4.7, and part of the *Modern controls* preset): with it on, a drag with the right button moves the course and a right click that does not move (less than 5
   pixels) does the original's on release. The middle button and the arrow keys always move the course.
-- **Mouse aim and swing**: an OpenSGolf extra (Preferences, *Game options...*, Helpers page, *Controls: aim and swing
+- **Mouse aim and swing**: an OpenSGolf extra (Preferences, *Game options...*, Controls page, *Aim and swing
   with the mouse as by touch*), off by default and in no preset; the extras presets leave it as you have it. In the
   original (and with it off) your pro's shot follows the pointer and a click on the course shoots at once. With it on,
   the mouse aims as a finger does on a phone or tablet (see *Aiming your pro and placing buildings by touch* under
@@ -1059,7 +1060,7 @@ changed every key does what it did before.
   the one in use is lit yellow). *Original controls* puts every key back to the original's and turns the WASD camera,
   *Zoom towards the pointer*, *Drag to place*, *Right-drag panning* and Enhanced graphics' *Smooth camera* tick off. *Modern controls* puts
   every key back to its default with the WASD camera on, and turns *Zoom towards the pointer*, *Drag to place* and
-  *Right-drag panning* (OpenSGolf extras, Helpers page, the three *Controls:* lines; the extras presets leave them
+  *Right-drag panning* (OpenSGolf extras, Controls page, the three *Controls:* lines; the extras presets leave them
   alone) and the *Smooth camera* tick (which counts only while Enhanced graphics is on: the
   preset never switches Enhanced graphics itself) on. They only set those existing options, which stay changeable one by
   one; click the other preset to undo one (keys you moved yourself are not kept by either).

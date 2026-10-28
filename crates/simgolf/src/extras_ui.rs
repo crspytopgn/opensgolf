@@ -40,20 +40,27 @@ fn save(e: &Extras) {
 /// The Extras box's pages (tabs along its top, drawn as the Enhanced graphics box's), sorted by the three classes of extra
 /// so the player sees at a glance which ticks touch the game: GAMEPLAY changes how the game plays (the Gameplay and
 /// Sandbox pages, each line tagged with how much), LOOKS changes only how it looks (the Looks page), HELPER shows
-/// information or saves effort (the Info and Helpers pages); the last two leave play exactly as it is. Only the page a line
+/// information or saves effort (the Info, Saves and Controls pages); the last three leave play exactly as it is. Only the page a line
 /// is shown on follows this; the extras' bits, saves and settings keep their order.
-pub const PAGES: [&str; 5] =
-    ["STR_EXTRAS_PAGE_GAMEPLAY", "STR_EXTRAS_PAGE_SANDBOX", "STR_EXTRAS_PAGE_LOOKS", "STR_EXTRAS_PAGE_INFO", "STR_EXTRAS_PAGE_HELPERS"];
+pub const PAGES: [&str; 6] = [
+    "STR_EXTRAS_PAGE_GAMEPLAY",
+    "STR_EXTRAS_PAGE_SANDBOX",
+    "STR_EXTRAS_PAGE_LOOKS",
+    "STR_EXTRAS_PAGE_INFO",
+    "STR_EXTRAS_PAGE_SAVES",
+    "STR_EXTRAS_PAGE_CONTROLS",
+];
 /// The last page whose lines change how the game plays (Gameplay and Sandbox, before it): their lines carry a tag.
 const LAST_TAGGED_PAGE: u8 = 1;
 
 /// Each page's banner, the line under the tabs that says what its ticks change.
-pub const BANNERS: [&str; 5] = [
+pub const BANNERS: [&str; 6] = [
     "STR_EXTRAS_BANNER_GAMEPLAY",
     "STR_EXTRAS_BANNER_SANDBOX",
     "STR_EXTRAS_BANNER_LOOKS",
     "STR_EXTRAS_BANNER_INFO",
-    "STR_EXTRAS_BANNER_HELPERS",
+    "STR_EXTRAS_BANNER_SAVES",
+    "STR_EXTRAS_BANNER_CONTROLS",
 ];
 
 /// The hint shown where the description of the line under the pointer goes while there is none: on the tagged pages, what
@@ -138,7 +145,7 @@ const RETIRED_DESERT_ART: usize = 23;
 /// The option lines of each page, in order (the gameplay page from the lightest touch to the biggest change). Slower
 /// seasons and Pause the calendar (options 6 and 7) are the Sandbox page's Calendar line; the Info page's groups stand for
 /// their ticks (`GROUPS`); the update check is on Preferences itself.
-const PAGE_LINES: [&[ExtrasLine]; 5] = {
+const PAGE_LINES: [&[ExtrasLine]; 6] = {
     use sg_core::extras as x;
     use ExtrasLine::{Calendar, Game as G, Group, Ui as U};
     [
@@ -156,11 +163,12 @@ const PAGE_LINES: [&[ExtrasLine]; 5] = {
         // path styles and lamps, Tab turns buildings (only the picture turns), random trees, the interface at the edges
         &[G(x::PATHS), G(0), U(21), U(26)],
         // People, extra reports, messages, path help, home-site details
-        // and with the building helpers, right click puts the tool away
-        &[Group(0), Group(1), Group(2), U(4), U(19), U(25)],
-        // autosave, save pictures, sharing, import and export saved games, the two pauses, then the three the controls presets set: drag to place, zoom
-        // towards the pointer, right-drag panning, and with them mouse aim and swing
-        &[U(5), U(6), U(7), U(22), U(8), U(9), U(15), U(14), U(20), U(24)],
+        &[Group(0), Group(1), Group(2), U(4), U(19)],
+        // autosave, save pictures, sharing, import and export saved games
+        &[U(5), U(6), U(7), U(22)],
+        // the three the controls presets set (drag to place, zoom towards the pointer, right-drag panning), mouse aim and
+        // swing and right click puts the tool away, which change what the original's mouse does, then the two pauses
+        &[U(15), U(14), U(20), U(24), U(25), U(8), U(9)],
     ]
 };
 
@@ -277,9 +285,10 @@ pub fn foot_text(page: u8, k: Option<usize>, e: &Extras, ui: &crate::extras::Set
     }
 }
 
-/// The most option lines a page has (every page is drawn that tall).
+/// The most option lines a page has (every page is drawn that tall), counting lines a page hides (the cut content off the
+/// original files), so the box keeps its size either way.
 fn most_lines() -> usize {
-    (0..PAGES.len() as u8).map(|p| page_lines(p).len()).max().unwrap_or(0)
+    PAGE_LINES.iter().map(|p| p.len()).max().unwrap_or(0)
 }
 
 /// The widest tag pill (they are all drawn this wide, so they line up).
@@ -896,7 +905,7 @@ mod tests {
         }
         assert_eq!(PAGES.len(), PAGE_LINES.len());
         assert_eq!(BANNERS.len(), PAGES.len());
-        assert_eq!(page_lines(3).len(), 6, "the Info page's six lines");
+        assert_eq!(page_lines(3).len(), 5, "the Info page's five lines");
     }
 
     #[test]
@@ -920,8 +929,13 @@ mod tests {
         assert_eq!(tag(ExtrasLine::Calendar), Some(Tag::Noticeable));
         assert_eq!(tag(ExtrasLine::Game(x::LEFTIES)), Some(Tag::Light));
         assert_eq!(page_of(ExtrasLine::Ui(5)), Some(4), "autosave");
-        // the controls presets' ticks sit together at the end of the Helpers page, mouse aim and swing after them
-        assert_eq!(page_lines(4)[6..], [ExtrasLine::Ui(15), ExtrasLine::Ui(14), ExtrasLine::Ui(20), ExtrasLine::Ui(24)]);
+        // the controls presets' ticks open the Controls page, mouse aim and swing after them
+        assert_eq!(
+            page_lines(5)[..5],
+            [ExtrasLine::Ui(15), ExtrasLine::Ui(14), ExtrasLine::Ui(20), ExtrasLine::Ui(24), ExtrasLine::Ui(25)]
+        );
+        // the Saves page holds the saving and sharing ticks only
+        assert_eq!(page_lines(4), [ExtrasLine::Ui(5), ExtrasLine::Ui(6), ExtrasLine::Ui(7), ExtrasLine::Ui(22)]);
         assert_eq!(page_lines(4)[2..4], [ExtrasLine::Ui(7), ExtrasLine::Ui(22)], "import and export next to sharing");
         assert_eq!((page_of(ExtrasLine::Preset), tag(ExtrasLine::Preset)), (None, None));
         assert_eq!(page_of(ExtrasLine::Ui(UPDATE_CHECK)), None);
@@ -934,7 +948,7 @@ mod tests {
         assert!(!page_lines(0).contains(&ExtrasLine::Game(CUT)));
         let n = popup_lines(0, &Extras::default(), &Settings::ALL_OFF).len();
         show_cut_content(true);
-        // the box keeps its size either way (the Helpers page is as long)
+        // the box keeps its size either way (most_lines counts the hidden line)
         assert_eq!(popup_lines(0, &Extras::default(), &Settings::ALL_OFF).len(), n);
     }
 

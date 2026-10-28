@@ -1385,13 +1385,15 @@ STR_EXTRAS_PAGE_GAMEPLAY                :Gameplay
 STR_EXTRAS_PAGE_SANDBOX                 :Sandbox
 STR_EXTRAS_PAGE_LOOKS                   :Looks
 STR_EXTRAS_PAGE_INFO                    :Info
-STR_EXTRAS_PAGE_HELPERS                 :Helpers
+STR_EXTRAS_PAGE_SAVES                   :Saves
+STR_EXTRAS_PAGE_CONTROLS                :Controls
 # each page's banner under the tabs
 STR_EXTRAS_BANNER_GAMEPLAY              :Changes how the game plays.
 STR_EXTRAS_BANNER_SANDBOX               :Bends the rules for relaxed play.
 STR_EXTRAS_BANNER_LOOKS                 :Changes how it looks. Play is unchanged.
 STR_EXTRAS_BANNER_INFO                  :Shows more about your club. Play is unchanged.
-STR_EXTRAS_BANNER_HELPERS               :Saves you effort. Play is unchanged.
+STR_EXTRAS_BANNER_SAVES                 :Keeps, shows and shares your games. Play is unchanged.
+STR_EXTRAS_BANNER_CONTROLS              :Changes what the mouse does and when the game pauses. Play is unchanged.
 # the pill at the right end of a gameplay or sandbox line: how much it changes the game
 STR_EXTRAS_TAG_LIGHT                    :Light touch
 STR_EXTRAS_TAG_NOTICEABLE               :Noticeable
@@ -2791,7 +2793,7 @@ STR_EXTRAS_LANDING_MAP                  : Landing map: where shots on a hole end
 STR_EXTRAS_HOLE_COMMENTS                : Comments by hole, this month and last (Shift+I)
 STR_EXTRAS_UPDATE_CHECK                 : Check for updates when the game starts (online)
 STR_EXTRAS_GRAPHS                       : History graphs: the club and each hole month by month (Shift+Y)
-STR_EXTRAS_ZOOM_POINTER                 : Controls: zoom towards the pointer
+STR_EXTRAS_ZOOM_POINTER                 : Zoom towards the pointer
 STR_MENU_SYSTEM_SHARE                   : Share course (copy a course code)
 STR_FILES_PASTE_CODE                    :Paste a course code
 STR_FILES_CHALLENGE                     :Challenge: beat {DESIGNER}'s record of {SCORE}
@@ -3130,7 +3132,7 @@ STR_FILES_CHEATED                       :Cheats used
 STR_CUST_LEFT_HANDED                    :Left-handed
 # drag to place (an OpenSGolf extra, build_tools.rs): its tick on the Extras box's Interface page, and the row's count and
 # total cost shown by the pointer while dragging (the sandbox shows the count only)
-STR_EXTRAS_DRAG_PLACE                   : Controls: drag to place rows of benches and the like
+STR_EXTRAS_DRAG_PLACE                   : Drag to place rows of benches and the like
 STR_ROW_COST                            :{ITEMS} items: {MONEY}
 STR_ROW_ITEMS                           :{ITEMS} items
 # the Change keys screen's presets (controls.rs Preset): the buttons, and the line under them once one is clicked
@@ -3263,7 +3265,7 @@ STR_NET_BUSY                            :{URL}: the server takes no more request
 STR_NET_HTTP                            :{URL}: the server answered HTTP {CODE}
 
 # Right-drag panning (OpenSGolf extras, issue #67)
-STR_EXTRAS_RIGHT_DRAG                   : Controls: right-drag moves the course
+STR_EXTRAS_RIGHT_DRAG                   : Right-drag moves the course
 STR_EXTRAS_DESC_RIGHT_DRAG              :Drag with the right button to move the course; a right click still undoes, as in the original. Part of the Modern controls preset (Change keys).
 
 # Random trees (OpenSGolf extras, issue #68)
@@ -3436,11 +3438,11 @@ STR_HD_MAKE_FAILED                      :Making HD graphics stopped: {ERR}
 STR_HD_MAKE_WRITE_FAILED                :{FILE} could not be written (is the disk full?)
 
 # Mouse aim and swing (OpenSGolf extras, extras.rs mouse_swing; touch.rs)
-STR_EXTRAS_MOUSE_SWING                  : Controls: aim and swing with the mouse as by touch
+STR_EXTRAS_MOUSE_SWING                  : Aim and swing with the mouse as by touch
 STR_EXTRAS_DESC_MOUSE_SWING             :Aim your pro as on a touch screen: a click sets the target, a drag moves it or looks round, the round Swing button shoots.
 STR_MOUSE_SWING_HINT                    :Click to set the target, drag it to aim, drag the course to look round. Then click Swing.
 # Right click puts the tool away (OpenSGolf extras, extras.rs right_drop; main.rs right_click)
-STR_EXTRAS_RIGHT_DROP                   : Controls: right click puts the tool away
+STR_EXTRAS_RIGHT_DROP                   : Right click puts the tool away
 STR_EXTRAS_DESC_RIGHT_DROP              :A right click (B on a controller) drops the brush or tool in hand, as Space does, instead of the original's undo.
 # The interface at the screen's edges (OpenSGolf extras, extras.rs wide_ui; enhanced.rs widescreen)
 STR_EXTRAS_WIDE_UI                      : Interface at the screen's edges
