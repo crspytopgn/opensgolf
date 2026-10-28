@@ -3435,8 +3435,12 @@ impl App {
                 warned = true;
                 self.ui_sound(24); // a warning only: wetlands and marsh are dear to clear
             }
-            if old == new && want == self.terrain.variation[self.terrain.tile_index(x, y)] as i32 {
-                continue; // nothing to change, nothing charged
+            // nothing to change, nothing charged: the exe leaves at the same-type exit (0x4205ef), and only the green and sand
+            // trap brushes set the tile's byte before it (below); water keeps its depth there, so painting water over the
+            // sea no longer turns it shallow and light (#132). The course editor's water brushes set the depth they name.
+            let byte_only = new == 1 || new == 7 || self.editor.is_some();
+            if old == new && (!byte_only || want == self.terrain.variation[self.terrain.tile_index(x, y)] as i32) {
+                continue;
             }
             let cup = self.course.flags.get(sg_core::course::idx(x, y)).is_some_and(|&f| f & sg_core::course::f::CUP != 0);
             if tournament && (old == 0 || cup) {
@@ -5125,6 +5129,20 @@ mod tests {
         a.terrain.paint(20, 20, 4, 0);
         a.sync_course();
         assert_ne!(a.exe_rng.state, before);
+    }
+
+    #[test]
+    fn water_over_the_sea_keeps_its_depth() {
+        // issue #132: the water brush over deep water left it deep and charged nothing, as the exe's same-type exit does
+        let mut a = building_game();
+        a.econ.cash = 1e7;
+        let ti = a.terrain.tile_index(20, 20);
+        a.terrain.paint(20, 20, 17, 2);
+        a.pick_brush(PAINT.iter().position(|p| p.ty == 17 && p.vbyte == 0).unwrap());
+        let cash = a.econ.cash;
+        a.paint_tiles(&[(20, 20)]);
+        assert_eq!(a.terrain.variation[ti], 2);
+        assert_eq!(a.econ.cash, cash);
     }
 
     #[test]

@@ -1,1 +1,3 @@
 * A green painted beside a putting green no longer joins it, and gets its flag
+* Painting water over the sea keeps its depth and colour
+* With the interface at the screen's edges, the pointer next to the build panel no longer picks a tree

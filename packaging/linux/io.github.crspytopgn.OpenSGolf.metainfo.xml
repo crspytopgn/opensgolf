@@ -110,6 +110,7 @@
     <release version="0.6.3" date="2026-10-28">
       <description>
         <p>A green painted beside a putting green no longer joins it, and gets its flag.</p>
+        <p>Painting water over the sea keeps its depth and colour, and the pointer to the right of the build panel no longer picks a tree.</p>
       </description>
     </release>
     <release version="0.6.2" date="2026-10-28">

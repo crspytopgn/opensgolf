@@ -39,7 +39,9 @@ Enhanced graphics and HD.
 
 **Fix releases**
 
-- **0.6.3:** with Fix original bugs, a green painted beside a putting green no longer joins it, and gets its flag (#128).
+- **0.6.3:** with Fix original bugs, a green painted beside a putting green no longer joins it, and gets its flag (#128);
+  painting water over the sea keeps its depth and colour (#132); with the interface at the window's edges, the pointer to
+  the right of the build panel no longer picks a tree (#130).
 - **0.6.2:** with Fix original bugs, the pine brush no longer shows a path tile under the pointer (#126).
 - **0.6.1:** a first-start box to choose how to play (the four presets), and What's new in 0.6 once after updating; Game
   options' Helpers page split into Saves and Controls, and every page's options listed most wanted first; typing in the bug report form opened from *Report a problem* no

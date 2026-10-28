@@ -942,11 +942,22 @@ pub fn record(x0: f32, y0: f32, x1: f32, y1: f32, shift: (f32, f32)) {
 }
 
 /// The 800 x 600 point a pointer at (vx, vy) (centred 800 x 600 units) means: under a piece of the interface drawn at a
-/// window edge, the point in that piece's own layout; elsewhere the point itself. The topmost piece (drawn last) wins.
+/// window edge, the point in that piece's own layout; elsewhere the point itself. The topmost piece (drawn last) wins. A
+/// point on the place a moved piece left (its rectangle in the centred layout) is no point of the interface: the course
+/// shows there, so it comes back far off the screen, and the piece's buttons are not under it (#130: right of the build
+/// panel moved to the left edge, the pointer lit and picked the tree buttons of the panel's centred place).
 pub fn unshift(vx: f32, vy: f32) -> (f32, f32) {
     REGIONS.with(|r| {
         let r = r.borrow();
-        r.1.iter().rev().find(|g| vx >= g.x0 && vx < g.x1 && vy >= g.y0 && vy < g.y1).map(|g| (vx - g.dx, vy - g.dy)).unwrap_or((vx, vy))
+        if let Some(g) = r.1.iter().rev().find(|g| vx >= g.x0 && vx < g.x1 && vy >= g.y0 && vy < g.y1) {
+            return (vx - g.dx, vy - g.dy);
+        }
+        let left =
+            |g: &&Region| (g.dx != 0.0 || g.dy != 0.0) && vx >= g.x0 - g.dx && vx < g.x1 - g.dx && vy >= g.y0 - g.dy && vy < g.y1 - g.dy;
+        if r.1.iter().any(|g| left(&g)) {
+            return (-10_000.0, -10_000.0);
+        }
+        (vx, vy)
     })
 }
 
@@ -1306,6 +1317,22 @@ pub fn anisotropy(g: &mut Gfx, tex: miniquad::TextureId) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #130: the build panel drawn 300 units left of its place; a pointer on the place it left hits none of its buttons,
+    /// one on the panel as drawn is in the panel's own layout, and the rest of the screen is itself.
+    #[test]
+    fn a_moved_piece_leaves_no_buttons_behind() {
+        begin_frame();
+        record(-74.0, 452.0, 496.0, 600.0, (-300.0, 0.0));
+        record(0.0, 0.0, 100.0, 40.0, (0.0, 0.0));
+        end_frame();
+        assert_eq!(unshift(400.0, 500.0), (700.0, 500.0), "on the panel as drawn");
+        assert_eq!(unshift(750.0, 550.0), (-10_000.0, -10_000.0), "where the panel's trees would be");
+        assert_eq!(unshift(50.0, 20.0), (50.0, 20.0), "a piece in its own place");
+        assert_eq!(unshift(400.0, 200.0), (400.0, 200.0), "the course");
+        begin_frame();
+        end_frame();
+    }
 
     #[test]
     fn pages_toggle() {
