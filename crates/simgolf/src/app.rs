@@ -5008,6 +5008,25 @@ mod tests {
     }
 
     #[test]
+    fn analyze_golf_shot_is_still_armed_after_going_to_the_buildings_panel_and_back() {
+        let mut a = building_game();
+        a.panel = 2;
+        a.pstate.alt = true;
+        assert!(a.elevation_click(3));
+        // the Elevation panel's Buildings button, then the Buildings panel's Elevation button
+        assert!(a.elevation_click(-2));
+        assert!(!a.edit && !a.pstate.alt);
+        assert!(a.buildings_click(-2));
+        assert!(a.edit && a.tool == 1 && a.pstate.alt && a.pstate.elev_tool == 3, "the tool drawn as selected is armed");
+        let ts = sg_core::terrain::TILE_SIZE;
+        a.has_hit = true;
+        a.hit_x = (10.5 - a.terrain.w as f32 * 0.5) * ts;
+        a.hit_z = (20.5 - a.terrain.h as f32 * 0.5) * ts;
+        a.apply_tool(false, false);
+        assert!(a.analysis.is_some(), "a click on the course analyses");
+    }
+
+    #[test]
     fn the_hole_being_built_is_planned_again_only_after_a_terrain_change() {
         let mut a = building_game();
         assert!(a.club.game & golf::game::LAYOUT != 0 && !a.club.layout_land.is_empty(), "the hole is planned");

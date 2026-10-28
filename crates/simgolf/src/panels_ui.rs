@@ -1584,12 +1584,14 @@ impl App {
         true
     }
 
-    fn buildings_click(&mut self, h: i32) -> bool {
+    pub(crate) fn buildings_click(&mut self, h: i32) -> bool {
         match h {
             -2 => {
+                // the Elevation panel comes back with its tool armed, Analyze Golf Shot too (it arms like the others since
+                // elevation_click below; it was left drawn as selected but not armed), as the E key does
                 self.pstate.alt = true;
                 self.tool = 1;
-                self.edit = self.pstate.elev_tool < 3;
+                self.edit = true;
             }
             -3 => self.arm_undo(),
             i if i >= 0 => {
