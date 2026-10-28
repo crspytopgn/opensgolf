@@ -98,7 +98,7 @@ impl App {
             }
         }
         let sp = &self.sprites[si].s;
-        let img = outline(&sp.frames[frame_index], sp.anchor_y);
+        let img = outline(&sp.frame(frame_index), sp.anchor_y);
         let t = g.texture(&img, false);
         crate::fx::plain_texture(t); // a soft shadow: the pixel-art scaler leaves it alone
         self.fx.cast.outlines.insert((si, frame_index), t);

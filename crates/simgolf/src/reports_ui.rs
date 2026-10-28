@@ -438,8 +438,8 @@ impl App {
         for &(_, si, view, f, x, y, k) in queue.iter() {
             let (w, h, ax, ay) = {
                 let sp = &self.sprites[si].s;
-                let fr = &sp.frames[sp.frame_index(view, f)];
-                (fr.w as f32, fr.h as f32, sp.anchor_x as f32, sp.anchor_y as f32)
+                let (fw, fh) = sp.frame_size(sp.frame_index(view, f));
+                (fw as f32, fh as f32, sp.anchor_x as f32, sp.anchor_y as f32)
             };
             let tex = self.sprite_texture_whole(g, si, view, f);
             let im = Image { tex: Some(tex), w, h };

@@ -57,7 +57,7 @@ copies leave them out), only the Sims' voices in `SimsFX`, or lacks more than a 
 when the game starts and the ticker on every start (sg_core::mixer `shortfall`; the console or log has a `sound:` line
 with the counts). The browser page also sums up what it found after loading the files, in large type on the start page
 (and again there on the next visit, as "Last time: ...") and over the game once (20 seconds, or until tapped when
-something is missing): "OpenSGolf 0.6.2. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
+something is missing): "OpenSGolf 0.6.3. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
 big). Art ✓, music: N, Sims' voices: N." The console's `files:` line adds the compression methods the zip used.
 Deflate64 (Windows' own zipper, for big files such as the sounds), BZip2, LZMA and PPMd (7-Zip's, Keka's and The
 Unarchiver's stronger settings), which iPad's Files app cannot unpack (it shows such folders empty), are read by the
@@ -798,6 +798,15 @@ compare pixel for pixel with the build before the extras).
   as *autosave (Latest, one before)* and *autosave (Latest, two before)* (files `&Latest.sgs`, `&Latest-2.sgs`,
   `&Latest-3.sgs`; each autosave moves them one along and the oldest goes), listed together, newest first. Test hook:
   `SG_AUTOSAVE_SECS=N` saves every N seconds of play instead. Load them from Load Previous Game like any save.
+  The game is also saved as *autosave (Latest)* when its window goes to the background with the course on screen (another
+  window takes the focus, the browser tab is hidden, the phone goes to its home screen, the Android app is put away), so
+  a browser that throws away a page left in the background loses nothing: iPhone and iPad Safari do, and the page then
+  opens on its start page, where *Continue playing* and then Load Previous Game bring the game back. In the browser the
+  save is written while the page is being hidden, before it can be frozen. Not within half a minute of play after the last
+  autosave (or after starting or loading the game), not during a tournament (as the quick save), and not over a report, the
+  year's end, the Load Previous Game list or the title screens. The first of these saves after a five-minute autosave moves the autosaves along; the next ones replace it until
+  the next five-minute autosave, so leaving the window often (alt-tabbing on a desktop) never pushes out more than one
+  of the autosaves before it.
 - **Save pictures**: Load Previous Game draws a map of the selected save's course in the list's top right corner: fairways,
   greens, sand, water, woods, paths and buildings, with the land the club does not own darker. It reads the save itself, so
   older saves get a picture too.
@@ -855,7 +864,12 @@ compare pixel for pixel with the build before the extras).
   background on purpose): the game pauses when its window goes to the background (another window takes the focus, the
   window is minimised, the browser tab is hidden or the page loses the focus, the Android app is put away) and goes on when
   it comes back. A pause you made yourself stays, and pausing or unpausing in between makes the pause yours. A line under
-  the Paused caption says why the game stopped.
+  the Paused caption says why the game stopped. The sound stops too (the course ambience, the music and the effects,
+  also on the title screens and with a game you had paused yourself) and goes on from where it stopped when the window is
+  back. In the browser the page's sound output is suspended meanwhile, so a phone or tablet has no sound playing to keep
+  the page running in the background (iOS keeps such a page awake, on the battery); should the browser want a tap
+  before it plays again, the first tap or click brings the sound back. With the extra off the game and its sound go on
+  in the background.
 - **Pause on big news** (off; the presets leave it as you set it): the game pauses right after a VIP (the CEO, the
   county commissioner, the heiress) arrives, a famous golfer challenges your pro, the SGA offers a tournament, the board
   warns about debt at the end of the year (the year-end report follows when the game goes on), or the cash goes below
@@ -979,7 +993,8 @@ The port's own camera helpers (crates/simgolf/src/views.rs); nothing changes unt
 
 **Ctrl+Z** (Cmd+Z on a Mac) undoes the last click or drag with a building or terrain tool that changed the course:
 terrain, paths, holes, buildings and garden items. The whole game goes back to just before it, money included, as if that moment had been saved and loaded.
-Up to 30 steps are kept; the list starts empty with each game and is not saved. (The port's own; not in the original.)
+Up to 30 steps are kept; the list starts empty with each game and is not saved. On a phone or tablet the round **Undo**
+touch button does the same while you build. (The port's own; not in the original.)
 
 ### Building tools
 
@@ -1228,7 +1243,12 @@ The same touch controls work in the browser and in the Android app (crates/simgo
 In a browser the game covers what can be seen of the page (the visual viewport), and follows Safari's address, tab and
 bottom bars as they show and hide and the device as it turns: on an iPad or iPhone the bottom of the game (the dock, a
 panel's lower row) used to sit under the bars (web/opensgolf.js `sgFitCanvas`). It is sized again a few times in the
-second after the device turns, since iOS Safari reports the new size late.
+second after the device turns, since iOS Safari reports the new size late. Opened from the home screen as a web app, where
+there are no bars, it covers the window as the page lays it out instead: there the visual viewport could keep the size it
+had before the device turned, leaving a band at the top or bottom until the app was started again. Held sideways, the game
+reaches both sides of the screen, under a phone's camera cut-out and rounded corners (the page's `viewport-fit=cover`);
+what Enhanced widescreen draws at the window's edges (the gauges, the touch buttons) stays clear of them (ui.rs
+`safe_extent`), and the home bar stays over the dock as before.
 
 SimGolf is a landscape game. A phone or tablet held upright while the game runs (in the browser) gets a card over the game
 asking to turn it sideways; turning it takes the card away, and no tap reaches the game while it is up. **Play anyway**
@@ -1246,7 +1266,8 @@ zoom levels, twist to turn the view a quarter. Once the screen has been touched,
 keys that have no button in the game: **Speed** (], normal, x2, x4: its arrows show the speed), **Message** (?, the last
 message again), **Turn** (Tab; only while Tab turns something: a building or a green's look in hand, the Path styles
 extra's style with the Pathway tool, placed buildings with the Rotate extra) and **Open hole** (h; only once the hole being
-built has its tee and green). A button acts when the finger lifts on it (slide off to let it be) and shows its name while
+built has its tee and green). **Undo** (Ctrl+Z, a hooked arrow to the left of Speed) shows while you build (a tool in hand,
+or the Build Course or Add Buildings panel open) once there is a click to undo. A button acts when the finger lifts on it (slide off to let it be) and shows its name while
 pressed; it does what its action does whatever keys are set in Keyboard controls, and nothing under it is clicked. They
 step left of the Staff areas, Path view and Landing map legends while one is up, and are hidden with the interface (u),
 in photo mode and under any screen, box or name being typed. Naming a course or a save raises the

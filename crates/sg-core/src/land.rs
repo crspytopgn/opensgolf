@@ -1648,6 +1648,22 @@ impl Land {
 
     /// Gives the terrain's greens the land's variant byte, whose bit 0x80 draws them as tricky greens. Games saved before the
     /// green brush's Tab reached the terrain have their tricky greens only in the land.
+    /// Marks the tiles of every putting green's lot in the terrain (`Terrain::putting_green`).
+    pub fn putting_greens_to(&self, t: &mut Terrain) {
+        t.putting_green = vec![false; t.ty.len()];
+        for o in self.objects.iter().filter(|o| o.kind == K_PUTTING_GREEN) {
+            let s = self.footprint_size(o);
+            for a in o.a..o.a + s {
+                for b in o.b..o.b + s {
+                    if t.inside(a, b) {
+                        let i = t.tile_index(a, b);
+                        t.putting_green[i] = true;
+                    }
+                }
+            }
+        }
+    }
+
     pub fn green_looks_to(&self, t: &mut Terrain) {
         for a in 0..mn().min(t.w) {
             for b in 0..mn().min(t.h) {
@@ -1657,6 +1673,7 @@ impl Land {
                 }
             }
         }
+        self.putting_greens_to(t);
     }
 
     /// Takes the player's terrain edits (tile types, paths, corner heights) into the land, keeping objects and their footprints.
@@ -1715,6 +1732,7 @@ impl Land {
                 t.corner[(cy * (t.w + 1) + cx) as usize] = v.clamp(0, crate::terrain::MAX_LEVEL) as i8;
             }
         }
+        self.putting_greens_to(t);
     }
 
     /// Edge of an object's footprint in tiles as the exe counts it for lookup and removal: an upgraded building (kinds 6 and
@@ -1869,6 +1887,7 @@ impl Land {
             water_one: false,
             tile_corner: Vec::new(),
             own_tile_normals: false,
+            putting_green: Vec::new(),
         };
         let mut seed = crate::rng::Rng::new(0x9e37_79b9 ^ self.slot.property as u32);
         for a in 0..mn() {
@@ -1893,6 +1912,7 @@ impl Land {
                 t.corner[(cy * (w + 1) + cx) as usize] = v.clamp(0, crate::terrain::MAX_LEVEL) as i8;
             }
         }
+        self.putting_greens_to(&mut t);
         // The clubhouse sprite stands in the middle of its 4 x 4 footprint.
         t.clubhouse_x = self.clubhouse.0 + 2;
         t.clubhouse_y = self.clubhouse.1 + 2;
@@ -2325,8 +2345,27 @@ mod tile_item_tests {
             water_one: false,
             tile_corner: Vec::new(),
             own_tile_normals: false,
+            putting_green: Vec::new(),
         };
         Land::from_terrain(&t, 0)
+    }
+
+    /// #128: a green painted beside a putting green blends into it as in the exe; with "Fix original bugs" the putting
+    /// green keeps its border.
+    #[test]
+    fn putting_green_keeps_its_border() {
+        let mut l = rough_land();
+        let mut rng = ExeRng::from_clock(1);
+        l.place(&mut rng, 10, 10, K_PUTTING_GREEN, 0, 0);
+        l.ty[idx(13, 11)] = T_GREEN;
+        let t = l.to_terrain();
+        assert!(t.on_putting_green(12, 11) && !t.on_putting_green(13, 11));
+        crate::fixes::set(false);
+        assert_eq!(crate::terrain::tile_relation(&t, 12, 11, 13, 11), 0);
+        crate::fixes::set(true);
+        assert_eq!(crate::terrain::tile_relation(&t, 12, 11, 13, 11), 1);
+        assert_eq!(crate::terrain::tile_relation(&t, 11, 11, 12, 11), 0, "inside the putting green");
+        crate::fixes::set(false);
     }
 
     /// Issue #69: a tricky green (variant byte 0xff, 0x420561) keeps its byte on the way to the terrain, where bit 0x80

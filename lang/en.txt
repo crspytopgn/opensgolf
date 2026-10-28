@@ -1428,10 +1428,10 @@ STR_EXTRAS_DESC_GRAPHS                  :Graphs of the club and each hole month 
 STR_EXTRAS_DESC_LIVE_SCORECARDS         :An open golfer card shows the golfer's round so far, hole by hole, as the original shows your pro's.
 STR_EXTRAS_DESC_YEAR_SUMMARY            :After the End of Year report, a page of the year's key figures against the year before.
 STR_EXTRAS_DESC_HOME_DETAILS            :Point at a home site to see whose it is, what it cost, what it sold for and what it is worth now.
-STR_EXTRAS_DESC_AUTOSAVE                :Saves the game every five minutes of play, keeping the last three, so a crash loses little.
+STR_EXTRAS_DESC_AUTOSAVE                :Saves the game every five minutes of play and as its window goes to the background, keeping the last three, so a crash or a closed page loses little.
 STR_EXTRAS_DESC_SAVE_PICTURES           :Load Previous Game shows a small map of each saved game's course.
 STR_EXTRAS_DESC_SHARING                 :Copy a code for your course to send to a friend; paste one (Ctrl+V) to play theirs and try to beat their record.
-STR_EXTRAS_DESC_PAUSE_BACKGROUND        :The game pauses while its window is in the background and goes on when you come back.
+STR_EXTRAS_DESC_PAUSE_BACKGROUND        :The game and its sound pause while its window is in the background, and go on when you come back.
 STR_EXTRAS_DESC_PAUSE_EVENTS            :The game pauses when a VIP arrives, a famous golfer challenges your pro, the SGA makes an offer or money runs short.
 STR_EXTRAS_DESC_UPDATE_CHECK            :Looks online for a newer OpenSGolf when the game starts, and offers it only if there is one.
 STR_EXTRAS_DESC_ZOOM_POINTER            :The mouse wheel and a pinch zoom towards the spot you point at. Part of the Modern controls preset (Keyboard controls, Change keys).
@@ -3354,6 +3354,7 @@ STR_TOUCH_SWING                         :Swing
 STR_TOUCH_AIM_LABEL                     :{YARDS} yds, {CLUB}
 STR_TOUCH_PLACE                         :Place
 STR_TOUCH_CENTRE                        :Centre on my pro
+STR_TOUCH_UNDO                          :Undo
 STR_TOUCH_LOOK_HINT                     :Drag the course to look round, drag the target to aim. Two fingers move the view.
 STR_SELFCHECK_FOUND                     :OpenSGolf found a problem with a saved game and kept a report. Preferences > More > Report a problem can send it.
 

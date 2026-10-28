@@ -12,11 +12,12 @@
 //! * tabbed reports (report_tabs.rs): a strip of tabs over the F1 to F10 reports to flip between them;
 //! * path help (pathview_ui.rs): a path view marking buildings and holes the paths do not reach, and a Show button on
 //!   messages about a place;
-//! * autosave (autosave.rs): the game saved every five minutes of play, as "autosave (Latest)" in the Load list;
+//! * autosave (autosave.rs): the game saved every five minutes of play and as its window goes to the background, as
+//!   "autosave (Latest)" in the Load list;
 //! * save pictures (files_ui.rs): a map of the course beside the Load list's saves;
 //! * course sharing (share.rs): course codes and shared files for Play a Championship, with the sharer's record to beat;
-//! * pause in the background and pause on big events (comfort.rs): the game stops while its window is in the background,
-//!   or when a VIP arrives, a famous golfer challenges, the SGA offers a tournament, the board warns or cash goes below
+//! * pause in the background and pause on big events (comfort.rs): the game and its sound stop while its window is in the
+//!   background, or the game stops when a VIP arrives, a famous golfer challenges, the SGA offers a tournament, the board warns or cash goes below
 //!   zero. The presets leave these two as the player has them (`Settings::with_kept`): some players leave the game
 //!   running in the background on purpose.
 //! * the landing map (insight.rs): where golfers' tee shots and approaches on a hole come to rest, as dots on the course;

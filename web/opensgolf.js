@@ -183,8 +183,13 @@ miniquad_add_plugin({
     register_plugin: function (importObject) {
         const env = importObject.env;
         env.sg_keyboard = function (show) { sgKeyboard(show !== 0); };
+        // the edges of the canvas a phone hides (sgFitCanvas): side 0 left, 1 top, 2 right, 3 bottom, as a fraction
+        env.sg_safe_area = function (side) { return sgSafe[side] || 0; };
         // the frame rate cap (Enhanced graphics > Display; framerate.rs): frames a second, 0 for none
         env.sg_frame_cap = function (fps) { sgFrameCap = fps; };
+        // the game's sound paused for the background (the Pause in the background extra; audio.rs output_asleep): 1 asleep,
+        // 0 awake again (sgSoundSleep)
+        env.sg_sound_sleep = function (asleep) { sgSoundSleep(asleep !== 0); };
         // the watch over the game's drawing (sgDrawingStopped): a frame was drawn; Enhanced graphics on or off
         env.sg_frame_drawn = function () { sgDraw.last = performance.now(); };
         env.sg_enhanced = function (on) {
@@ -872,12 +877,19 @@ function sgStart() {
 function sgFitCanvas() {
     const c = document.getElementById("glcanvas");
     if (!c || c.style.display !== "block") return;
-    const vv = window.visualViewport;
-    const w = vv ? vv.width : window.innerWidth, h = vv ? vv.height : window.innerHeight;
+    const win = sgWindowBox();
+    // a web app opened from the home screen has no bars to follow, and there the visual viewport can keep the size it had
+    // before the device turned (a band left over at the top or bottom until the app was started again): the window as the
+    // page lays it out instead. While the game wants the phone's keyboard (naming a course or a save) the visual viewport is
+    // followed all the same, so the keyboard shrinks the game rather than covering the name being typed.
+    const vv = sgHomeScreenApp() && !sgKbdWanted ? null : window.visualViewport;
+    const w = vv ? vv.width : win.width || window.innerWidth, h = vv ? vv.height : win.height || window.innerHeight;
     // a phone or tablet held upright: the "turn sideways" card, and after "Play anyway" the game in a 4:3 band (files.js)
     const touch = sgTouchDevice();
     sgRotateCard(sgPortraitAsk(touch, w, h, sgRotateDismissed()));
     const r = sgCanvasRect(touch, w, h, vv ? vv.offsetLeft : 0, vv ? vv.offsetTop : 0);
+    // what of the canvas the phone hides, for the game to keep its edge pieces clear of (env.sg_safe_area)
+    sgSafe = sgSafeInsets(win.insets, r, win.width || w, win.height || h);
     const css = (k, v) => { if (c.style[k] !== v) c.style[k] = v; };
     css("width", r.width + "px");
     css("height", r.height + "px");
@@ -885,6 +897,36 @@ function sgFitCanvas() {
     css("top", r.top + "px");
     // gl.js's own resize (it listens to the window's resize only, which Safari does not send for its bars)
     if (typeof resize === "function" && typeof wasm_exports !== "undefined" && wasm_exports.resize) resize(c, wasm_exports.resize);
+}
+// The edges of the canvas the phone hides, as fractions of its width and height (left, top, right, bottom; files.js
+// sgSafeInsets): what the game asks through env.sg_safe_area each frame.
+let sgSafe = [0, 0, 0, 0];
+// A box fixed over the whole window, never seen: its size is the window as the page lays it out, and its padding the
+// window's safe-area insets (the camera cut-out, the rounded corners and the home bar of a phone held sideways, which the
+// page draws under with viewport-fit=cover; 0 everywhere else).
+let sgWindowProbe = null;
+function sgWindowBox() {
+    if (!sgWindowProbe) {
+        sgWindowProbe = document.createElement("div");
+        sgWindowProbe.setAttribute("aria-hidden", "true");
+        sgWindowProbe.style.cssText = "position:fixed;left:0;top:0;right:0;bottom:0;visibility:hidden;pointer-events:none;" +
+            "box-sizing:border-box;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) " +
+            "env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)";
+        document.body.appendChild(sgWindowProbe);
+    }
+    const b = sgWindowProbe.getBoundingClientRect(), st = getComputedStyle(sgWindowProbe);
+    const px = k => parseFloat(st[k]) || 0;
+    return { width: b.width, height: b.height, insets: [px("paddingLeft"), px("paddingTop"), px("paddingRight"), px("paddingBottom")] };
+}
+// Opened from the home screen as a web app (iPhone and iPad's Add to Home Screen, an installed web app elsewhere): no
+// browser bars round the page.
+function sgHomeScreenApp() {
+    if (navigator.standalone === true) return true;
+    try {
+        return !!window.matchMedia && (matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches);
+    } catch (e) {
+        return false;
+    }
 }
 // Sized again a few times after a turn: iOS Safari reports the new size late (the first resize after a turn can still
 // carry the old one, and a bar sliding away does not always send an event).
@@ -1658,16 +1700,17 @@ class SgOut extends AudioWorkletProcessor {
 registerProcessor("sg-out", SgOut);
 `;
 const sgSnd = { ctx: null, node: null, rate: 44100, posted: 0, rep: null, lead: SG_LEAD, calm: 0, under: 0, failed: false, shown: 0, since: 0, note: null,
-    gameOn: false, repAt: 0, postAt: 0, clock: -1, clockAt: 0, tick: 0, restarts: 0 };
+    gameOn: false, repAt: 0, postAt: 0, clock: -1, clockAt: 0, tick: 0, restarts: 0, asleep: false };
 
 function sgStartAudio() {
     const s = sgSnd;
     if (!s.gameOn) return; // made when the game starts (sgStart), see above
     // a context made before the browser counted a gesture, or suspended by it later (Safari after a call or with the
     // tab in the background: "interrupted"), stays silent until resumed inside a gesture, so every gesture resumes it
+    // (unless the game has its sound asleep: sgSoundSleep)
     if (s.ctx && s.ctx.state === "closed") { s.ctx = null; s.node = null; s.posted = 0; s.rep = null; }
     if (s.ctx) {
-        if (s.ctx.state !== "running") s.ctx.resume().catch(() => {});
+        sgSoundFollow();
         return;
     }
     if (s.failed) return;
@@ -1716,8 +1759,8 @@ function sgStartAudio() {
             if (e.data[3]) {
                 s.under++;
                 // the game's frames are longer here than the lead covers: keep more ready for a while (not for a tab in
-                // the background, whose timers the browser slows down)
-                if (!document.hidden) s.lead = Math.min(SG_LEAD_MAX, s.lead + 0.05);
+                // the background, whose timers the browser slows down, nor while the game's sound is falling asleep)
+                if (!document.hidden && !s.asleep) s.lead = Math.min(SG_LEAD_MAX, s.lead + 0.05);
                 s.calm = performance.now();
             } else if (s.lead > SG_LEAD && performance.now() - s.calm > 10000) {
                 // ten seconds without a gap: back towards the short lead (a click's sound follows the click sooner)
@@ -1738,10 +1781,11 @@ function sgStartAudio() {
 
 // Mixes the game's sound up to the lead ahead of what the worklet has played. What it still holds is reckoned from its last
 // report and the audio clock since (its reports wait while this thread is busy, the clock does not), plus what is on the
-// way to it.
+// way to it. Nothing while the game has its sound asleep (sgSoundSleep), whose context may still run for a moment: the
+// sound queued before goes on when it wakes, with no stretch of the paused mixer's silence after it.
 function sgPump() {
     const s = sgSnd;
-    if (!s.node || !s.node.port || s.ctx.state !== "running" || typeof wasm_exports === "undefined" || !wasm_exports.sg_audio_fill) return;
+    if (!s.node || !s.node.port || s.ctx.state !== "running" || s.asleep || typeof wasm_exports === "undefined" || !wasm_exports.sg_audio_fill) return;
     const queued = s.rep ? Math.max(0, s.posted - s.rep[0] + s.rep[1] - (s.ctx.currentTime * s.rate - s.rep[2])) : s.posted;
     let need = Math.round((document.hidden ? SG_LEAD_HIDDEN : s.lead) * s.rate) - queued;
     while (need >= 256) {
@@ -1768,7 +1812,7 @@ function sgSoundNote() {
         s.note = null;
         s.shown = 2;
     }
-    if (s.shown || playing || !canvas || canvas.style.display !== "block" || typeof wasm_exports === "undefined") return;
+    if (s.shown || playing || s.asleep || !canvas || canvas.style.display !== "block" || typeof wasm_exports === "undefined") return;
     if (!s.since) s.since = performance.now();
     if (performance.now() - s.since < 1500) return;
     s.shown = 1;
@@ -1789,7 +1833,9 @@ function sgAudioWatch() {
     const s = sgSnd, now = performance.now();
     const held = s.tick && now - s.tick > 500;
     s.tick = now;
-    if (!s.ctx || s.ctx.state !== "running" || document.hidden || held) { s.clock = -1; return; }
+    // (a suspended context's worklet reports nothing, asleep for the game or held by the browser: its silence is counted
+    // from when it runs again)
+    if (!s.ctx || s.ctx.state !== "running" || document.hidden || held) { s.clock = -1; s.repAt = now; return; }
     if (s.ctx.currentTime !== s.clock) { s.clock = s.ctx.currentTime; s.clockAt = now; }
     const stuckClock = now - s.clockAt > 3000;
     const isWorklet = typeof AudioWorkletNode !== "undefined" && s.node instanceof AudioWorkletNode;
@@ -1806,13 +1852,38 @@ function sgAudioWatch() {
     sgStartAudio();
 }
 
+// The Pause in the background extra (crates/simgolf/src/comfort.rs) pauses the game's sound while its window is in the
+// background, and says so (sg_sound_sleep): the sound context is suspended until the game wakes it, so nothing plays
+// to keep the page running (iOS keeps a page that plays sound running in the background, on the battery). The game says
+// it from its window_minimized_event, which gl.js sends from inside the page's visibilitychange and blur events, so the
+// context is suspended there and then, before the browser freezes the page. The game wakes it from inside the
+// visibilitychange or focus event that brings the window back; a browser that wants a gesture for that (Safari, after
+// interrupting the context) gets one from the next click or tap (sgStartAudio). Without the extra the page feeds the
+// sound on in the background as before.
+function sgSoundSleep(asleep) {
+    const s = sgSnd;
+    s.asleep = asleep;
+    // the note's wait (sgSoundNote) counts from the waking
+    if (!asleep) s.since = 0;
+    sgSoundFollow();
+}
+
+// The sound context suspended or resumed as the game's sound and the page's visibility want it (sgSoundAction).
+function sgSoundFollow() {
+    const s = sgSnd;
+    const act = sgSoundAction(s.ctx && s.ctx.state, s.asleep, document.hidden);
+    if (act === "suspend") s.ctx.suspend().catch(() => {});
+    else if (act === "resume") s.ctx.resume().catch(() => {});
+}
+
 // the timer keeps a tab in the background fed; once a frame as well, as a browser busy drawing can hold timers back
 setInterval(() => { sgPump(); sgSoundNote(); sgAudioWatch(); }, 20);
 (function frame() { sgPump(); sgRequestFrame(frame); })();
 for (const type of ["mousedown", "pointerdown", "pointerup", "click", "keydown", "touchend"]) window.addEventListener(type, sgStartAudio, true);
 window.addEventListener("touchstart", sgStartAudio, { passive: true, capture: true });
+// (registered before gl.js's own, which tells the game: shown again with the sound asleep, the context waits for the game)
 document.addEventListener("visibilitychange", () => {
-    if (!document.hidden && sgSnd.ctx && sgSnd.ctx.state !== "running" && sgSnd.ctx.state !== "closed") sgSnd.ctx.resume().catch(() => {});
+    sgSoundFollow();
     sgPump();
 });
 

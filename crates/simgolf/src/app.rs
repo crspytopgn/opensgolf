@@ -858,6 +858,9 @@ pub struct App {
     /// Seconds of play since the last autosave, and the clock at the last frame (autosave.rs).
     pub autosave_due: f64,
     pub autosave_clock: f64,
+    /// `autosave_due` when the window going to the background last saved the game, since the last five-minute autosave
+    /// (autosave.rs autosave_on_hide); None when there was none.
+    pub autosave_hidden_at: Option<f64>,
     /// Until when a pasted course code is waited for (share.rs; 0: not waiting).
     pub paste_wait: f64,
     pub strip_page: u8,
@@ -1135,6 +1138,7 @@ impl App {
             bt: Default::default(),
             autosave_due: 0.0,
             autosave_clock: 0.0,
+            autosave_hidden_at: None,
             paste_wait: 0.0,
             strip_page: 0,
             ball_trail: Vec::new(),
@@ -1371,12 +1375,7 @@ impl App {
                 self.jingle = None;
             }
         }
-        let title = matches!(
-            self.screen,
-            Screen::Menu | Screen::Scenarios | Screen::Difficulty | Screen::Property | Screen::Themes | Screen::Credits
-        ) || (self.screen == Screen::Files && !self.title.over_game())
-            // the support box over the title menu (support.rs)
-            || self.popup_over_title();
+        let title = self.on_title();
         if self.music_screen == Some(title) {
             return;
         }
@@ -1402,6 +1401,17 @@ impl App {
                 self.start_ambience();
             }
         }
+    }
+
+    /// The title menu and the screens it leads to before a game (the title tune's screens in `screen_audio`), as against a
+    /// game's screens: the course, its reports, menus and boxes, and Load Previous Game opened from it.
+    pub fn on_title(&self) -> bool {
+        matches!(
+            self.screen,
+            Screen::Menu | Screen::Scenarios | Screen::Difficulty | Screen::Property | Screen::Themes | Screen::Credits
+        ) || (self.screen == Screen::Files && !self.title.over_game())
+            // the support box over the title menu (support.rs)
+            || self.popup_over_title()
     }
 
     pub fn start_ambience(&mut self) {
@@ -3045,7 +3055,7 @@ impl App {
         // a new game is never the course editor's (editor.rs makes it the editor's afterwards)
         self.editor = None;
         self.econ.free = false;
-        self.autosave_due = 0.0;
+        self.autosave_restart();
         let p = sg_core::data::properties()[prop_idx];
         // a game started without the difficulty screen (scripted runs) still gets its Top 10 id
         if self.course_id.is_none() {
@@ -3200,7 +3210,7 @@ impl App {
         self.undo.clear();
         // a loaded game is never the course editor's (editor.rs makes it the editor's afterwards; undo keeps it)
         self.editor = None;
-        self.autosave_due = 0.0;
+        self.autosave_restart();
         self.load_save_with(g, s, false)
     }
 
@@ -3435,8 +3445,12 @@ impl App {
                 warned = true;
                 self.ui_sound(24); // a warning only: wetlands and marsh are dear to clear
             }
-            if old == new && want == self.terrain.variation[self.terrain.tile_index(x, y)] as i32 {
-                continue; // nothing to change, nothing charged
+            // nothing to change, nothing charged: the exe leaves at the same-type exit (0x4205ef), and only the green and sand
+            // trap brushes set the tile's byte before it (below); water keeps its depth there, so painting water over the
+            // sea no longer turns it shallow and light (#132). The course editor's water brushes set the depth they name.
+            let byte_only = new == 1 || new == 7 || self.editor.is_some();
+            if old == new && (!byte_only || want == self.terrain.variation[self.terrain.tile_index(x, y)] as i32) {
+                continue;
             }
             let cup = self.course.flags.get(sg_core::course::idx(x, y)).is_some_and(|&f| f & sg_core::course::f::CUP != 0);
             if tournament && (old == 0 || cup) {
@@ -3464,9 +3478,7 @@ impl App {
             }
             // tees and greens go through the hole tool's bookkeeping (the hole being built gets its tee or cup)
             if old <= 1 || new <= 1 {
-                let green_next = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-                    .iter()
-                    .any(|&(ex, ey)| self.terrain.inside(x + ex, y + ey) && self.terrain.ty[self.terrain.tile_index(x + ex, y + ey)] == 1);
+                let green_next = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|&(ex, ey)| self.green_joins(x + ex, y + ey));
                 if !self.club.paint_hole_tile(&mut self.course, x, y, old, new, green_next) {
                     continue;
                 }
@@ -3623,6 +3635,15 @@ impl App {
 
     /// The variant byte the green brush gives a green (0x420561): 0xff for the tricky green (an odd variant, Tab), else 0.
     /// Terrain.dll draws a green whose byte has bit 0x80 with the TrickyGreen textures, and the golfers read the same bit.
+    /// Whether tile (x, y) is a green that a green painted beside it joins, for the hole tool's rule that a green next to
+    /// another starts no hole without a tee (0x41fee2). The exe counts a putting green's tiles too, so a green painted against
+    /// one got no flag (#128); with "Fix original bugs" a putting green is a building of its own and is not counted.
+    fn green_joins(&self, x: i32, y: i32) -> bool {
+        self.terrain.inside(x, y)
+            && self.terrain.ty[self.terrain.tile_index(x, y)] == 1
+            && !(crate::enhanced::fix_bugs() && self.terrain.on_putting_green(x, y))
+    }
+
     pub(crate) fn green_brush_byte(&self) -> i32 {
         let v = match self.paint_variant {
             Some((k, v)) if k == self.paint_idx => v,
@@ -3859,9 +3880,7 @@ impl App {
         if matches!(undone, land::Undone::Refund(_)) && new != old && (old <= land::T_GREEN || new <= land::T_GREEN) {
             // taking a tee or a green away goes through the hole tool's bookkeeping, as painting over it does: the hole it
             // belonged to is out of play (par 0) until it is rebuilt
-            let green_next = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-                .iter()
-                .any(|&(ex, ey)| self.terrain.inside(x + ex, y + ey) && self.terrain.ty[self.terrain.tile_index(x + ex, y + ey)] == 1);
+            let green_next = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|&(ex, ey)| self.green_joins(x + ex, y + ey));
             self.club.paint_hole_tile(&mut self.course, x, y, old, new, green_next);
         }
         let Some(land) = self.land.as_mut() else { return };
@@ -5100,6 +5119,25 @@ mod tests {
     }
 
     #[test]
+    fn analyze_golf_shot_is_still_armed_after_going_to_the_buildings_panel_and_back() {
+        let mut a = building_game();
+        a.panel = 2;
+        a.pstate.alt = true;
+        assert!(a.elevation_click(3));
+        // the Elevation panel's Buildings button, then the Buildings panel's Elevation button
+        assert!(a.elevation_click(-2));
+        assert!(!a.edit && !a.pstate.alt);
+        assert!(a.buildings_click(-2));
+        assert!(a.edit && a.tool == 1 && a.pstate.alt && a.pstate.elev_tool == 3, "the tool drawn as selected is armed");
+        let ts = sg_core::terrain::TILE_SIZE;
+        a.has_hit = true;
+        a.hit_x = (10.5 - a.terrain.w as f32 * 0.5) * ts;
+        a.hit_z = (20.5 - a.terrain.h as f32 * 0.5) * ts;
+        a.apply_tool(false, false);
+        assert!(a.analysis.is_some(), "a click on the course analyses");
+    }
+
+    #[test]
     fn the_hole_being_built_is_planned_again_only_after_a_terrain_change() {
         let mut a = building_game();
         assert!(a.club.game & golf::game::LAYOUT != 0 && !a.club.layout_land.is_empty(), "the hole is planned");
@@ -5120,6 +5158,20 @@ mod tests {
         a.terrain.paint(20, 20, 4, 0);
         a.sync_course();
         assert_ne!(a.exe_rng.state, before);
+    }
+
+    #[test]
+    fn water_over_the_sea_keeps_its_depth() {
+        // issue #132: the water brush over deep water left it deep and charged nothing, as the exe's same-type exit does
+        let mut a = building_game();
+        a.econ.cash = 1e7;
+        let ti = a.terrain.tile_index(20, 20);
+        a.terrain.paint(20, 20, 17, 2);
+        a.pick_brush(PAINT.iter().position(|p| p.ty == 17 && p.vbyte == 0).unwrap());
+        let cash = a.econ.cash;
+        a.paint_tiles(&[(20, 20)]);
+        assert_eq!(a.terrain.variation[ti], 2);
+        assert_eq!(a.econ.cash, cash);
     }
 
     #[test]

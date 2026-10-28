@@ -315,6 +315,23 @@ pub fn open(mixer: Arc<Mixer>) -> Option<AudioOut> {
     device::open(mixer)
 }
 
+/// The output put to sleep or woken with the game's sound paused for the background (comfort.rs). In a browser the page
+/// suspends its sound context while asleep (web/opensgolf.js sgSoundSleep): a page that plays sound is kept running in the
+/// background (iOS does so), and a suspended context plays none. Elsewhere the paused mixer feeds the device silence.
+pub fn output_asleep(asleep: bool) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        #[link(wasm_import_module = "env")]
+        extern "C" {
+            fn sg_sound_sleep(asleep: u32);
+        }
+        // SAFETY: a plain call into the page's script with a number
+        unsafe { sg_sound_sleep(asleep as u32) };
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let _ = asleep;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

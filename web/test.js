@@ -253,6 +253,21 @@ test("the canvas fills the view, or a 4:3 band across the middle of an upright t
     assert.ok(r.height <= 610 && r.top >= 0 && r.width === 600, JSON.stringify(r));
 });
 
+test("the edges a phone hides are the safe-area insets where they fall on the canvas", () => {
+    // an iPhone 16 Pro Max sideways (956 x 440, the camera on the left): the whole window is the canvas
+    const wide = { left: 0, top: 0, width: 956, height: 440 };
+    const s = f.sgSafeInsets([62, 0, 62, 21], wide, 956, 440);
+    assert.deepStrictEqual(s.map(v => Math.round(v * 1000) / 1000), [0.065, 0, 0.065, 0.048]);
+    // no insets (a desktop, an iPad), or a canvas not drawn yet
+    assert.deepStrictEqual(f.sgSafeInsets([0, 0, 0, 0], wide, 956, 440), [0, 0, 0, 0]);
+    assert.deepStrictEqual(f.sgSafeInsets([62, 0, 62, 21], { left: 0, top: 0, width: 0, height: 0 }, 956, 440), [0, 0, 0, 0]);
+    // upright, "Play anyway": the 4:3 band across the middle is clear of the cut-out at the top and the home bar
+    const band = f.sgCanvasRect(true, 440, 956, 0, 0);
+    assert.deepStrictEqual(f.sgSafeInsets([0, 62, 0, 34], band, 440, 956), [0, 0, 0, 0]);
+    // a canvas that stops short of the edge takes only what is left of the inset
+    assert.deepStrictEqual(f.sgSafeInsets([40, 0, 0, 0], { left: 30, top: 0, width: 100, height: 100 }, 130, 100), [0.1, 0, 0, 0]);
+});
+
 test("the start page's dark palette is the same for the device's dark scheme and the theme button's Dark", () => {
     const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
     const block = re => {
@@ -266,6 +281,42 @@ test("the start page's dark palette is the same for the device's dark scheme and
     assert.strictEqual(button, device);
     // and no other dark-only rules that the button's Dark would miss
     assert.strictEqual(html.match(/prefers-color-scheme/g).length, 1);
+});
+
+test("the sound context sleeps while the game has its sound asleep, and only the game wakes it", () => {
+    const act = f.sgSoundAction;
+    // asleep (the Pause in the background extra, the window in the background): a running context is suspended, in a
+    // hidden page and in a shown one that lost the focus
+    assert.strictEqual(act("running", true, true), "suspend");
+    assert.strictEqual(act("running", true, false), "suspend");
+    // and stays suspended, the page shown again or tapped, until the game wakes it
+    assert.strictEqual(act("suspended", true, false), "");
+    assert.strictEqual(act("interrupted", true, false), "");
+    // awake: resumed while shown, as before
+    assert.strictEqual(act("suspended", false, false), "resume");
+    assert.strictEqual(act("interrupted", false, false), "resume");
+    assert.strictEqual(act("suspended", false, true), "");
+    assert.strictEqual(act("running", false, false), "");
+    // without the extra a page in the background plays on
+    assert.strictEqual(act("running", false, true), "");
+    // no context made yet, or one closed (sgStartAudio makes another)
+    for (const asleep of [false, true]) {
+        for (const state of [undefined, null, "closed"]) assert.strictEqual(act(state, asleep, false), "", state + " " + asleep);
+    }
+});
+
+test("every function the game asks of the page is one the page gives it", () => {
+    // (gl.js links a function the page does not give to a stand-in that does nothing, so a misspelt one fails silently)
+    const crates = path.join(__dirname, "../crates");
+    const asked = new Set();
+    for (const file of fs.readdirSync(crates, { recursive: true })) {
+        if (!file.endsWith(".rs")) continue;
+        const src = fs.readFileSync(path.join(crates, file), "utf8");
+        for (const m of src.matchAll(/^\s*(?:pub\s+)?fn\s+(sg_\w+)\s*\([^)]*\)\s*(?:->\s*[\w:]+\s*)?;/gm)) asked.add(m[1]);
+    }
+    assert.ok(asked.has("sg_sound_sleep") && asked.has("sg_fs_write"), [...asked].join(" "));
+    const page = fs.readFileSync(path.join(__dirname, "opensgolf.js"), "utf8");
+    for (const name of asked) assert.ok(page.includes("env." + name + " = function"), name + " is not given by web/opensgolf.js");
 });
 
 (async () => {

@@ -7,8 +7,9 @@
 //!   lowering.
 //! * Two fingers: dragging pans, pinching steps through the three zoom levels, twisting turns the view a quarter.
 //! * A few round touch buttons down the right edge stand in for keys the screen has no button for (game speed, repeat the
-//!   last message, turn the building, open the hole, the showcase fly-over); they show only once the screen has been
-//!   touched, Turn and Open hole only while they have something to do, Showcase once a hole is open.
+//!   last message, turn the building, open the hole, the showcase fly-over, undo); they show only once the screen has been
+//!   touched, Turn and Open hole only while they have something to do, Showcase once a hole is open, Undo (left of Speed)
+//!   while building with a click to undo.
 //! * Aiming the player's pro (the port's own): a mouse aims by hovering and shoots with a click, but a finger has no hover,
 //!   so its first tap both aimed and shot. With a finger, a tap on the course sets the target and a one-finger drag moves it
 //!   (held clear of the finger, with its distance and club beside it); lifting the finger does not shoot. A round **Swing**
@@ -283,11 +284,14 @@ enum Btn {
     Place,
     /// Aiming by touch: the view back on the pro's ball (issue #75). Above Swing, shown all the time the pro waits.
     Centre,
+    /// Ctrl+Z (undo.rs), which a phone has no key for: while building, with a click to undo. Left of Speed, clear of Place.
+    Undo,
 }
 /// The column's buttons: those before Swing.
 #[cfg(test)]
 const COLUMN: usize = 5;
-const BUTTONS: [Btn; 8] = [Btn::Speed, Btn::Message, Btn::Turn, Btn::OpenHole, Btn::Showcase, Btn::Swing, Btn::Place, Btn::Centre];
+const BUTTONS: [Btn; 9] =
+    [Btn::Speed, Btn::Message, Btn::Turn, Btn::OpenHole, Btn::Showcase, Btn::Swing, Btn::Place, Btn::Centre, Btn::Undo];
 
 impl Btn {
     fn action(self) -> &'static str {
@@ -299,6 +303,8 @@ impl Btn {
             Btn::Showcase => "showcase",
             // no key: the original shoots with a click (touch_button_press)
             Btn::Swing | Btn::Place | Btn::Centre => "",
+            // Ctrl+Z is not one of the keys to set (main.rs key_down_event; touch_button_press)
+            Btn::Undo => "",
         }
     }
     fn label(self) -> &'static str {
@@ -311,6 +317,7 @@ impl Btn {
             Btn::Swing => "STR_TOUCH_SWING",
             Btn::Place => "STR_TOUCH_PLACE",
             Btn::Centre => "STR_TOUCH_CENTRE",
+            Btn::Undo => "STR_TOUCH_UNDO",
         }
     }
 }
@@ -365,6 +372,12 @@ fn centre_centre(r: f32, right: f32) -> (f32, f32) {
     let (x, y) = swing_centre(r, right);
     let rs = big_radius(r);
     (x + rs - r, y - rs - 14.0 - r)
+}
+
+/// The Undo button's centre: to the left of Speed (slot 0), two rows above Place, so the two never touch.
+fn undo_centre(r: f32, right: f32) -> (f32, f32) {
+    let (x, y) = button_centre(0, r, right);
+    (x - 2.0 * r - 14.0, y)
 }
 
 /// Whether (vx, vy) is on the button centred at `c`.
@@ -802,6 +815,7 @@ impl Stage {
             Btn::Swing => (swing_centre(r, right), big_radius(r)),
             Btn::Place => (place_centre(r, right), big_radius(r)),
             Btn::Centre => (centre_centre(r, right), r),
+            Btn::Undo => (undo_centre(r, right), r),
             _ => (button_centre(i, r, right), r),
         }
     }
@@ -867,6 +881,13 @@ impl Stage {
         // the speed's one button cycles normal, x2 and x4 (the keys step and stop: App::step_speed)
         if b == Btn::Speed {
             self.app.cycle_speed();
+            return;
+        }
+        if b == Btn::Undo {
+            // as Ctrl+Z does (main.rs key_down_event)
+            if !self.editing && self.app.undo_step(&mut self.g) {
+                self.app.ui_sound(0x18);
+            }
             return;
         }
         let i = crate::controls::action(b.action());
@@ -1187,6 +1208,7 @@ impl Stage {
                 Btn::Showcase => icon_film(g, &s, cx, cy, r, ink),
                 Btn::Place => icon_tick(g, &s, cx, cy, r, ink),
                 Btn::Centre => icon_centre(g, &s, cx, cy, r, ink),
+                Btn::Undo => icon_undo(g, &s, cx, cy, r, ink),
                 // its name on its face: the one button that acts on the game, it says what it does
                 Btn::Swing => {
                     let name = tr(b.label());
@@ -1388,6 +1410,31 @@ fn icon_turn(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4]) {
     });
 }
 
+/// Undo: a hooked arrow pointing back to the left (the usual undo picture), so it does not read as Turn's arrow going round.
+fn icon_undo(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4]) {
+    let rad = r * 0.32;
+    let w = r * 0.15;
+    let (ox, oy, from, to) = (cx - r * 0.06, cy + r * 0.1, std::f32::consts::PI * 1.5, std::f32::consts::PI * 2.5);
+    shaded(g, ink, |g, dx, dy, c| {
+        let n = 12;
+        let p = |a: f32, rr: f32| (ox + dx + rr * a.cos(), oy + dy + rr * a.sin());
+        // the hook: round the right from the top to the bottom
+        for k in 0..n {
+            let a0 = from + (to - from) * k as f32 / n as f32;
+            let a1 = from + (to - from) * (k + 1) as f32 / n as f32;
+            s.quad(g, [p(a0, rad - w), p(a0, rad + w), p(a1, rad + w), p(a1, rad - w)], c);
+        }
+        // a short tail back to the left along the bottom
+        let (bx, by) = (ox + dx, oy + dy + rad);
+        let tail = r * 0.28;
+        s.quad(g, [(bx - tail, by - w), (bx, by - w), (bx, by + w), (bx - tail, by + w)], c);
+        // the head at the top, pointing left
+        let (tx, ty) = (ox + dx, oy + dy - rad);
+        let (hw, len) = (w * 2.3, r * 0.36);
+        s.quad(g, [(tx, ty - hw), (tx, ty + hw), (tx - len, ty), (tx - len, ty)], c);
+    });
+}
+
 /// Open hole: the flagstick in its cup, the flag red (as the build panel's green shows it) and the stick cream.
 fn icon_flag(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4], lit: bool) {
     let px = cx - r * 0.12;
@@ -1478,7 +1525,9 @@ impl App {
 
     /// Whether a touch button has something to do now: Speed and Message always; Turn while Tab turns something (a building
     /// or a green's look in hand, the Path styles extra's style with the Pathway tool, a placed building with the Rotate
-    /// extra); Open hole once the hole being built has its tee and green; Showcase once a hole is open.
+    /// extra); Open hole once the hole being built has its tee and green; Showcase once a hole is open; Undo while building
+    /// (a tool in hand, or the Build Course or Add Buildings panel open) with a click to undo, so it is not left on the
+    /// course for the rest of the game.
     fn touch_button_wanted(&self, b: Btn) -> bool {
         match b {
             Btn::Speed | Btn::Message => true,
@@ -1491,6 +1540,7 @@ impl App {
             Btn::Turn => self.club.extras.rotate,
             Btn::OpenHole => self.club.can_open_hole(),
             Btn::Showcase => self.club.holes.iter().skip(1).take(18).any(|h| h.par != 0),
+            Btn::Undo => self.undo.can_undo() && (self.edit || matches!(self.panel, 1 | 2)),
             // shown on their own terms (Stage::button_shown)
             Btn::Swing | Btn::Place | Btn::Centre => false,
         }
@@ -1611,6 +1661,29 @@ mod tests {
                 }
                 // Place stands level with Turn, which turns what it places
                 assert_eq!(place_centre(r, right).1, button_centre(2, r, right).1);
+            }
+        }
+    }
+
+    #[test]
+    fn undo_sits_left_of_speed_clear_of_every_other_button() {
+        for px in [0.3, 0.65, 1.0, 1.37, 1.71, 2.4, 3.6] {
+            let r = button_radius(px);
+            let big = big_radius(r);
+            for right in [800.0, LEGEND_LEFT] {
+                let (x, y) = undo_centre(r, right);
+                // under the gauges and the camera button, on the screen, level with Speed
+                assert!(y - r - HIT_PAD > 164.0 && x - r > 0.0, "undo at {px}");
+                assert_eq!(y, button_centre(0, r, right).1);
+                let apart = |c: (f32, f32), rc: f32| (x - c.0).abs() > r + rc + 2.0 * HIT_PAD || (y - c.1).abs() > r + rc + 2.0 * HIT_PAD;
+                for i in 0..COLUMN {
+                    assert!(apart(button_centre(i, r, right), r), "undo on slot {i} at {px}");
+                }
+                for (name, c, rc) in
+                    [("swing", swing_centre(r, right), big), ("place", place_centre(r, right), big), ("centre", centre_centre(r, right), r)]
+                {
+                    assert!(apart(c, rc), "undo on {name} at {px}");
+                }
             }
         }
     }

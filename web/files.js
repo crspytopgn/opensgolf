@@ -30,6 +30,33 @@ function sgCanvasRect(touch, w, h, left, top) {
     return { left: Math.round(left), top: Math.round(top + (h - bh) / 2), width: Math.round(w), height: Math.round(bh) };
 }
 
+// The edges of the canvas a phone hides (its camera cut-out, rounded corners and home bar), once the page draws under them
+// (index.html viewport-fit=cover): the window's CSS safe-area insets [left, top, right, bottom] where they fall on the canvas
+// (rect, in a w x h window), as fractions of the canvas's width and height, for the game (ui.rs safe_extent). An upright
+// phone's 4:3 band in the middle reaches neither its top nor its bottom inset.
+function sgSafeInsets(insets, rect, w, h) {
+    const [l, t, r, b] = insets;
+    if (!(rect.width > 0 && rect.height > 0)) return [0, 0, 0, 0];
+    const over = (inset, gap) => Math.max(0, inset - Math.max(0, gap));
+    return [
+        over(l, rect.left) / rect.width,
+        over(t, rect.top) / rect.height,
+        over(r, w - rect.left - rect.width) / rect.width,
+        over(b, h - rect.top - rect.height) / rect.height,
+    ];
+}
+
+// --- the game's sound asleep in the background (the port's own; web/opensgolf.js sgSoundSleep) ----------------------------
+// What the page does with its sound context, in `state` ("running", "suspended", Safari's "interrupted", "closed", or none
+// made yet): "suspend" while the game has its sound asleep (the Pause in the background extra, with the window in the
+// background), "resume" for a context that is not running while the game's sound is awake and the page is shown, else
+// "". A context left suspended plays nothing, so a phone has no sound to keep the page running for.
+function sgSoundAction(state, asleep, hidden) {
+    if (!state || state === "closed") return "";
+    if (asleep) return state === "running" ? "suspend" : "";
+    return state !== "running" && !hidden ? "resume" : "";
+}
+
 function sgKey(p) {
     return p.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/$/, "").replace(/^\.\//, "").toLowerCase();
 }
@@ -1735,5 +1762,5 @@ function sgFilesSummary(paths, skipped = [], found = null, bad = null) {
 if (typeof module !== "undefined") {
     module.exports = { sgKey, sgSkip, sgRootOf, sgStraySound, sgPlace, sgZipEntries, sgZipRead, sgUnzip, sgInflate, sgInflateInto,
         sgBunzip2, sgUnlzma, sgUnppmd, sgZipName, sgZipPath, sgCrc32, sgFilesSummary, sgVersion, sgSoundCoding,
-        sgSoundCodings, sgPortraitAsk, sgCanvasRect };
+        sgSoundCodings, sgPortraitAsk, sgCanvasRect, sgSafeInsets, sgSoundAction };
 }

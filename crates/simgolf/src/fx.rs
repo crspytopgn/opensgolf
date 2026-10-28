@@ -1201,7 +1201,7 @@ impl App {
             }
             g.ctx.delete_texture(t);
         }
-        let img = soften_shadow(&self.sprites[si].s.frames[i]);
+        let img = soften_shadow(&self.sprites[si].s.frame(i));
         let t = g.texture(&img, false);
         self.fx.shadows.insert((si, i), (classic, t));
         Some(t)
