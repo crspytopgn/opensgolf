@@ -845,8 +845,10 @@ impl Land {
     /// Takes away what was put down on land that the owned area then cut off (`cut`): the exe draws the landmarks, obstacles and
     /// their paths anywhere on the map and marks the land it does not own only at the end (0x4720e8), so an island property
     /// could start with a landmark and its garden standing out in the sea, and every property with obstacles past its edge
-    /// (issue #144). With "Fix original bugs" an object reaching a cut tile is removed and the cut tiles keep no paths or
-    /// marks; the draws are the same, so the rest of the map is the exe's.
+    /// (issue #144). A coastal property's sea edge is made out of bounds before the patches (ponds, wetlands), whose walks
+    /// can turn it back into land past the map's edge. With "Fix original bugs" an object reaching a cut tile is removed and
+    /// the cut tiles are out of bounds (sea round an island) again, with no paths or marks; the draws are the same, so the
+    /// rest of the map is the exe's.
     fn clear_cut(&mut self, cut: &[bool]) {
         for i in 0..self.objects.len() {
             let o = self.objects[i];
@@ -1524,6 +1526,14 @@ pub fn generate(slot_index: usize, slot: Slot, difficulty: i32, sandbox: bool, r
         }
     }
     if crate::fixes::on() {
+        if rec.coast == 1 {
+            // the sea's first tile in each row was made out of bounds before the patches, whose walks can turn it back into a
+            // wetland or a pond past the map's edge
+            for a in 0..mn() {
+                cut[idx(a, 0)] = true;
+                land.original[idx(a, 0)] = T_OUT;
+            }
+        }
         land.clear_cut(&cut);
     }
     land.water_depth();
@@ -2091,7 +2101,8 @@ mod tests {
             (land, rng)
         };
         let mut gone = 0;
-        for p in [6, 12, 5, 15] {
+        let mut edge = 0;
+        for p in [6, 12, 5, 14, 15] {
             for c in 0..40 {
                 let (exe, exe_rng) = make(p, c * 977 + 5);
                 crate::fixes::set(true);
@@ -2113,15 +2124,21 @@ mod tests {
                     }
                 }
                 gone += exe.objects.iter().filter(|o| o.kind >= 0).count() - fixed.objects.iter().filter(|o| o.kind >= 0).count();
+                // a coastal property's sea edge stays out of bounds (the reporter's Florida had a wetland past it)
+                if crate::data::records()[p].coast == 1 {
+                    assert!((0..mn()).all(|a| fixed.tile(a, 0) == T_OUT), "property {p} clock {c}");
+                    edge += (0..mn()).filter(|&a| exe.tile(a, 0) != T_OUT).count();
+                }
                 // the land is the exe's but for what stood on the cut tiles
                 for i in 0..nn() {
-                    if exe.flags[i] & flag::FOOTPRINT == 0 {
+                    if exe.flags[i] & flag::FOOTPRINT == 0 && (crate::data::records()[p].coast != 1 || i % mn() as usize != 0) {
                         assert_eq!(exe.ty[i], fixed.ty[i], "property {p} clock {c}: tile {i}");
                     }
                 }
             }
         }
         assert!(gone > 0, "some objects stood past the edge");
+        assert!(edge > 0, "some patches reached the sea's edge");
     }
 
     #[test]

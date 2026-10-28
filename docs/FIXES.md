@@ -172,7 +172,7 @@ A driving range's lot is rough (deep rough along its far side) round a building 
 it the same way (#139); with the setting its tiles are a group of their own as well (`Land::lots_to`). A marina's water is
 left one with the lake it stands in.
 
-## 15. Landmarks out in the sea (#144)
+## 15. Land past the property's edge (#144)
 
 The land generator draws the spots for its landmarks, difficulty obstacles and their paths anywhere on the map, and marks the
 land the club does not own only at the end (0x4720e8). Round an island the cut-off land becomes sea, so an island property
@@ -180,3 +180,7 @@ land the club does not own only at the end (0x4720e8). Round an island the cut-o
 past its edge. With the setting an object reaching the cut-off land is removed, its ground goes back to the level round it
 and the cut tiles keep no paths or marks (`Land::clear_cut`, crates/sg-core/src/land.rs). The draws are the same, so the
 rest of the map is the exe's.
+A coastal property's sea is laid down first, with the first tile of each row out of bounds, and the 24 ground patches come
+after it; the first patch is always a wetland, and its random walk can reach the sea's edge and turn those tiles back into
+wetland or pond, so a strip of marsh stood past the map's edge (the reporter's Florida). With the setting that edge is out
+of bounds again at the end.

@@ -5,4 +5,4 @@
 * Celebrities at their homes wear their own colours, and each home shows who lives there
 * The build panel's buttons answer only at their foot, so a tree's crown no longer picks the tree beside it
 * Sandbox Mode goes straight to the world map, and every property keeps its own card there
-* An island no longer starts with landmarks out in the sea
+* New games no longer start with land past the property's edge
