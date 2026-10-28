@@ -28,6 +28,10 @@ Enhanced graphics and HD.
   screen's edges with Classic graphics too (on big TVs the dock and money no longer sit in the middle; Looks switches it
   back); and *Sandbox: no new
   dandelions*.
+- **Desert names as in the original:** the desert's Brush and Ravine buttons now carry the names (and descriptions) the
+  original gives their pictures, so the placing preview matches too, and the *Fix the desert's swapped Ravine and Brush
+  art* option, which only made up for the wrong names, is gone. Undo's *Reset to* and the shot panel's lie use the
+  theme's names (desert, rough, canyon and the rest) instead of the Parkland ones.
 
 **Fix releases before it**
 

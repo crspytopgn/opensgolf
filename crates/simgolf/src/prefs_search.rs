@@ -284,7 +284,7 @@ mod tests {
         assert!(search("zoom", false, &p).contains(&Hit::Key(controls::action("zoom_in"))));
         assert_eq!(search("text size", false, &p), vec![Hit::TextSize]);
         assert!(search("no such option at all", false, &p).is_empty());
-        assert!(search("desert ravine", false, &p).contains(&Hit::Extra(ExtrasLine::Ui(23))), "the desert's Ravine and Brush art");
+        assert!(!search("desert ravine", false, &p).contains(&Hit::Extra(ExtrasLine::Ui(23))), "the retired desert art tick");
         // words are matched from their start
         assert!(!search("rain", false, &p)
             .iter()
