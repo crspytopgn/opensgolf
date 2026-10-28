@@ -454,7 +454,10 @@ along its top; a click on a tab, Left and Right or Tab turn them). A banner unde
 - **Controls** (controls): "Changes what the mouse does and when the game pauses. Play is unchanged." (the three ticks
   the Change keys' *Original* and *Modern controls* presets set: drag to place, zoom towards the pointer, right-drag
   panning; *Aim and swing with the mouse as by touch*, see *Mouse aim and swing* below; *Right click puts the tool
-  away*; then the two pauses). Until 0.6.0 the Saves and Controls lines were one Helpers page.
+  away*; *Edge scrolling*, on by default: in full screen the pointer on the screen's very edge scrolls the view one tile
+  along its diagonal every 87 ms, at every zoom, as in the original; then the two pauses). Until 0.6.0 the Saves and
+  Controls lines were one Helpers page. However it is moved, the view's centre stays on the map, as in the original
+  (#138).
 
 *Check for updates when the game starts* and *Fix the original game's bugs* are ticks of Preferences > More, not in this
 box (see *The title menu* and docs/FIXES.md).

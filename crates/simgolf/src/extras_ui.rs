@@ -175,7 +175,7 @@ const PAGE_LINES: [&[ExtrasLine]; 6] = {
         &[U(5), U(22), U(7), U(6)],
         // zoom towards the pointer, right click puts the tool away, drag to place, right-drag panning, mouse aim and swing
         // (the three the controls presets set and the two that change what the original's mouse does), then the two pauses
-        &[U(14), U(25), U(15), U(20), U(24), U(8), U(9)],
+        &[U(14), U(25), U(15), U(20), U(27), U(24), U(8), U(9)],
     ]
 };
 
@@ -271,6 +271,7 @@ const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_MOUSE_SWING",
     "STR_EXTRAS_DESC_RIGHT_DROP",
     "STR_EXTRAS_DESC_WIDE_UI",
+    "STR_EXTRAS_DESC_EDGE_SCROLL",
 ];
 
 /// A line's description (what ticking it changes; for the preset line, what the preset in use is).
@@ -943,7 +944,7 @@ mod tests {
         assert_eq!(tag(ExtrasLine::Game(x::LEFTIES)), Some(Tag::Light));
         assert_eq!(page_of(ExtrasLine::Ui(5)), Some(4), "autosave");
         // the Controls page holds the mouse ticks, the most wanted first, then the two pauses
-        assert_eq!(page_lines(5), [14, 25, 15, 20, 24, 8, 9].map(ExtrasLine::Ui));
+        assert_eq!(page_lines(5), [14, 25, 15, 20, 27, 24, 8, 9].map(ExtrasLine::Ui));
         // the Saves page holds the saving and sharing ticks only, autosave first
         assert_eq!(page_lines(4), [ExtrasLine::Ui(5), ExtrasLine::Ui(22), ExtrasLine::Ui(7), ExtrasLine::Ui(6)]);
         // the most wanted first: weather on Gameplay, the interface at the edges on Looks; the experimental line last

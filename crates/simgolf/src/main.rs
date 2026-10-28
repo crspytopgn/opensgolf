@@ -405,6 +405,10 @@ struct Stage {
     pause_start: f64,
     last_tick: f64,
     mouse: (f32, f32),
+    /// The mouse has moved over the window since it opened (`mouse` is a real position: edge_scroll).
+    mouse_seen: bool,
+    /// The clock at the last frame's edge scroll (edge_scroll).
+    edge_t: f64,
     shift: bool,
     ctrl: bool,
     /// Alt (Option on a Mac) is held: a click with the terrain brush fills (build_tools.rs).
@@ -1668,6 +1672,8 @@ impl Stage {
             pause_start: 0.0,
             last_tick: t,
             mouse: (0.0, 0.0),
+            mouse_seen: false,
+            edge_t: 0.0,
             shift: false,
             ctrl: false,
             alt: false,
@@ -2252,6 +2258,40 @@ impl Stage {
             }
         }
         false
+    }
+
+    /// Edge scrolling (the Edge scrolling extra, on by default): the pointer on the screen's outermost pixel row or column
+    /// scrolls the view that way, as in the original (0x41e15f..0x41e24e: x <= 0, x >= 799, y <= 0, y >= 599, one tile
+    /// along the view's diagonal a frame of 87 ms, the same at every zoom; at a corner both). Only in full screen, where the
+    /// pointer cannot leave the window, on the course, and with a mouse (a finger has touch.rs's own).
+    fn mouse_edge_scroll(&mut self, t: f64) {
+        let dt = (t - self.edge_t).clamp(0.0, 0.1) as f32;
+        self.edge_t = t;
+        if !extras::edge_scroll() || !self.fullscreen || !self.mouse_seen || self.by_finger() || self.app.screen != Screen::Play {
+            return;
+        }
+        let (w, h) = miniquad::window::screen_size();
+        let (x, y) = self.mouse;
+        let dx = if x <= 0.5 {
+            -1.0
+        } else if x >= w - 1.5 {
+            1.0
+        } else {
+            0.0
+        };
+        let dy = if y <= 0.5 {
+            1.0
+        } else if y >= h - 1.5 {
+            -1.0
+        } else {
+            0.0
+        };
+        if dx == 0.0 && dy == 0.0 {
+            return;
+        }
+        let speed = std::f32::consts::SQRT_2 * sg_core::terrain::TILE_SIZE / 0.087;
+        self.app.xs.follow = None;
+        self.app.key_pan(dx * speed * dt, dy * speed * dt);
     }
 
     fn dock_hover_update(&mut self, vx: f32, vy: f32) {
@@ -3114,6 +3154,7 @@ impl EventHandler for Stage {
         let t = now();
         self.app.clock = t;
         self.touch_update();
+        self.mouse_edge_scroll(t);
         self.photo_update();
         if self.pause_toggle {
             self.pause_toggle = false;
@@ -3220,6 +3261,8 @@ impl EventHandler for Stage {
     }
 
     fn draw(&mut self) {
+        // the view on the map (#138: every way of moving it, drags and jumps too)
+        self.app.clamp_cam();
         // the edges a phone hides, for what Enhanced widescreen draws at the window's edges (ui.rs safe_extent)
         ui::set_safe_area(ui::platform_safe_area(self.app.draw_w, self.app.draw_h));
         glass_ui::set_active(self.app.on_free_set());
@@ -3345,6 +3388,7 @@ impl EventHandler for Stage {
             self.app.touch_target.pointer_moved();
         }
         self.mouse = (x, y);
+        self.mouse_seen = true;
         // a left press Mouse aim and swing took: the target follows, or the view pans (touch.rs)
         self.mouse_swing_move(x, y);
         if self.app.photo.is_some() {

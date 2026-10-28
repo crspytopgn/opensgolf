@@ -3422,6 +3422,10 @@ impl App {
         let mut refused = false;
         let mut broke = false;
         let mut warned = false;
+        // an object, flower bed or the scenery of a retyped tile went: the objects are drawn again (#136: what was painted
+        // over stayed on the screen)
+        let mut scenery = false;
+        let retyped = self.retyped.len();
         for &(x, y) in tiles {
             if !self.terrain.inside(x, y) {
                 continue;
@@ -3449,6 +3453,13 @@ impl App {
             // trap brushes set the tile's byte before it (below); water keeps its depth there, so painting water over the
             // sea no longer turns it shallow and light (#132). The course editor's water brushes set the depth they name.
             let byte_only = new == 1 || new == 7 || self.editor.is_some();
+            // a flower bed or a garden border on the tile goes, even under the same type (0x42057b, before that exit)
+            if let Some(l) = self.land.as_mut() {
+                if l.flags[li] & 0x1000 != 0 {
+                    l.flags[li] &= !0x1000;
+                    scenery = true;
+                }
+            }
             if old == new && (!byte_only || want == self.terrain.variation[self.terrain.tile_index(x, y)] as i32) {
                 continue;
             }
@@ -3470,6 +3481,7 @@ impl App {
                     refused = true;
                     continue;
                 }
+                scenery = true;
                 if let Some(l) = self.land.as_mut() {
                     let size = l.footprint_size(&obj);
                     l.remove_object(o);
@@ -3529,6 +3541,13 @@ impl App {
         // one "already has its tee" message per stroke, not per tile
         self.club.out.dedup();
         self.dirty = true;
+        if scenery || self.retyped.len() != retyped {
+            if let Some(l) = self.land.as_mut() {
+                l.sync_from_terrain(&self.terrain);
+            }
+            self.props.retain(|p| !p.object);
+            self.add_land_objects();
+        }
     }
 
     /// Opens the land screen (after the County Commissioner approves an expansion and the player says yes).
@@ -4260,6 +4279,19 @@ impl App {
         let yaw = (45.0 + self.rot) * std::f32::consts::PI / 180.0;
         self.cam_x += yaw.cos() * right + yaw.sin() * up;
         self.cam_z += yaw.sin() * right - yaw.cos() * up;
+        self.clamp_cam();
+    }
+
+    /// The view's centre kept on the map, as the exe keeps it: after every move its tile is clamped to 0..49 on each axis
+    /// (0x467130 from 0x41df51..0x41e249), whatever the zoom or the land owned (#138: the port's view could be scrolled away
+    /// from the course and lost). On a larger course, its own edge.
+    pub fn clamp_cam(&mut self) {
+        if self.terrain.w <= 0 || self.terrain.h <= 0 {
+            return;
+        }
+        let (lo, hi) = (self.terrain.tile_centre(0, 0), self.terrain.tile_centre(self.terrain.w - 1, self.terrain.h - 1));
+        self.cam_x = self.cam_x.clamp(lo.0, hi.0);
+        self.cam_z = self.cam_z.clamp(lo.1, hi.1);
     }
 }
 
@@ -5158,6 +5190,36 @@ mod tests {
         a.terrain.paint(20, 20, 4, 0);
         a.sync_course();
         assert_ne!(a.exe_rng.state, before);
+    }
+
+    #[test]
+    fn painting_over_a_flower_bed_takes_it_away() {
+        // issue #136: the exe clears the bed's flag on every tile it paints (0x42057b), and what was painted over is drawn
+        // no more
+        let mut a = building_game();
+        a.econ.cash = 1e7;
+        a.ensure_land();
+        let li = (20 * land::mn() + 20) as usize;
+        a.land.as_mut().unwrap().flags[li] |= 0x1000;
+        a.pick_brush(PAINT.iter().position(|p| p.ty == 17 && p.vbyte == 0).unwrap());
+        a.paint_tiles(&[(20, 20)]);
+        assert_eq!(a.land.as_ref().unwrap().flags[li] & 0x1000, 0);
+        assert!(!a.props.iter().any(|p| p.bed.is_some_and(|b| (b.2, b.3) == (20, 20))), "the bed is not drawn");
+    }
+
+    #[test]
+    fn the_view_stays_on_the_map() {
+        // issue #138: the view's centre stops at the map's edge tiles, as the exe's clamp to 0..49
+        let mut a = building_game();
+        let (lo, hi) = (a.terrain.tile_centre(0, 0), a.terrain.tile_centre(a.terrain.w - 1, a.terrain.h - 1));
+        for _ in 0..200 {
+            a.pan(-1000.0, 1000.0);
+        }
+        assert!((lo.0..=hi.0).contains(&a.cam_x) && (lo.1..=hi.1).contains(&a.cam_z));
+        a.cam_x = 1e6;
+        a.cam_z = -1e6;
+        a.clamp_cam();
+        assert_eq!((a.cam_x, a.cam_z), (hi.0, lo.1));
     }
 
     #[test]

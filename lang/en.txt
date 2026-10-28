@@ -3480,3 +3480,6 @@ STR_EXTRAS_DESC_RIGHT_DROP              :A right click (B on a controller) drops
 # The interface at the screen's edges (OpenSGolf extras, extras.rs wide_ui; enhanced.rs widescreen)
 STR_EXTRAS_WIDE_UI                      : Interface at the screen's edges
 STR_EXTRAS_DESC_WIDE_UI                 :On a wide screen the dock, panels and money sit at the screen's edges (on by default; off keeps them in the 4:3 middle).
+# Edge scrolling (OpenSGolf extras, extras.rs edge_scroll; main.rs edge_scroll)
+STR_EXTRAS_EDGE_SCROLL                  : Edge scrolling
+STR_EXTRAS_DESC_EDGE_SCROLL             :In full screen the pointer at the screen's edge scrolls the view, as in the original (on by default).
