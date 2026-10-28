@@ -858,6 +858,9 @@ pub struct App {
     /// Seconds of play since the last autosave, and the clock at the last frame (autosave.rs).
     pub autosave_due: f64,
     pub autosave_clock: f64,
+    /// `autosave_due` when the window going to the background last saved the game, since the last five-minute autosave
+    /// (autosave.rs autosave_on_hide); None when there was none.
+    pub autosave_hidden_at: Option<f64>,
     /// Until when a pasted course code is waited for (share.rs; 0: not waiting).
     pub paste_wait: f64,
     pub strip_page: u8,
@@ -1135,6 +1138,7 @@ impl App {
             bt: Default::default(),
             autosave_due: 0.0,
             autosave_clock: 0.0,
+            autosave_hidden_at: None,
             paste_wait: 0.0,
             strip_page: 0,
             ball_trail: Vec::new(),
@@ -1371,12 +1375,7 @@ impl App {
                 self.jingle = None;
             }
         }
-        let title = matches!(
-            self.screen,
-            Screen::Menu | Screen::Scenarios | Screen::Difficulty | Screen::Property | Screen::Themes | Screen::Credits
-        ) || (self.screen == Screen::Files && !self.title.over_game())
-            // the support box over the title menu (support.rs)
-            || self.popup_over_title();
+        let title = self.on_title();
         if self.music_screen == Some(title) {
             return;
         }
@@ -1402,6 +1401,17 @@ impl App {
                 self.start_ambience();
             }
         }
+    }
+
+    /// The title menu and the screens it leads to before a game (the title tune's screens in `screen_audio`), as against a
+    /// game's screens: the course, its reports, menus and boxes, and Load Previous Game opened from it.
+    pub fn on_title(&self) -> bool {
+        matches!(
+            self.screen,
+            Screen::Menu | Screen::Scenarios | Screen::Difficulty | Screen::Property | Screen::Themes | Screen::Credits
+        ) || (self.screen == Screen::Files && !self.title.over_game())
+            // the support box over the title menu (support.rs)
+            || self.popup_over_title()
     }
 
     pub fn start_ambience(&mut self) {
@@ -3045,7 +3055,7 @@ impl App {
         // a new game is never the course editor's (editor.rs makes it the editor's afterwards)
         self.editor = None;
         self.econ.free = false;
-        self.autosave_due = 0.0;
+        self.autosave_restart();
         let p = sg_core::data::properties()[prop_idx];
         // a game started without the difficulty screen (scripted runs) still gets its Top 10 id
         if self.course_id.is_none() {
@@ -3200,7 +3210,7 @@ impl App {
         self.undo.clear();
         // a loaded game is never the course editor's (editor.rs makes it the editor's afterwards; undo keeps it)
         self.editor = None;
-        self.autosave_due = 0.0;
+        self.autosave_restart();
         self.load_save_with(g, s, false)
     }
 

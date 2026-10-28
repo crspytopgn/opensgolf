@@ -798,6 +798,15 @@ compare pixel for pixel with the build before the extras).
   as *autosave (Latest, one before)* and *autosave (Latest, two before)* (files `&Latest.sgs`, `&Latest-2.sgs`,
   `&Latest-3.sgs`; each autosave moves them one along and the oldest goes), listed together, newest first. Test hook:
   `SG_AUTOSAVE_SECS=N` saves every N seconds of play instead. Load them from Load Previous Game like any save.
+  The game is also saved as *autosave (Latest)* when its window goes to the background with a game on screen (another
+  window takes the focus, the browser tab is hidden, the phone goes to its home screen, the Android app is put away), so
+  a browser that throws away a page left in the background loses nothing: iPhone and iPad Safari do, and the page then
+  opens on its start page, where *Continue playing* and then Load Previous Game bring the game back. In the browser the
+  save is written while the page is being hidden, before it can be frozen. Not within half a minute of play after the last
+  autosave (or after starting or loading the game), not during a tournament (as the quick save), and not on the title
+  screens. The first of these saves after a five-minute autosave moves the autosaves along; the next ones replace it until
+  the next five-minute autosave, so leaving the window often (alt-tabbing on a desktop) never pushes out more than one
+  of the autosaves before it.
 - **Save pictures**: Load Previous Game draws a map of the selected save's course in the list's top right corner: fairways,
   greens, sand, water, woods, paths and buildings, with the land the club does not own darker. It reads the save itself, so
   older saves get a picture too.
@@ -855,7 +864,12 @@ compare pixel for pixel with the build before the extras).
   background on purpose): the game pauses when its window goes to the background (another window takes the focus, the
   window is minimised, the browser tab is hidden or the page loses the focus, the Android app is put away) and goes on when
   it comes back. A pause you made yourself stays, and pausing or unpausing in between makes the pause yours. A line under
-  the Paused caption says why the game stopped.
+  the Paused caption says why the game stopped. The sound stops too (the course ambience, the music and the effects,
+  also on the title screens and with a game you had paused yourself) and goes on from where it stopped when the window is
+  back. In the browser the page's sound output is suspended meanwhile, so a phone or tablet has no sound playing to keep
+  the page running in the background (iOS keeps such a page awake, on the battery); should the browser want a tap
+  before it plays again, the first tap or click brings the sound back. With the extra off the game and its sound go on
+  in the background.
 - **Pause on big news** (off; the presets leave it as you set it): the game pauses right after a VIP (the CEO, the
   county commissioner, the heiress) arrives, a famous golfer challenges your pro, the SGA offers a tournament, the board
   warns about debt at the end of the year (the year-end report follows when the game goes on), or the cash goes below

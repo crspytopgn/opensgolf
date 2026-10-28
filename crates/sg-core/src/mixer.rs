@@ -5,6 +5,7 @@
 use crate::assets::decode_sound;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 pub const RATE: u32 = 44100;
@@ -108,6 +109,9 @@ pub struct Mixer {
     by_name: BTreeMap<String, Vec<String>>,
     /// The same without digits (`loose_key`), for a copy that numbers its files differently.
     by_loose: BTreeMap<String, Vec<String>>,
+    /// The whole output paused ([`Mixer::set_paused`]); outside `state`, so the output device's thread reads it without
+    /// waiting for the lock.
+    paused: AtomicBool,
     state: Mutex<State>,
 }
 
@@ -177,6 +181,7 @@ impl Mixer {
             all_free: false,
             by_name: BTreeMap::new(),
             by_loose: BTreeMap::new(),
+            paused: AtomicBool::new(false),
             state: Mutex::new(State {
                 clips: BTreeMap::new(),
                 voices: Vec::new(),
@@ -563,8 +568,23 @@ impl Mixer {
         }
     }
 
+    /// Pauses or unpauses the whole output (the game's Pause in the background extra). While paused the mix is silence and
+    /// no voice moves on, so what was sounding (a loop, music, a clip half played) goes on from where it was when the output
+    /// is unpaused; voices started or stopped meanwhile are kept or dropped as at any other time.
+    pub fn set_paused(&self, paused: bool) {
+        self.paused.store(paused, Ordering::Relaxed);
+    }
+
+    pub fn paused(&self) -> bool {
+        self.paused.load(Ordering::Relaxed)
+    }
+
     /// Interleaved stereo S16 at 44100 Hz; thread safe. `out.len()` is 2 x frames.
     pub fn mix(&self, out: &mut [i16]) {
+        if self.paused() {
+            out.fill(0);
+            return;
+        }
         let mut acc = vec![0i32; out.len()];
         if let Ok(mut s) = self.state.lock() {
             let master = s.master;
@@ -697,6 +717,41 @@ mod tests {
         m.retune(plain, 1.0, 0.0, -1200);
         m.mix(&mut buf);
         assert!(m.playing(plain));
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn a_paused_output_is_silent_and_goes_on_where_it_was() {
+        let d = std::env::temp_dir().join(format!("sg_mixer_pause_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        std::fs::write(d.join("t.wav"), tone_wav(2205)).unwrap(); // 0.1 s, 4410 frames at 44.1 kHz
+        let (paused, plain) = (Mixer::new(&d), Mixer::new(&d));
+        let mut voices = Vec::new();
+        for m in [&paused, &plain] {
+            // a loop (the ambience) and a clip half played, one of them pitched
+            voices.push((m.play("t.wav", 0.5, true), m.play_pitched("t.wav", 0.5, 0.3, 0, 300, false)));
+        }
+        let (mut a, mut b) = (vec![0i16; 1000 * 2], vec![0i16; 1000 * 2]);
+        paused.mix(&mut a);
+        plain.mix(&mut b);
+        assert_eq!(a, b);
+        paused.set_paused(true);
+        assert!(paused.paused());
+        let mut quiet = vec![1i16; 1024 * 2];
+        for _ in 0..3 {
+            paused.mix(&mut quiet);
+            assert!(quiet.iter().all(|&s| s == 0));
+        }
+        // nothing moved on meanwhile: the clip still sounds, and both mixers go on alike
+        let (looped, clip) = voices[0];
+        assert!(paused.playing(looped) && paused.playing(clip));
+        paused.set_paused(false);
+        let (mut a, mut b) = (vec![0i16; 3000 * 2], vec![0i16; 3000 * 2]);
+        paused.mix(&mut a);
+        plain.mix(&mut b);
+        assert!(a.iter().any(|&s| s != 0));
+        assert_eq!(a, b);
         let _ = std::fs::remove_dir_all(&d);
     }
 
