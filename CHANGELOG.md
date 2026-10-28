@@ -47,7 +47,8 @@ Enhanced graphics and HD.
   site shows who lives there, as in the original (#141); the build panel's buttons and design pictures answer only at
   their foot, as in the original, so a tree's crown no longer picks the tree beside it (#142); Sandbox Mode goes straight
   to the world map, each property keeps its own card there, and sandbox land shows no price, as in the original; the
-  course size and Game boxes are on the world map for a sandbox (#143).
+  course size and Game boxes are on the world map for a sandbox (#143); with Fix original bugs, an island property no
+  longer starts with landmarks standing out in the sea (#144).
 - **0.6.3:** with Fix original bugs, a green painted beside a putting green no longer joins it, and gets its flag (#128);
   painting water over the sea keeps its depth and colour (#132); with the interface at the window's edges, the pointer to
   the right of the build panel no longer picks a tree (#130).

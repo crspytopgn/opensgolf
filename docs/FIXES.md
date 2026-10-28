@@ -171,3 +171,12 @@ and the hole tool does not count them as a neighbouring green (`App::green_joins
 A driving range's lot is rough (deep rough along its far side) round a building tile, so rough painted beside it blends into
 it the same way (#139); with the setting its tiles are a group of their own as well (`Land::lots_to`). A marina's water is
 left one with the lake it stands in.
+
+## 15. Landmarks out in the sea (#144)
+
+The land generator draws the spots for its landmarks, difficulty obstacles and their paths anywhere on the map, and marks the
+land the club does not own only at the end (0x4720e8). Round an island the cut-off land becomes sea, so an island property
+(Oahu, Wales) could start with a landmark and its garden standing out in the water, and every property could have obstacles
+past its edge. With the setting an object reaching the cut-off land is removed, its ground goes back to the level round it
+and the cut tiles keep no paths or marks (`Land::clear_cut`, crates/sg-core/src/land.rs). The draws are the same, so the
+rest of the map is the exe's.

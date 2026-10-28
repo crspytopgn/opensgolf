@@ -842,6 +842,59 @@ impl Land {
         }
     }
 
+    /// Takes away what was put down on land that the owned area then cut off (`cut`): the exe draws the landmarks, obstacles and
+    /// their paths anywhere on the map and marks the land it does not own only at the end (0x4720e8), so an island property
+    /// could start with a landmark and its garden standing out in the sea, and every property with obstacles past its edge
+    /// (issue #144). With "Fix original bugs" an object reaching a cut tile is removed and the cut tiles keep no paths or
+    /// marks; the draws are the same, so the rest of the map is the exe's.
+    fn clear_cut(&mut self, cut: &[bool]) {
+        for i in 0..self.objects.len() {
+            let o = self.objects[i];
+            if o.kind < 0 || o.kind == K_CLUBHOUSE {
+                continue;
+            }
+            let s = self.footprint_size(&o).max(1);
+            let off = (0..s)
+                .any(|r| (0..s).any(|c| !(0..mn()).contains(&(o.a + r)) || !(0..mn()).contains(&(o.b + c)) || cut[idx(o.a + r, o.b + c)]));
+            if off {
+                self.remove_object(i);
+                // its corners, flattened to its anchor's height, go back to the ground round it (the commonest height on
+                // the ring just outside), so no step is left under the sea
+                let ring = |a: i32, b: i32| (0..=mn()).contains(&a) && (0..=mn()).contains(&b);
+                let mut count = [0u32; 256];
+                for r in -1..=s + 1 {
+                    for c in -1..=s + 1 {
+                        let edge = r == -1 || c == -1 || r == s + 1 || c == s + 1;
+                        if edge && ring(o.a + r, o.b + c) {
+                            count[self.h((o.a + r) * hp() + o.b + c) as usize] += 1;
+                        }
+                    }
+                }
+                if let Some(level) = (0..256).filter(|&v| count[v] > 0).max_by_key(|&v| (count[v], std::cmp::Reverse(v))) {
+                    for r in 0..=s {
+                        for c in 0..=s {
+                            if ring(o.a + r, o.b + c) {
+                                self.set_h((o.a + r) * hp() + o.b + c, level as u8);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        let island = self.slot.record().coast == 2;
+        for i in (0..cut.len()).filter(|&i| cut[i]) {
+            // back to the cut tile's own type (the removal leaves rough), without paths, spots, borders, obstacles or an
+            // object's mark
+            let t = if island { T_WATER } else { T_OUT };
+            if self.ty[i] != t {
+                self.ty[i] = t;
+                self.layer[i] = crate::data::land_type(t).layer;
+            }
+            self.flags[i] &=
+                !(0x1f | flag::PATH | flag::JOINED | flag::SPOT | flag::PATH_ALT | flag::FOOTPRINT | flag::CREEK | flag::OBSTACLE);
+        }
+    }
+
     /// Marks a tile as outside the owned land: out of bounds, or water around an island.
     fn unown(&mut self, a: i32, b: i32) {
         let i = idx(a, b);
@@ -1438,15 +1491,20 @@ pub fn generate(slot_index: usize, slot: Slot, difficulty: i32, sandbox: bool, r
     let m = owned_margin(&slot, size);
     land.margin = m;
     land.original = land.ty.clone();
+    let mut cut = vec![false; nn()];
+    let mut unown = |land: &mut Land, a: i32, b: i32| {
+        land.unown(a, b);
+        cut[idx(a, b)] = true;
+    };
     if rec.coast != 2 {
         for i in 0..m {
             for j in 0..mn() {
-                land.unown(i, j);
+                unown(&mut land, i, j);
                 if rec.coast == 0 {
-                    land.unown(j, i);
+                    unown(&mut land, j, i);
                 }
-                land.unown(j, size - 1 - i);
-                land.unown(size - 1 - i, j);
+                unown(&mut land, j, size - 1 - i);
+                unown(&mut land, size - 1 - i, j);
             }
         }
     } else {
@@ -1458,12 +1516,15 @@ pub fn generate(slot_index: usize, slot: Slot, difficulty: i32, sandbox: bool, r
                 if j >= mn() {
                     break;
                 }
-                land.unown(j, row);
-                land.unown(row, j);
-                land.unown(row, size - 1 - j);
-                land.unown(size - 1 - j, row);
+                unown(&mut land, j, row);
+                unown(&mut land, row, j);
+                unown(&mut land, row, size - 1 - j);
+                unown(&mut land, size - 1 - j, row);
             }
         }
+    }
+    if crate::fixes::on() {
+        land.clear_cut(&cut);
     }
     land.water_depth();
     land
@@ -2016,6 +2077,51 @@ mod tests {
                 assert_eq!(t.ty.len(), 2500);
             }
         }
+    }
+
+    #[test]
+    fn nothing_stands_past_the_owned_land() {
+        // issue #144: the landmarks and obstacles are drawn anywhere on the map and the land outside the property is cut away
+        // only at the end, so an island could start with a landmark and its garden out in the sea; with "Fix original bugs"
+        // they go, and the rest of the map is the exe's
+        let make = |p: usize, c: u32| {
+            let mut rng = ExeRng::from_clock(c);
+            let noise = Noise::new(&mut rng);
+            let land = generate(7, Slot { property: p, acres: slot_acres(7, p, false) }, 1, false, &mut rng, &noise);
+            (land, rng)
+        };
+        let mut gone = 0;
+        for p in [6, 12, 5, 15] {
+            for c in 0..40 {
+                let (exe, exe_rng) = make(p, c * 977 + 5);
+                crate::fixes::set(true);
+                let (fixed, fixed_rng) = make(p, c * 977 + 5);
+                crate::fixes::set(false);
+                assert_eq!(exe_rng.state, fixed_rng.state, "the same draws");
+                // nothing stands on the cut land: out of bounds, or the sea round an island (a marina's edge is its own water)
+                for o in fixed.objects.iter().filter(|o| o.kind >= 0 && o.kind != K_MARINA) {
+                    let s = fixed.footprint_size(o).max(1);
+                    for r in 0..s {
+                        for k in 0..s {
+                            let (a, b) = (o.a + r, o.b + k);
+                            assert!(
+                                fixed.in_play(a, b) && fixed.tile(a, b) != T_WATER,
+                                "property {p} clock {c}: kind {} at {a},{b}",
+                                o.kind
+                            );
+                        }
+                    }
+                }
+                gone += exe.objects.iter().filter(|o| o.kind >= 0).count() - fixed.objects.iter().filter(|o| o.kind >= 0).count();
+                // the land is the exe's but for what stood on the cut tiles
+                for i in 0..nn() {
+                    if exe.flags[i] & flag::FOOTPRINT == 0 {
+                        assert_eq!(exe.ty[i], fixed.ty[i], "property {p} clock {c}: tile {i}");
+                    }
+                }
+            }
+        }
+        assert!(gone > 0, "some objects stood past the edge");
     }
 
     #[test]
