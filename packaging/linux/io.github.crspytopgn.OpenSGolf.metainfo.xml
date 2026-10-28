@@ -112,6 +112,7 @@
         <p>A first-start box helps choose how to play, and What's new is shown once after updating.</p>
         <p>Loading a save in the browser no longer freezes for seconds, and typing in the bug report form opened from Report a problem no longer loses what you type.</p>
         <p>Game options lists each page's most wanted options first, with Helpers split into Saves and Controls, and the title screen shows the version.</p>
+        <p>A new game's building beside the clubhouse no longer hangs over the edge of a small property.</p>
       </description>
     </release>
     <release version="0.6.0" date="2026-10-28">

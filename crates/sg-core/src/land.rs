@@ -854,6 +854,22 @@ impl Land {
     }
 }
 
+/// The width of the unowned border round a property's owned square: a square of side 2r where 4r^2 tiles are about
+/// acres x 10. (The exe keeps the acres in a byte; a larger map's deal can be bigger.)
+fn owned_margin(slot: &Slot, size: i32) -> i32 {
+    let acres = if crate::mapsize::original() { slot.acres & 0xff } else { slot.acres };
+    let mut r = size / 2;
+    let mut m = 0;
+    loop {
+        m += 1;
+        r -= 1;
+        if acres * 10 >= r * r * 4 {
+            break;
+        }
+    }
+    m
+}
+
 /// Upper bound on retries in the generator's "draw until it fits" loops; the exe loops without a bound.
 const TRIES: i32 = 100_000;
 
@@ -1344,7 +1360,20 @@ pub fn generate(slot_index: usize, slot: Slot, difficulty: i32, sandbox: bool, r
     if let Some(kind) = free_building {
         // Beside the clubhouse, with a short path to it.
         // (the exe writes these from the anchor less 15: ra + 14, rb + 19 and so on)
-        if !land.blocked(ca, cb + 5) {
+        // The exe asks whether the tile past that side is off the land, but it marks the land it does not own only at the
+        // end (0x4720e8, after the clubhouse at 0x471618), so on a small property the building could stand past the owned
+        // edge, over the cliff (#125). With "Fix original bugs" the side is the one whose 4 x 4 lot is all on the land
+        // that will be owned (the same draws, so the rest of the map is the exe's).
+        let past = if crate::fixes::on() && rec.coast != 2 {
+            let m = owned_margin(&slot, size);
+            let lo = if rec.coast == 0 { m } else { 0 };
+            let owned = |a: i32, b: i32| (m..size - m).contains(&a) && (lo..size - m).contains(&b);
+            let fits = |b0: i32| (0..4).all(|r| (0..4).all(|c| owned(ca - 1 + r, b0 + c)));
+            !fits(cb + 4) && fits(cb - 5)
+        } else {
+            land.blocked(ca, cb + 5)
+        };
+        if !past {
             land.place(rng, ca - 1, cb + 4, kind, 0, theme);
             for k in 2..=4 {
                 land.flags_or(ci as i32 + k, flag::PATH);
@@ -1406,16 +1435,7 @@ pub fn generate(slot_index: usize, slot: Slot, difficulty: i32, sandbox: bool, r
 
     // The owned land: a square of side 2r where 4r^2 tiles are about acres x 10; the rest is out of bounds. (The exe keeps the
     // acres in a byte; a larger map's deal can be bigger.)
-    let acres = if crate::mapsize::original() { slot.acres & 0xff } else { slot.acres };
-    let mut r = size / 2;
-    let mut m = 0;
-    loop {
-        m += 1;
-        r -= 1;
-        if acres * 10 >= r * r * 4 {
-            break;
-        }
-    }
+    let m = owned_margin(&slot, size);
     land.margin = m;
     land.original = land.ty.clone();
     if rec.coast != 2 {
@@ -1986,6 +2006,36 @@ mod tests {
         assert_eq!(unlocked_kinds(9, false), 13);
         assert_eq!(unlocked_kinds(12, false), 15);
         assert_eq!(unlocked_kinds(18, false), 15);
+    }
+
+    /// #125: on a small property the free building beside the clubhouse (Jurassic Springs' kind 13) could stand past the
+    /// owned edge, as in the exe; with "Fix original bugs" it takes the other side, and nothing else of the map changes.
+    #[test]
+    fn free_building_stays_on_the_owned_land() {
+        let slot = Slot { property: 2, acres: 50 };
+        let (mut over, mut moved) = (0, 0);
+        for seed in 0..200 {
+            let make = |fix: bool| {
+                crate::fixes::set(fix);
+                let mut rng = ExeRng::from_clock(seed);
+                let noise = Noise::new(&mut rng);
+                generate(0, slot, 0, false, &mut rng, &noise)
+            };
+            let (exe, fixed) = (make(false), make(true));
+            crate::fixes::set(false);
+            let out = |l: &Land| {
+                let o = l.objects.iter().find(|o| o.kind == 0xd).unwrap();
+                (0..4).any(|r| (0..4).any(|c| l.tile(o.a + r, o.b + c) == T_OUT))
+            };
+            over += out(&exe) as i32;
+            assert!(!out(&fixed), "seed {seed}");
+            if exe.objects.iter().zip(&fixed.objects).any(|(x, y)| (x.a, x.b) != (y.a, y.b)) {
+                moved += 1;
+                assert!(out(&exe), "seed {seed}: moved a building that was on the land");
+            }
+            assert_eq!(exe.objects.len(), fixed.objects.len());
+        }
+        assert!(over > 0 && moved == over, "{over} {moved}");
     }
 
     #[test]
