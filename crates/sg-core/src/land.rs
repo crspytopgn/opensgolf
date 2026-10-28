@@ -352,6 +352,24 @@ pub fn border_class(ty: u8, desert: bool) -> u8 {
     }
 }
 
+/// A terrain type's class as the game's own rules read it (golfer thoughts, spectators, stories, weeds): the type table's,
+/// but for the desert's deep rough, 5 instead of 4. The exe's theme loader (0x43dbe0) writes that 5 into the table itself
+/// (0x578466: the class byte of type 5 in the 0x30-byte rows at 0x578376, the table the game's rules read, e.g. the water
+/// test at 0x578376 + type * 0x30 == 0x11), so on a desert course deep rough is no class-4 ground for any of them (#118;
+/// the drawing's border classes follow it in [`border_class`]).
+pub fn class(ty: u8) -> u8 {
+    class_in(ty, NAME_THEME.load(std::sync::atomic::Ordering::Relaxed))
+}
+
+/// [`class`] in the exe's theme `theme` (1 is the desert).
+pub fn class_in(ty: u8, theme: u8) -> u8 {
+    if ty == T_DEEP_ROUGH && theme == 1 {
+        5
+    } else {
+        crate::data::get().land_types.get(ty as usize).map_or(0, |r| r.class)
+    }
+}
+
 /// The theme whose building names [`building_name`] gives (the exe's theme number: 0 Parkland, 1 Desert, 2 Tropical, 3
 /// Links); `NO_THEME` until a theme is loaded, which keeps the table's own names.
 static NAME_THEME: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(NO_THEME);
@@ -1866,6 +1884,21 @@ impl Land {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_deserts_deep_rough_is_no_class_4_ground_for_the_rules() {
+        // the exe's theme loader writes 5 over deep rough's class on the desert only (0x578466)
+        assert_eq!(class_in(T_DEEP_ROUGH, 1), 5);
+        for theme in [0, 2, 3, NO_THEME] {
+            assert_eq!(class_in(T_DEEP_ROUGH, theme), 4, "theme {theme}");
+        }
+        // every other type keeps its table class in the desert
+        for ty in 0..23u8 {
+            if ty != T_DEEP_ROUGH {
+                assert_eq!(class_in(ty, 1), class_in(ty, 0), "type {ty}");
+            }
+        }
+    }
 
     #[test]
     fn desert_deep_rough_borders_as_a_class_of_its_own() {

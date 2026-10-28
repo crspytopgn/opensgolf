@@ -34,7 +34,8 @@ Enhanced graphics and HD.
   art* option, which only made up for the wrong names, is gone. Undo's *Reset to* and the shot panel's lie use the
   theme's names (desert, rough, canyon and the rest) instead of the Parkland ones.
 - **Desert rough is edged with grass as in the original:** no more sand rings round buildings and landmarks, and the
-  rough reaches the map's edge (#118).
+  rough reaches the map's edge (#118). As in the original, the desert's rough also counts as its own ground for weeds,
+  spectators and what golfers think of it.
 
 **Fix releases before it**
 

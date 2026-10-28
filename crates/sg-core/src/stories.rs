@@ -480,7 +480,7 @@ impl Club {
         loop {
             if inside(a, b) {
                 let t = c.ty[idx(a, b)];
-                if c.row(t).class == 4 && t != crate::course::t::BUILDING && c.flags[idx(a, b)] & 0x320 == 0 {
+                if crate::land::class(t) == 4 && t != crate::course::t::BUILDING && c.flags[idx(a, b)] & 0x320 == 0 {
                     break;
                 }
             }
