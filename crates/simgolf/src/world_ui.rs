@@ -5,10 +5,12 @@ use crate::app::*;
 use crate::gfx::Gfx;
 use crate::info_ui::c15;
 use crate::ui::{money, rgb, rgba, text_width, wrap_text, Screen as Ui};
+use crate::Rect;
 use sg_core::land;
 use sg_core::lang::{tr, trf};
 
-/// Card origins on WorldBase.pcx, one per offer slot (cheapest first, down the left arc and then the right).
+/// Card origins on WorldBase.pcx, one per property (the exe walks the property records and these together, 0x46f9bd and
+/// 0x4703f0: card k is always property k, the deal only gives it a slot's acres and price; issue #143).
 pub const CARD_POS: [(f32, f32); 16] = [
     (251.0, 13.0),
     (302.0, 64.0),
@@ -32,14 +34,18 @@ pub const CARD_POS: [(f32, f32); 16] = [
 pub const WORLD_CANCEL: i32 = 100;
 pub const WORLD_RESET_SAVE: i32 = 101;
 pub const WORLD_LOAD: i32 = 102;
+/// The course size and Game boxes a sandbox shows here, as it skips Select Difficulty where a new game has them (the
+/// port's own; issue #143). Bottom left, below the pins and left of the cards.
+pub const WORLD_SIZE: i32 = 103;
+pub const WORLD_STYLE: i32 = 104;
+pub const WORLD_SIZE_RECT: Rect = Rect::new(14.0, 440.0, 300.0, 44.0);
+pub const WORLD_STYLE_RECT: Rect = Rect::new(14.0, 492.0, 300.0, 44.0);
 
 impl App {
-    /// The property shown on card k (offer slot k), its acres and price in money.
+    /// The property shown on card k (property k), its acres and price in money.
     fn card(&self, k: usize) -> (usize, i32, i32) {
-        let s = self.offer[k];
-        // (the Hardcore extra's dearer land: offer_for; a larger course size's prices: sg_core::mapsize::scale_money_at)
-        let price = sg_core::mapsize::scale_money_at(self.course_size, sg_core::data::economy().offer_units[k] as i64 * 100);
-        (s.property, s.acres, self.extras_next.land(price as f64) as i32)
+        let (acres, price) = self.offer_for(k);
+        (k, acres, price)
     }
 
     fn world_cash(&self) -> f64 {
@@ -50,6 +56,11 @@ impl App {
             // chooser compared the grown prices with the original's funds, so nothing was affordable on a larger map)
             sg_core::mapsize::scale_money_at(self.course_size, sg_core::data::economy().start_funds as i64) as f64
         }
+    }
+
+    /// Whether the world map shows the course size and Game boxes: a new sandbox game's.
+    fn world_options(&self) -> bool {
+        self.sandbox_choice && !self.world_move && !self.editor_start
     }
 
     fn world_unlimited(&self) -> bool {
@@ -101,9 +112,16 @@ impl App {
         if self.world_move && (x - 774.0).hypot(y - 425.0) < 20.0 {
             return WORLD_LOAD;
         }
+        if self.world_options() {
+            if WORLD_SIZE_RECT.has(x, y) {
+                return WORLD_SIZE;
+            }
+            if WORLD_STYLE_RECT.has(x, y) {
+                return WORLD_STYLE;
+            }
+        }
         let mut best = (-1, 30.0f32);
-        for (k, &(cx, cy)) in CARD_POS.iter().enumerate() {
-            let p = self.offer[k].property;
+        for (p, &(cx, cy)) in CARD_POS.iter().enumerate() {
             let r = &sg_core::data::records()[p];
             for d in [(x - cx - 25.0).hypot(y - cy - 25.0), (x - r.map_x as f32).hypot(y - r.map_y as f32)] {
                 if d < best.1 {
@@ -138,6 +156,18 @@ impl App {
                 // Reset World deals a new list
                 self.deal_offer(self.sandbox_choice);
                 self.ui_sound(0x38);
+            }
+            WORLD_SIZE if self.world_options() => {
+                if self.course_size_choosable() {
+                    self.next_course_size();
+                    // the acres follow the size
+                    self.deal_offer(true);
+                    self.ui_sound(0x18);
+                }
+            }
+            WORLD_STYLE if self.world_options() => {
+                self.next_game_style(g);
+                self.ui_sound(0x18);
             }
             WORLD_LOAD => {
                 let f = self.game_file();
@@ -214,7 +244,7 @@ impl App {
             s.image_part(g, &a.tacks, x, y, 50.0 * variant as f32, 50.0 * state as f32, w, 24.0);
         };
         // the selected card goes last: its box reaches over the card below
-        let sel_card = CARD_POS.iter().enumerate().position(|(k, _)| self.offer[k].property as i32 == self.hover);
+        let sel_card = (0..16).find(|&k| k as i32 == self.hover);
         let order = (0..16).filter(|&k| Some(k) != sel_card).chain(sel_card);
         for k in order {
             let (cx, cy) = CARD_POS[k];
@@ -254,7 +284,10 @@ impl App {
                     navy,
                 );
                 s.text_centered(g, cx + 106.0, cy + 47.0, &trf("STR_WORLD_PROPERTY_KIND", &[("LIE", &lie), ("KIND", &kind)]), 10.0, navy);
-                s.text_centered(g, cx + 104.0, cy + 57.0, &trf("STR_WORLD_FOR_ONLY", &[("PRICE", &money(price as i64))]), 10.0, navy);
+                // sandbox land has no price (0x46fdce)
+                if !self.world_unlimited() {
+                    s.text_centered(g, cx + 104.0, cy + 57.0, &trf("STR_WORLD_FOR_ONLY", &[("PRICE", &money(price as i64))]), 10.0, navy);
+                }
             } else if !self.world_unlimited() {
                 // a bought property shows the year it was bought and the year it was left (never kept: "????")
                 let t = match self.bought_year(p).filter(|_| owned) {
@@ -287,6 +320,12 @@ impl App {
         ] {
             s.image_part(g, &a.tacks, x, 550.0, 0.0, 50.0 * st as f32, 20.0, 24.0);
             s.text(g, x + 20.0, 570.0, t, 11.0, rgb(0.0, 0.0, 0.0));
+        }
+        if self.world_options() {
+            if self.course_size_choosable() {
+                self.draw_course_size_box(g, &s, WORLD_SIZE_RECT, self.hover == WORLD_SIZE);
+            }
+            self.draw_style_box(g, &s, WORLD_STYLE_RECT, self.hover == WORLD_STYLE);
         }
         // the buttons: blue, lit under the pointer
         let wb = &a.world_buttons;

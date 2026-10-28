@@ -405,6 +405,10 @@ struct Stage {
     pause_start: f64,
     last_tick: f64,
     mouse: (f32, f32),
+    /// The mouse has moved over the window since it opened (`mouse` is a real position: edge_scroll).
+    mouse_seen: bool,
+    /// The clock at the last frame's edge scroll (edge_scroll).
+    edge_t: f64,
     shift: bool,
     ctrl: bool,
     /// Alt (Option on a Mac) is held: a click with the terrain brush fills (build_tools.rs).
@@ -1424,7 +1428,10 @@ impl Stage {
                 match s.as_str() {
                     "report" => app.screen = Screen::Report,
                     "menu" => app.screen = Screen::Menu,
-                    "property" => app.screen = Screen::Property,
+                    "property" => {
+                        app.sandbox_choice = o.sandbox;
+                        app.screen = Screen::Property;
+                    }
                     "difficulty" => app.screen = Screen::Difficulty,
                     "scenarios" => app.open_scenarios(),
                     "land" => app.open_land_screen(),
@@ -1668,6 +1675,8 @@ impl Stage {
             pause_start: 0.0,
             last_tick: t,
             mouse: (0.0, 0.0),
+            mouse_seen: false,
+            edge_t: 0.0,
             shift: false,
             ctrl: false,
             alt: false,
@@ -2008,8 +2017,8 @@ impl Stage {
         }
     }
 
-    /// The OpenSGolf extras chosen in Preferences: the gameplay ones become the game's (and the next game's) extras, the
-    /// interface ones are put in use; both are saved.
+    /// The OpenSGolf extras chosen in Preferences: the gameplay ones become the game's extras (in a game) or the next
+    /// games' (on the title screens), the interface ones are put in use; both are saved.
     fn apply_extras(&mut self, ex: sg_core::extras::Extras, ui: extras::Settings) {
         // a mix of the player's own is kept for the presets' Custom (extras_ui.rs)
         extras_ui::remember_custom(&ex, &ui);
@@ -2254,6 +2263,40 @@ impl Stage {
         false
     }
 
+    /// Edge scrolling (the Edge scrolling extra, on by default): the pointer on the screen's outermost pixel row or column
+    /// scrolls the view that way, as in the original (0x41e15f..0x41e24e: x <= 0, x >= 799, y <= 0, y >= 599, one tile
+    /// along the view's diagonal a frame of 87 ms, the same at every zoom; at a corner both). Only in full screen, where the
+    /// pointer cannot leave the window, on the course, and with a mouse (a finger has touch.rs's own).
+    fn mouse_edge_scroll(&mut self, t: f64) {
+        let dt = (t - self.edge_t).clamp(0.0, 0.1) as f32;
+        self.edge_t = t;
+        if !extras::edge_scroll() || !self.fullscreen || !self.mouse_seen || self.by_finger() || self.app.screen != Screen::Play {
+            return;
+        }
+        let (w, h) = miniquad::window::screen_size();
+        let (x, y) = self.mouse;
+        let dx = if x <= 0.5 {
+            -1.0
+        } else if x >= w - 1.5 {
+            1.0
+        } else {
+            0.0
+        };
+        let dy = if y <= 0.5 {
+            1.0
+        } else if y >= h - 1.5 {
+            -1.0
+        } else {
+            0.0
+        };
+        if dx == 0.0 && dy == 0.0 {
+            return;
+        }
+        let speed = std::f32::consts::SQRT_2 * sg_core::terrain::TILE_SIZE / 0.087;
+        self.app.xs.follow = None;
+        self.app.key_pan(dx * speed * dt, dy * speed * dt);
+    }
+
     fn dock_hover_update(&mut self, vx: f32, vy: f32) {
         let app = &mut self.app;
         app.dock_hover = dock_hit(vx, vy);
@@ -2348,8 +2391,19 @@ impl Stage {
                 0 => app.open_files(files_ui::ListKind::Load, false),
                 // with scenario packs installed, Start New Game first asks: a free game or a scenario (the port's own)
                 1 if app.has_scenarios() => app.open_scenarios(),
-                1 | 2 | 4 => {
-                    // Start New Game, Sandbox Mode and Play a Championship ask for the difficulty first (0x43a400)
+                2 => {
+                    // Sandbox Mode goes straight to the world map at Moderate with a new Top 10 id (the exe keeps the one drawn on
+                    // entering the title, 0x421407: only a new game and a championship ask for the difficulty; issue #143)
+                    app.sandbox_choice = true;
+                    app.title.champ_pending = false;
+                    app.difficulty = 1;
+                    app.course_id = Some(app.exe_rng.below(0xffff));
+                    app.deal_offer(true);
+                    app.screen = Screen::Property;
+                    app.hover = -1;
+                }
+                1 | 4 => {
+                    // Start New Game and Play a Championship ask for the difficulty first (0x43a400)
                     app.sandbox_choice = hit == 2;
                     app.title.champ_pending = hit == 4;
                     app.screen = Screen::Difficulty;
@@ -2582,7 +2636,11 @@ impl Stage {
                     app.pstate.elev_tool = (app.pstate.elev_tool + 1) % 3;
                 }
             }
-            KeyCode::Minus | KeyCode::Equal | KeyCode::KpSubtract | KeyCode::KpAdd if app.has_hit && app.pstate.elev_tool < 3 => {
+            // only with a tool armed: the point under the pointer is followed only then, so without one it was where the
+            // last tool left it, even in the next game (issue #146)
+            KeyCode::Minus | KeyCode::Equal | KeyCode::KpSubtract | KeyCode::KpAdd
+                if app.edit && app.has_hit && app.pstate.elev_tool < 3 =>
+            {
                 let (a, b) = app.terrain.corner_of(app.hit_x, app.hit_z);
                 let up = matches!(k, KeyCode::Equal | KeyCode::KpAdd);
                 app.edit_elevation(a, b, if up { 1 } else { -1 });
@@ -3114,6 +3172,7 @@ impl EventHandler for Stage {
         let t = now();
         self.app.clock = t;
         self.touch_update();
+        self.mouse_edge_scroll(t);
         self.photo_update();
         if self.pause_toggle {
             self.pause_toggle = false;
@@ -3220,6 +3279,8 @@ impl EventHandler for Stage {
     }
 
     fn draw(&mut self) {
+        // the view on the map (#138: every way of moving it, drags and jumps too)
+        self.app.clamp_cam();
         // the edges a phone hides, for what Enhanced widescreen draws at the window's edges (ui.rs safe_extent)
         ui::set_safe_area(ui::platform_safe_area(self.app.draw_w, self.app.draw_h));
         glass_ui::set_active(self.app.on_free_set());
@@ -3345,6 +3406,7 @@ impl EventHandler for Stage {
             self.app.touch_target.pointer_moved();
         }
         self.mouse = (x, y);
+        self.mouse_seen = true;
         // a left press Mouse aim and swing took: the target follows, or the view pans (touch.rs)
         self.mouse_swing_move(x, y);
         if self.app.photo.is_some() {

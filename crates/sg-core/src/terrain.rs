@@ -319,10 +319,11 @@ pub struct Terrain {
     /// (`vertex_normals`).
     #[serde(skip)]
     pub own_tile_normals: bool,
-    /// The tiles of a putting green's lot (`Land::putting_greens_to`), not saved: with "Fix original bugs" they keep their
-    /// border against greens painted beside them (`tile_relation`, #128). Empty: none.
+    /// Per tile, the kind of the building whose lot keeps open ground (a putting green's green, a driving range's rough:
+    /// `Land::lots_to`), 0 elsewhere; not saved. With "Fix original bugs" a lot keeps its border against
+    /// the same ground painted beside it (`tile_relation`, #128, #139). Empty: none.
     #[serde(skip)]
-    pub putting_green: Vec<bool>,
+    pub lot: Vec<u8>,
 }
 
 pub const MAX_LEVEL: i32 = 24;
@@ -473,9 +474,18 @@ impl Terrain {
         self.set[i] = ((h >> 7) % 5) as u8;
     }
 
+    /// The kind of the building whose lot tile (x, y) is part of (`lot`), 0 for none.
+    pub fn lot_at(&self, x: i32, y: i32) -> u8 {
+        if self.inside(x, y) {
+            self.lot.get(self.tile_index(x, y)).copied().unwrap_or(0)
+        } else {
+            0
+        }
+    }
+
     /// Whether tile (x, y) is part of a putting green's lot.
     pub fn on_putting_green(&self, x: i32, y: i32) -> bool {
-        self.inside(x, y) && self.putting_green.get(self.tile_index(x, y)).copied().unwrap_or(false)
+        self.lot_at(x, y) == crate::land::K_PUTTING_GREEN as u8
     }
 
     pub fn set_wall(&mut self, x: i32, y: i32, dir: i32, on: bool) {
@@ -910,8 +920,9 @@ pub fn tile_relation(t: &Terrain, x: i32, y: i32, nx: i32, ny: i32) -> i32 {
     if type_class(mt as i32, t.desert) != type_class(nt as i32, t.desert) {
         return 1;
     }
-    // the exe blends a putting green into a green painted beside it (#128); fixed, the putting green keeps its border
-    if crate::fixes::on() && t.on_putting_green(x, y) != t.on_putting_green(nx, ny) {
+    // the exe blends a putting green into a green painted beside it (#128), a driving range into rough (#139); fixed, a
+    // building's lot keeps its border
+    if crate::fixes::on() && t.lot_at(x, y) != t.lot_at(nx, ny) {
         return 1;
     }
     if mt != nt {

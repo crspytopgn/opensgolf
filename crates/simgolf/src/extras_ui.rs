@@ -175,7 +175,7 @@ const PAGE_LINES: [&[ExtrasLine]; 6] = {
         &[U(5), U(22), U(7), U(6)],
         // zoom towards the pointer, right click puts the tool away, drag to place, right-drag panning, mouse aim and swing
         // (the three the controls presets set and the two that change what the original's mouse does), then the two pauses
-        &[U(14), U(25), U(15), U(20), U(24), U(8), U(9)],
+        &[U(14), U(25), U(15), U(20), U(27), U(24), U(8), U(9)],
     ]
 };
 
@@ -271,6 +271,7 @@ const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_MOUSE_SWING",
     "STR_EXTRAS_DESC_RIGHT_DROP",
     "STR_EXTRAS_DESC_WIDE_UI",
+    "STR_EXTRAS_DESC_EDGE_SCROLL",
 ];
 
 /// A line's description (what ticking it changes; for the preset line, what the preset in use is).
@@ -630,14 +631,19 @@ impl App {
         }
     }
 
-    /// The Extras box's OK: the game being played takes the ticked extras, and they become the default for new games.
+    /// The Extras box's OK. In a game, the game takes the ticked extras (kept in its save) and new games still start with
+    /// the extras chosen on the title screens (#137: a sandbox game's extras carried over into the next standard game). On
+    /// the title screens they are what new games start with, saved for the next run.
     pub fn set_extras(&mut self, e: Extras) {
+        if self.land.is_none() || self.on_title() {
+            self.extras_next = e;
+            save(&e);
+            return;
+        }
         // a new path style redraws the paths (paths_lamps.rs)
         self.dirty |= self.club.extras.path_material() != e.path_material();
         self.club.extras = e;
         self.econ.extras = e;
-        self.extras_next = e;
-        save(&e);
         if !e.cut_content && !e.animals && !e.lamps() {
             self.strip_page = PAGE_OWNED;
         }
@@ -712,9 +718,10 @@ impl App {
         }
     }
 
-    /// The gameplay extras the extras box shows: in a game, its own; on the title screens, what the next game starts with.
+    /// The gameplay extras the extras box shows: in a game, its own; on the title screens (a game left there too), what the
+    /// next game starts with.
     pub fn extras_shown(&self) -> Extras {
-        if self.land.is_some() {
+        if self.land.is_some() && !self.on_title() {
             self.club.extras
         } else {
             self.extras_next
@@ -937,7 +944,7 @@ mod tests {
         assert_eq!(tag(ExtrasLine::Game(x::LEFTIES)), Some(Tag::Light));
         assert_eq!(page_of(ExtrasLine::Ui(5)), Some(4), "autosave");
         // the Controls page holds the mouse ticks, the most wanted first, then the two pauses
-        assert_eq!(page_lines(5), [14, 25, 15, 20, 24, 8, 9].map(ExtrasLine::Ui));
+        assert_eq!(page_lines(5), [14, 25, 15, 20, 27, 24, 8, 9].map(ExtrasLine::Ui));
         // the Saves page holds the saving and sharing ticks only, autosave first
         assert_eq!(page_lines(4), [ExtrasLine::Ui(5), ExtrasLine::Ui(22), ExtrasLine::Ui(7), ExtrasLine::Ui(6)]);
         // the most wanted first: weather on Gameplay, the interface at the edges on Looks; the experimental line last

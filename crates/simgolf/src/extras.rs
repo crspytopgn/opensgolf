@@ -122,6 +122,10 @@ pub struct Settings {
     /// 4:3, where nothing moves, so there is no original wide-screen layout to keep.
     #[serde(default = "on")]
     pub wide_ui: bool,
+    /// The pointer at the screen's very edge scrolls the view, as in the original (main.rs edge_scroll; full screen only,
+    /// where the pointer cannot leave the window). On by default (missing reads as on): it is the original's.
+    #[serde(default = "on")]
+    pub edge_scroll: bool,
 }
 
 impl Settings {
@@ -158,6 +162,7 @@ impl Settings {
         mouse_swing: false,
         right_drop: false,
         wide_ui: false,
+        edge_scroll: false,
     };
     pub const ALL_OFF: Settings = Settings {
         people: false,
@@ -187,6 +192,7 @@ impl Settings {
         mouse_swing: false,
         right_drop: false,
         wide_ui: false,
+        edge_scroll: false,
     };
 
     /// The ticks as the Extras box's checkbox bits (in `UI_KEYS` order).
@@ -219,6 +225,7 @@ impl Settings {
             self.mouse_swing,
             self.right_drop,
             self.wide_ui,
+            self.edge_scroll,
         ]
         .iter()
         .enumerate()
@@ -255,6 +262,7 @@ impl Settings {
             mouse_swing: on(24),
             right_drop: on(25),
             wide_ui: on(26),
+            edge_scroll: on(27),
         }
     }
 
@@ -277,6 +285,7 @@ impl Settings {
             mouse_swing: from.mouse_swing,
             right_drop: from.right_drop,
             wide_ui: from.wide_ui,
+            edge_scroll: from.edge_scroll,
             ..*self
         }
     }
@@ -291,7 +300,7 @@ impl Default for Settings {
 
 /// The interface extras' lines on the Extras box's Interface page (extras_ui.rs), one tick per extra in `Settings::bits`
 /// order (text keys in lang/en.txt).
-pub const UI_KEYS: [&str; 27] = [
+pub const UI_KEYS: [&str; 28] = [
     "STR_EXTRAS_PEOPLE",
     "STR_EXTRAS_HISTORY",
     "STR_EXTRAS_NAME_TAGS",
@@ -319,6 +328,7 @@ pub const UI_KEYS: [&str; 27] = [
     "STR_EXTRAS_MOUSE_SWING",
     "STR_EXTRAS_RIGHT_DROP",
     "STR_EXTRAS_WIDE_UI",
+    "STR_EXTRAS_EDGE_SCROLL",
 ];
 
 /// The update check's value when settings.json has none (`Settings::update_check`).
@@ -411,6 +421,10 @@ pub fn wide_ui() -> bool {
     settings().wide_ui
 }
 
+pub fn edge_scroll() -> bool {
+    settings().edge_scroll
+}
+
 /// Whether a right click puts the tool in hand away (main.rs right_click).
 pub fn right_drop() -> bool {
     settings().right_drop
@@ -443,7 +457,7 @@ pub fn saved() -> Settings {
 /// autosave, save pictures and sharing, which came after the People screen, follow its tick in ticks saved before them.
 fn from_json(v: &serde_json::Value) -> Settings {
     if !v.is_object() {
-        return Settings { update_check: true, wide_ui: true, ..Settings::ALL_OFF };
+        return Settings { update_check: true, wide_ui: true, edge_scroll: true, ..Settings::ALL_OFF };
     }
     let mut s: Settings = serde_json::from_value(v.clone()).unwrap_or_default();
     if v.get("autosave").is_none() {
@@ -975,9 +989,9 @@ mod tests {
             assert_eq!(Settings::from_bits(m).bits(), m);
         }
         // settings.json without the ticks at all (written before the extras, or only by other screens): all off but the
-        // update check and the interface at the screen's edges (both on from 0.6)
+        // update check, the interface at the screen's edges (both on from 0.6) and edge scrolling (the original's)
         assert_eq!(Settings::default(), Settings::ALL_OFF);
-        let checking = Settings { update_check: true, wide_ui: true, ..Settings::ALL_OFF };
+        let checking = Settings { update_check: true, wide_ui: true, edge_scroll: true, ..Settings::ALL_OFF };
         assert_eq!(from_json(&serde_json::Value::Null), checking);
         let file: serde_json::Value = serde_json::from_str("{\"hd\": {\"enabled\": false}, \"controls\": {}}").unwrap();
         assert_eq!(from_json(&file[SETTINGS_KEY]), checking);
@@ -997,9 +1011,10 @@ mod tests {
             autosave: true,
             save_pictures: true,
             sharing: true,
-            // on from 0.6 for every file without their own ticks
+            // on from 0.6 for every file without their own ticks (edge scrolling from 0.6.4)
             update_check: true,
             wide_ui: true,
+            edge_scroll: true,
             ..Settings::ALL_OFF
         };
         assert_eq!(s, want);
@@ -1142,7 +1157,7 @@ mod tests {
         let f = Settings { save_files: true, ..Settings::ALL_OFF };
         assert_eq!(f.bits(), 1 << 22);
         assert_eq!(Settings::from_bits(f.bits()), f);
-        assert_eq!(UI_KEYS.len(), 27);
+        assert_eq!(UI_KEYS.len(), 28);
     }
 
     #[test]

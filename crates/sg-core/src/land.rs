@@ -842,6 +842,61 @@ impl Land {
         }
     }
 
+    /// Takes away what was put down on land that the owned area then cut off (`cut`): the exe draws the landmarks, obstacles and
+    /// their paths anywhere on the map and marks the land it does not own only at the end (0x4720e8), so an island property
+    /// could start with a landmark and its garden standing out in the sea, and every property with obstacles past its edge
+    /// (issue #144). A coastal property's sea edge is made out of bounds before the patches (ponds, wetlands), whose walks
+    /// can turn it back into land past the map's edge. With "Fix original bugs" an object reaching a cut tile is removed and
+    /// the cut tiles are out of bounds (sea round an island) again, with no paths or marks; the draws are the same, so the
+    /// rest of the map is the exe's.
+    fn clear_cut(&mut self, cut: &[bool]) {
+        for i in 0..self.objects.len() {
+            let o = self.objects[i];
+            if o.kind < 0 || o.kind == K_CLUBHOUSE {
+                continue;
+            }
+            let s = self.footprint_size(&o).max(1);
+            let off = (0..s)
+                .any(|r| (0..s).any(|c| !(0..mn()).contains(&(o.a + r)) || !(0..mn()).contains(&(o.b + c)) || cut[idx(o.a + r, o.b + c)]));
+            if off {
+                self.remove_object(i);
+                // its corners, flattened to its anchor's height, go back to the ground round it (the commonest height on
+                // the ring just outside), so no step is left under the sea
+                let ring = |a: i32, b: i32| (0..=mn()).contains(&a) && (0..=mn()).contains(&b);
+                let mut count = [0u32; 256];
+                for r in -1..=s + 1 {
+                    for c in -1..=s + 1 {
+                        let edge = r == -1 || c == -1 || r == s + 1 || c == s + 1;
+                        if edge && ring(o.a + r, o.b + c) {
+                            count[self.h((o.a + r) * hp() + o.b + c) as usize] += 1;
+                        }
+                    }
+                }
+                if let Some(level) = (0..256).filter(|&v| count[v] > 0).max_by_key(|&v| (count[v], std::cmp::Reverse(v))) {
+                    for r in 0..=s {
+                        for c in 0..=s {
+                            if ring(o.a + r, o.b + c) {
+                                self.set_h((o.a + r) * hp() + o.b + c, level as u8);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        let island = self.slot.record().coast == 2;
+        for i in (0..cut.len()).filter(|&i| cut[i]) {
+            // back to the cut tile's own type (the removal leaves rough), without paths, spots, borders, obstacles or an
+            // object's mark
+            let t = if island { T_WATER } else { T_OUT };
+            if self.ty[i] != t {
+                self.ty[i] = t;
+                self.layer[i] = crate::data::land_type(t).layer;
+            }
+            self.flags[i] &=
+                !(0x1f | flag::PATH | flag::JOINED | flag::SPOT | flag::PATH_ALT | flag::FOOTPRINT | flag::CREEK | flag::OBSTACLE);
+        }
+    }
+
     /// Marks a tile as outside the owned land: out of bounds, or water around an island.
     fn unown(&mut self, a: i32, b: i32) {
         let i = idx(a, b);
@@ -1438,15 +1493,20 @@ pub fn generate(slot_index: usize, slot: Slot, difficulty: i32, sandbox: bool, r
     let m = owned_margin(&slot, size);
     land.margin = m;
     land.original = land.ty.clone();
+    let mut cut = vec![false; nn()];
+    let mut unown = |land: &mut Land, a: i32, b: i32| {
+        land.unown(a, b);
+        cut[idx(a, b)] = true;
+    };
     if rec.coast != 2 {
         for i in 0..m {
             for j in 0..mn() {
-                land.unown(i, j);
+                unown(&mut land, i, j);
                 if rec.coast == 0 {
-                    land.unown(j, i);
+                    unown(&mut land, j, i);
                 }
-                land.unown(j, size - 1 - i);
-                land.unown(size - 1 - i, j);
+                unown(&mut land, j, size - 1 - i);
+                unown(&mut land, size - 1 - i, j);
             }
         }
     } else {
@@ -1458,12 +1518,23 @@ pub fn generate(slot_index: usize, slot: Slot, difficulty: i32, sandbox: bool, r
                 if j >= mn() {
                     break;
                 }
-                land.unown(j, row);
-                land.unown(row, j);
-                land.unown(row, size - 1 - j);
-                land.unown(size - 1 - j, row);
+                unown(&mut land, j, row);
+                unown(&mut land, row, j);
+                unown(&mut land, row, size - 1 - j);
+                unown(&mut land, size - 1 - j, row);
             }
         }
+    }
+    if crate::fixes::on() {
+        if rec.coast == 1 {
+            // the sea's first tile in each row was made out of bounds before the patches, whose walks can turn it back into a
+            // wetland or a pond past the map's edge
+            for a in 0..mn() {
+                cut[idx(a, 0)] = true;
+                land.original[idx(a, 0)] = T_OUT;
+            }
+        }
+        land.clear_cut(&cut);
     }
     land.water_depth();
     land
@@ -1648,16 +1719,17 @@ impl Land {
 
     /// Gives the terrain's greens the land's variant byte, whose bit 0x80 draws them as tricky greens. Games saved before the
     /// green brush's Tab reached the terrain have their tricky greens only in the land.
-    /// Marks the tiles of every putting green's lot in the terrain (`Terrain::putting_green`).
-    pub fn putting_greens_to(&self, t: &mut Terrain) {
-        t.putting_green = vec![false; t.ty.len()];
-        for o in self.objects.iter().filter(|o| o.kind == K_PUTTING_GREEN) {
+    /// Marks the tiles of the lots that keep open ground in the terrain (`Terrain::lot`): putting greens and driving ranges.
+    /// (A marina's water stays one with the lake it stands in.)
+    pub fn lots_to(&self, t: &mut Terrain) {
+        t.lot = vec![0; t.ty.len()];
+        for o in self.objects.iter().filter(|o| o.kind == K_PUTTING_GREEN || o.kind == K_DRIVING_RANGE) {
             let s = self.footprint_size(o);
             for a in o.a..o.a + s {
                 for b in o.b..o.b + s {
                     if t.inside(a, b) {
                         let i = t.tile_index(a, b);
-                        t.putting_green[i] = true;
+                        t.lot[i] = o.kind as u8;
                     }
                 }
             }
@@ -1673,7 +1745,7 @@ impl Land {
                 }
             }
         }
-        self.putting_greens_to(t);
+        self.lots_to(t);
     }
 
     /// Takes the player's terrain edits (tile types, paths, corner heights) into the land, keeping objects and their footprints.
@@ -1732,7 +1804,7 @@ impl Land {
                 t.corner[(cy * (t.w + 1) + cx) as usize] = v.clamp(0, crate::terrain::MAX_LEVEL) as i8;
             }
         }
-        self.putting_greens_to(t);
+        self.lots_to(t);
     }
 
     /// Edge of an object's footprint in tiles as the exe counts it for lookup and removal: an upgraded building (kinds 6 and
@@ -1887,7 +1959,7 @@ impl Land {
             water_one: false,
             tile_corner: Vec::new(),
             own_tile_normals: false,
-            putting_green: Vec::new(),
+            lot: Vec::new(),
         };
         let mut seed = crate::rng::Rng::new(0x9e37_79b9 ^ self.slot.property as u32);
         for a in 0..mn() {
@@ -1912,7 +1984,7 @@ impl Land {
                 t.corner[(cy * (w + 1) + cx) as usize] = v.clamp(0, crate::terrain::MAX_LEVEL) as i8;
             }
         }
-        self.putting_greens_to(&mut t);
+        self.lots_to(&mut t);
         // The clubhouse sprite stands in the middle of its 4 x 4 footprint.
         t.clubhouse_x = self.clubhouse.0 + 2;
         t.clubhouse_y = self.clubhouse.1 + 2;
@@ -2015,6 +2087,58 @@ mod tests {
                 assert_eq!(t.ty.len(), 2500);
             }
         }
+    }
+
+    #[test]
+    fn nothing_stands_past_the_owned_land() {
+        // issue #144: the landmarks and obstacles are drawn anywhere on the map and the land outside the property is cut away
+        // only at the end, so an island could start with a landmark and its garden out in the sea; with "Fix original bugs"
+        // they go, and the rest of the map is the exe's
+        let make = |p: usize, c: u32| {
+            let mut rng = ExeRng::from_clock(c);
+            let noise = Noise::new(&mut rng);
+            let land = generate(7, Slot { property: p, acres: slot_acres(7, p, false) }, 1, false, &mut rng, &noise);
+            (land, rng)
+        };
+        let mut gone = 0;
+        let mut edge = 0;
+        for p in [6, 12, 5, 14, 15] {
+            for c in 0..40 {
+                let (exe, exe_rng) = make(p, c * 977 + 5);
+                crate::fixes::set(true);
+                let (fixed, fixed_rng) = make(p, c * 977 + 5);
+                crate::fixes::set(false);
+                assert_eq!(exe_rng.state, fixed_rng.state, "the same draws");
+                // nothing stands on the cut land: out of bounds, or the sea round an island (a marina's edge is its own water)
+                for o in fixed.objects.iter().filter(|o| o.kind >= 0 && o.kind != K_MARINA) {
+                    let s = fixed.footprint_size(o).max(1);
+                    for r in 0..s {
+                        for k in 0..s {
+                            let (a, b) = (o.a + r, o.b + k);
+                            assert!(
+                                fixed.in_play(a, b) && fixed.tile(a, b) != T_WATER,
+                                "property {p} clock {c}: kind {} at {a},{b}",
+                                o.kind
+                            );
+                        }
+                    }
+                }
+                gone += exe.objects.iter().filter(|o| o.kind >= 0).count() - fixed.objects.iter().filter(|o| o.kind >= 0).count();
+                // a coastal property's sea edge stays out of bounds (the reporter's Florida had a wetland past it)
+                if crate::data::records()[p].coast == 1 {
+                    assert!((0..mn()).all(|a| fixed.tile(a, 0) == T_OUT), "property {p} clock {c}");
+                    edge += (0..mn()).filter(|&a| exe.tile(a, 0) != T_OUT).count();
+                }
+                // the land is the exe's but for what stood on the cut tiles
+                for i in 0..nn() {
+                    if exe.flags[i] & flag::FOOTPRINT == 0 && (crate::data::records()[p].coast != 1 || i % mn() as usize != 0) {
+                        assert_eq!(exe.ty[i], fixed.ty[i], "property {p} clock {c}: tile {i}");
+                    }
+                }
+            }
+        }
+        assert!(gone > 0, "some objects stood past the edge");
+        assert!(edge > 0, "some patches reached the sea's edge");
     }
 
     #[test]
@@ -2345,7 +2469,7 @@ mod tile_item_tests {
             water_one: false,
             tile_corner: Vec::new(),
             own_tile_normals: false,
-            putting_green: Vec::new(),
+            lot: Vec::new(),
         };
         Land::from_terrain(&t, 0)
     }
@@ -2366,6 +2490,27 @@ mod tile_item_tests {
         assert_eq!(crate::terrain::tile_relation(&t, 12, 11, 13, 11), 1);
         assert_eq!(crate::terrain::tile_relation(&t, 11, 11, 12, 11), 0, "inside the putting green");
         crate::fixes::set(false);
+    }
+
+    /// #139: rough painted beside a driving range blends into its rough as in the exe; fixed, the range keeps its border.
+    #[test]
+    fn driving_range_keeps_its_border() {
+        let mut l = rough_land();
+        let mut rng = ExeRng::from_clock(1);
+        l.place(&mut rng, 10, 10, K_DRIVING_RANGE, 0, 0);
+        let s = l.footprint_size(l.objects.last().unwrap());
+        let (a, b) = (10 + s, 12);
+        l.ty[idx(a, b)] = T_ROUGH;
+        let inner = l.ty[idx(a - 1, b)];
+        let t = l.to_terrain();
+        assert_eq!(t.lot_at(a - 1, b), K_DRIVING_RANGE as u8);
+        assert_eq!(t.lot_at(a, b), 0);
+        crate::fixes::set(false);
+        let off = crate::terrain::tile_relation(&t, a - 1, b, a, b);
+        crate::fixes::set(true);
+        assert_eq!(crate::terrain::tile_relation(&t, a - 1, b, a, b), 1, "the range's {inner} against painted rough");
+        crate::fixes::set(false);
+        assert_ne!(off, 1, "the exe blends them");
     }
 
     /// Issue #69: a tricky green (variant byte 0xff, 0x420561) keeps its byte on the way to the terrain, where bit 0x80

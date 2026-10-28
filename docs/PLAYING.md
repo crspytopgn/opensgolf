@@ -57,7 +57,7 @@ copies leave them out), only the Sims' voices in `SimsFX`, or lacks more than a 
 when the game starts and the ticker on every start (sg_core::mixer `shortfall`; the console or log has a `sound:` line
 with the counts). The browser page also sums up what it found after loading the files, in large type on the start page
 (and again there on the next visit, as "Last time: ...") and over the game once (20 seconds, or until tapped when
-something is missing): "OpenSGolf 0.6.3. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
+something is missing): "OpenSGolf 0.6.4. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
 big). Art ✓, music: N, Sims' voices: N." The console's `files:` line adds the compression methods the zip used.
 Deflate64 (Windows' own zipper, for big files such as the sounds), BZip2, LZMA and PPMd (7-Zip's, Keka's and The
 Unarchiver's stronger settings), which iPad's Files app cannot unpack (it shows such folders empty), are read by the
@@ -214,8 +214,9 @@ loaded game rightly differs there), are not checked.
 
 ## Course size
 
-OpenSGolf can start a game on a map larger than the original's. The choice is on Select Difficulty (Start New Game and
-Sandbox Mode), in the box at the bottom left: a click steps through the sizes. Original is the default and plays exactly as
+OpenSGolf can start a game on a map larger than the original's. The choice is on Select Difficulty for Start New Game, and on
+the world map for Sandbox Mode (which skips Select Difficulty, as the original does, and plays at Moderate), in the box at
+the bottom left: a click steps through the sizes. Original is the default and plays exactly as
 SimGolf does; scenarios and championships always use their own course's size.
 
 | Size | Map | Yards a side | A sandbox (all the map) | Tracts for sale |
@@ -336,7 +337,7 @@ Everything OpenSGolf adds is optional, and every option belongs to one of three 
   buy, hardcore, the calendar and the sandbox switches). Each carries a tag saying how much: *Light touch*, *Noticeable*, *Big change*, or
   *Experimental*.
 
-Select Difficulty has a **Game** box next to Course size. A click steps through four **presets**:
+Select Difficulty (the world map for Sandbox Mode) has a **Game** box next to Course size. A click steps through four **presets**:
 
 - **Original**: every OpenSGolf extra off and Classic graphics; the game exactly as it was. A new player starts here.
 - **Original + helpers**: every helper and every look on, nothing that changes how the game plays.
@@ -454,7 +455,10 @@ along its top; a click on a tab, Left and Right or Tab turn them). A banner unde
 - **Controls** (controls): "Changes what the mouse does and when the game pauses. Play is unchanged." (the three ticks
   the Change keys' *Original* and *Modern controls* presets set: drag to place, zoom towards the pointer, right-drag
   panning; *Aim and swing with the mouse as by touch*, see *Mouse aim and swing* below; *Right click puts the tool
-  away*; then the two pauses). Until 0.6.0 the Saves and Controls lines were one Helpers page.
+  away*; *Edge scrolling*, on by default: in full screen the pointer on the screen's very edge scrolls the view one tile
+  along its diagonal every 87 ms, at every zoom, as in the original; then the two pauses). Until 0.6.0 the Saves and
+  Controls lines were one Helpers page. However it is moved, the view's centre stays on the map, as in the original
+  (#138).
 
 *Check for updates when the game starts* and *Fix the original game's bugs* are ticks of Preferences > More, not in this
 box (see *The title menu* and docs/FIXES.md).
@@ -466,9 +470,10 @@ slate **Experimental** (the cut content). The foot of the box describes the line
 touch screen the line last tapped); with none, it says how to read the box. Preferences > More > Search lists every option with
 its place and tag ("Game options > Gameplay · Noticeable: Weather that matters..."), and typing a tag's words (*big change*) finds the
 options so tagged. With every extra off the game plays exactly as the original. What you tick on the Gameplay, Sandbox
-and Looks pages applies to the game you are playing, is saved with that game (a save made with everything off is
-unchanged), and is what new games start with (kept in settings.json under `extras`). Which page a line is on changes
-nothing of the ticks, saves or settings.
+and Looks pages in a game applies to that game only and is saved with it (a save made with everything off is unchanged);
+new games start with what is ticked on the title screens (the box opened from the title menu, or the Game box of Select
+Difficulty; kept in settings.json under `extras`), so a sandbox game's ticks do not carry over into the next game (#137).
+Which page a line is on changes nothing of the ticks, saves or settings.
 
 On the **Gameplay** page:
 
