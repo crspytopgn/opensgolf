@@ -111,6 +111,7 @@
       <description>
         <p>The view can no longer be scrolled off the map, and in full screen the pointer at the screen's edge scrolls it, as in the original.</p>
         <p>Painting over a flower bed or a small object takes it away; a game's options stay that game's, so new games start with the ones chosen on the title screens.</p>
+        <p>Celebrities at their homes wear their own colours, and each home shows who lives there.</p>
       </description>
     </release>
     <release version="0.6.3" date="2026-10-28">

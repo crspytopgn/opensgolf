@@ -4740,6 +4740,14 @@ impl App {
     }
 }
 
+/// A resident celebrity's colours as the exe composes them (0x46212f): skin and hair from the male swap palettes skin + 1
+/// and hair + 6 (the hair in the hat's entries 60..79), shirt and trousers as a golfer's, the hands always swap 5; the male
+/// swaps for every type. A celebrity record that is missing reads as the first colours.
+fn resident_outfit(c: Option<&sg_core::vips::Celebrity>) -> sg_core::bodies::Outfit {
+    let (skin, hair, shirt, pants) = c.map(|c| (c.skin, c.hair, c.shirt, c.pants)).unwrap_or_default();
+    sg_core::bodies::Outfit { female: false, shirt, pants, skin, hat: hair.saturating_add(5), hair: 0, alt_skin: 4 }
+}
+
 impl App {
     /// The celebrity residents walk about their lots, one step a game tick (the exe steps them every frame), with the
     /// cosmetic generator so the club's own draws stay as they are.
@@ -4798,7 +4806,11 @@ impl App {
             let shadow = self.sprite_for(&format!("Celebs/{name}_{suffix}Shadow.flc"), true, None);
             let (wx, wz) = self.units_to_world(r.world().0, r.world().1);
             let k = (r.facing & 7) as usize;
+            let outfit = resident_outfit(self.club.celebrities.get((r.owner - 1).max(0) as usize));
             let p = &mut self.props[pi];
+            // the clips carry the golfers' template palette (blue skin, #141): the exe recolours each resident from its
+            // celebrity's colours as it draws it (0x4017d0, palette slot 0x9c + celebrity, composed at 0x46212f)
+            p.outfit = Some(outfit);
             p.hidden = body.is_none() || r.hold >= 128;
             p.body = body;
             p.shadow = shadow;
@@ -5205,6 +5217,14 @@ mod tests {
         a.paint_tiles(&[(20, 20)]);
         assert_eq!(a.land.as_ref().unwrap().flags[li] & 0x1000, 0);
         assert!(!a.props.iter().any(|p| p.bed.is_some_and(|b| (b.2, b.3) == (20, 20))), "the bed is not drawn");
+    }
+
+    #[test]
+    fn a_resident_wears_its_celebritys_colours() {
+        // issue #141: the exe recolours each resident from its record (skin + 1, hair + 6 in the hat's entries, hands 5)
+        let c = sg_core::vips::Celebrity { skin: 3, hair: 2, shirt: 7, pants: 1, ..Default::default() };
+        let o = super::resident_outfit(Some(&c));
+        assert_eq!((o.female, o.shirt, o.pants, o.skin, o.hat, o.alt_skin), (false, 7, 1, 3, 7, 4));
     }
 
     #[test]

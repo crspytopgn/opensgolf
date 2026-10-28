@@ -1011,6 +1011,7 @@ impl App {
         }
         // the golfers' names and thoughts belong to the course, under the HUD
         self.draw_names(g, &s);
+        self.draw_home_labels(g, &s);
         self.draw_thoughts(g, &s);
         // the OpenSGolf extras' path view and name tag (extras.rs), over the course and under the HUD
         if self.great_shot.is_none() {

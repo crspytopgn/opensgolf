@@ -73,6 +73,31 @@ impl App {
         l.objects.iter().find(|o| o.kind == land::K_HOME_SITE && (o.a..=o.a + 1).contains(&x) && (o.b..=o.b + 1).contains(&y)).copied()
     }
 
+    /// Each home site's resident, as the exe's main view labels it (0x415c32..0x415ebc): at the closest zoom, over every
+    /// occupied lot on the screen, "<name>'s" and "Home" under it, in pink (0x7e9f) Manual SSi 15 with the shadowed centred
+    /// call (0x404bc0), centred on the lot; each lot's label shows for 16 of every 64 game ticks, staggered by its record
+    /// (`(13 * record + tick) & 0x30 == 0`), so the names take turns (#141).
+    pub fn draw_home_labels(&self, g: &mut Gfx, s: &Ui) {
+        let exe_zoom = self.zoom * 4.0 / 0.905;
+        if exe_zoom.round() < 4.0 || self.screen != Screen::Play {
+            return;
+        }
+        let Some(l) = self.land.as_ref() else { return };
+        for (slot, o) in l.objects.iter().enumerate() {
+            if o.kind != land::K_HOME_SITE || o.sub <= 0 || (13 * slot as u32).wrapping_add(self.game_tick) & 0x30 != 0 {
+                continue;
+            }
+            let Some(c) = self.club.celebrities.get((o.sub - 1) as usize) else { continue };
+            let size = l.footprint_size(o);
+            let Some((x, y)) = self.screen_of(o.a * 1024 + size * 512, o.b * 1024 + size * 512) else { continue };
+            let (x, y) = (x.floor(), y.floor());
+            let pink = c15(0x7e9f);
+            let owner = trf("STR_HOME_LABEL_OWNER", &[("CELEBRITY", &c.name)]);
+            s.put_shadowed(g, crate::ui::F_MANUAL15, x, y - 12.0, &owner, pink, true);
+            s.put_shadowed(g, crate::ui::F_MANUAL15, x, y, tr("STR_HOME_LABEL_HOME"), pink, true);
+        }
+    }
+
     /// The box for the home site under the pointer (draw_hud, with the name tags).
     pub fn draw_home_details(&self, g: &mut Gfx, s: &Ui) {
         if !crate::extras::home_details() || self.screen != Screen::Play || self.edit || self.card.is_some() {

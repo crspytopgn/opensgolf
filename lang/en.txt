@@ -896,6 +896,9 @@ STR_HOLE_OPEN_END                       :, is now open for play.
 STR_HOLE_LABEL_HOLE                     :Hole {HOLE}
 STR_HOLE_LABEL_YARDS                    :{YARDS} yards
 STR_HOLE_LABEL_PAR                      :Par {PAR}
+# A home site's resident over the lot at the closest zoom (homes_ui.rs draw_home_labels; the exe's 0x415cc8)
+STR_HOME_LABEL_OWNER                    :{CELEBRITY}'s
+STR_HOME_LABEL_HOME                     :Home
 STR_HOLE_LABEL_PRESS_H                  :Press 'h' to open hole
 
 # The tool under the pointer: the tricky green label, the distance from the last shot, the Home Site's sums (0x41a5d3)

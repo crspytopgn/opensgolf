@@ -43,7 +43,8 @@ Enhanced graphics and HD.
   as in the original (Edge scrolling, a new Controls option, on by default) (#138); painting over a flower bed, a garden
   border or a small object takes it away from the screen too (#136); a game's options stay that game's, so new games start
   with the ones chosen on the title screens (#137); with Fix original bugs, rough painted beside a driving range no longer
-  joins it (#139).
+  joins it (#139); celebrities at their homes wear their own colours instead of blue skin, and each occupied home
+  site shows who lives there, as in the original (#141).
 - **0.6.3:** with Fix original bugs, a green painted beside a putting green no longer joins it, and gets its flag (#128);
   painting water over the sea keeps its depth and colour (#132); with the interface at the window's edges, the pointer to
   the right of the build panel no longer picks a tree (#130).
