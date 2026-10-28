@@ -3052,6 +3052,8 @@ impl App {
 
     pub fn start_game(&mut self, g: &mut Gfx, prop_idx: usize, sandbox: bool) {
         self.undo.clear();
+        // the last game's point under the pointer (issue #146)
+        self.has_hit = false;
         // a new game is never the course editor's (editor.rs makes it the editor's afterwards)
         self.editor = None;
         self.econ.free = false;
@@ -3208,6 +3210,7 @@ impl App {
     /// Goes on with a game read by `read_save` (or `read_save_bytes`).
     pub fn load_save(&mut self, g: &mut Gfx, s: SaveGame) -> Result<(), String> {
         self.undo.clear();
+        self.has_hit = false;
         // a loaded game is never the course editor's (editor.rs makes it the editor's afterwards; undo keeps it)
         self.editor = None;
         self.autosave_restart();

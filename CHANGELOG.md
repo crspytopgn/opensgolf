@@ -49,7 +49,8 @@ Enhanced graphics and HD.
   to the world map, each property keeps its own card there, and sandbox land shows no price, as in the original; the
   course size and Game boxes are on the world map for a sandbox (#143); with Fix original bugs, a new game no longer
   starts with land past the property's edge: landmarks out in the sea round an island, or marsh past a coastal map's edge
-  (#144).
+  (#144); the raise and lower land keys (- and =) work only with a tool armed, and no longer keep the spot the last tool
+  left, even into the next game (#146).
 - **0.6.3:** with Fix original bugs, a green painted beside a putting green no longer joins it, and gets its flag (#128);
   painting water over the sea keeps its depth and colour (#132); with the interface at the window's edges, the pointer to
   the right of the build panel no longer picks a tree (#130).

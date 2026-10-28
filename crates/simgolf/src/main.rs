@@ -2636,7 +2636,11 @@ impl Stage {
                     app.pstate.elev_tool = (app.pstate.elev_tool + 1) % 3;
                 }
             }
-            KeyCode::Minus | KeyCode::Equal | KeyCode::KpSubtract | KeyCode::KpAdd if app.has_hit && app.pstate.elev_tool < 3 => {
+            // only with a tool armed: the point under the pointer is followed only then, so without one it was where the
+            // last tool left it, even in the next game (issue #146)
+            KeyCode::Minus | KeyCode::Equal | KeyCode::KpSubtract | KeyCode::KpAdd
+                if app.edit && app.has_hit && app.pstate.elev_tool < 3 =>
+            {
                 let (a, b) = app.terrain.corner_of(app.hit_x, app.hit_z);
                 let up = matches!(k, KeyCode::Equal | KeyCode::KpAdd);
                 app.edit_elevation(a, b, if up { 1 } else { -1 });
