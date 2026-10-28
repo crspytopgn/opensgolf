@@ -1,0 +1,4 @@
+* The view can no longer be scrolled off the map
+* Painting over a flower bed or a small object takes it away
+* A game's options stay with that game; new games start with the ones chosen on the title screens
+* A driving range no longer joins rough painted beside it
