@@ -953,36 +953,39 @@ impl App {
                 s.put_centered(g, k24, x, y + 2.0, tr(DIFFICULTY_KEYS[i]), crate::info_ui::c15(0x4210));
             }
         }
-        // the course size (the port's own; not for a championship or a scenario, which bring their own course)
         if self.course_size_choosable() {
-            let r = COURSE_SIZE_RECT;
-            let lit = self.hover == COURSE_SIZE_HIT;
-            self.free_box_or_fill(g, &s, r, lit);
-            let n = self.course_size;
-            let name = trf("STR_COURSE_SIZE", &[("SIZE", &sg_core::mapsize::name(n))]);
-            s.text(g, r.x + 10.0, r.y + 19.0, &name, 17.0, if lit { rgb(1.0, 1.0, 0.6) } else { rgb(1.0, 1.0, 1.0) });
-            let detail = trf("STR_COURSE_SIZE_DETAIL", &[("TILES", &n), ("YARDS", &(n * 25))]);
-            s.text(g, r.x + 10.0, r.y + 37.0, &detail, 12.0, rgb(0.85, 0.85, 1.0));
+            self.draw_course_size_box(g, &s, COURSE_SIZE_RECT, self.hover == COURSE_SIZE_HIT);
         }
-        // the game's preset (the port's own, extras_ui.rs Preset): Original, Original + helpers, OpenSGolf or Custom, a
-        // click steps to the next
-        {
-            let r = STYLE_RECT;
-            let lit = self.hover == STYLE_HIT;
-            self.free_box_or_fill(g, &s, r, lit);
-            let p = self.game_style();
-            // Klepto ITC, the title screens' face, draws its plus sign as a bar: "Original & helpers" here
-            let name = trf("STR_STYLE_GAME", &[("PRESET", &tr(p.key()))]).replace('+', "&");
-            let detail = match p {
-                crate::extras_ui::Preset::Original => "STR_STYLE_ORIGINAL_DETAIL",
-                crate::extras_ui::Preset::Helpers => "STR_STYLE_HELPERS_DETAIL",
-                crate::extras_ui::Preset::OpenSGolf => "STR_STYLE_OPENSGOLF_DETAIL",
-                crate::extras_ui::Preset::Custom => "STR_STYLE_CUSTOM_DETAIL",
-            };
-            s.text(g, r.x + 10.0, r.y + 19.0, &name, 17.0, if lit { rgb(1.0, 1.0, 0.6) } else { rgb(1.0, 1.0, 1.0) });
-            s.text(g, r.x + 10.0, r.y + 37.0, tr(detail), 12.0, rgb(0.85, 0.85, 1.0));
-        }
+        self.draw_style_box(g, &s, STYLE_RECT, self.hover == STYLE_HIT);
         g.flush();
+    }
+
+    /// The course size box (the port's own; not for a championship or a scenario, which bring their own course): on Select
+    /// Difficulty, and on the world map for a sandbox, which skips that screen.
+    pub fn draw_course_size_box(&self, g: &mut Gfx, s: &Ui, r: Rect, lit: bool) {
+        self.free_box_or_fill(g, s, r, lit);
+        let n = self.course_size;
+        let name = trf("STR_COURSE_SIZE", &[("SIZE", &sg_core::mapsize::name(n))]);
+        s.text(g, r.x + 10.0, r.y + 19.0, &name, 17.0, if lit { rgb(1.0, 1.0, 0.6) } else { rgb(1.0, 1.0, 1.0) });
+        let detail = trf("STR_COURSE_SIZE_DETAIL", &[("TILES", &n), ("YARDS", &(n * 25))]);
+        s.text(g, r.x + 10.0, r.y + 37.0, &detail, 12.0, rgb(0.85, 0.85, 1.0));
+    }
+
+    /// The game's preset box (the port's own, extras_ui.rs Preset): Original, Original + helpers, OpenSGolf or Custom, a
+    /// click steps to the next.
+    pub fn draw_style_box(&self, g: &mut Gfx, s: &Ui, r: Rect, lit: bool) {
+        self.free_box_or_fill(g, s, r, lit);
+        let p = self.game_style();
+        // Klepto ITC, the title screens' face, draws its plus sign as a bar: "Original & helpers" here
+        let name = trf("STR_STYLE_GAME", &[("PRESET", &tr(p.key()))]).replace('+', "&");
+        let detail = match p {
+            crate::extras_ui::Preset::Original => "STR_STYLE_ORIGINAL_DETAIL",
+            crate::extras_ui::Preset::Helpers => "STR_STYLE_HELPERS_DETAIL",
+            crate::extras_ui::Preset::OpenSGolf => "STR_STYLE_OPENSGOLF_DETAIL",
+            crate::extras_ui::Preset::Custom => "STR_STYLE_CUSTOM_DETAIL",
+        };
+        s.text(g, r.x + 10.0, r.y + 19.0, &name, 17.0, if lit { rgb(1.0, 1.0, 0.6) } else { rgb(1.0, 1.0, 1.0) });
+        s.text(g, r.x + 10.0, r.y + 37.0, tr(detail), 12.0, rgb(0.85, 0.85, 1.0));
     }
 
     /// Whether Select Difficulty offers the course size: for a new game or a sandbox, not a championship or a scenario.

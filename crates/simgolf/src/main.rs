@@ -1428,7 +1428,10 @@ impl Stage {
                 match s.as_str() {
                     "report" => app.screen = Screen::Report,
                     "menu" => app.screen = Screen::Menu,
-                    "property" => app.screen = Screen::Property,
+                    "property" => {
+                        app.sandbox_choice = o.sandbox;
+                        app.screen = Screen::Property;
+                    }
                     "difficulty" => app.screen = Screen::Difficulty,
                     "scenarios" => app.open_scenarios(),
                     "land" => app.open_land_screen(),
@@ -2388,8 +2391,19 @@ impl Stage {
                 0 => app.open_files(files_ui::ListKind::Load, false),
                 // with scenario packs installed, Start New Game first asks: a free game or a scenario (the port's own)
                 1 if app.has_scenarios() => app.open_scenarios(),
-                1 | 2 | 4 => {
-                    // Start New Game, Sandbox Mode and Play a Championship ask for the difficulty first (0x43a400)
+                2 => {
+                    // Sandbox Mode goes straight to the world map at Moderate with a new Top 10 id (the exe keeps the one drawn on
+                    // entering the title, 0x421407: only a new game and a championship ask for the difficulty; issue #143)
+                    app.sandbox_choice = true;
+                    app.title.champ_pending = false;
+                    app.difficulty = 1;
+                    app.course_id = Some(app.exe_rng.below(0xffff));
+                    app.deal_offer(true);
+                    app.screen = Screen::Property;
+                    app.hover = -1;
+                }
+                1 | 4 => {
+                    // Start New Game and Play a Championship ask for the difficulty first (0x43a400)
                     app.sandbox_choice = hit == 2;
                     app.title.champ_pending = hit == 4;
                     app.screen = Screen::Difficulty;

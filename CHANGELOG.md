@@ -44,7 +44,10 @@ Enhanced graphics and HD.
   border or a small object takes it away from the screen too (#136); a game's options stay that game's, so new games start
   with the ones chosen on the title screens (#137); with Fix original bugs, rough painted beside a driving range no longer
   joins it (#139); celebrities at their homes wear their own colours instead of blue skin, and each occupied home
-  site shows who lives there, as in the original (#141).
+  site shows who lives there, as in the original (#141); the build panel's buttons and design pictures answer only at
+  their foot, as in the original, so a tree's crown no longer picks the tree beside it (#142); Sandbox Mode goes straight
+  to the world map, each property keeps its own card there, and sandbox land shows no price, as in the original; the
+  course size and Game boxes are on the world map for a sandbox (#143).
 - **0.6.3:** with Fix original bugs, a green painted beside a putting green no longer joins it, and gets its flag (#128);
   painting water over the sea keeps its depth and colour (#132); with the interface at the window's edges, the pointer to
   the right of the build panel no longer picks a tree (#130).

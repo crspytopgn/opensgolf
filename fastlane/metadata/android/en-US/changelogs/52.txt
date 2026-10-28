@@ -3,3 +3,5 @@
 * A game's options stay with that game; new games start with the ones chosen on the title screens
 * A driving range no longer joins rough painted beside it
 * Celebrities at their homes wear their own colours, and each home shows who lives there
+* The build panel's buttons answer only at their foot, so a tree's crown no longer picks the tree beside it
+* Sandbox Mode goes straight to the world map, and every property keeps its own card there

@@ -5228,6 +5228,23 @@ mod tests {
     }
 
     #[test]
+    fn every_property_keeps_its_card() {
+        // issue #143: card k is property k whatever the deal (0x4703f0); a sandbox's cards differ in nothing
+        let mut a = building_game();
+        for sandbox in [false, true] {
+            for _ in 0..5 {
+                a.deal_offer(sandbox);
+                for (k, &(cx, cy)) in crate::world_ui::CARD_POS.iter().enumerate() {
+                    assert_eq!(a.world_hit(cx + 25.0, cy + 25.0), k as i32);
+                }
+            }
+        }
+        let first: Vec<_> = (0..16).map(|k| a.offer_for(k).0).collect();
+        a.deal_offer(true);
+        assert_eq!(first, (0..16).map(|k| a.offer_for(k).0).collect::<Vec<_>>());
+    }
+
+    #[test]
     fn the_view_stays_on_the_map() {
         // issue #138: the view's centre stops at the map's edge tiles, as the exe's clamp to 0..49
         let mut a = building_game();

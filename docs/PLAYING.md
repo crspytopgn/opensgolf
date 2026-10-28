@@ -214,8 +214,9 @@ loaded game rightly differs there), are not checked.
 
 ## Course size
 
-OpenSGolf can start a game on a map larger than the original's. The choice is on Select Difficulty (Start New Game and
-Sandbox Mode), in the box at the bottom left: a click steps through the sizes. Original is the default and plays exactly as
+OpenSGolf can start a game on a map larger than the original's. The choice is on Select Difficulty for Start New Game, and on
+the world map for Sandbox Mode (which skips Select Difficulty, as the original does, and plays at Moderate), in the box at
+the bottom left: a click steps through the sizes. Original is the default and plays exactly as
 SimGolf does; scenarios and championships always use their own course's size.
 
 | Size | Map | Yards a side | A sandbox (all the map) | Tracts for sale |
@@ -336,7 +337,7 @@ Everything OpenSGolf adds is optional, and every option belongs to one of three 
   buy, hardcore, the calendar and the sandbox switches). Each carries a tag saying how much: *Light touch*, *Noticeable*, *Big change*, or
   *Experimental*.
 
-Select Difficulty has a **Game** box next to Course size. A click steps through four **presets**:
+Select Difficulty (the world map for Sandbox Mode) has a **Game** box next to Course size. A click steps through four **presets**:
 
 - **Original**: every OpenSGolf extra off and Classic graphics; the game exactly as it was. A new player starts here.
 - **Original + helpers**: every helper and every look on, nothing that changes how the game plays.
