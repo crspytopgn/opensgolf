@@ -355,15 +355,22 @@ graphics on). The choice is saved and is what new games start with. The same cho
 
 ### How would you like to play? and What's new
 
-The first time the title menu shows (and once after updating from a version before 0.6), a box asks **How would you
-like to play?**: *The original game*, *Original + helpers* or *The full OpenSGolf*, the first three presets above. Esc, a
-right-click or a click outside the box keeps your settings exactly as they are (for a new player, the original game).
-It is asked once (settings.json's `welcome_shown`).
+The first time the title menu shows for a new player (no settings saved yet), a box asks **How would you like to
+play?** with the four presets above, each with a line on what it means: *The original game*, *Original + helpers*,
+*OpenSGolf* and *Custom*. A choice puts the preset in use exactly as choosing it in Preferences > Game options does
+(gameplay and interface extras; your pauses, update check and controls ticks stay); *Custom* opens Game options to tick
+your own mix. Nothing is marked as the current choice, and Esc, a right-click or a click outside the box keeps the
+settings as they are (the original game). It is asked once (settings.json's `welcome_shown`, false until the box has
+shown, so closing the game before it comes up asks again next time).
 
-After the game is updated to a version with new highlights, a **What's new in OpenSGolf** box lists them once
-(settings.json's `last_version_seen`; a new player does not get it). *Try it* next to a highlight that is an option
-switches it on (or opens its Preferences page); *See everything that's new* opens the changelog in your browser, as
-does Preferences > More > *What's new...* at any time.
+A player updating (a settings.json from an earlier version) gets **What's new in OpenSGolf 0.6** instead, once: the
+version's highlights, with a *Try it* pill next to those that are options (*Mouse aim and swing*, *Right click puts the
+tool away*, *Sandbox: no new dandelions*; the pill says *On* once it is), and for *HD graphics (beta)* one that opens
+Preferences > Graphics' *Make HD graphics...* question (only with your own SimGolf files, not on the free graphics or in
+a browser). *See everything that's new* opens the changelog in your browser, as does Preferences > More > *What's
+new...* at any time. The box remembers the minor version shown (settings.json's `last_version_seen`, e.g. `0.6`), so a
+fix release such as 0.6.1 does not show it again; a new player, who gets the first box, never sees it for the version
+they started with.
 
 Neither box shows in scripted runs (`--png`, `--time`, `--screen`). Test hooks for stills: `SG_WELCOME=1` and
 `SG_WHATSNEW=1` show the box on the title menu whatever settings.json says, and write nothing

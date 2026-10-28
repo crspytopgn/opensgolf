@@ -601,23 +601,6 @@ impl App {
             remember_custom(&e, &ui);
         }
         let p = cycle_preset(self.game_style(), &mut e, &mut ui, custom_mix());
-        self.put_style(g, p, e, ui);
-    }
-
-    /// The welcome box's choice (welcome.rs): the preset `p` put in use as the Game box would (a mix of the player's own
-    /// kept first, for Custom to bring back).
-    pub fn put_game_style(&mut self, g: &mut crate::gfx::Gfx, p: Preset) {
-        let (mut e, mut ui) = (self.extras_next, crate::extras::settings());
-        if Preset::of(&e, &ui) == Preset::Custom {
-            remember_custom(&e, &ui);
-        }
-        if p.apply(&mut e, &mut ui, None) {
-            self.put_style(g, p, e, ui);
-        }
-    }
-
-    /// The Game box's and the welcome box's preset `p` (its values `e` and `ui`) saved and put in use.
-    fn put_style(&mut self, g: &mut crate::gfx::Gfx, p: Preset, e: Extras, ui: crate::extras::Settings) {
         self.extras_next = e;
         save(&e);
         crate::extras::set(ui);

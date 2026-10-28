@@ -1715,13 +1715,18 @@ impl Stage {
             return;
         }
         // the welcome boxes (welcome.rs): Esc, a right-click or a click outside keeps the settings as they are
+        // (a preset is put in use as Game options' preset line and OK put it; Custom without a mix opens Game options)
         if kind == popup_ui::PopupKind::Welcome {
             self.app.close_popup();
-            self.app.welcome_answer(&mut self.g, r);
+            match self.app.welcome_pick(r) {
+                Some(welcome::Pick::Put(ex, ui)) => self.apply_extras(ex, ui),
+                Some(welcome::Pick::OwnMix) => self.app.open_popup(popup_ui::PopupKind::Extras),
+                None => {}
+            }
             return;
         }
         if kind == popup_ui::PopupKind::WhatsNew {
-            if !self.app.whatsnew_pick(&mut self.g, r) && self.app.popup.as_ref().is_some_and(|p| p.kind == kind) {
+            if !self.app.whatsnew_pick(r) && self.app.popup.as_ref().is_some_and(|p| p.kind == kind) {
                 self.app.close_popup();
             }
             return;

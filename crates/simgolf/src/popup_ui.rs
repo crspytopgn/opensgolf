@@ -55,7 +55,7 @@ pub enum PopupKind {
     /// The support reminder (the port's own, support.rs): Support on Buy Me a Coffee, Maybe later, Don't ask again; over
     /// the title menu or the course.
     Support,
-    /// "How would you like to play?" (the port's own, welcome.rs): the three presets, once, over the title menu.
+    /// "How would you like to play?" (the port's own, welcome.rs): the four presets, once, over the title menu.
     Welcome,
     /// "What's new in OpenSGolf" (the port's own, welcome.rs): the version's highlights with their Try it pills, See
     /// everything that's new and OK, once after an update, over the title menu.
@@ -953,7 +953,7 @@ impl App {
             query: self.pref_query.clone(),
             changed_only: false,
             hits: Vec::new(),
-            tell: crate::welcome::whatsnew_plain(self.whatsnew_shown()),
+            tell: if kind == PopupKind::WhatsNew { self.whatsnew_tell() } else { 0 },
         });
         // the cut content's line only with the original game's files (extras_ui.rs)
         crate::extras_ui::show_cut_content(!self.on_free_set());
@@ -1059,7 +1059,7 @@ impl App {
         let pw = (crate::welcome::pill_w() * tk).round();
         let pf = crate::extras_ui::PILL_FONT.scaled(tk);
         for ((k, x), &line) in self.whatsnew_shown().iter().enumerate().zip(&b.options()) {
-            let Some(t) = x.action else { continue };
+            let Some(t) = x.action.filter(|&t| self.can_try(t)) else { continue };
             let on = self.tried(t);
             let label = tr(if on { "STR_WHATSNEW_ON" } else { "STR_WHATSNEW_TRY" });
             // the Extras box's green tag (its Light pill), the tabs' paler blue once on
