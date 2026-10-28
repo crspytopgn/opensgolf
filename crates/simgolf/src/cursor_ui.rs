@@ -44,6 +44,15 @@ const GREY: u16 = 0x6318;
 
 /// Tile types of the terrain buttons, in the order of their pictures on `Data/<theme>.pcx` (0x4c2d28).
 const ICON_TYPES: [i32; 16] = [0, 1, 7, 4, 9, 10, 17, 13, 2, 3, 5, 8, 11, 12, 14, 18];
+/// The pictures a brush of tile type `ty` draws under the pointer (0x41aa9e): every cell the table gives that type, and for
+/// any tree type the trees button's cell (7). The table gives the pine (14) the 15th cell, one of the sheet's two path
+/// pictures, so the pine brush showed a path under the trees (#126); with `fix` ("Fix original bugs") a tree shows only the
+/// trees button's picture.
+fn brush_cells(ty: i32, fix: bool) -> Vec<usize> {
+    let tree = (13..=16).contains(&ty);
+    (0..ICON_TYPES.len()).filter(|&i| (ICON_TYPES[i] == ty && !(tree && fix)) || (tree && i == 7)).collect()
+}
+
 /// A picture's cell on the sheet (0x445aa0): eight 57 x 40 cells to a row.
 const ICON_W: f32 = 57.0;
 const ICON_H: f32 = 40.0;
@@ -409,10 +418,8 @@ impl App {
             let k = (v - quarter + 4).rem_euclid(4);
             cell(g, if k == 0 { 2 } else { 16 + [0, 3, 1, 2][k as usize] });
         } else {
-            for (i, &t) in ICON_TYPES.iter().enumerate() {
-                if t == ty || ((13..=16).contains(&ty) && i == 7) {
-                    cell(g, i);
-                }
+            for i in brush_cells(ty, crate::enhanced::fix_bugs()) {
+                cell(g, i);
             }
         }
         if ty == 1 && v & 1 != 0 {
@@ -630,6 +637,18 @@ pub(crate) fn label(g: &mut Gfx, s: &Ui, cx: f32, top: f32, text: &str, size: f3
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #126: the pine brush drew the sheet's path picture (cell 14) with the trees; fixed, every tree draws only cell 7.
+    #[test]
+    fn tree_brushes_draw_the_trees_picture() {
+        assert_eq!(brush_cells(14, false), vec![7, 14]);
+        for ty in 13..=16 {
+            assert_eq!(brush_cells(ty, true), vec![7], "type {ty}");
+        }
+        // the other brushes are unchanged
+        assert_eq!(brush_cells(2, true), vec![8]);
+        assert_eq!(brush_cells(18, true), vec![15]);
+    }
 
     #[test]
     fn red_tint_halves_each_channel() {

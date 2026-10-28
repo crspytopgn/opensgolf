@@ -151,3 +151,11 @@ not own only at its end (the acres at 0x4720e8, after the clubhouse at 0x471618)
 On the smallest deals the building could stand partly past the edge, over the cliff. With the setting the building takes
 the other side of the clubhouse when its lot would leave the owned square (`generate`, crates/sg-core/src/land.rs); the
 generator makes the same draws, so the rest of the map is the exe's. New games only: a saved game keeps its buildings.
+
+## 13. A path under the pine brush (#126)
+
+EXACT (0x41aa9e, table 0x4c2d28): the brush under the pointer draws every picture of `Data/<theme>.pcx` whose entry in the
+exe's table is the brush's tile type, and for any tree type also the trees button's picture (cell 7). The table's 15th
+entry is 14, the pine's type, but the sheet's 15th picture is a path, so the pine brush (the trees' bottom left button)
+showed a path tile with the trees. With the setting a tree brush draws only the trees picture: `brush_cells`,
+crates/simgolf/src/cursor_ui.rs.
