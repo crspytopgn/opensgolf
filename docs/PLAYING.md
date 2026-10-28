@@ -341,7 +341,7 @@ Select Difficulty has a **Game** box next to Course size. A click steps through 
 - **Original**: every OpenSGolf extra off and Classic graphics; the game exactly as it was. A new player starts here.
 - **Original + helpers**: every helper and every look on, nothing that changes how the game plays.
 - **OpenSGolf**: the helpers and looks, plus the light gameplay extras that do not change the game's balance: higher
-  staff limits and buyable animals (not weather, more visitors, hardcore, left-handed golfers, set par, the cut content,
+  staff limits, turning buildings and buyable animals (not weather, more visitors, hardcore, left-handed golfers, set par, the cut content,
   the calendar or the sandbox switches, which you tick yourself).
 - **Custom**: your own mix, as you ticked it in Preferences. Once you have a mix of your own, Custom brings it back after
   you tried a preset; until then the Game box skips it.

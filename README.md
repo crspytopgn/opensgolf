@@ -116,7 +116,7 @@ helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a fe
 - **Bigger courses:** Large, Huge and Giant, up to 128 × 128 tiles.
 - **Preferences, sorted:** the original's four ticks first, then one line per group of the port's own options (Game
   options, Graphics, Controls and keys, Text size, Game files, More), each describing itself at the box's foot.
-- **OpenSGolf extras:** gameplay extras (a Hardcore economy, animals to buy, higher staff limits, setting a hole's par,
+- **OpenSGolf extras:** gameplay extras (a Hardcore economy, higher staff limits, setting a hole's par, animals to buy,
   left-handed golfers (and a left-handed pro), weather that matters (rain, snow, heat waves and thunderstorms change how
   balls roll and who comes out to play), more visitors (touring pros and invented celebrities, moddable through
   data/visitors.toml), the calendar at half or quarter speed or stopped, sandbox switches (freeze golfer happiness, unlock

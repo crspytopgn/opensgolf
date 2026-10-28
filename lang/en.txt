@@ -3280,7 +3280,7 @@ STR_PRESET_CUSTOM                       :Custom
 STR_EXTRAS_PRESET                       : Preset: {VALUE}
 STR_PRESET_DESC_ORIGINAL                :Every OpenSGolf extra off: the game exactly as it was. Click for the next preset; your pauses and controls stay as you set them.
 STR_PRESET_DESC_HELPERS                 :Every helper and look on (People, reports, autosave, path styles...) and nothing that changes how the game plays.
-STR_PRESET_DESC_OPENSGOLF               :The helpers and looks, plus light gameplay extras: higher staff limits and buyable animals.
+STR_PRESET_DESC_OPENSGOLF               :The helpers and looks, plus a few small extras that keep the game's balance, such as higher staff limits and turning buildings.
 STR_PRESET_DESC_CUSTOM                  :Your own mix of ticks. A click steps through the presets; Custom brings your own mix back.
 STR_EXTRAS_TAG_EXPERIMENTAL             :Experimental
 STR_EXTRAS_CALENDAR                     : Calendar: {VALUE}
@@ -3408,7 +3408,7 @@ STR_WELCOME_ORIGINAL_NOTE               :Everything exactly as it was in 2002.
 STR_WELCOME_HELPERS                     : Original + helpers
 STR_WELCOME_HELPERS_NOTE                :The same game, with helpers that show more and save clicks.
 STR_WELCOME_OPENSGOLF                   : OpenSGolf
-STR_WELCOME_OPENSGOLF_NOTE              :The helpers, plus light extras such as animals to buy.
+STR_WELCOME_OPENSGOLF_NOTE              :The helpers and looks, plus small extras that keep the game's balance.
 STR_WELCOME_CUSTOM                      : Custom
 STR_WELCOME_CUSTOM_NOTE                 :Your own mix: opens Game options to tick each extra yourself.
 STR_WELCOME_CHANGE                      :You can change this any time in Preferences > Game options.
