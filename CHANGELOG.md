@@ -33,6 +33,8 @@ Enhanced graphics and HD.
   original gives their pictures, so the placing preview matches too, and the *Fix the desert's swapped Ravine and Brush
   art* option, which only made up for the wrong names, is gone. Undo's *Reset to* and the shot panel's lie use the
   theme's names (desert, rough, canyon and the rest) instead of the Parkland ones.
+- **Desert rough is edged with grass as in the original:** no more sand rings round buildings and landmarks, and the
+  rough reaches the map's edge (#118).
 
 **Fix releases before it**
 
