@@ -44,13 +44,18 @@ pub(crate) fn u32le(d: &[u8], o: usize) -> u32 {
 
 /// Palette lookup; pixels equal to `transparent` (when given) get alpha 0.
 pub fn to_rgba(inp: &Indexed, transparent: Option<u8>) -> Rgba {
-    let n = inp.w as usize * inp.h as usize;
-    let mut o = Rgba { w: inp.w, h: inp.h, px: vec![0; n * 4] };
+    to_rgba_parts(inp.w, inp.h, &inp.idx, &inp.pal, transparent)
+}
+
+/// `to_rgba` of w x h palette indices and their palette.
+pub fn to_rgba_parts(w: u32, h: u32, idx: &[u8], pal: &[u8; 768], transparent: Option<u8>) -> Rgba {
+    let n = w as usize * h as usize;
+    let mut o = Rgba { w, h, px: vec![0; n * 4] };
     for i in 0..n {
-        let c = inp.idx[i] as usize;
-        o.px[i * 4] = inp.pal[c * 3];
-        o.px[i * 4 + 1] = inp.pal[c * 3 + 1];
-        o.px[i * 4 + 2] = inp.pal[c * 3 + 2];
+        let c = idx[i] as usize;
+        o.px[i * 4] = pal[c * 3];
+        o.px[i * 4 + 1] = pal[c * 3 + 1];
+        o.px[i * 4 + 2] = pal[c * 3 + 2];
         o.px[i * 4 + 3] = if Some(c as u8) == transparent { 0 } else { 255 };
     }
     o

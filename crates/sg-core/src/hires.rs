@@ -411,7 +411,7 @@ fn build_sheet(flc: &Path, pal: Option<&Path>, base: &Sprite, art: &crate::vfs::
     let lower = flc.to_string_lossy().to_lowercase().replace('\\', "/");
     let people = !base.shadow && ["/male/", "/female/", "/celebs/"].iter().any(|d| lower.contains(d));
     let small = downscale(&sheet, art.scale);
-    let frames = (0..grid.count()).filter_map(|i| slice(&small, &grid, 1, i)).collect();
+    let frames = (0..grid.count()).filter_map(|i| slice(&small, &grid, 1, i)).map(crate::sprites::Frame::Rgba).collect();
     let mut s = base.clone();
     s.views = grid.views as i32;
     s.frames_per_view = grid.frames as i32;
@@ -420,7 +420,6 @@ fn build_sheet(flc: &Path, pal: Option<&Path>, base: &Sprite, art: &crate::vfs::
         s.frame_ms = ms;
     }
     s.frames = frames;
-    s.indexed = Vec::new();
     let sheet = SheetSprite { scale: art.scale, grid, sheet, mask, base_pal, used, people, tables: Default::default() };
     Ok((s, sheet))
 }

@@ -334,7 +334,7 @@ impl App {
             Look::Red => match self.red_tex.get(&(si, i)) {
                 Some(&t) => t,
                 None => {
-                    let mut img = self.sprites[si].s.frames[i].clone();
+                    let mut img = self.sprites[si].s.frame(i).into_owned();
                     for p in img.px.chunks_mut(4) {
                         let [r, g, b] = tint15([p[0], p[1], p[2]], RED_TINT);
                         (p[0], p[1], p[2]) = (r, g, b);

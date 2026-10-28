@@ -208,7 +208,7 @@ impl App {
                 g.ctx.delete_texture(t);
             }
         }
-        let img = window_glow(&self.sprites[si].s.frames[frame_index], si as u32 * 7919 + frame_index as u32);
+        let img = window_glow(&self.sprites[si].s.frame(frame_index), si as u32 * 7919 + frame_index as u32);
         let t = img.map(|i| {
             let t = g.texture(&i, false);
             crate::fx::plain_texture(t);

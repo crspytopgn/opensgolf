@@ -770,8 +770,8 @@ impl App {
                 let (w, h, ax, ay) = {
                     let sp = &self.sprites[si].s;
                     let n = sp.frames_per_view.max(1);
-                    let fr = &sp.frames[sp.frame_index(view, 5 % n)];
-                    (fr.w as f32, fr.h as f32, sp.anchor_x as f32, sp.anchor_y as f32)
+                    let (fw, fh) = sp.frame_size(sp.frame_index(view, 5 % n));
+                    (fw as f32, fh as f32, sp.anchor_x as f32, sp.anchor_y as f32)
                 };
                 let n = self.sprites[si].s.frames_per_view.max(1);
                 if let Some(tex) = self.outfit_texture_whole(g, si, view, 5 % n, o) {

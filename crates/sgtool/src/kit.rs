@@ -126,7 +126,7 @@ fn sprite_sheet(s: &sg_core::sprites::Sprite) -> Rgba {
     let (w, h) = g.sheet_size(1);
     let mut sheet = Rgba::new(w, h);
     for i in 0..g.count().min(s.frames.len()) {
-        let f = &s.frames[i];
+        let f = s.frame(i);
         let (v, c) = (i as u32 / g.frames, i as u32 % g.frames);
         for y in 0..g.h {
             let src = (y * f.w * 4) as usize;
