@@ -111,6 +111,7 @@
       <description>
         <p>A green painted beside a putting green no longer joins it, and gets its flag.</p>
         <p>Painting water over the sea keeps its depth and colour, and the pointer to the right of the build panel no longer picks a tree.</p>
+        <p>The game takes much less memory and Enhanced graphics run faster; Pause in the background also stops the sound, and Autosave saves when the game goes to the background.</p>
       </description>
     </release>
     <release version="0.6.2" date="2026-10-28">
