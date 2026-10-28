@@ -521,9 +521,6 @@ pub struct App {
     pub seed: u32,
     pub terrain: Terrain,
     pub catalog: TextureCatalog,
-    /// Whether the terrain's batches were built with the desert's Ravine and Brush art traded (`ground_tex`): the main loop
-    /// rebuilds them when the tick changes.
-    pub desert_art_built: bool,
     pub light: Lighting,
     /// Loaded textures by file (None when the file could not be decoded).
     pub textures: HashMap<PathBuf, Option<TextureId>>,
@@ -946,7 +943,6 @@ impl App {
             seed: 7,
             terrain: Terrain::default(),
             catalog: TextureCatalog::default(),
-            desert_art_built: false,
             light: Lighting::default(),
             textures: HashMap::new(),
             hd: crate::hd::HdState { pack_dir: save_dir().join("HD"), ..Default::default() },
@@ -1490,7 +1486,6 @@ impl App {
         // keeps the per-tile normals its look was made with (sg_core::terrain::vertex_normals)
         self.terrain.own_tile_normals = crate::enhanced::settings().enabled || crate::fx::active();
         self.sync_tile_corners();
-        self.desert_art_built = self.desert_art();
         let mut map: BTreeMap<usize, (TextureId, Vec<Vert>)> = BTreeMap::new();
         let mut tris = Vec::new();
         let mut order: HashMap<Option<TextureId>, usize> = HashMap::new();
@@ -1506,7 +1501,7 @@ impl App {
                 }
                 build_tile_triangles(&self.terrain, x, y, &mut tris);
                 for t in &tris {
-                    let path = self.catalog.pick(self.ground_tex(t.tex_type), t.set, t.variation).cloned();
+                    let path = self.catalog.pick(t.tex_type, t.set, t.variation).cloned();
                     let tex = path.and_then(|p| self.texture_for(g, &p));
                     let next = order.len();
                     let key = *order.entry(tex).or_insert(next);
@@ -1524,23 +1519,6 @@ impl App {
         self.build_paths(g);
         self.build_walls(g);
         self.build_edge_walls(g);
-    }
-
-    /// Whether the desert's Ravine and Brush art is traded (OpenSGolf extras, extras.rs `desert_art`): the tick, in the
-    /// desert theme only.
-    pub fn desert_art(&self) -> bool {
-        self.theme == 2 && crate::extras::desert_art()
-    }
-
-    /// The ground texture type a tile triangle is drawn with: its own (Terrain.dll's pick, sg_core::terrain
-    /// `build_tile_triangles`), or with the desert's art fixed the Ravine's and the Brush's traded, edge pieces and all (the
-    /// blend variations still come from the tiles' own types, so the borders fall where the original's do).
-    fn ground_tex(&self, tex_type: i32) -> i32 {
-        if self.desert_art_built {
-            crate::extras::desert_art_swap(tex_type)
-        } else {
-            tex_type
-        }
     }
 
     /// Path overlay, as Terrain.dll draws a path tile (0x100108f0): an arm toward each neighbour with a path, a third of the

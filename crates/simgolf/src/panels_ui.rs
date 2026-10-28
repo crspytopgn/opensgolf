@@ -110,7 +110,13 @@ fn tile_key(id: i32, theme: usize) -> &'static str {
     match (theme, id) {
         (1, 4) => "STR_TILE_DESERT",
         (1, 5) => "STR_TILE_DESERT_ROUGH",
-        (1, 10) => "STR_TILE_RAVINE",
+        // the desert's stream is its brush and its brush its ravine (issue #117): the names the exe's theme loader gives the
+        // two (sg_core::tracts::type_name), in the order footage of the original's desert panel shows them (Pot bunker,
+        // Brush, Water; Waste bunker, Ravine, Rocks), on the art its sheet and Terrain.dll draw them with (the dry weeds of
+        // the Overgrowth textures for tile 10, the crack of the Brush textures for tile 11); each tooltip's description is
+        // the theme's text file's for that name. Up to 0.5.13 the port called tile 10 the Ravine (issue #89).
+        (1, 10) => "STR_TILE_BRUSH",
+        (1, 11) => "STR_TILE_RAVINE",
         // the desert's tree is drawn as a Joshua tree and its pine as a cactus (the button art and sg_core::decor agree)
         (1, 13) => "STR_TILE_JOSHUA_TREE",
         (1, 14) => "STR_TILE_CACTUS",
@@ -174,9 +180,11 @@ fn terrain_slot_at(theme: usize, px: f32, py: f32) -> Option<usize> {
     })
 }
 
-/// The cell of the TerrainButtons sheet tile slot `slot` (0..13) shows: its own, or with the desert's Ravine and Brush art
-/// fixed (OpenSGolf extras, extras.rs `desert_art`) the Ravine's (slot 5, tile 10) and the Brush's (slot 11, tile 11)
-/// traded, every state with it. In the original's desert sheet the Ravine's cell holds dry weeds and the Brush's a crack.
+/// The cell of the TerrainButtons sheet tile slot `slot` (0..13) shows: its own, or with `swap` the stream's (slot 5, tile
+/// 10) and the brush's (slot 11, tile 11) traded, every state with it. Only the free set's desert sheet needs that: its
+/// cells there show a stream and bushes as in its other themes, while the desert names tile 10 its Brush and tile 11 its
+/// Ravine (`tile_key`); the original's desert sheet already holds dry weeds and a crack in those cells, and its cells carry
+/// the shadow of the row above, so they are never moved.
 fn terrain_cell(slot: usize, swap: bool) -> usize {
     match slot {
         5 if swap => 11,
@@ -893,9 +901,8 @@ impl App {
         blit(g, s, &body_art, TERRAIN_BODY, TERRAIN_BODY.0, TERRAIN_BODY.1);
         // no button is lit while no tool is armed (a new game opens the panel with none, 0x4c2848 = -1)
         let current = (self.tool == 0 && self.edit).then(|| PAINT[self.paint_idx].ty);
-        // the desert's Ravine and Brush art fixed (OpenSGolf extras): their buttons trade pictures, on the original's sheet
-        // only (the free set's desert buttons already show a stream and bushes)
-        let swap = self.desert_art() && !self.on_free_set();
+        // the free set's desert: its stream and bushes buttons trade places to sit over the Ravine and the Brush (`terrain_cell`)
+        let swap = theme == 1 && self.on_free_set();
         for i in 0..16 {
             let r = terrain_slot_rect(i, theme);
             let id = tile_id(i);
@@ -1828,8 +1835,14 @@ mod tests {
     }
 
     #[test]
-    fn the_desert_art_fix_trades_only_the_ravine_and_brush_cells() {
+    fn the_desert_names_its_brush_and_ravine_as_the_original() {
+        // issue #117: in the desert tile 10 (slot 5, the dry weeds) is the Brush and tile 11 (slot 11, the crack) the Ravine
         assert_eq!((tile_id(5), tile_id(11)), (10, 11));
+        assert_eq!((sg_core::lang::en(tile_key(10, 1)), sg_core::lang::en(tile_key(11, 1))), ("Brush", "Ravine"));
+        // the other themes keep their stream (or burn) and brush (or gorse)
+        assert_eq!((sg_core::lang::en(tile_key(10, 0)), sg_core::lang::en(tile_key(11, 0))), ("Stream", "Brush"));
+        assert_eq!((sg_core::lang::en(tile_key(10, 3)), sg_core::lang::en(tile_key(11, 3))), ("Burn", "Gorse"));
+        // the free set's desert sheet trades only those two cells
         assert_eq!((terrain_cell(5, true), terrain_cell(11, true)), (11, 5));
         for k in 0..13 {
             assert_eq!(terrain_cell(k, false), k);

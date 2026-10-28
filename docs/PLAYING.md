@@ -329,7 +329,7 @@ On the Add Buildings panel (or b for benches, Shift+B for a home site; Tab turns
 Everything OpenSGolf adds is optional, and every option belongs to one of three kinds:
 
 - **Looks**: changes only how the game looks (path styles and lamps, Tab turning a building's picture, random trees,
-  the desert's Ravine and Brush art, Enhanced graphics). Play is exactly the original's.
+  Enhanced graphics). Play is exactly the original's.
 - **Helpers**: shows you more or saves you effort (the People screen, extra reports, message history, autosave, import
   and export of saved games, the pauses, the mouse helpers). Play is exactly the original's.
 - **Gameplay**: changes how the game plays (animals to buy, more staff, set par, weather, visitors, hardcore, the
@@ -419,7 +419,7 @@ along its top; a click on a tab, Left and Right or Tab turn them). A banner unde
 - **Gameplay** (gameplay): "Changes how the game plays." (below)
 - **Sandbox** (gameplay): "Bends the rules for relaxed play." (the calendar and the sandbox switches, below)
 - **Looks** (looks): "Changes how it looks. Play is unchanged." (path styles and lamps, Tab turns buildings, random
-  trees, the desert's Ravine and Brush art, below)
+  trees, below)
 - **Info** (helpers): "Shows more about your club. Play is unchanged." Five lines, each ticking a group of the helpers
   described under *OpenSGolf extras* further down: **People screen, name tags and live scorecards**; **Extra reports**
   (landing map, comments by hole, history graphs, the year in numbers, tabs over the reports); **Message history and
@@ -594,20 +594,14 @@ On the **Looks** page:
   random design when you pick a flower bed, scenic tree or bridge (and the first bench); you then choose from the strip.
 - **Random trees.** Every tree the brushes plant takes a random look of its kind (see *Random trees* under *Camera
   bookmarks and the mouse*).
-- **Fix the desert's swapped Ravine and Brush art** (issue #89; off by default, on in the *Original + helpers* and
-  *OpenSGolf* presets, an interface tick kept in `settings.json` as `desert_art`). In the desert theme (Las Vegas,
-  Phoenix, Spain and the other desert properties) the original draws tile 10, the Ravine (the waterless stream), with
-  its Overgrowth textures, which in the desert are scrubby dry weeds, and tile 11, the Brush ("dry half-dead tangle of
-  weed"), with its brush textures, which in the desert are a branching crack (the same pictures as the unused Ravine
-  set); its Build Course buttons show the same, the Ravine's dry weeds and the Brush's crack, the other way round from
-  every other theme, where the Ravine's button is a winding stream and the Brush's bushes. With the tick on, in the
-  desert only, each of the two tiles is drawn with the other's textures (their edge pieces too; the borders between
-  tiles fall where they did), in Classic and Enhanced graphics alike, and the two buttons trade pictures in every state.
-  The tiles, their names and descriptions, costs, how they play and saves do not change, and the other themes are drawn
-  as before. The free graphics' desert copies the original's ground (dry scrub for the Ravine, cracked earth for the
-  Brush), so the tick trades its two ground textures too; its buttons already show a stream and bushes and are left as
-  they are. The routing map colours tiles by class and the brush's pointer is a ring, so neither shows the art. Test
-  hook: put `{"ui_extras": {"desert_art": true}}` in the settings.json of `OPENSGOLF_SAVE_DIR` and paint the tiles with
+- *Fix the desert's swapped Ravine and Brush art* (issue #89, 0.5.6 to 0.5.13) is gone: the pictures were the
+  original's all along, and it was the port's names that were swapped (issue #117). In the desert theme (Las Vegas,
+  Phoenix, Spain and the other desert properties) the original calls tile 10 (drawn with its Overgrowth textures, dry
+  weeds) the Brush and tile 11 (its brush textures, a branching crack) the Ravine, on the Build Course buttons, in their
+  tooltips (the descriptions of `Interface/desert.txt` for those names) and wherever the terrain table names them; the port
+  now does the same, so the buttons, the tiles and the preview under the pointer all agree. The tick's `desert_art` key in
+  `settings.json` is still read, and ignored. On the free graphics, whose desert buttons show a stream and bushes as in its
+  other themes, the two buttons trade places so that each sits over its name. Test hook: paint the tiles with
   `--property 3 --edit "p:22,25,10,0,2;p:28,25,11,0,2" --panel 1` (`SG_PAINT=10` or `11` arms either brush).
 
 Test hooks: `--extras BITS` sets the extras a new game starts with (1 Tab turns, 2 cut content, 4 hardcore, 8 higher staff

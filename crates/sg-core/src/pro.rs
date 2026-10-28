@@ -84,9 +84,10 @@ pub fn club_label(k: usize) -> &'static str {
 
 /// The lie under the ball, for the panel: 0x41b759 prints "Lie: " and the name (+0x00) of the terrain table's record for
 /// the type under the ball (0x40bfa0, out of bounds off the map), the singular lower-case names of the static table
-/// 0x4c1a40 ("tees", "sand trap", "pot bunker", "out of bounds"); the exe's per-theme renaming of some records is not decoded.
+/// 0x4c1a40 ("tees", "sand trap", "pot bunker", "out of bounds"), as the loaded theme renames some of the records
+/// (crate::land::terrain_name: in the desert "desert", "rough", "canyon").
 pub fn lie_name(ty: u8) -> &'static str {
-    crate::course::type_name(ty as i32)
+    crate::land::terrain_name(ty as i32)
 }
 
 /// Whether skill k counts for the shot being aimed (the panel draws it white, else grey).

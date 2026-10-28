@@ -129,6 +129,12 @@ const CUT: usize = 1;
 #[cfg(test)]
 const UPDATE_CHECK: usize = 12;
 
+/// The interface extra that was the desert's Ravine and Brush art (0.5.6 to 0.5.13, issue #89): retired in 0.6, when the
+/// desert's two tiles took the theme's own names (issue #117), so it is on no page; its `settings.json` key is still read
+/// and ignored (extras.rs `from_json`).
+#[cfg(test)]
+const RETIRED_DESERT_ART: usize = 23;
+
 /// The option lines of each page, in order (the gameplay page from the lightest touch to the biggest change). Slower
 /// seasons and Pause the calendar (options 6 and 7) are the Sandbox page's Calendar line; the Info page's groups stand for
 /// their ticks (`GROUPS`); the update check is on Preferences itself.
@@ -147,8 +153,8 @@ const PAGE_LINES: [&[ExtrasLine]; 5] = {
             G(2), // hardcore
         ],
         &[Calendar, G(8), G(9), G(x::NO_WEEDS)],
-        // path styles and lamps, Tab turns buildings (only the picture turns), random trees, the desert's Ravine and Brush art
-        &[G(x::PATHS), G(0), U(21), U(23), U(26)],
+        // path styles and lamps, Tab turns buildings (only the picture turns), random trees, the interface at the edges
+        &[G(x::PATHS), G(0), U(21), U(26)],
         // People, extra reports, messages, path help, home-site details
         // and with the building helpers, right click puts the tool away
         &[Group(0), Group(1), Group(2), U(4), U(19), U(25)],
@@ -880,11 +886,12 @@ mod tests {
             assert_eq!(shown, i != 6 && i != 7, "option {i}");
         }
         assert!(all.contains(&ExtrasLine::Calendar));
-        // every interface tick: on a page, in exactly one group, or (the update check) on Preferences itself
+        // every interface tick: on a page, in exactly one group, or (the update check) on Preferences itself; the retired
+        // desert art tick nowhere
         for b in 0..crate::extras::UI_KEYS.len() {
             let places = all.contains(&ExtrasLine::Ui(b)) as usize
                 + GROUPS.iter().filter(|g| g.2.contains(&b)).count()
-                + (b == UPDATE_CHECK) as usize;
+                + (b == UPDATE_CHECK || b == RETIRED_DESERT_ART) as usize;
             assert_eq!(places, 1, "interface extra {b}");
         }
         assert_eq!(PAGES.len(), PAGE_LINES.len());
@@ -902,7 +909,7 @@ mod tests {
             }
         }
         // looks: only the picture changes
-        for l in [ExtrasLine::Game(0), ExtrasLine::Game(x::PATHS), ExtrasLine::Ui(21), ExtrasLine::Ui(23), ExtrasLine::Ui(26)] {
+        for l in [ExtrasLine::Game(0), ExtrasLine::Game(x::PATHS), ExtrasLine::Ui(21), ExtrasLine::Ui(26)] {
             assert_eq!(page_of(l), Some(2), "{l:?}");
         }
         // animals cost money and lift moods: gameplay, a light touch

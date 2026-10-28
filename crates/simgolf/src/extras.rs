@@ -54,11 +54,11 @@
 //!   this save...*, for moving games between devices (issue #49). Up to 0.4.9 they came with Course sharing, so ticks
 //!   saved before it follow that tick.
 //!
-//! * the desert's Ravine and Brush art (app.rs `ground_tex`, panels_ui.rs `terrain_cell`, issue #89): in the desert theme
-//!   the original draws the Ravine (tile 10) with the dry weeds of its Overgrowth textures and the Brush (tile 11) with its
-//!   brush textures, a branching crack, and its Build Course buttons for the two show the same, the other way round from
-//!   every other theme. A look (the Looks page): each tile is drawn with the other's textures and the two buttons trade
-//!   pictures; tiles, saves and play are as before.
+//! * retired: the desert's Ravine and Brush art (0.5.6 to 0.5.13, issue #89), a look that traded the two tiles' pictures
+//!   in the desert theme. The pictures were the original's all along: the desert's tile 10 is its Brush (the dry weeds)
+//!   and tile 11 its Ravine (the crack), the names the exe's theme loader gives them, which the port had the other way
+//!   round (issue #117, panels_ui.rs `tile_key`). Its bit (23) and `settings.json` key stay so that older ticks load; the
+//!   key is read and ignored, and no page shows it.
 //!
 //! * mouse aim and swing (touch.rs): with the mouse, the pro's shot is aimed and taken as by touch: a click sets the
 //!   target, a drag from it moves it, a drag elsewhere looks round, and the round Swing button shoots. Off, a click on the
@@ -153,7 +153,7 @@ impl Settings {
         right_drag: false,
         random_trees: true,
         save_files: true,
-        desert_art: true,
+        desert_art: false,
         mouse_swing: false,
         right_drop: false,
         wide_ui: false,
@@ -420,20 +420,6 @@ pub fn random_trees() -> bool {
 pub fn save_files() -> bool {
     settings().save_files
 }
-pub fn desert_art() -> bool {
-    settings().desert_art
-}
-
-/// The ground texture type (sg_core::terrain TextureCatalog) a desert tile is drawn with while the desert's Ravine and
-/// Brush art is fixed: the Ravine (10) takes the brush textures (the crack) and the Brush (11) the Overgrowth textures
-/// (the dry weeds); every other type keeps its own.
-pub fn desert_art_swap(tex_type: i32) -> i32 {
-    match tex_type {
-        10 => 11,
-        11 => 10,
-        t => t,
-    }
-}
 
 fn settings_json() -> serde_json::Value {
     sg_core::fsutil::read_file(crate::app::save_dir().join(crate::hd::SETTINGS_FILE))
@@ -519,10 +505,8 @@ fn upgrade_off(v: &serde_json::Value, s: &mut Settings) {
     if v.get("random_trees").is_none() {
         s.random_trees = false;
     }
-    // the desert's Ravine and Brush art (0.5): off from ticks saved before it
-    if v.get("desert_art").is_none() {
-        s.desert_art = false;
-    }
+    // the desert's Ravine and Brush art (0.5.6 to 0.5.13): retired, its key read and ignored (issue #117)
+    s.desert_art = false;
 }
 
 /// Saves the ticks into settings.json, keeping its other keys.
@@ -1190,20 +1174,14 @@ mod tests {
     }
 
     #[test]
-    fn the_desert_art_fix_is_off_unless_ticked_and_trades_only_the_two_tiles() {
-        let v: serde_json::Value = serde_json::json!({ "people": true, "random_trees": true });
-        assert!(!from_json(&v).desert_art, "ticks saved before it read as off");
-        assert!(from_json(&serde_json::json!({ "desert_art": true })).desert_art);
-        assert!(!Settings::ALL_OFF.desert_art && !Settings::default().desert_art);
-        assert!(Settings::HELPERS.desert_art, "a look: the helper presets tick it");
+    fn the_retired_desert_art_tick_loads_and_is_ignored() {
+        // settings saved by 0.5.6 to 0.5.13 with it ticked still load, the other ticks as they were, and it reads as off
+        let v: serde_json::Value = serde_json::json!({ "people": true, "random_trees": true, "desert_art": true });
+        let s = from_json(&v);
+        assert!(s.people && s.random_trees && !s.desert_art);
+        assert!(!Settings::ALL_OFF.desert_art && !Settings::default().desert_art && !Settings::HELPERS.desert_art);
+        // its bit stays where it was, so the later ticks keep theirs
         let d = Settings { desert_art: true, ..Settings::ALL_OFF };
         assert_eq!(d.bits(), 1 << 23);
-        assert_eq!(Settings::from_bits(d.bits()), d);
-        assert_eq!(d.preset_part(), d);
-        // the Ravine (10) and the Brush (11) trade textures; every other type keeps its own
-        assert_eq!((desert_art_swap(10), desert_art_swap(11)), (11, 10));
-        for t in (0..40).filter(|t| !matches!(t, 10 | 11)) {
-            assert_eq!(desert_art_swap(t), t);
-        }
     }
 }

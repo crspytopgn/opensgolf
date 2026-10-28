@@ -380,6 +380,23 @@ pub fn building_name(kind: i32) -> &'static str {
     building_name_in(kind, NAME_THEME.load(std::sync::atomic::Ordering::Relaxed))
 }
 
+/// A terrain type's name from the terrain table (crate::course::type_name) in the loaded theme: the theme loader renames some
+/// of the table's records (crate::tracts::theme_names: the desert's rough is its desert, its deep rough its rough, its
+/// wetlands a canyon...), so every screen that names a terrain type from the table (the undo's label, issue #116) shows the
+/// theme's name. "" for an unknown type.
+pub fn terrain_name(ty: i32) -> &'static str {
+    terrain_name_in(ty, NAME_THEME.load(std::sync::atomic::Ordering::Relaxed))
+}
+
+/// A terrain type's name in a theme (the exe's theme number; `NO_THEME` for the table's own names), "" for an unknown type.
+pub fn terrain_name_in(ty: i32, theme: u8) -> &'static str {
+    u8::try_from(ty)
+        .ok()
+        .filter(|_| theme <= 3)
+        .and_then(|t| crate::tracts::theme_names(t, theme))
+        .map_or_else(|| crate::course::type_name(ty), |(one, _)| one)
+}
+
 /// Buildings and objects: (name key, footprint edge in tiles, price in money units), by the exe's object kind.
 pub const BUILDINGS: [(&str, i32, i32); 20] = [
     ("STR_BUILDING_PATHWAY", 1, 1),
@@ -2103,7 +2120,7 @@ impl Land {
             return (s.into(), true);
         }
         if code < 0x7d {
-            return (trf("STR_UNDO_RESET_TO", &[("TERRAIN", &crate::course::type_name(code as i32))]), true);
+            return (trf("STR_UNDO_RESET_TO", &[("TERRAIN", &terrain_name(code as i32))]), true);
         }
         let s = if f & 0x200 != 0 {
             tr("STR_UNDO_REMOVE_BENCH")
@@ -2323,6 +2340,22 @@ mod building_name_tests {
             assert_eq!(building_name_in(13, t), "Resort Hotel");
             assert_eq!(building_name_in(-1, t), "");
             assert_eq!(building_name_in(99, t), "");
+        }
+    }
+
+    /// Issue #116: the undo's "Reset to" names the terrain as the theme does (the desert's canyon, desert and rough, not
+    /// wetlands, rough and deep rough), and with no theme loaded the table's names stand.
+    #[test]
+    fn terrain_names_follow_the_theme() {
+        let names = |t: u8| [4, 5, 10, 11, 18].map(|ty| terrain_name_in(ty, t));
+        assert_eq!(names(1), ["desert", "rough", "brush", "ravine", "canyon"]);
+        assert_eq!(names(0), ["rough", "deep rough", "stream", "brush", "wetlands"]);
+        assert_eq!(names(3), ["rough", "deep rough", "burn", "gorse", "wetlands"]);
+        assert_eq!(names(NO_THEME), ["rough", "deep rough", "ravine", "brush", "wetlands"]);
+        for t in [0, 1, 2, 3, NO_THEME] {
+            assert_eq!(terrain_name_in(9, t), "pot bunker");
+            assert_eq!(terrain_name_in(-1, t), "");
+            assert_eq!(terrain_name_in(300, t), "");
         }
     }
 }
