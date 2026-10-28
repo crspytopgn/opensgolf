@@ -897,6 +897,16 @@ impl App {
                 s.put_centered(g, f, 400.0, 8.0, &t, crate::info_ui::c15(0x2108));
             }
         }
+        // the port's own: the version, small at the bottom middle, under Play a Championship (the free set's light on a
+        // shadow, the original's in its dark title ink)
+        let v = trf("STR_TITLE_VERSION", &[("VERSION", &crate::update::VERSION)]);
+        let f = crate::ui::F_MANUAL15;
+        if self.on_free_set() {
+            s.put_centered(g, f, 401.0, 583.0, &v, rgba(0.0, 0.0, 0.0, 0.6));
+            s.put_centered(g, f, 400.0, 582.0, &v, rgb(1.0, 1.0, 1.0));
+        } else {
+            s.put_centered(g, f, 400.0, 582.0, &v, crate::info_ui::c15(0x2108));
+        }
         if !self.toast.is_empty() && self.clock < self.toast_until {
             // with bigger text (textsize.rs) the note grows up from the bottom, as wide as the screen at most
             let size = crate::textsize::fit_px(18.0, 2.0, &self.toast, 780.0);

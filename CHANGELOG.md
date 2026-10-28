@@ -37,6 +37,11 @@ Enhanced graphics and HD.
   rough reaches the map's edge (#118). As in the original, the desert's rough also counts as its own ground for weeds,
   spectators and what golfers think of it.
 
+**Fix releases**
+
+- **0.6.1:** typing in the bug report form opened from *Report a problem* no longer loses what you type, and the form's
+  platform and base set come filled in; the version on the title screen.
+
 **Fix releases before it**
 
 - **0.5.13:** the picture no longer goes black or jumbled after resizing the window; Classic shades hills smoothly as the

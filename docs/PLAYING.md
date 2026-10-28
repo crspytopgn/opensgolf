@@ -1094,18 +1094,18 @@ Functions menu is left as it is). System Functions → Preferences → *More...*
 the course (Change keys can move it), open a small box that says what will happen, with an *Include a screenshot* tick (ticked), *OK, open the form* (the
 box's tick and Enter too) and *Cancel* (Esc too). OK:
 
-- opens the project's bug report form on GitHub in your browser, already filled in: the version, the platform, the base
-  set (your SimGolf files or the free set), and in *Screenshots, save file, log* a short system line (system and
-  processor, the graphics driver's names, Enhanced graphics on or off, HD and the content packs in use, the gameplay and
-  interface extras as numbers, the window size) with the game's last 30 warnings and errors (a picture that could not be
-  read, a pack's problem, a failed save; the game keeps no log file of its own). The address stays under 6,000
-  characters (the oldest warnings are left out first);
-- writes a copy of the game being played (an ordinary saved game, `.sgs`) and, when ticked, a screenshot of the screen
-  under the box (`.png`), both named `OpenSGolf report <date> <time>` (UTC), to a **Reports** folder in the save folder,
+- opens the project's bug report form on GitHub in your browser with its one-line fields filled in: the version, the
+  platform, the base set (your SimGolf files or the free set) and *System*, a short system line (system and processor,
+  the graphics driver's names, Enhanced graphics on or off, HD and the content packs in use, the gameplay and interface
+  extras as numbers, the window size). *What happened* starts with the form's own prompt. The big boxes are not filled in
+  through the address (0.6.0 did, and a box filled in that way lost what the player typed);
+- writes a copy of the game being played (an ordinary saved game, `.sgs`), a text file (`.txt`) with the system line
+  and the game's last 30 warnings and errors (a picture that could not be read, a pack's problem, a failed save; the game
+  keeps no log file of its own) and, when ticked, a screenshot of the screen under the box (`.png`), all named `OpenSGolf report <date> <time>` (UTC), to a **Reports** folder in the save folder,
   and opens that folder in the file manager (Explorer, the Finder, or the desktop's own through xdg-open). A box says
   which files to drag into the form. On the title screens there is no game to copy.
 - In the browser the form opens in a new tab (if the browser blocks it, a note over the game has the link to tap), and
-  the two files are downloaded instead. On Android they go in `Android/data/org.opensgolf.game/files/Reports` (next to
+  the files are downloaded instead. On Android they go in `Android/data/org.opensgolf.game/files/Reports` (next to
   Photos; a computer sees it over USB), and the box says where.
 
 Nothing is sent by the game: you read the form, say what happened and submit it yourself (a GitHub account is needed).

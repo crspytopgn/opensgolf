@@ -3364,9 +3364,9 @@ STR_MENU_PREFS_REPORT                   : Report a problem...
 STR_PREFS_DESC_REPORT                   :Opens a filled-in bug report form and keeps a copy of this game to attach. Nothing is sent until you submit.
 STR_CTL_REPORT_PROBLEM                  :Report a problem (opens the bug report form, asks first)
 STR_BUGREPORT_TITLE                     :Report a problem
-STR_BUGREPORT_EXPLAIN                   :This opens the project's bug report form on GitHub in your browser, filled in with the game's version, your system and its recent warnings.\nA copy of this game (and a screenshot, if ticked) goes in the Reports folder in your save folder, which opens too: drag the files into the form.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
-STR_BUGREPORT_EXPLAIN_WEB               :This opens the project's bug report form on GitHub in a new tab, filled in with the game's version, your browser and its recent warnings.\nA copy of this game (and a screenshot, if ticked) is downloaded: drag the files into the form.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
-STR_BUGREPORT_EXPLAIN_ANDROID           :This opens the project's bug report form on GitHub in your browser, filled in with the game's version, your phone and its recent warnings.\nA copy of this game (and a screenshot, if ticked) goes in the Reports folder next to the game's Photos, for you to attach.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
+STR_BUGREPORT_EXPLAIN                   :This opens the project's bug report form on GitHub in your browser, filled in with the game's version and your system.\nA copy of this game, its recent warnings (and a screenshot, if ticked) go in the Reports folder in your save folder, which opens too: drag the files into the form.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
+STR_BUGREPORT_EXPLAIN_WEB               :This opens the project's bug report form on GitHub in a new tab, filled in with the game's version and your browser.\nA copy of this game, its recent warnings (and a screenshot, if ticked) are downloaded: drag the files into the form.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
+STR_BUGREPORT_EXPLAIN_ANDROID           :This opens the project's bug report form on GitHub in your browser, filled in with the game's version and your phone.\nA copy of this game, its recent warnings (and a screenshot, if ticked) go in the Reports folder next to the game's Photos, for you to attach.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
 STR_BUGREPORT_SCREENSHOT                : Include a screenshot
 STR_BUGREPORT_OPEN                      : OK, open the form
 STR_BUGREPORT_CANCEL                    : Cancel
@@ -3375,8 +3375,6 @@ STR_BUGREPORT_DONE_WEB                  :The bug report form is open in a new ta
 STR_BUGREPORT_DONE_ANDROID              :The bug report form is open in your browser. These files are in {FOLDER} for you to attach (a computer sees the folder over USB): {FILES}.
 STR_BUGREPORT_DONE_NO_FILES             :The bug report form is open in your browser. Say what happened and submit it when you're ready.
 STR_BUGREPORT_NO_BROWSER                :No browser could be opened. The form's address is on the clipboard: paste it into a browser.
-STR_BUGREPORT_FORM_WHAT                 :What I did:\n\nWhat I expected:\n\nWhat happened instead:\n
-STR_BUGREPORT_FORM_FILES                :Please attach these files from the game's Reports folder (drag them here): {FILES}
 STR_BUGREPORT_FORM_LOG                  :Recent warnings:
 STR_BUGREPORT_FORM_NO_LOG               :No warnings so far.
 STR_KEYS_K_REPORT_PROBLEM               :Shift+F8
@@ -3394,6 +3392,7 @@ STR_SUPPORT_NO_BROWSER                  :No browser could be opened. The address
 STR_MENU_PREFS_SUPPORT                  : Support OpenSGolf...
 STR_MENU_PREFS_PLAYED_NOTE              :Your time played: {TIME}.
 STR_TITLE_PLAYED                        :{TIME} played
+STR_TITLE_VERSION                       :OpenSGolf {VERSION}
 STR_TIME_HOUR                           :1 hour
 STR_TIME_HOURS                          :{N} hours
 STR_TIME_MINUTE                         :1 minute
