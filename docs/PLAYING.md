@@ -57,7 +57,7 @@ copies leave them out), only the Sims' voices in `SimsFX`, or lacks more than a 
 when the game starts and the ticker on every start (sg_core::mixer `shortfall`; the console or log has a `sound:` line
 with the counts). The browser page also sums up what it found after loading the files, in large type on the start page
 (and again there on the next visit, as "Last time: ...") and over the game once (20 seconds, or until tapped when
-something is missing): "OpenSGolf 0.5.13. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
+something is missing): "OpenSGolf 0.6.0. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
 big). Art ✓, music: N, Sims' voices: N." The console's `files:` line adds the compression methods the zip used.
 Deflate64 (Windows' own zipper, for big files such as the sounds), BZip2, LZMA and PPMd (7-Zip's, Keka's and The
 Unarchiver's stronger settings), which iPad's Files app cannot unpack (it shows such folders empty), are read by the
@@ -329,7 +329,7 @@ On the Add Buildings panel (or b for benches, Shift+B for a home site; Tab turns
 Everything OpenSGolf adds is optional, and every option belongs to one of three kinds:
 
 - **Looks**: changes only how the game looks (path styles and lamps, Tab turning a building's picture, random trees,
-  the desert's Ravine and Brush art, Enhanced graphics). Play is exactly the original's.
+  Enhanced graphics). Play is exactly the original's.
 - **Helpers**: shows you more or saves you effort (the People screen, extra reports, message history, autosave, import
   and export of saved games, the pauses, the mouse helpers). Play is exactly the original's.
 - **Gameplay**: changes how the game plays (animals to buy, more staff, set par, weather, visitors, hardcore, the
@@ -346,9 +346,9 @@ Select Difficulty has a **Game** box next to Course size. A click steps through 
 - **Custom**: your own mix, as you ticked it in Preferences. Once you have a mix of your own, Custom brings it back after
   you tried a preset; until then the Game box skips it.
 
-Every preset leaves alone what is yours to choose: the two pauses, the update check, the three controls ticks (zoom
+Every preset leaves alone what is yours to choose: the two pauses, the update check, the controls ticks (zoom
 towards the pointer, drag to place, right-drag panning: the *Original* and *Modern controls* presets of Change keys set
-those) and *Fix the original game's bugs*. Only *Original* also turns Enhanced graphics off; the others leave your
+those; and mouse aim and swing, which no preset sets) and *Fix the original game's bugs*. Only *Original* also turns Enhanced graphics off; the others leave your
 graphics as they are. The box says **Custom** whenever your ticks are no preset (also with every extra off but Enhanced
 graphics on). The choice is saved and is what new games start with. The same choice is the first line of the extras box
 (below), so you can change it later, also during a game.
@@ -361,8 +361,9 @@ golfers' thoughts**, **Advisor and first-time messages**, **Ambient animals** an
 
 - **Game options...**: the OpenSGolf extras box (presets, gameplay, sandbox, looks, info, helpers; see the next section).
 - **Graphics...**: *HD graphics* and *Enhanced graphics* (two ticks, each off by default; with both off you play in
-  Classic, the original's own graphics; they can be on together), *Pixel-perfect scaling* (also on Enhanced graphics'
-  Display page; it counts in Classic too) and *Enhanced graphics settings...* (see *Enhanced graphics* below).
+  Classic, the original's own graphics; they can be on together), *Make HD graphics from my SimGolf files...* (with the
+  original files in use; see *Making HD graphics* below), *Pixel-perfect scaling* (also on Enhanced graphics' Display
+  page; it counts in Classic too) and *Enhanced graphics settings...* (see *Enhanced graphics* below).
 - **Controls and keys...**: the Keyboard controls screen, with *Change keys...* and the *Original* and *Modern controls*
   presets (see *Changing the keys*).
 - **Text size: normal**: steps the text size at once (see *Text size*).
@@ -385,6 +386,28 @@ before, kept under the same names in `settings.json`. Test hooks: `--edit "M:2"`
 `M:11` its Graphics, Game files and More boxes (`SG_POPUP_MOUSE=x,y` leaves the pointer on a line, to show its
 description).
 
+### Making HD graphics
+
+HD graphics (docs/HD.md) draw the game's own art upscaled. With your SimGolf files in use (not on the free graphics),
+Preferences > Graphics has **Make HD graphics from my SimGolf files...**: the game makes the HD pack itself, from your
+files, on this computer, phone or browser, with nothing to install or download. It first says how many pictures, how much
+disk space and about how long it takes, and offers 4 times the size (about 0.8 GB, a minute or two on a four-core
+computer) or twice the size (about 0.4 GB); a browser makes twice the size (several minutes) and keeps it with your game
+files. With **realesrgan-ncnn-vulkan** on your PATH or next to the game, a desktop also offers it, for the best quality
+(the AI upscaler hd_pack.py uses; slow without a strong graphics card; never downloaded by the game). Otherwise the
+pictures are upscaled with the built-in xBRZ pixel-art upscaler.
+
+While the pack is made a box shows how far it is: *Keep playing* closes it (the game plays on; the Preferences line shows
+the percentage and brings the box back), *Stop* stops it. A pack stopped, or cut short by closing the game, carries on
+where it stopped (*Finish making HD graphics...*, keeping the pictures done). When it is done HD graphics are switched
+on; the HD graphics tick switches them off again. With a pack there already the line reads *Make HD graphics again...*
+and replaces it. The pack is made from EA's art: keep it to yourself. Nothing changes unless you choose the line.
+
+Test hooks: `--make-hd` makes the pack from the `--game` folder into `--hd-pack DIR` (else `<save folder>/HD`) and exits,
+saying how long it took (`--hd-scale 2|4`, default 4; `--hd-method xbrz|realesrgan`; `--hd-only TEXT` only the sources
+whose path holds TEXT; `--hd-step` works the browser's way, a step at a time on one thread; `--hd-resume` keeps what an
+earlier run made); `--screen hd-make` opens the line's question, `--screen hd-remove` Remove HD graphics' one.
+
 ## OpenSGolf extras (optional, not in the original)
 
 Preferences (System Functions, Preferences) has a **Game options...** line. It opens a box of optional changes,
@@ -396,7 +419,7 @@ along its top; a click on a tab, Left and Right or Tab turn them). A banner unde
 - **Gameplay** (gameplay): "Changes how the game plays." (below)
 - **Sandbox** (gameplay): "Bends the rules for relaxed play." (the calendar and the sandbox switches, below)
 - **Looks** (looks): "Changes how it looks. Play is unchanged." (path styles and lamps, Tab turns buildings, random
-  trees, the desert's Ravine and Brush art, below)
+  trees, below)
 - **Info** (helpers): "Shows more about your club. Play is unchanged." Five lines, each ticking a group of the helpers
   described under *OpenSGolf extras* further down: **People screen, name tags and live scorecards**; **Extra reports**
   (landing map, comments by hole, history graphs, the year in numbers, tabs over the reports); **Message history and
@@ -406,7 +429,8 @@ along its top; a click on a tab, Left and Right or Tab turn them). A banner unde
 - **Helpers** (helpers): "Saves you effort. Play is unchanged." (autosave, save pictures, course sharing, import and
   export saved games, the two pauses,
   and under the *Controls:* name the three ticks the Change keys' *Original* and *Modern controls* presets set: drag to
-  place, zoom towards the pointer, right-drag panning; also further down)
+  place, zoom towards the pointer, right-drag panning; also further down; then *Controls: aim and swing with the mouse as
+  by touch*, see *Mouse aim and swing* below)
 
 *Check for updates when the game starts* and *Fix the original game's bugs* are ticks of Preferences > More, not in this
 box (see *The title menu* and docs/FIXES.md).
@@ -540,8 +564,10 @@ On the **Sandbox** page:
   fourteen landmarks of the theme are on the panels from the start, as in Sandbox Mode; the unlock announcements are not
   made. Upgrading a building still needs a Country Club course (10 holes), as in Sandbox Mode. Unticking it takes back only
   what the course has not earned; landmarks the club owns stay.
+- **Sandbox: no new dandelions.** *(Noticeable)* Dandelions and other weeds stop spreading over the course and unhappy golfers no longer start them, so it stays
+  clear without groundskeepers or the landmarks that keep weeds away. The ones already there stay until pulled.
 
-The two "Sandbox:" switches and a stopped calendar are what a Sandbox Mode game (unlimited money) is most often wanted
+The "Sandbox:" switches and a stopped calendar are what a Sandbox Mode game (unlimited money) is most often wanted
 with, but each works in a normal game too.
 
 On the **Looks** page:
@@ -568,20 +594,14 @@ On the **Looks** page:
   random design when you pick a flower bed, scenic tree or bridge (and the first bench); you then choose from the strip.
 - **Random trees.** Every tree the brushes plant takes a random look of its kind (see *Random trees* under *Camera
   bookmarks and the mouse*).
-- **Fix the desert's swapped Ravine and Brush art** (issue #89; off by default, on in the *Original + helpers* and
-  *OpenSGolf* presets, an interface tick kept in `settings.json` as `desert_art`). In the desert theme (Las Vegas,
-  Phoenix, Spain and the other desert properties) the original draws tile 10, the Ravine (the waterless stream), with
-  its Overgrowth textures, which in the desert are scrubby dry weeds, and tile 11, the Brush ("dry half-dead tangle of
-  weed"), with its brush textures, which in the desert are a branching crack (the same pictures as the unused Ravine
-  set); its Build Course buttons show the same, the Ravine's dry weeds and the Brush's crack, the other way round from
-  every other theme, where the Ravine's button is a winding stream and the Brush's bushes. With the tick on, in the
-  desert only, each of the two tiles is drawn with the other's textures (their edge pieces too; the borders between
-  tiles fall where they did), in Classic and Enhanced graphics alike, and the two buttons trade pictures in every state.
-  The tiles, their names and descriptions, costs, how they play and saves do not change, and the other themes are drawn
-  as before. The free graphics' desert copies the original's ground (dry scrub for the Ravine, cracked earth for the
-  Brush), so the tick trades its two ground textures too; its buttons already show a stream and bushes and are left as
-  they are. The routing map colours tiles by class and the brush's pointer is a ring, so neither shows the art. Test
-  hook: put `{"ui_extras": {"desert_art": true}}` in the settings.json of `OPENSGOLF_SAVE_DIR` and paint the tiles with
+- *Fix the desert's swapped Ravine and Brush art* (issue #89, 0.5.6 to 0.5.13) is gone: the pictures were the
+  original's all along, and it was the port's names that were swapped (issue #117). In the desert theme (Las Vegas,
+  Phoenix, Spain and the other desert properties) the original calls tile 10 (drawn with its Overgrowth textures, dry
+  weeds) the Brush and tile 11 (its brush textures, a branching crack) the Ravine, on the Build Course buttons, in their
+  tooltips (the descriptions of `Interface/desert.txt` for those names) and wherever the terrain table names them; the port
+  now does the same, so the buttons, the tiles and the preview under the pointer all agree. The tick's `desert_art` key in
+  `settings.json` is still read, and ignored. On the free graphics, whose desert buttons show a stream and bushes as in its
+  other themes, the two buttons trade places so that each sits over its name. Test hook: paint the tiles with
   `--property 3 --edit "p:22,25,10,0,2;p:28,25,11,0,2" --panel 1` (`SG_PAINT=10` or `11` arms either brush).
 
 Test hooks: `--extras BITS` sets the extras a new game starts with (1 Tab turns, 2 cut content, 4 hardcore, 8 higher staff
@@ -651,7 +671,8 @@ Test hooks: `--edit "M:7"` opens the search box (`SG_PREFS_SEARCH="words"` types
 
 ## In-game interface (dock, panels, advisor, stories)
 
-The lower left of the course screen now shows the game's own dock art (Interface/3mainLowerLeft.pcx). The three big round buttons open panels along the bottom: **Build Course** (terrain brushes, paths, raise and lower, each with its cost), **Add Buildings** (the amenities for the theme) and **People** (click to hire, right click to fire a club pro, ranger, groundskeeper or soda vendor). Click an item, then click the map. On a Mac, Ctrl+click is a right click (in the app and in the browser), as is a two-finger click on a trackpad with *Secondary click* on. The small buttons zoom, rotate, open the course report, pause, and save the course. The keys are the original's (its F8 screen lists them): g f r s t w p b pick the green/tee, fairway, rough, sand, trees, water, path and bench tools (v the ravine), e the elevation tools, = and - raise and lower the ground under the pointer (Tab steps the elevation brush), h opens the hole being built; z and x zoom between the original's three levels, PageUp and Home turn the view a quarter (0 turns it back), the arrows scroll four tiles, 1 to 9 and Shift+1 to 9 jump to holes 1 to 18; Space drops the tool; Shift+P pause, Shift+T trees, Shift+N names, Shift+R routing map, Shift+W world map, Shift+J begin a tournament, Shift+C save the course for championship play, Shift+S and Shift+L save and load. The original has no game speed control; the port's own ] cycles normal, x2 and x4. With Enhanced graphics on, the port's own c (a key the original leaves unused) opens photo mode (see *Photo mode* below).
+The lower left of the course screen now shows the game's own dock art (Interface/3mainLowerLeft.pcx). The three big round buttons open panels along the bottom: **Build Course** (terrain brushes, paths, raise and lower, each with its cost), **Add Buildings** (the amenities for the theme) and **People** (click to hire, right click to fire a club pro, ranger, groundskeeper or soda vendor). Click an item, then click the map. On a Mac, Ctrl+click is a right click (in the app and in the browser), as is a two-finger click on a trackpad with *Secondary click* on. The small buttons zoom, rotate, open the course report, pause, and save the course. The keys are the original's (its F8 screen lists them): g f r s t w p b pick the green/tee, fairway, rough, sand, trees, water, path and bench tools (v the ravine), e the elevation tools, = and - raise and lower the ground under the pointer (Tab steps the elevation brush), h opens the hole being built; z and x zoom between the original's three levels, PageUp and Home turn the view a quarter (0 turns it back), the arrows scroll four tiles, 1 to 9 and Shift+1 to 9 jump to holes 1 to 18; Space drops the tool (and with the Info page's *right click puts the tool away* extra, so does a right click or a
+controller's B; otherwise a right click is the original's undo, which twice on a tee or green takes the hole away); Shift+P pause, Shift+T trees, Shift+N names, Shift+R routing map, Shift+W world map, Shift+J begin a tournament, Shift+C save the course for championship play, Shift+S and Shift+L save and load. The original has no game speed control; the port's own ] speeds it up (normal, x2, x4) and [ slows it down, each stopping at the end (a controller's Y and the touch button cycle). With Enhanced graphics on, the port's own c (a key the original leaves unused) opens photo mode (see *Photo mode* below).
 
 System Functions → Preferences → *Controls and keys...* (the port's own screen) lists every key the game takes, grouped:
 moving around the course, time, building, holes and messages, reports and maps, your pro and the golfers, saving and
@@ -816,7 +837,7 @@ compare pixel for pixel with the build before the extras).
   warns about debt at the end of the year (the year-end report follows when the game goes on), or the cash goes below
   zero (not in Sandbox Mode). The news is where the original puts it, on the ticker or the report; *Paused for big news*
   under the Paused caption. Unpause as usual (Shift+P or the dock's pause button).
-- **Check for updates when the game starts** (a tick of Preferences > More, not in the extras box; off, and the presets leave
+- **Check for updates when the game starts** (a tick of Preferences > More, not in the extras box; on from 0.6, and the presets leave
   it as you set it: it goes online, which is yours to choose): the title menu's *Check for updates* (see *The title menu*), once in the background when the game
   starts. It says nothing unless a newer version is out; then a box offers **Update now**, **Skip this version** (that
   version is not offered at start again, a newer one is; kept in `settings.json` as `update_skip`) or **Not now**. Only
@@ -917,6 +938,20 @@ The port's own camera helpers (crates/simgolf/src/views.rs); nothing changes unt
   #67); that drag is now the **Right-drag panning** extra (Helpers page, *Controls: right-drag moves the course*; off by
   default, off for settings saved by 0.4.7, and part of the *Modern controls* preset): with it on, a drag with the right button moves the course and a right click that does not move (less than 5
   pixels) does the original's on release. The middle button and the arrow keys always move the course.
+- **Mouse aim and swing**: an OpenSGolf extra (Preferences, *Game options...*, Helpers page, *Controls: aim and swing
+  with the mouse as by touch*), off by default and in no preset; the extras presets leave it as you have it. In the
+  original (and with it off) your pro's shot follows the pointer and a click on the course shoots at once. With it on,
+  the mouse aims as a finger does on a phone or tablet (see *Aiming your pro and placing buildings by touch* under
+  *Touch*), with the left button down for the finger: while your pro waits, moving the mouse aims nothing; a click on the
+  course sets the target (the ring with the distance and club above it, the aim line and the Player panel as for a
+  hovered spot); press on or near the target and drag to move it (it is lifted a fingertip and a half above the
+  pointer, joined to it by a thin line) and drag it to the screen's edge to scroll there; a press-and-drag anywhere else
+  on the course moves the view (it never shoots). Letting go does nothing: click the round **Swing** button (lower right,
+  above the panel) to take the shot, the same shot a click on that spot makes. The small button with a sight above it
+  puts the view back on your pro's ball, and the first aim of a run says how in the ticker. The shot shape keys (s f d h
+  l) and the Player panel's ovals, the wheel, the middle button, the right button (and its drag with the Right-drag
+  panning extra), the arrow and turn keys work as before. Only the shot: buildings are placed with a click as before,
+  and the other touch buttons stay a touch screen's. The browser build has it too (touch.rs, `mouse_swing_down`).
 
 **Ctrl+Z** (Cmd+Z on a Mac) undoes the last click or drag with a building or terrain tool that changed the course:
 terrain, paths, holes, buildings and garden items. The whole game goes back to just before it, money included, as if that moment had been saved and loaded.
@@ -1214,7 +1249,8 @@ press the round **Swing** button (left of the touch buttons' foot) or **Place** 
 there: the same shot or placement a click on that spot makes. Tapping elsewhere just moves the target. The shot shapes stay
 on the Player panel's ovals; two fingers still move, zoom and turn the view, and holding a finger still is still the right
 click. Paths and the terrain brushes (tees and greens among them) paint directly as before, as does a row kind with the
-Drag to place extra. Moving a mouse puts hovering back.
+Drag to place extra. Moving a mouse puts hovering back (but for the shot with the *Mouse aim and swing* extra, which aims
+this way with the mouse too: see *Camera bookmarks and the mouse*).
 
 Test hooks (scripted stills): `SG_TOUCH=1` counts the screen as touched, so the touch buttons show; `SG_TAP="x,y;hold:x,y;
 down:x,y;key:B;..."` taps, holds for a long press or puts a finger down and leaves it (a pressed button), at window

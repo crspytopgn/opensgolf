@@ -129,6 +129,12 @@ const CUT: usize = 1;
 #[cfg(test)]
 const UPDATE_CHECK: usize = 12;
 
+/// The interface extra that was the desert's Ravine and Brush art (0.5.6 to 0.5.13, issue #89): retired in 0.6, when the
+/// desert's two tiles took the theme's own names (issue #117), so it is on no page; its `settings.json` key is still read
+/// and ignored (extras.rs `from_json`).
+#[cfg(test)]
+const RETIRED_DESERT_ART: usize = 23;
+
 /// The option lines of each page, in order (the gameplay page from the lightest touch to the biggest change). Slower
 /// seasons and Pause the calendar (options 6 and 7) are the Sandbox page's Calendar line; the Info page's groups stand for
 /// their ticks (`GROUPS`); the update check is on Preferences itself.
@@ -146,14 +152,15 @@ const PAGE_LINES: [&[ExtrasLine]; 5] = {
             G(x::MORE_VISITORS),
             G(2), // hardcore
         ],
-        &[Calendar, G(8), G(9)],
-        // path styles and lamps, Tab turns buildings (only the picture turns), random trees, the desert's Ravine and Brush art
-        &[G(x::PATHS), G(0), U(21), U(23)],
+        &[Calendar, G(8), G(9), G(x::NO_WEEDS)],
+        // path styles and lamps, Tab turns buildings (only the picture turns), random trees, the interface at the edges
+        &[G(x::PATHS), G(0), U(21), U(26)],
         // People, extra reports, messages, path help, home-site details
-        &[Group(0), Group(1), Group(2), U(4), U(19)],
+        // and with the building helpers, right click puts the tool away
+        &[Group(0), Group(1), Group(2), U(4), U(19), U(25)],
         // autosave, save pictures, sharing, import and export saved games, the two pauses, then the three the controls presets set: drag to place, zoom
-        // towards the pointer, right-drag panning
-        &[U(5), U(6), U(7), U(22), U(8), U(9), U(15), U(14), U(20)],
+        // towards the pointer, right-drag panning, and with them mouse aim and swing
+        &[U(5), U(6), U(7), U(22), U(8), U(9), U(15), U(14), U(20), U(24)],
     ]
 };
 
@@ -219,6 +226,7 @@ const GAME_DESC: [&str; sg_core::extras::OPTION_KEYS.len()] = [
     "STR_EXTRAS_DESC_WEATHER",
     "STR_EXTRAS_DESC_PATHS",
     "STR_EXTRAS_DESC_MORE_VISITORS",
+    "STR_EXTRAS_DESC_NO_WEEDS",
 ];
 const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_PEOPLE",
@@ -245,6 +253,9 @@ const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_RANDOM_TREES",
     "STR_EXTRAS_DESC_SAVE_FILES",
     "STR_EXTRAS_DESC_DESERT_ART",
+    "STR_EXTRAS_DESC_MOUSE_SWING",
+    "STR_EXTRAS_DESC_RIGHT_DROP",
+    "STR_EXTRAS_DESC_WIDE_UI",
 ];
 
 /// A line's description (what ticking it changes; for the preset line, what the preset in use is).
@@ -875,16 +886,17 @@ mod tests {
             assert_eq!(shown, i != 6 && i != 7, "option {i}");
         }
         assert!(all.contains(&ExtrasLine::Calendar));
-        // every interface tick: on a page, in exactly one group, or (the update check) on Preferences itself
+        // every interface tick: on a page, in exactly one group, or (the update check) on Preferences itself; the retired
+        // desert art tick nowhere
         for b in 0..crate::extras::UI_KEYS.len() {
             let places = all.contains(&ExtrasLine::Ui(b)) as usize
                 + GROUPS.iter().filter(|g| g.2.contains(&b)).count()
-                + (b == UPDATE_CHECK) as usize;
+                + (b == UPDATE_CHECK || b == RETIRED_DESERT_ART) as usize;
             assert_eq!(places, 1, "interface extra {b}");
         }
         assert_eq!(PAGES.len(), PAGE_LINES.len());
         assert_eq!(BANNERS.len(), PAGES.len());
-        assert_eq!(page_lines(3).len(), 5, "the Info page's five lines");
+        assert_eq!(page_lines(3).len(), 6, "the Info page's six lines");
     }
 
     #[test]
@@ -897,7 +909,7 @@ mod tests {
             }
         }
         // looks: only the picture changes
-        for l in [ExtrasLine::Game(0), ExtrasLine::Game(x::PATHS), ExtrasLine::Ui(21), ExtrasLine::Ui(23)] {
+        for l in [ExtrasLine::Game(0), ExtrasLine::Game(x::PATHS), ExtrasLine::Ui(21), ExtrasLine::Ui(26)] {
             assert_eq!(page_of(l), Some(2), "{l:?}");
         }
         // animals cost money and lift moods: gameplay, a light touch
@@ -908,8 +920,8 @@ mod tests {
         assert_eq!(tag(ExtrasLine::Calendar), Some(Tag::Noticeable));
         assert_eq!(tag(ExtrasLine::Game(x::LEFTIES)), Some(Tag::Light));
         assert_eq!(page_of(ExtrasLine::Ui(5)), Some(4), "autosave");
-        // the controls presets' ticks sit together at the end of the Helpers page
-        assert_eq!(page_lines(4)[6..], [ExtrasLine::Ui(15), ExtrasLine::Ui(14), ExtrasLine::Ui(20)]);
+        // the controls presets' ticks sit together at the end of the Helpers page, mouse aim and swing after them
+        assert_eq!(page_lines(4)[6..], [ExtrasLine::Ui(15), ExtrasLine::Ui(14), ExtrasLine::Ui(20), ExtrasLine::Ui(24)]);
         assert_eq!(page_lines(4)[2..4], [ExtrasLine::Ui(7), ExtrasLine::Ui(22)], "import and export next to sharing");
         assert_eq!((page_of(ExtrasLine::Preset), tag(ExtrasLine::Preset)), (None, None));
         assert_eq!(page_of(ExtrasLine::Ui(UPDATE_CHECK)), None);
@@ -941,7 +953,7 @@ mod tests {
         assert_eq!(foot_text(2, Some(1), &e, &ui), (sg_core::lang::tr("STR_EXTRAS_DESC_PATHS"), true));
         assert_eq!(foot_text(2, Some(0), &e, &ui), (sg_core::lang::tr("STR_PRESET_DESC_ORIGINAL"), true));
         assert_eq!(foot_text(0, Some(0), &Extras::OPENSGOLF, &Settings::HELPERS).0, sg_core::lang::tr("STR_PRESET_DESC_OPENSGOLF"));
-        assert!(!foot_text(2, Some(5), &e, &ui).1);
+        assert!(!foot_text(2, Some(6), &e, &ui).1);
         assert!(!foot_text(3, None, &e, &ui).1);
     }
 
@@ -984,6 +996,7 @@ mod tests {
             zoom_pointer: true,
             drag_place: true,
             right_drag: true,
+            mouse_swing: true,
             ..Settings::ALL_OFF
         };
         assert_eq!(Preset::of(&Extras::default(), &kept), Original);

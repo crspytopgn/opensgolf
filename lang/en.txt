@@ -800,7 +800,7 @@ STR_ERROR_CANT_BUILD_THERE              :Can't build there.
 STR_ERROR_CANT_BUILD_BENCH              :Can't build bench there.
 STR_ERROR_CANT_BUILD_BRIDGE             :Can't build bridge there.
 # What the player sees when they ask for HD graphics and there is no pack
-STR_ERROR_NO_HD_PACK                    :No HD art pack found. Make one from your own copy of the game with tools/hd_pack (see docs/HD.md). Staying with Classic graphics.
+STR_ERROR_NO_HD_PACK                    :No HD art pack found. Make one from your own copy of the game: Preferences, Graphics, Make HD graphics from my SimGolf files... (or tools/hd_pack, see docs/HD.md). Staying with Classic graphics.
 # Errors reading a saved game
 STR_ERROR_FILE_NOT_FOUND                :{FILE}: not found
 STR_ERROR_NOT_A_SAVED_GAME              :{FILE}: not a saved game
@@ -940,6 +940,7 @@ STR_TOUCH_SPEED                         :Speed
 STR_TOUCH_MESSAGE                       :Message
 # Enhanced graphics turned off at start because the last run stopped while they were starting (issue #55)
 STR_ENHANCED_RECOVERED                  :The graphics settings were put back to safe ones (Classic, no frame rate cap): the game stopped while starting last time. You can change them again in Preferences.
+STR_ENHANCED_SLOW_SCALER_SHARP          :The game was running slowly: Enhanced graphics' pixel-art scaler now uses its quicker Sharp filter.
 STR_ENHANCED_SLOW_SCALER                :The game was running slowly: Enhanced graphics' pixel-art scaler is now off.
 STR_ENHANCED_SLOW_MSAA                  :The game was running slowly: Enhanced graphics' multisampling is now off.
 STR_ENHANCED_SLOW_EFFECTS               :The game was running slowly: Enhanced graphics' heaviest effects are now off.
@@ -1408,6 +1409,7 @@ STR_EXTRAS_DESC_SET_PAR                 :Minus and plus buttons on Hole Stats ch
 STR_EXTRAS_DESC_SEASON_SPEED            :The calendar runs at half or a quarter speed while golfers, staff and bills keep their pace, so each year holds more golf.
 STR_EXTRAS_DESC_PAUSE_CALENDAR          :The date stands still: golfers keep coming and paying, but no month or year ends, so no interest and no board review.
 STR_EXTRAS_DESC_FREEZE_MOODS            :Golfers' moods never drop. Good moments still cheer them up, and nobody leaves unhappy.
+STR_EXTRAS_DESC_NO_WEEDS                :Dandelions stop spreading and unhappy golfers no longer start them, so the course stays clear without groundskeepers. The ones already there stay until pulled.
 STR_EXTRAS_DESC_UNLOCK_ALL              :Every building, home site and landmark of the theme is on the panels from the start, as in Sandbox Mode.
 STR_EXTRAS_DESC_LEFTIES                 :About one golfer in ten is left-handed: a mirrored swing, and the ball curves the other way. Your pro can be one too.
 STR_EXTRAS_DESC_WEATHER                 :Rain and snow slow the ball and keep some golfers at home; desert heat waves speed it up. Gentle over a year.
@@ -1441,6 +1443,7 @@ STR_EXTRAS_SPEED_QUARTER                :1/4x
 STR_EXTRAS_PAUSE_CALENDAR               : Sandbox: pause the calendar
 STR_EXTRAS_FREEZE_MOODS                 : Sandbox: freeze golfer happiness
 STR_EXTRAS_UNLOCK_ALL                   : Sandbox: unlock all buildings and landmarks
+STR_EXTRAS_NO_WEEDS                     : Sandbox: no new dandelions
 # Left-handed golfers (sg_core::extras): about one golfer in ten, and a tick for your pro on Customise Golfer
 STR_EXTRAS_LEFTIES                      : Left-handed golfers
 STR_SET_PAR_1                           :Change hole {HOLE} from par {OLD} to par {NEW}?
@@ -2370,6 +2373,8 @@ STR_SAVE_PACKS_SWITCHED                 :Switched to the saved game's content pa
 STR_SAVE_PACKS_RESTART_YOURSELF         :The save's content packs are chosen. Restart the game (in a browser: reload the page), then load the game again.
 # Shown at start up when the sounds of the player's SimGolf copy cannot be played (missing or in a coding the game cannot
 # read); {WHY} is the first problem found, in English
+STR_FILES_UNREADABLE_1                  :One of your SimGolf files could not be read ({FILE}), so part of the course may be missing. Copying the game's files again from your CD usually puts this right.
+STR_FILES_UNREADABLE                    :{N} of your SimGolf files could not be read (one is {FILE}), so parts of the course may be missing. Copying the game's files again from your CD usually puts this right.
 STR_SOUND_NO_DEVICE                     :No sound: the computer gave OpenSGolf no audio output. Check the volume and the output chosen in your system's sound settings, then start the game again. What the game saw is in sound.txt in {DIR}.
 STR_SOUND_CANNOT_PLAY                   :The sounds of your SimGolf copy could not be played ({WHY}). Playing the free OpenSGolf sounds instead.
 STR_SOUND_NONE_IN_COPY                  :Your SimGolf files have no sounds (their Sounds and SimsFX folders are empty: some downloaded copies leave them out). The free OpenSGolf sounds play instead; for the original sounds, use the SimGolf CD or its .iso, or a full installed copy.
@@ -2412,8 +2417,8 @@ STR_KEYS_WASD                           :Scroll, with the WASD camera on (Change
 STR_KEYS_HEAD_TIME                      :Time
 STR_KEYS_K_PAUSE                        :Shift+P
 STR_KEYS_PAUSE                          :Pause / go on
-STR_KEYS_K_SPEED                        :]
-STR_KEYS_SPEED                          :Game speed: normal, x2, x4
+STR_KEYS_K_SPEED                        :[ / ]
+STR_KEYS_SPEED                          :Game speed slower / faster (normal, x2, x4)
 STR_KEYS_HEAD_BUILD                     :Building the course
 STR_KEYS_K_GREEN                        :g
 STR_KEYS_GREEN                          :Green tool; again: tee tool
@@ -2565,7 +2570,8 @@ STR_CTL_TURN_BACK                       :Turn back / clubhouse
 STR_CTL_PHOTO_MODE                      :Photo mode
 STR_CTL_HIDE_INTERFACE                  :Hide the interface
 STR_CTL_PAUSE                           :Pause
-STR_CTL_SPEED                           :Game speed
+STR_CTL_SLOWER                          :Game speed: slower
+STR_CTL_SPEED                           :Game speed: faster
 STR_CTL_GREEN                           :Green / tee tool
 STR_CTL_FAIRWAY                         :Fairway tool
 STR_CTL_ROUGH                           :Rough tool
@@ -3349,7 +3355,7 @@ STR_TOUCH_CENTRE                        :Centre on my pro
 STR_TOUCH_LOOK_HINT                     :Drag the course to look round, drag the target to aim. Two fingers move the view.
 STR_SELFCHECK_FOUND                     :OpenSGolf found a problem with a saved game and kept a report. Preferences > More > Report a problem can send it.
 
-# The desert's Ravine and Brush art (OpenSGolf extras, extras.rs desert_art, issue #89)
+# The desert's Ravine and Brush art (OpenSGolf extras, extras.rs desert_art, issue #89; retired in 0.6, shown nowhere)
 STR_EXTRAS_DESERT_ART                   : Fix the desert's swapped Ravine and Brush art
 STR_EXTRAS_DESC_DESERT_ART              :The original desert shows the Ravine as dry weeds and the Brush as a crack, on the course and on their buttons. This trades the two pictures; play is unchanged.
 
@@ -3396,3 +3402,47 @@ STR_PREFS_DESC_SUPPORT                  :Opens OpenSGolf's Buy Me a Coffee page 
 STR_PLAYCOUNT_NOTICE                    :OpenSGolf counts anonymous play time (no personal data). Turn it off in Preferences > More.
 STR_MENU_PREFS_PLAYCOUNT                : Count my play time (anonymous)
 STR_PREFS_DESC_PLAYCOUNT                :One count per 15 minutes played and one at start: only system and version, no names or saves. Offline counts are sent later.
+
+# Making HD graphics from the player's own files (the port's own, hd_make.rs; docs/HD.md)
+STR_PREFS_MAKE_HD                       : Make HD graphics from my SimGolf files (beta)...
+STR_PREFS_MAKE_HD_AGAIN                 : Make HD graphics again (beta)...
+STR_PREFS_MAKE_HD_RESUME                : Finish making HD graphics...
+STR_PREFS_MAKE_HD_RUNNING               : Making HD graphics: {PCT}% (show)
+STR_PREFS_REMOVE_HD                     : Remove HD graphics...
+STR_PREFS_DESC_REMOVE_HD                :Back to Classic graphics, and the HD pack deleted to free its space. You can make it again.
+STR_HD_REMOVE_ASK                       :Remove the HD graphics? The game goes back to Classic graphics and the HD pack is deleted from this device, freeing {SIZE}. You can make it again at any time.
+STR_HD_REMOVE_ASK_PLAIN                 :Remove the HD graphics? The game goes back to Classic graphics and the HD pack is deleted from this browser. You can make it again at any time.
+STR_HD_REMOVE_OK                        :Remove them
+STR_HD_REMOVED                          :The HD graphics are removed and the game is back to Classic graphics.
+STR_PREFS_DESC_MAKE_HD                  :Beta: an AI upscaler in the game redraws the art from your files, on this device, then turns HD on.
+STR_HD_MAKE_ASK                         :Make HD graphics (beta)? An AI upscaler built into the game redraws its {PICTURES} pictures from your own SimGolf files, on this device: about {SIZE} and {TIME} here. HD switches itself on when it is done, with no restart. You can play on meanwhile, stop at any time and carry on later. The pack is made from EA's art: keep it to yourself, do not share it.
+STR_HD_MAKE_ASK_BROWSER                 :Make HD graphics (beta)? An AI upscaler built into the game redraws its {PICTURES} pictures twice their size from your own SimGolf files, here in this browser, which keeps them with your game files: about {SIZE} and {TIME} here. You can play on meanwhile (more slowly), stop at any time and carry on later. Keep the pack to yourself.
+STR_HD_MAKE_AGAIN_NOTE                  :You have an HD pack already: making it again replaces it.
+STR_HD_MAKE_BIG                         :Make it (4 times the size: {SIZE}, {TIME})
+STR_HD_MAKE_SMALL                       :Make a smaller one (twice the size: {SIZE}, {TIME})
+STR_HD_MAKE_X2                          :Make it (twice the size: {SIZE}, {TIME})
+STR_HD_MAKE_ASK_RESUME                  :Making HD graphics was stopped before it was done. Carry on where it stopped?
+STR_HD_MAKE_RESUME                      :Carry on
+STR_HD_MAKE_RESTART                     :Start again
+STR_HD_MAKE_MINUTE                      :about a minute
+STR_HD_MAKE_MINUTES                     :about {N} minutes
+STR_HD_MAKE_LEFT_UNKNOWN                :working out how long
+STR_HD_MAKE_PROGRESS                    :Making HD graphics from your SimGolf files: {PCT}% done ({PICTURES} pictures), {LEFT} to go. HD switches itself on when it is done: there is nothing else to do.
+STR_HD_MAKE_STOP                        :Stop (carry on later)
+STR_HD_MAKE_HIDE                        :Keep playing (the top of the screen shows how far it is)
+STR_HD_MAKE_BADGE                       :HD graphics (beta): {PCT}%, {LEFT} to go
+STR_HD_MAKE_STOPPED                     :Stopped making HD graphics. Preferences, Graphics carries on where it stopped.
+STR_HD_MAKE_DONE                        :HD graphics are on now, with no restart needed, and stay on next time. Preferences, Graphics switches them off or removes them.
+STR_HD_MAKE_FAILED                      :Making HD graphics stopped: {ERR}
+STR_HD_MAKE_WRITE_FAILED                :{FILE} could not be written (is the disk full?)
+
+# Mouse aim and swing (OpenSGolf extras, extras.rs mouse_swing; touch.rs)
+STR_EXTRAS_MOUSE_SWING                  : Controls: aim and swing with the mouse as by touch
+STR_EXTRAS_DESC_MOUSE_SWING             :Aim your pro as on a touch screen: a click sets the target, a drag moves it or looks round, the round Swing button shoots.
+STR_MOUSE_SWING_HINT                    :Click to set the target, drag it to aim, drag the course to look round. Then click Swing.
+# Right click puts the tool away (OpenSGolf extras, extras.rs right_drop; main.rs right_click)
+STR_EXTRAS_RIGHT_DROP                   : Controls: right click puts the tool away
+STR_EXTRAS_DESC_RIGHT_DROP              :A right click (B on a controller) drops the brush or tool in hand, as Space does, instead of the original's undo.
+# The interface at the screen's edges (OpenSGolf extras, extras.rs wide_ui; enhanced.rs widescreen)
+STR_EXTRAS_WIDE_UI                      : Interface at the screen's edges
+STR_EXTRAS_DESC_WIDE_UI                 :On a wide screen the dock, panels and money sit at the screen's edges (on by default; off keeps them in the 4:3 middle).

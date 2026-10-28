@@ -17,6 +17,7 @@
 #[cfg(target_os = "android")]
 mod android;
 mod app;
+mod atlas;
 mod audio;
 #[cfg(target_os = "macos")]
 mod autorelease;
@@ -64,6 +65,7 @@ mod gfx;
 mod glass_ui;
 mod graphs;
 mod hd;
+mod hd_make;
 mod history_ui;
 mod holemarks;
 mod homes_ui;
@@ -164,6 +166,15 @@ struct Options {
     /// --hd / --classic: the graphics mode for this run (else the saved choice).
     hd: Option<bool>,
     hd_pack: Option<PathBuf>,
+    /// --make-hd: make the HD pack from the game folder and exit (hd_make.rs), with --hd-scale N, --hd-method
+    /// xbrz|realesrgan, --hd-only TEXT (sources whose path holds it), --hd-step (the browser's way, a step at a time) and
+    /// --hd-resume (keep what an earlier run made).
+    make_hd: bool,
+    hd_scale: u32,
+    hd_method: Option<String>,
+    hd_only: Option<String>,
+    hd_step: bool,
+    hd_resume: bool,
     fx: bool,
     fx_set: Option<String>,
     /// --enhanced / --classic-render: Enhanced graphics on or off for this run (else the saved choice; enhanced.rs).
@@ -196,6 +207,7 @@ const RIGHT_DRAG_SLOP: f32 = 5.0;
 const USAGE: &str = "usage: opensgolf [--game DIR] [--theme T] [--seed N] [--size WxH] [--zoom Z] [--rot DEG] [--center TX,TY] [--png FILE] \
 [--time S] [--follow] [--golfer NAME] [--sandbox] [--course-size N] [--cash N] [--difficulty 0-3] [--screen menu|property|play|report] [--course FILE] [--save FILE] \
 [--edit SPEC] [--panel N] [--mute] [--sound-log] [--clock MS] [--property N|NAME] [--hd | --classic] [--hd-pack DIR] \
+[--make-hd [--hd-scale 2|4] [--hd-method xbrz|realesrgan] [--hd-only TEXT] [--hd-step] [--hd-resume]] \
 [--enhanced | --classic-render] [--no-extras] [--fullscreen] [--fx] [--fx-set LIST] \
 [--lang CODE] [--lang-file FILE] [--base original|opensgolf-free|ID] [--scenario ID] \
 [--editor] [--edit-scenario ID] [--editor-set SPEC] [--heightmap FILE] [--save-scenario ID]";
@@ -250,6 +262,12 @@ fn parse_args() -> Options {
         property: None,
         hd: None,
         hd_pack: None,
+        make_hd: false,
+        hd_scale: 4,
+        hd_method: None,
+        hd_only: None,
+        hd_step: false,
+        hd_resume: false,
         fx: false,
         fx_set: None,
         enhanced: None,
@@ -318,6 +336,12 @@ fn parse_args() -> Options {
             "--hd" => o.hd = Some(true),
             "--classic" => o.hd = Some(false),
             "--hd-pack" => o.hd_pack = Some(PathBuf::from(next())),
+            "--make-hd" => o.make_hd = true,
+            "--hd-scale" => o.hd_scale = next().parse().ok().filter(|s| sg_core::xbrz::FACTORS.contains(s)).unwrap_or(4),
+            "--hd-method" => o.hd_method = Some(next()),
+            "--hd-only" => o.hd_only = Some(next()),
+            "--hd-step" => o.hd_step = true,
+            "--hd-resume" => o.hd_resume = true,
             "--fx" => o.fx = true,
             "--fx-set" => o.fx_set = Some(next()),
             "--fx-list" => {
@@ -695,6 +719,10 @@ fn open_screen(app: &mut App, screen: Option<&str>) {
                 }
             }
         }
+        // Preferences > Graphics > Make HD graphics from my SimGolf files...: its question (hd_make.rs)
+        Some("hd-make") if app.ui_ok => app.hd_make_open(),
+        // Remove HD graphics...: its question (hd_make.rs)
+        Some("hd-remove") if app.ui_ok => app.hd_remove_ask(),
         Some(s) if app.ui_ok => {
             app.test_title_screen(s, true);
         }
@@ -1566,6 +1594,11 @@ impl Stage {
         if let Some(msg) = hd_msg {
             app.show_toast(&msg);
         }
+        // "Make HD graphics" left unfinished when the game was closed carries on in the background (hd_make.rs; not in
+        // scripted stills)
+        if o.png_out.is_none() {
+            app.hd_make_carry_on();
+        }
         if let Some(msg) = app.content.notice.take() {
             app.show_toast(&msg);
         }
@@ -1936,6 +1969,14 @@ impl Stage {
                 self.app.open_support_page();
                 self.app.open_popup(from);
             }
+            Line::MakeHd => {
+                self.app.prefs_stack.clear();
+                self.app.hd_make_open();
+            }
+            Line::RemoveHd => {
+                self.app.prefs_stack.clear();
+                self.app.hd_remove_ask();
+            }
             _ => {}
         }
     }
@@ -1987,6 +2028,11 @@ impl Stage {
     /// away; otherwise it is the undo's: the first right click on a tile names what an undo there would do, the second
     /// undoes it (App::right_click_undo). A terrain brush and the Undo button's undo mode stay in hand.
     fn right_click(&mut self, x: f32, y: f32) {
+        // Right click puts the tool away (OpenSGolf extras): any tool in hand is put down, as Space puts it down
+        if extras::right_drop() && self.app.edit {
+            self.app.edit = false;
+            return;
+        }
         let hit = self.app.pick_ground(x, y);
         let app = &mut self.app;
         if app.edit && app.tool == 1 {
@@ -2021,6 +2067,8 @@ impl Stage {
     pub(crate) fn pointer_preview(&mut self) {
         let app = &mut self.app;
         let what = app.touch_target_for();
+        // Mouse aim and swing (OpenSGolf extras): the mouse sets the shot's target as a finger does
+        app.touch_target.mouse = extras::mouse_swing();
         app.touch_target.sync(what);
         let touch_hit = app.touch_target.active(what).then_some(app.touch_target.target);
         if app.screen == Screen::Play {
@@ -2490,20 +2538,10 @@ impl Stage {
                 app.card = None;
                 app.xs.follow = None;
             }
-            // the port's own game speed (the original has none): ] cycles normal, x2 and x4
-            KeyCode::RightBracket => {
-                app.speed = match app.speed {
-                    1 => 2,
-                    2 => 4,
-                    _ => 1,
-                };
-                let name = match app.speed {
-                    1 => tr("STR_TOAST_SPEED_NORMAL"),
-                    2 => tr("STR_TOAST_SPEED_FAST"),
-                    _ => tr("STR_TOAST_SPEED_FASTEST"),
-                };
-                app.show_toast(name);
-            }
+            // the port's own game speed (the original has none): ] faster, [ slower, each stopping at x4 and normal (#119;
+            // a controller's Y and the touch button, a single button, cycle: App::cycle_speed)
+            KeyCode::RightBracket => app.step_speed(true),
+            KeyCode::LeftBracket => app.step_speed(false),
             // Tab turns the next building; with the elevation tool it also steps the brush (one point, 2x2, area)
             // the Rotate extra's Tab (extras_ui.rs) comes first; nothing when it is off
             KeyCode::Tab if app.extras_tab() => {}
@@ -2617,6 +2655,7 @@ impl Stage {
         // land outside the property (type 20) is not drawn, so it shows black
         let clear = PassAction::clear_color(0.0, 0.0, 0.0, 1.0);
         self.g.ctx.begin_pass(target, clear);
+        self.g.atlas_frame();
         enhanced::begin_frame();
         // OpenSGolf extras: People > Follow keeps the camera on its target (extras.rs)
         app.follow_tick();
@@ -2777,6 +2816,8 @@ impl Stage {
         }
         // the OpenSGolf extras' tab strip over the F1 to F10 reports (report_tabs.rs)
         self.app.draw_report_tabs(&mut self.g);
+        // a run of "Make HD graphics" going on with its box closed: its corner note (hd_make.rs)
+        self.app.draw_hd_badge(&mut self.g);
         self.app.draw_notice(&mut self.g);
         // pixel-perfect scaling's border round the picture (ui.rs; nothing when it is off), under the touch layer
         if self.app.photo.is_none() {
@@ -3057,6 +3098,22 @@ impl EventHandler for Stage {
         self.app.extras_test_hook();
         // "Use my SimGolf files...": a .zip being unpacked or a folder being copied (gamefiles.rs)
         self.app.poll_import();
+        // "Make HD graphics from my SimGolf files..." under way, and HD switched on once the pack is made (hd_make.rs)
+        // Remove HD graphics' OK: Classic again, then the pack deleted (hd_make.rs)
+        if std::mem::take(&mut self.app.hd.remove_pending) {
+            if self.app.switch_hd(&mut self.g, false) {
+                self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
+            }
+            self.app.hd_remove();
+        }
+        if self.app.poll_hd_make() {
+            if self.app.hd.enabled {
+                self.app.switch_hd(&mut self.g, false);
+            }
+            if self.app.switch_hd(&mut self.g, true) {
+                self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
+            }
+        }
         // "Check for updates": the answer from GitHub (update.rs), and "Update now" under way (autoupdate.rs)
         self.app.poll_update_check();
         #[cfg(all(not(target_arch = "wasm32"), feature = "net"))]
@@ -3087,10 +3144,6 @@ impl EventHandler for Stage {
         app.screen_audio();
         self.pointer_preview();
         let app = &mut self.app;
-        // the desert's Ravine and Brush art (OpenSGolf extras) ticked or unticked, from whichever box: the ground redrawn
-        if app.desert_art_built != app.desert_art() {
-            app.dirty = true;
-        }
         if app.dirty {
             let t0 = now();
             app.rebuild_batches(&mut self.g);
@@ -3140,6 +3193,13 @@ impl EventHandler for Stage {
     fn draw(&mut self) {
         glass_ui::set_active(self.app.on_free_set());
         enhanced::trial_frame(self.app.clock);
+        // art files of the player's copy that could not be read (app.rs take_unreadable_note)
+        if let Some((msg, boxed)) = self.app.take_unreadable_note() {
+            self.app.show_toast(&msg);
+            if boxed && self.png_out.is_none() {
+                self.app.show_notice(&msg);
+            }
+        }
         // too slow for the Enhanced options in use: the costliest go, a step at a time (enhanced.rs, issue #55)
         if self.png_out.is_none() {
             if let Some((s, what)) = enhanced::guard_frame(self.app.clock) {
@@ -3247,11 +3307,15 @@ impl EventHandler for Stage {
         sysdiag::event(sysdiag::Ev::Mouse);
         self.gamepad_mouse_moved(x, y);
         let (dx, dy) = (x - self.mouse.0, y - self.mouse.1);
-        // a mouse (not a finger) moved: hovering previews again (touch.rs)
-        if !self.by_finger() && dx * dx + dy * dy >= 16.0 {
+        // a mouse (not a finger) moved: hovering previews again (touch.rs), but for the shot's target with Mouse aim and swing
+        // (OpenSGolf extras), which the mouse sets as a finger does
+        let mouse_aims = self.app.touch_target.mouse && self.app.touch_target_for() == Some(crate::touch::TargetFor::Aim);
+        if !self.by_finger() && dx * dx + dy * dy >= 16.0 && !mouse_aims {
             self.app.touch_target.pointer_moved();
         }
         self.mouse = (x, y);
+        // a left press Mouse aim and swing took: the target follows, or the view pans (touch.rs)
+        self.mouse_swing_move(x, y);
         if self.app.photo.is_some() {
             self.photo_motion(x, y, dx, dy);
             return;
@@ -3391,6 +3455,13 @@ impl EventHandler for Stage {
             self.app.notice_pointer(vx, vy, button == MouseButton::Left);
             return;
         }
+        // the corner note of a run of "Make HD graphics" brings its box back (hd_make.rs)
+        if button == MouseButton::Left {
+            let (vx, vy) = self.app.view.to_virtual(x, y);
+            if self.app.hd_badge_click(vx, vy) {
+                return;
+            }
+        }
         if self.app.photo.is_some() {
             self.photo_button(true, button, x, y);
             return;
@@ -3529,6 +3600,10 @@ impl EventHandler for Stage {
         if button != MouseButton::Left && button != MouseButton::Right {
             return;
         }
+        // Mouse aim and swing (OpenSGolf extras): its Swing and Centre buttons take a left press first, as for a finger
+        if button == MouseButton::Left && self.mouse_swing_down(x, y, false) {
+            return;
+        }
         let (vx, vy) = self.app.view.to_virtual(x, y);
         // the interface hidden (u): a click goes to the course
         let ui_ok = self.app.ui_ok && !self.app.hud_hidden();
@@ -3584,6 +3659,11 @@ impl EventHandler for Stage {
         {
             return;
         }
+        // with Mouse aim and swing (OpenSGolf extras) a left press on the course while the pro waits is a finger's: a click
+        // sets the target, a drag moves it or looks round, and the Swing button shoots (touch.rs)
+        if button == MouseButton::Left && self.mouse_swing_down(x, y, true) {
+            return;
+        }
         // a finger's tap with the pro waiting or a building in hand sets the touch target instead (touch.rs): the Swing or
         // Place button then acts on it
         if button == MouseButton::Left && self.app.touch_target_for().is_some() && self.target_tap(x, y) {
@@ -3628,6 +3708,10 @@ impl EventHandler for Stage {
     fn mouse_button_up_event(&mut self, button: MouseButton, x: f32, y: f32) {
         let button = if button == MouseButton::Left && std::mem::take(&mut self.ctrl_click) { MouseButton::Right } else { button };
         if std::mem::take(&mut self.showcase_up) {
+            return;
+        }
+        // the release of a left press Mouse aim and swing took (touch.rs)
+        if button == MouseButton::Left && self.mouse_swing_up(x, y) {
             return;
         }
         if self.app.photo.is_some() {
@@ -3971,6 +4055,38 @@ fn attach_console() {
     }
 }
 
+/// The --make-hd test hook (hd_make.rs).
+#[cfg(not(target_arch = "wasm32"))]
+fn make_hd_cli(o: &Options) -> i32 {
+    let method = match o.hd_method.as_deref() {
+        None | Some("ai") => hd_make::Method::Ai,
+        Some("xbrz") => hd_make::Method::Xbrz,
+        #[cfg(not(target_os = "android"))]
+        Some("realesrgan") => match hd_make::esrgan::find() {
+            Some(exe) => hd_make::Method::Esrgan(exe),
+            None => {
+                eprintln!("realesrgan-ncnn-vulkan not found on PATH or next to the game");
+                return 1;
+            }
+        },
+        Some(m) => {
+            eprintln!("--hd-method {m}: ai, xbrz or realesrgan");
+            return 1;
+        }
+    };
+    let spec = hd_make::Spec {
+        game: o.game_dir.clone(),
+        out: o.hd_pack.clone().unwrap_or_else(|| app::save_dir().join("HD")),
+        scale: o.hd_scale,
+        method,
+        resume: o.hd_resume,
+        only: o.hd_only.clone(),
+        first: None,
+        threads: std::thread::available_parallelism().map_or(1, |n| n.get()),
+    };
+    hd_make::cli(spec, o.hd_step)
+}
+
 fn main() {
     #[cfg(windows)]
     attach_console();
@@ -3979,6 +4095,10 @@ fn main() {
     #[cfg(target_os = "android")]
     android::init();
     let mut o = parse_args();
+    #[cfg(not(target_arch = "wasm32"))]
+    if o.make_hd {
+        std::process::exit(make_hd_cli(&o));
+    }
     // the text's language first: the window's title is already text
     match &o.lang_file {
         Some(f) => _ = language::apply_file(f),

@@ -45,6 +45,8 @@ click away.
 The quickest way to play is in the browser: [crspytopgn.github.io/opensgolf](https://crspytopgn.github.io/opensgolf/).
 Nothing needs installing.
 
+**What's new:** every version's big features are in [CHANGELOG.md](CHANGELOG.md).
+
 Downloads for every system ([all releases](https://github.com/crspytopgn/opensgolf/releases)):
 
 | System | Download | Notes |
@@ -119,7 +121,7 @@ helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a fe
   balls roll and who comes out to play), more visitors (touring pros and invented celebrities, moddable through
   data/visitors.toml), the calendar at half or quarter speed or stopped, sandbox switches (freeze golfer happiness, unlock
   everything), and, experimental, cut content restored as decorative landmarks), looks (turning buildings, path styles
-  and lamp posts, random trees, the desert's Ravine and Brush art the right way round), a search over every
+  and lamp posts, random trees), a search over every
   Preferences option with a reset to the original, and interface extras such as a People screen, message history,
   autosave (the last three kept), a map of each saved course, pausing in the background or on big news, and course
   sharing: copy a course code, a friend pastes it and tries to beat your course record.
@@ -145,10 +147,10 @@ helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a fe
   the right button (a right click stays the original's undo).
 - **Drag to place** (interface extra): drag to lay a row of benches, flower beds, ball washers, willows or bridges, with
   the row and its cost shown before you let go; and *Original* and *Modern* control presets on the Change keys screen.
+- **Mouse aim and swing** (interface extra): aim your pro with the mouse as on a touch screen: a click sets the
+  target, a drag moves it or looks round the hole, and the round Swing button takes the shot.
 - **Random trees** (interface extra): every tree planted takes a random size and species of its kind, and every scenic
   tree a random one of the seven.
-- **The desert's Ravine and Brush art** (interface extra, issue #89): the original's desert draws the Ravine as dry weeds
-  and the Brush as a crack, on the course and on their buttons; this trades the two pictures, play unchanged.
 - **Updates from the title menu:** *Check for updates*, then *Update now* downloads the new version, checks its signature
   and installs it in place (Windows, macOS, Linux, Android); on Windows and with the Linux .tar.gz it downloads only the
   programs and the pack files that changed. A Preferences tick (Preferences → More) checks once at each start. Only GitHub is contacted, and
@@ -206,7 +208,13 @@ the original manual and footage of the game, and nothing here removes or bypasse
 OpenSGolf is free software under the **GNU General Public License, version 2 or (at your option) any later version**
 (GPL-2.0-or-later), the same licence as OpenTTD: see [LICENSE](LICENSE). Anyone may use, change and share it, and changed
 versions must stay open under the same terms. The bundled Liberation Sans font is under the SIL Open Font License. Content
-packs (mods) choose their own licence; the free base set is GPL-2.0-or-later too.
+packs (mods) choose their own licence; the free base set is GPL-2.0-or-later too. The built-in HD maker's pixel-art
+upscaler (`crates/sg-core/src/xbrz.rs`) was written for OpenSGolf to the rules and constants of the xBRZ algorithm by Zenju
+(xBRZ 1.8, <https://sourceforge.net/projects/xbrz/>, GPL-3.0, itself based on Hyllian's xBR); GPL-3.0 is among the
+versions OpenSGolf's licence allows. Its AI upscaler (`crates/sg-core/src/aiscale.rs`) runs Real-ESRGAN's
+realesr-general-wdn-x4v3 model by Xintao Wang, whose weights are bundled (`crates/sg-core/data/`) under the BSD 3-Clause
+licence ([crates/sg-core/data/LICENSE-Real-ESRGAN.txt](crates/sg-core/data/LICENSE-Real-ESRGAN.txt)), which is compatible
+with the GPL.
 
 ## Supporting the project
 
@@ -302,10 +310,14 @@ GitHub Pages.
 and **Classic stays the default and byte-identical** with it off. Turn it on in System Functions → Preferences → Graphics, or with
 `--enhanced` / `--classic-render` (`--fx` for just the effects). See [docs/ENHANCED.md](docs/ENHANCED.md).
 
-An opt-in **HD mode** draws the game's art upscaled ×4 (or ×2) with an AI upscaler such as Real-ESRGAN. The upscaled art is a
-derivative of EA's art, so you make the pack yourself from your own copy with `tools/hd_pack/hd_pack.py`. It is never
-shipped, downloaded from this project, or to be shared. Turn it on in Preferences → Graphics (*HD graphics*), with `--hd` / `--classic`,
-or `--hd-pack DIR`. See [docs/HD.md](docs/HD.md).
+An opt-in **HD mode** (beta) draws the game's art upscaled ×4 (or ×2). Making it is one click: Preferences → Graphics →
+*Make HD graphics from my SimGolf files (beta)...* redraws your own copy's art on your computer or phone with an AI upscaler
+built into the game (no graphics card or download needed; the box says how long it takes on your device, often 10 to 30
+minutes, in the background while you play), then turns HD on by itself. *Remove HD graphics...* switches back and frees
+the space. Not in browsers yet. The upscaled art is a
+derivative of EA's art, so it is always made by you from your own copy (in the game, or with `tools/hd_pack/hd_pack.py`);
+it is never shipped, downloaded from this project, or to be shared. Switch it in Preferences → Graphics (*HD graphics*),
+with `--hd` / `--classic`, or `--hd-pack DIR`. See [docs/HD.md](docs/HD.md).
 
 ### How it was made
 

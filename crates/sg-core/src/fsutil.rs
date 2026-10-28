@@ -168,6 +168,29 @@ pub fn read_raw(path: impl AsRef<Path>) -> Option<Vec<u8>> {
     imp::read(path.as_ref())
 }
 
+/// The first `n` bytes of a file as it is on disk (or in the browser's store), never through the content packs.
+pub fn read_head_raw(path: impl AsRef<Path>, n: usize) -> Option<Vec<u8>> {
+    let p = path.as_ref();
+    #[cfg(not(target_arch = "wasm32"))]
+    let d = imp::read_head(p, n);
+    #[cfg(target_arch = "wasm32")]
+    let d = imp::read(p);
+    d.map(|mut d| {
+        d.truncate(n);
+        d
+    })
+}
+
+/// The entries of a directory on disk (or in the browser's store), unsorted, without what content packs add.
+pub fn list_raw(path: impl AsRef<Path>) -> Vec<PathBuf> {
+    imp::list(path.as_ref())
+}
+
+/// True for a folder on disk (or in the browser's store), not one a content pack makes.
+pub fn is_dir_raw(path: impl AsRef<Path>) -> bool {
+    imp::is_dir(path.as_ref())
+}
+
 pub fn read_text(path: impl AsRef<Path>) -> Option<String> {
     read_file(path).map(|d| String::from_utf8_lossy(&d).into_owned())
 }

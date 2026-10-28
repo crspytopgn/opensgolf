@@ -333,12 +333,40 @@ pub const T_HOME_SITE: u8 = 21;
 pub const T_BUILDING: u8 = 22;
 
 /// Border class of a tile type as the exe hands it to Terrain.dll, with the Desert override.
+///
+/// The exe builds the classes it hands over (0x449400, run after the theme is loaded) from the runtime terrain table: byte
+/// +0x26 of each type, except that in the Desert every type with a positive byte +0x22 is sent as class 4, deep rough and
+/// sand trap excepted. The Desert's theme loader (0x43dbe0) has already set deep rough's class byte to 5 (it writes 5 to
+/// 0x578466, record 5 +0x26), so there deep rough, which the Desert draws as its green "Rough", is a class of its own:
+/// next to the sandy desert ground, the out-of-bounds land at the map's edge, buildings and landmarks (all class 4 there)
+/// it draws the darker grass collar, as the original does, rather than the same-class pieces that show sand round their
+/// edges (issue #118). The other themes keep deep rough in class 4 with the rough.
 pub fn border_class(ty: u8, desert: bool) -> u8 {
     let Some(t) = crate::data::get().land_types.get(ty as usize) else { return ty };
-    if desert && t.desert_group > 0 && ty != 5 && ty != 7 {
+    if desert && ty == T_DEEP_ROUGH {
+        5
+    } else if desert && t.desert_group > 0 && ty != 7 {
         4
     } else {
         t.class
+    }
+}
+
+/// A terrain type's class as the game's own rules read it (golfer thoughts, spectators, stories, weeds): the type table's,
+/// but for the desert's deep rough, 5 instead of 4. The exe's theme loader (0x43dbe0) writes that 5 into the table itself
+/// (0x578466: the class byte of type 5 in the 0x30-byte rows at 0x578376, the table the game's rules read, e.g. the water
+/// test at 0x578376 + type * 0x30 == 0x11), so on a desert course deep rough is no class-4 ground for any of them (#118;
+/// the drawing's border classes follow it in [`border_class`]).
+pub fn class(ty: u8) -> u8 {
+    class_in(ty, NAME_THEME.load(std::sync::atomic::Ordering::Relaxed))
+}
+
+/// [`class`] in the exe's theme `theme` (1 is the desert).
+pub fn class_in(ty: u8, theme: u8) -> u8 {
+    if ty == T_DEEP_ROUGH && theme == 1 {
+        5
+    } else {
+        crate::data::get().land_types.get(ty as usize).map_or(0, |r| r.class)
     }
 }
 
@@ -378,6 +406,23 @@ pub fn building_name_in(kind: i32, exe_theme: u8) -> &'static str {
 /// The name of a building or object kind (the data tables' `BUILDINGS`) in the loaded theme, "" for an unknown kind.
 pub fn building_name(kind: i32) -> &'static str {
     building_name_in(kind, NAME_THEME.load(std::sync::atomic::Ordering::Relaxed))
+}
+
+/// A terrain type's name from the terrain table (crate::course::type_name) in the loaded theme: the theme loader renames some
+/// of the table's records (crate::tracts::theme_names: the desert's rough is its desert, its deep rough its rough, its
+/// wetlands a canyon...), so every screen that names a terrain type from the table (the undo's label, issue #116) shows the
+/// theme's name. "" for an unknown type.
+pub fn terrain_name(ty: i32) -> &'static str {
+    terrain_name_in(ty, NAME_THEME.load(std::sync::atomic::Ordering::Relaxed))
+}
+
+/// A terrain type's name in a theme (the exe's theme number; `NO_THEME` for the table's own names), "" for an unknown type.
+pub fn terrain_name_in(ty: i32, theme: u8) -> &'static str {
+    u8::try_from(ty)
+        .ok()
+        .filter(|_| theme <= 3)
+        .and_then(|t| crate::tracts::theme_names(t, theme))
+        .map_or_else(|| crate::course::type_name(ty), |(one, _)| one)
 }
 
 /// Buildings and objects: (name key, footprint edge in tiles, price in money units), by the exe's object kind.
@@ -1841,6 +1886,38 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_deserts_deep_rough_is_no_class_4_ground_for_the_rules() {
+        // the exe's theme loader writes 5 over deep rough's class on the desert only (0x578466)
+        assert_eq!(class_in(T_DEEP_ROUGH, 1), 5);
+        for theme in [0, 2, 3, NO_THEME] {
+            assert_eq!(class_in(T_DEEP_ROUGH, theme), 4, "theme {theme}");
+        }
+        // every other type keeps its table class in the desert
+        for ty in 0..23u8 {
+            if ty != T_DEEP_ROUGH {
+                assert_eq!(class_in(ty, 1), class_in(ty, 0), "type {ty}");
+            }
+        }
+    }
+
+    #[test]
+    fn desert_deep_rough_borders_as_a_class_of_its_own() {
+        // the Desert: deep rough (its green "Rough") is class 5, so it shows the grass collar against the desert ground, the
+        // map's edge and buildings (issue #118)
+        assert_eq!(border_class(T_DEEP_ROUGH, true), 5);
+        for ty in [T_ROUGH, T_OUT, T_HOME_SITE, T_BUILDING, T_BRUSH] {
+            assert_eq!(border_class(ty, true), 4, "type {ty}");
+        }
+        assert_eq!(border_class(7, true), 7);
+        assert_eq!(border_class(T_GREEN, true), 1);
+        // the other themes: the table's own classes
+        assert_eq!(border_class(T_DEEP_ROUGH, false), 4);
+        assert_eq!(border_class(T_ROUGH, false), 4);
+        assert_eq!(border_class(T_BUILDING, false), 18);
+        assert_eq!(border_class(T_OUT, false), 18);
+    }
+
+    #[test]
     fn rng_matches_the_exe_formula() {
         let mut r = ExeRng { state: 1 };
         // state = 1 * 1103515245 + 12345 = 1103527590; bits 16..30 = 16838; 16838 / 32768 * 100 = 51.38
@@ -2103,7 +2180,7 @@ impl Land {
             return (s.into(), true);
         }
         if code < 0x7d {
-            return (trf("STR_UNDO_RESET_TO", &[("TERRAIN", &crate::course::type_name(code as i32))]), true);
+            return (trf("STR_UNDO_RESET_TO", &[("TERRAIN", &terrain_name(code as i32))]), true);
         }
         let s = if f & 0x200 != 0 {
             tr("STR_UNDO_REMOVE_BENCH")
@@ -2323,6 +2400,22 @@ mod building_name_tests {
             assert_eq!(building_name_in(13, t), "Resort Hotel");
             assert_eq!(building_name_in(-1, t), "");
             assert_eq!(building_name_in(99, t), "");
+        }
+    }
+
+    /// Issue #116: the undo's "Reset to" names the terrain as the theme does (the desert's canyon, desert and rough, not
+    /// wetlands, rough and deep rough), and with no theme loaded the table's names stand.
+    #[test]
+    fn terrain_names_follow_the_theme() {
+        let names = |t: u8| [4, 5, 10, 11, 18].map(|ty| terrain_name_in(ty, t));
+        assert_eq!(names(1), ["desert", "rough", "brush", "ravine", "canyon"]);
+        assert_eq!(names(0), ["rough", "deep rough", "stream", "brush", "wetlands"]);
+        assert_eq!(names(3), ["rough", "deep rough", "burn", "gorse", "wetlands"]);
+        assert_eq!(names(NO_THEME), ["rough", "deep rough", "ravine", "brush", "wetlands"]);
+        for t in [0, 1, 2, 3, NO_THEME] {
+            assert_eq!(terrain_name_in(9, t), "pot bunker");
+            assert_eq!(terrain_name_in(-1, t), "");
+            assert_eq!(terrain_name_in(300, t), "");
         }
     }
 }

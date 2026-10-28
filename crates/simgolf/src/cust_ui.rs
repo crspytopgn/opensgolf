@@ -774,7 +774,7 @@ impl App {
                     (fr.w as f32, fr.h as f32, sp.anchor_x as f32, sp.anchor_y as f32)
                 };
                 let n = self.sprites[si].s.frames_per_view.max(1);
-                if let Some(tex) = self.outfit_texture(g, si, view, 5 % n, o) {
+                if let Some(tex) = self.outfit_texture_whole(g, si, view, 5 % n, o) {
                     s.image(g, &Image { tex: Some(tex), w, h }, x - ax, 239.0 - ay);
                 }
             }

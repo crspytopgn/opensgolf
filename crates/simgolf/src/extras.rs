@@ -54,11 +54,25 @@
 //!   this save...*, for moving games between devices (issue #49). Up to 0.4.9 they came with Course sharing, so ticks
 //!   saved before it follow that tick.
 //!
-//! * the desert's Ravine and Brush art (app.rs `ground_tex`, panels_ui.rs `terrain_cell`, issue #89): in the desert theme
-//!   the original draws the Ravine (tile 10) with the dry weeds of its Overgrowth textures and the Brush (tile 11) with its
-//!   brush textures, a branching crack, and its Build Course buttons for the two show the same, the other way round from
-//!   every other theme. A look (the Looks page): each tile is drawn with the other's textures and the two buttons trade
-//!   pictures; tiles, saves and play are as before.
+//! * retired: the desert's Ravine and Brush art (0.5.6 to 0.5.13, issue #89), a look that traded the two tiles' pictures
+//!   in the desert theme. The pictures were the original's all along: the desert's tile 10 is its Brush (the dry weeds)
+//!   and tile 11 its Ravine (the crack), the names the exe's theme loader gives them, which the port had the other way
+//!   round (issue #117, panels_ui.rs `tile_key`). Its bit (23) and `settings.json` key stay so that older ticks load; the
+//!   key is read and ignored, and no page shows it.
+//!
+//! * mouse aim and swing (touch.rs): with the mouse, the pro's shot is aimed and taken as by touch: a click sets the
+//!   target, a drag from it moves it, a drag elsewhere looks round, and the round Swing button shoots. Off, a click on the
+//!   course aims and shoots at once as in the original. Left alone by the presets, as the controls presets' ticks are: it
+//!   changes what the original's click does.
+//!
+//! * right click puts the tool away (main.rs right_click): with a tool in hand (a terrain brush, the elevation tools,
+//!   a building), a right click on the course puts it down, as Space does, instead of the original's: a terrain brush's
+//!   right click is the undo's, which twice on a hole's tee or green takes the hole away. Left alone by the presets.
+//!
+//! * the interface at the screen's edges (enhanced.rs widescreen): on a wide screen with Classic graphics, the HUD goes
+//!   to the window's edges as Enhanced graphics' Widescreen tick puts it, instead of staying in the 800 x 600 middle. A
+//!   look: the art and the game are the same. On by default and left alone by the presets (the original only ran at
+//!   4:3, where it changes nothing).
 //!
 //! With every extra off the game draws and plays exactly as before they existed (each hook asks its switch first).
 use serde::{Deserialize, Serialize};
@@ -82,6 +96,9 @@ pub struct Settings {
     pub pause_events: bool,
     pub landing_map: bool,
     pub hole_comments: bool,
+    /// Check for updates when the game starts: on from 0.6 (stored as "check_updates", which reads as on when missing, so
+    /// every player gets it once; the old "update_check" key, off by default before, is no longer read).
+    #[serde(rename = "check_updates", default = "on")]
     pub update_check: bool,
     pub graphs: bool,
     pub zoom_pointer: bool,
@@ -94,13 +111,24 @@ pub struct Settings {
     pub random_trees: bool,
     pub save_files: bool,
     pub desert_art: bool,
+    pub mouse_swing: bool,
+    /// A right click puts the tool in hand away (OpenSGolf extras; the original's right click with a terrain brush is the
+    /// undo's, main.rs right_click).
+    #[serde(default)]
+    pub right_drop: bool,
+    /// The HUD at the window's edges on a wide screen with Classic graphics too (enhanced.rs widescreen; Enhanced graphics
+    /// has its own Widescreen tick). On by default (missing reads as on, as the update check): the original only ran at
+    /// 4:3, where nothing moves, so there is no original wide-screen layout to keep.
+    #[serde(default = "on")]
+    pub wide_ui: bool,
 }
 
 impl Settings {
     /// The interface extras of the "Original + helpers" and "OpenSGolf" presets (extras_ui.rs `Preset`): every helper and
     /// look, without the ticks the presets leave as the player has them (`Settings::kept`: the two pauses, which change when
-    /// the game runs, the update check, which goes online, and the three the Change keys' controls presets set: zoom towards
-    /// the pointer, drag to place, right-drag panning). Those are false here.
+    /// the game runs, the update check, which goes online, the three the Change keys' controls presets set: zoom towards
+    /// the pointer, drag to place, right-drag panning, mouse aim and swing, right click puts the tool away, and the interface at
+    /// the screen's edges, on by default). Those are false here.
     pub const HELPERS: Settings = Settings {
         people: true,
         history: true,
@@ -125,7 +153,10 @@ impl Settings {
         right_drag: false,
         random_trees: true,
         save_files: true,
-        desert_art: true,
+        desert_art: false,
+        mouse_swing: false,
+        right_drop: false,
+        wide_ui: false,
     };
     pub const ALL_OFF: Settings = Settings {
         people: false,
@@ -152,6 +183,9 @@ impl Settings {
         random_trees: false,
         save_files: false,
         desert_art: false,
+        mouse_swing: false,
+        right_drop: false,
+        wide_ui: false,
     };
 
     /// The ticks as the Extras box's checkbox bits (in `UI_KEYS` order).
@@ -181,6 +215,9 @@ impl Settings {
             self.random_trees,
             self.save_files,
             self.desert_art,
+            self.mouse_swing,
+            self.right_drop,
+            self.wide_ui,
         ]
         .iter()
         .enumerate()
@@ -214,6 +251,9 @@ impl Settings {
             random_trees: on(21),
             save_files: on(22),
             desert_art: on(23),
+            mouse_swing: on(24),
+            right_drop: on(25),
+            wide_ui: on(26),
         }
     }
 
@@ -224,7 +264,7 @@ impl Settings {
 
     /// These ticks with the ones a preset leaves alone taken from `from`: the two pauses, the update check (a plain
     /// Preferences line, not in the Extras box) and the controls presets' ticks (zoom towards the pointer, drag to place,
-    /// right-drag panning).
+    /// right-drag panning), and mouse aim and swing, which changes what the original's click does, like them.
     pub fn with_kept(&self, from: &Settings) -> Settings {
         Settings {
             pause_background: from.pause_background,
@@ -233,6 +273,9 @@ impl Settings {
             zoom_pointer: from.zoom_pointer,
             drag_place: from.drag_place,
             right_drag: from.right_drag,
+            mouse_swing: from.mouse_swing,
+            right_drop: from.right_drop,
+            wide_ui: from.wide_ui,
             ..*self
         }
     }
@@ -247,7 +290,7 @@ impl Default for Settings {
 
 /// The interface extras' lines on the Extras box's Interface page (extras_ui.rs), one tick per extra in `Settings::bits`
 /// order (text keys in lang/en.txt).
-pub const UI_KEYS: [&str; 24] = [
+pub const UI_KEYS: [&str; 27] = [
     "STR_EXTRAS_PEOPLE",
     "STR_EXTRAS_HISTORY",
     "STR_EXTRAS_NAME_TAGS",
@@ -272,7 +315,15 @@ pub const UI_KEYS: [&str; 24] = [
     "STR_EXTRAS_RANDOM_TREES",
     "STR_EXTRAS_SAVE_FILES",
     "STR_EXTRAS_DESERT_ART",
+    "STR_EXTRAS_MOUSE_SWING",
+    "STR_EXTRAS_RIGHT_DROP",
+    "STR_EXTRAS_WIDE_UI",
 ];
+
+/// The update check's value when settings.json has none (`Settings::update_check`).
+fn on() -> bool {
+    true
+}
 
 thread_local! {
     static SETTINGS: Cell<Settings> = const { Cell::new(Settings::ALL_OFF) };
@@ -349,25 +400,25 @@ pub fn home_details() -> bool {
 pub fn right_drag() -> bool {
     settings().right_drag
 }
+/// Mouse aim and swing: the mouse aims the pro's shot as a finger does (touch.rs).
+pub fn mouse_swing() -> bool {
+    settings().mouse_swing
+}
+
+/// Whether the HUD goes to the window's edges with Classic graphics too (enhanced.rs widescreen).
+pub fn wide_ui() -> bool {
+    settings().wide_ui
+}
+
+/// Whether a right click puts the tool in hand away (main.rs right_click).
+pub fn right_drop() -> bool {
+    settings().right_drop
+}
 pub fn random_trees() -> bool {
     settings().random_trees
 }
 pub fn save_files() -> bool {
     settings().save_files
-}
-pub fn desert_art() -> bool {
-    settings().desert_art
-}
-
-/// The ground texture type (sg_core::terrain TextureCatalog) a desert tile is drawn with while the desert's Ravine and
-/// Brush art is fixed: the Ravine (10) takes the brush textures (the crack) and the Brush (11) the Overgrowth textures
-/// (the dry weeds); every other type keeps its own.
-pub fn desert_art_swap(tex_type: i32) -> i32 {
-    match tex_type {
-        10 => 11,
-        11 => 10,
-        t => t,
-    }
 }
 
 fn settings_json() -> serde_json::Value {
@@ -391,7 +442,7 @@ pub fn saved() -> Settings {
 /// autosave, save pictures and sharing, which came after the People screen, follow its tick in ticks saved before them.
 fn from_json(v: &serde_json::Value) -> Settings {
     if !v.is_object() {
-        return Settings::ALL_OFF;
+        return Settings { update_check: true, wide_ui: true, ..Settings::ALL_OFF };
     }
     let mut s: Settings = serde_json::from_value(v.clone()).unwrap_or_default();
     if v.get("autosave").is_none() {
@@ -421,10 +472,7 @@ fn upgrade_off(v: &serde_json::Value, s: &mut Settings) {
     if v.is_object() && v.get("hole_comments").is_none() {
         s.hole_comments = false;
     }
-    // the update check goes online: off unless ticked
-    if v.get("update_check").is_none() {
-        s.update_check = false;
-    }
+    // the update check (0.6: "check_updates", on unless unticked since; `Settings::update_check`) is not upgraded here
     // the history graphs keep more with the game, and zooming towards the pointer changes the original's zoom: both read
     // as off from ticks saved before them
     if v.get("graphs").is_none() {
@@ -457,10 +505,8 @@ fn upgrade_off(v: &serde_json::Value, s: &mut Settings) {
     if v.get("random_trees").is_none() {
         s.random_trees = false;
     }
-    // the desert's Ravine and Brush art (0.5): off from ticks saved before it
-    if v.get("desert_art").is_none() {
-        s.desert_art = false;
-    }
+    // the desert's Ravine and Brush art (0.5.6 to 0.5.13): retired, its key read and ignored (issue #117)
+    s.desert_art = false;
 }
 
 /// Saves the ticks into settings.json, keeping its other keys.
@@ -927,11 +973,13 @@ mod tests {
         for m in 0..1024 {
             assert_eq!(Settings::from_bits(m).bits(), m);
         }
-        // settings.json without the ticks at all (written before the extras, or only by other screens): all off
+        // settings.json without the ticks at all (written before the extras, or only by other screens): all off but the
+        // update check and the interface at the screen's edges (both on from 0.6)
         assert_eq!(Settings::default(), Settings::ALL_OFF);
-        assert_eq!(from_json(&serde_json::Value::Null), Settings::ALL_OFF);
+        let checking = Settings { update_check: true, wide_ui: true, ..Settings::ALL_OFF };
+        assert_eq!(from_json(&serde_json::Value::Null), checking);
         let file: serde_json::Value = serde_json::from_str("{\"hd\": {\"enabled\": false}, \"controls\": {}}").unwrap();
-        assert_eq!(from_json(&file[SETTINGS_KEY]), Settings::ALL_OFF);
+        assert_eq!(from_json(&file[SETTINGS_KEY]), checking);
         // the first ticks (People to path help) as the first version saved them: as saved, the later ones off but for the
         // three that follow the People screen
         let v: serde_json::Value = serde_json::from_str(
@@ -948,6 +996,9 @@ mod tests {
             autosave: true,
             save_pictures: true,
             sharing: true,
+            // on from 0.6 for every file without their own ticks
+            update_check: true,
+            wide_ui: true,
             ..Settings::ALL_OFF
         };
         assert_eq!(s, want);
@@ -968,6 +1019,18 @@ mod tests {
     }
 
     #[test]
+    fn the_update_check_is_on_once_from_0_6_and_stays_as_the_player_sets_it() {
+        // an older file's update tick (off by default then) is not read: on
+        let v: serde_json::Value = serde_json::from_str("{\"people\": true, \"update_check\": false}").unwrap();
+        assert!(from_json(&v).update_check);
+        // unticked since: off, and saved as such
+        let v: serde_json::Value = serde_json::from_str("{\"check_updates\": false}").unwrap();
+        let s = from_json(&v);
+        assert!(!s.update_check);
+        assert_eq!(serde_json::to_value(s).unwrap()["check_updates"], serde_json::Value::Bool(false));
+    }
+
+    #[test]
     fn ticks_saved_before_the_insight_extras_read_them_as_off() {
         let v: serde_json::Value = serde_json::from_str("{\"people\": true, \"autosave\": true, \"sharing\": true}").unwrap();
         let mut s: Settings = serde_json::from_value(v.clone()).unwrap();
@@ -978,7 +1041,7 @@ mod tests {
         let mut s: Settings = serde_json::from_value(v.clone()).unwrap();
         upgrade_off(&v, &mut s);
         assert!(s.landing_map && s.hole_comments);
-        assert!(!s.update_check, "the update check reads as off from ticks saved before it");
+        assert!(s.update_check, "the update check reads as on from ticks saved before 0.6");
         assert!(!s.graphs && !s.zoom_pointer, "the graphs and zooming to the pointer read as off from older ticks");
         let v: serde_json::Value = serde_json::from_str("{\"graphs\": true, \"zoom_pointer\": true}").unwrap();
         let mut g: Settings = serde_json::from_value(v.clone()).unwrap();
@@ -1047,6 +1110,21 @@ mod tests {
     }
 
     #[test]
+    fn mouse_swing_is_off_unless_ticked_and_the_presets_leave_it() {
+        // ticks saved before it (every extra of 0.5 on): the mouse aims and shoots with one click, as in the original
+        let v: serde_json::Value = serde_json::json!({ "people": true, "right_drag": true, "desert_art": true });
+        assert!(!from_json(&v).mouse_swing && from_json(&v).right_drag);
+        assert!(from_json(&serde_json::json!({ "mouse_swing": true })).mouse_swing);
+        assert!(!Settings::ALL_OFF.mouse_swing && !Settings::default().mouse_swing && !Settings::HELPERS.mouse_swing);
+        let m = Settings { mouse_swing: true, ..Settings::ALL_OFF };
+        assert_eq!(m.bits(), 1 << 24, "after every older tick");
+        assert_eq!(Settings::from_bits(m.bits()), m);
+        // the presets leave it as the player has it
+        assert_eq!(m.preset_part(), Settings::ALL_OFF);
+        assert!(Settings::HELPERS.with_kept(&m).mouse_swing && !Settings::HELPERS.with_kept(&Settings::ALL_OFF).mouse_swing);
+    }
+
+    #[test]
     fn save_files_follow_course_sharing_from_older_ticks() {
         for sharing in [false, true] {
             let v: serde_json::Value = serde_json::json!({ "people": true, "sharing": sharing, "random_trees": true });
@@ -1063,7 +1141,19 @@ mod tests {
         let f = Settings { save_files: true, ..Settings::ALL_OFF };
         assert_eq!(f.bits(), 1 << 22);
         assert_eq!(Settings::from_bits(f.bits()), f);
-        assert_eq!(UI_KEYS.len(), 24);
+        assert_eq!(UI_KEYS.len(), 27);
+    }
+
+    #[test]
+    fn the_interface_at_the_edges_is_on_unless_switched_off_and_the_presets_leave_it() {
+        assert!(from_json(&serde_json::json!({ "people": true })).wide_ui, "missing: on");
+        assert!(!from_json(&serde_json::json!({ "wide_ui": false })).wide_ui, "switched off: stays off");
+        let off = Settings { wide_ui: false, ..Settings::HELPERS };
+        assert!(!Settings::HELPERS.with_kept(&off).wide_ui && Settings::ALL_OFF.with_kept(&checking_on()).wide_ui);
+    }
+
+    fn checking_on() -> Settings {
+        Settings { wide_ui: true, ..Settings::ALL_OFF }
     }
 
     #[test]
@@ -1084,20 +1174,14 @@ mod tests {
     }
 
     #[test]
-    fn the_desert_art_fix_is_off_unless_ticked_and_trades_only_the_two_tiles() {
-        let v: serde_json::Value = serde_json::json!({ "people": true, "random_trees": true });
-        assert!(!from_json(&v).desert_art, "ticks saved before it read as off");
-        assert!(from_json(&serde_json::json!({ "desert_art": true })).desert_art);
-        assert!(!Settings::ALL_OFF.desert_art && !Settings::default().desert_art);
-        assert!(Settings::HELPERS.desert_art, "a look: the helper presets tick it");
+    fn the_retired_desert_art_tick_loads_and_is_ignored() {
+        // settings saved by 0.5.6 to 0.5.13 with it ticked still load, the other ticks as they were, and it reads as off
+        let v: serde_json::Value = serde_json::json!({ "people": true, "random_trees": true, "desert_art": true });
+        let s = from_json(&v);
+        assert!(s.people && s.random_trees && !s.desert_art);
+        assert!(!Settings::ALL_OFF.desert_art && !Settings::default().desert_art && !Settings::HELPERS.desert_art);
+        // its bit stays where it was, so the later ticks keep theirs
         let d = Settings { desert_art: true, ..Settings::ALL_OFF };
         assert_eq!(d.bits(), 1 << 23);
-        assert_eq!(Settings::from_bits(d.bits()), d);
-        assert_eq!(d.preset_part(), d);
-        // the Ravine (10) and the Brush (11) trade textures; every other type keeps its own
-        assert_eq!((desert_art_swap(10), desert_art_swap(11)), (11, 10));
-        for t in (0..40).filter(|t| !matches!(t, 10 | 11)) {
-            assert_eq!(desert_art_swap(t), t);
-        }
     }
 }

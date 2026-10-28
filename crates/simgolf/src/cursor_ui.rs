@@ -321,7 +321,7 @@ impl App {
         let i = sp.frame_index(view, frame);
         let (w, h, ax, ay) = (sp.w as f32, sp.h as f32, sp.anchor_x as f32, sp.anchor_y as f32);
         let tex = match look {
-            Look::Ghost => self.sprite_texture(g, si, view, frame),
+            Look::Ghost => self.sprite_texture_whole(g, si, view, frame),
             Look::Red => match self.red_tex.get(&(si, i)) {
                 Some(&t) => t,
                 None => {
@@ -391,12 +391,16 @@ impl App {
             return;
         }
         let (sx, sy) = self.screen_units(a * 1024 + 512, b * 1024 + 512);
-        let ez = self.exe_zoom();
+        // the original builds only at its closest zoom (4), where the picture fits the tile; the port lets the course be
+        // zoomed out with a tool in hand, so the picture is sized to the zoom as the tile is (#115; 1 at the closest zoom)
+        let ez = self.zoom / ZOOM_UNIT;
+        let k = ez / 4.0;
         let (x0, y0) = (sx - ez * 8.0, sy - ez * 5.0);
         let sheet = &self.tool_tiles[self.exe_theme().min(3) as usize];
         let half = [1.0, 1.0, 1.0, 0.5];
         let cell = |g: &mut Gfx, i: usize| {
-            s.image_part_tint(g, sheet, x0, y0, (i % 8) as f32 * ICON_W, (i / 8) as f32 * ICON_H, ICON_W, ICON_H, half);
+            let src = ((i % 8) as f32 * ICON_W, (i / 8) as f32 * ICON_H, ICON_W, ICON_H);
+            s.image_scaled_tint(g, sheet, (x0, y0, ICON_W * k, ICON_H * k), src, half);
         };
         let v = self.brush_variant();
         if ty == 7 {

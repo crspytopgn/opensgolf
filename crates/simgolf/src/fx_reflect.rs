@@ -168,7 +168,9 @@ impl App {
             let tex = match p.outfit {
                 Some(o) => self.outfit_texture(g, si, view, p.frame, o).unwrap_or_else(|| self.sprite_texture(g, si, view, p.frame)),
                 None => self.sprite_texture(g, si, view, p.frame),
-            };
+            }
+            // (whole textures: the atlas is Classic's, atlas.rs)
+            .id;
             let tex = self.fx_season_texture(g, si, fi, tex).unwrap_or(tex);
             let bend = self.fx_sway(si, fi, x, z).unwrap_or(crate::fx_nature::Bend { lean: 0.0, curve: 1.0, flip: false });
             let tint = self.fx_sprite_tint(x, z, false).unwrap_or([1.0; 4]);

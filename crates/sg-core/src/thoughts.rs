@@ -144,7 +144,7 @@ pub fn feature(c: &Course, a: i32, b: i32, theme: u8) -> String {
         }
         .into();
     }
-    match crate::data::row(t).class {
+    match crate::land::class(t) {
         4 if t == 4 => {
             if theme == 1 { tr("STR_THOUGHT_FEATURE_MYSTERIOUS_BONES") } else { tr("STR_THOUGHT_FEATURE_ORNAMENTAL_GRASS") }.into()
         }

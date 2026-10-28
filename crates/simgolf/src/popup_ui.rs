@@ -1467,7 +1467,15 @@ mod tests {
             };
             b.rect().w - 20.0 - 60.0
         };
-        let all = Ctx { files: Some(("Use my SimGolf files...", false)), languages: true, update_now: true, play_count: true, played: 0 };
+        let all = Ctx {
+            files: Some(("Use my SimGolf files...", false)),
+            languages: true,
+            update_now: true,
+            play_count: true,
+            played: 0,
+            make_hd: Some(crate::hd_make::Offer::Make),
+            remove_hd: true,
+        };
         let free = Ctx { files: Some(("Use the free graphics", true)), ..all };
         let mut long = Vec::new();
         for c in [all, free] {

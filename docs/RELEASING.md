@@ -51,3 +51,23 @@ for a release whose files were uploaded by hand. `sha256sum opensgolf-* > SHA256
 .zip and Linux .tar.gz again without `packs/` as NAME-bin.zip / NAME-bin.tar.gz, and `opensgolf-packs.sha256`
 (`find packs -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum` at the release's tag) before making SHA256SUMS; a
 release without them is still updated, with the whole package.
+
+## Store updates (Homebrew, winget)
+
+After a release is published, the `stores` job in `.github/workflows/release.yml` moves the Homebrew cask and winget's
+manifest to the new version. Each step needs a repository secret (Settings > Secrets and variables > Actions); without
+it the step leaves a warning and does nothing, and a failed store update never fails the release.
+
+- **HOMEBREW_TAP_TOKEN**: a fine-grained personal access token for `crspytopgn/homebrew-tap` only, with Contents: Read
+  and write. The job sets `version` and `sha256` (from the release's SHA256SUMS) in `Casks/opensgolf.rb` and pushes.
+- **WINGET_TOKEN**: a classic personal access token with the `public_repo` scope. The job runs `wingetcreate update
+  crspytopgn.OpenSGolf`, which opens a pull request to `microsoft/winget-pkgs` from the token's account (it needs the
+  package to be in winget already, and that account to have signed Microsoft's CLA once).
+
+F-Droid needs nothing: its bot reads the new tag (the recipe's `AutoUpdateMode`). Flathub is updated by hand.
+
+## What's new (CHANGELOG.md)
+
+Each minor version (0.6, 0.7, ...) has a section in `CHANGELOG.md`: its highlights in plain words, and its fix releases as
+short lines. Add to it with every release; the release workflow puts the version's section at the top of its GitHub release
+page, and the README, the browser page and Preferences > More link to the file.

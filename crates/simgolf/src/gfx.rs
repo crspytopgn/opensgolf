@@ -244,6 +244,8 @@ pub struct Gfx {
     pub fx: Option<Box<crate::fx::FxGpu>>,
     /// The batches drawn since the renderer was last used for anything else, sent to the GPU together (`Deferred`).
     queue: std::rc::Rc<std::cell::RefCell<Queue>>,
+    /// Classic's sprite atlas (atlas.rs).
+    pub(crate) atlas: crate::atlas::Atlas,
 }
 
 fn seq_indices(n: usize) -> Vec<u32> {
@@ -362,6 +364,7 @@ impl Gfx {
             batch_uniforms: None,
             fx: None,
             queue,
+            atlas: Default::default(),
         }
     }
 

@@ -521,9 +521,6 @@ pub struct App {
     pub seed: u32,
     pub terrain: Terrain,
     pub catalog: TextureCatalog,
-    /// Whether the terrain's batches were built with the desert's Ravine and Brush art traded (`ground_tex`): the main loop
-    /// rebuilds them when the tick changes.
-    pub desert_art_built: bool,
     pub light: Lighting,
     /// Loaded textures by file (None when the file could not be decoded).
     pub textures: HashMap<PathBuf, Option<TextureId>>,
@@ -554,6 +551,12 @@ pub struct App {
     pub dpi: f32,
     pub sprites: Vec<GlSprite>,
     pub sprite_index: HashMap<String, Option<usize>>,
+    /// The art files of the player's copy that could not be read (Flics/..., shadows aside), and whether this run said so
+    /// (main.rs: once, in a box until the list changes, and in the ticker).
+    pub unreadable: Vec<String>,
+    pub unreadable_said: bool,
+    /// When the last of them was found (the game clock): the note waits until the art has finished loading.
+    pub unreadable_at: f64,
     /// Sprites drawn from a content pack's high-resolution or person's sheet, by sprite index (packart.rs).
     pub pack_art: HashMap<usize, sg_core::hires::SheetSprite>,
     pub props: Vec<Prop>,
@@ -746,6 +749,10 @@ pub struct App {
     pub swaps: sg_core::bodies::Swaps,
     pub outfit_pals: HashMap<sg_core::bodies::Outfit, [u8; 768]>,
     pub outfit_tex: HashMap<(usize, usize, sg_core::bodies::Outfit), miniquad::TextureId>,
+    /// Classic's sprite atlas (atlas.rs): where each frame (sprite, frame) and each recoloured frame (sprite, frame,
+    /// outfit) was put.
+    pub sprite_atlas: HashMap<(usize, usize), (crate::atlas::STex, crate::atlas::Slot)>,
+    pub outfit_atlas: HashMap<(usize, usize, sg_core::bodies::Outfit), (crate::atlas::STex, crate::atlas::Slot)>,
     /// Red silhouettes of sprite frames (sprite, frame), for a building preview that will not fit.
     pub red_tex: HashMap<(usize, usize), miniquad::TextureId>,
     /// The terrain brushes' tile pictures under the pointer (Data/parkland.pcx, desert, tropical, links: the exe's theme order).
@@ -936,7 +943,6 @@ impl App {
             seed: 7,
             terrain: Terrain::default(),
             catalog: TextureCatalog::default(),
-            desert_art_built: false,
             light: Lighting::default(),
             textures: HashMap::new(),
             hd: crate::hd::HdState { pack_dir: save_dir().join("HD"), ..Default::default() },
@@ -959,6 +965,9 @@ impl App {
             dpi: 1.0,
             sprites: Vec::new(),
             sprite_index: HashMap::new(),
+            unreadable: Vec::new(),
+            unreadable_said: false,
+            unreadable_at: 0.0,
             pack_art: HashMap::new(),
             props: Vec::new(),
             show_props: true,
@@ -1064,6 +1073,8 @@ impl App {
             swaps: Default::default(),
             outfit_pals: HashMap::new(),
             outfit_tex: HashMap::new(),
+            sprite_atlas: HashMap::new(),
+            outfit_atlas: HashMap::new(),
             red_tex: HashMap::new(),
             tool_tiles: [Image::default(); 4],
             cliffs: Image::default(),
@@ -1170,6 +1181,54 @@ impl App {
 
     /// A message for the player: on the course it goes to the ticker as the exe's messages do (priority 1, nobody
     /// speaking); the title screens, which have no ticker, show it as a note at the bottom for 3 seconds.
+    /// The art files that could not be read, said once a run (in the ticker) and in a box until the list changes; None
+    /// when there is nothing (new) to say.
+    pub fn take_unreadable_note(&mut self) -> Option<(String, bool)> {
+        if self.unreadable_said || self.unreadable.is_empty() || self.clock - self.unreadable_at < 2.0 {
+            return None;
+        }
+        self.unreadable_said = true;
+        let file = format!("Flics/{}", self.unreadable[0]);
+        let msg = match self.unreadable.len() {
+            1 => trf("STR_FILES_UNREADABLE_1", &[("FILE", &file)]),
+            n => trf("STR_FILES_UNREADABLE", &[("N", &n), ("FILE", &file)]),
+        };
+        let mut list = self.unreadable.clone();
+        list.sort();
+        let boxed = crate::gamefiles::take_once("unreadable_files_shown", &list.join("|"));
+        Some((msg, boxed))
+    }
+
+    /// The port's own game speed one step faster or slower (normal, x2, x4), stopping at either end; says the speed.
+    pub fn step_speed(&mut self, faster: bool) {
+        self.speed = match (self.speed, faster) {
+            (1, true) => 2,
+            (_, true) => 4,
+            (4, false) => 2,
+            (_, false) => 1,
+        };
+        self.say_speed();
+    }
+
+    /// The game speed's single button (a controller's Y, the touch button): normal, x2, x4, then normal again.
+    pub fn cycle_speed(&mut self) {
+        self.speed = match self.speed {
+            1 => 2,
+            2 => 4,
+            _ => 1,
+        };
+        self.say_speed();
+    }
+
+    fn say_speed(&mut self) {
+        let name = match self.speed {
+            1 => tr("STR_TOAST_SPEED_NORMAL"),
+            2 => tr("STR_TOAST_SPEED_FAST"),
+            _ => tr("STR_TOAST_SPEED_FASTEST"),
+        };
+        self.show_toast(name);
+    }
+
     pub fn show_toast(&mut self, msg: &str) {
         self.toast = msg.to_string();
         self.toast_until = self.clock + 3.0;
@@ -1427,7 +1486,6 @@ impl App {
         // keeps the per-tile normals its look was made with (sg_core::terrain::vertex_normals)
         self.terrain.own_tile_normals = crate::enhanced::settings().enabled || crate::fx::active();
         self.sync_tile_corners();
-        self.desert_art_built = self.desert_art();
         let mut map: BTreeMap<usize, (TextureId, Vec<Vert>)> = BTreeMap::new();
         let mut tris = Vec::new();
         let mut order: HashMap<Option<TextureId>, usize> = HashMap::new();
@@ -1443,7 +1501,7 @@ impl App {
                 }
                 build_tile_triangles(&self.terrain, x, y, &mut tris);
                 for t in &tris {
-                    let path = self.catalog.pick(self.ground_tex(t.tex_type), t.set, t.variation).cloned();
+                    let path = self.catalog.pick(t.tex_type, t.set, t.variation).cloned();
                     let tex = path.and_then(|p| self.texture_for(g, &p));
                     let next = order.len();
                     let key = *order.entry(tex).or_insert(next);
@@ -1461,23 +1519,6 @@ impl App {
         self.build_paths(g);
         self.build_walls(g);
         self.build_edge_walls(g);
-    }
-
-    /// Whether the desert's Ravine and Brush art is traded (OpenSGolf extras, extras.rs `desert_art`): the tick, in the
-    /// desert theme only.
-    pub fn desert_art(&self) -> bool {
-        self.theme == 2 && crate::extras::desert_art()
-    }
-
-    /// The ground texture type a tile triangle is drawn with: its own (Terrain.dll's pick, sg_core::terrain
-    /// `build_tile_triangles`), or with the desert's art fixed the Ravine's and the Brush's traded, edge pieces and all (the
-    /// blend variations still come from the tiles' own types, so the borders fall where the original's do).
-    fn ground_tex(&self, tex_type: i32) -> i32 {
-        if self.desert_art_built {
-            crate::extras::desert_art_swap(tex_type)
-        } else {
-            tex_type
-        }
     }
 
     /// Path overlay, as Terrain.dll draws a path tile (0x100108f0): an arm toward each neighbour with a path, a third of the
@@ -1827,7 +1868,14 @@ impl App {
             }
             Err(e) => {
                 if !shadow {
-                    crate::bugreport::warn(&format!("sprite: {e}")); // many objects simply have no shadow file
+                    // (many objects simply have no shadow file, so those are not said)
+                    crate::bugreport::warn(&format!("sprite: {e}"));
+                    // a whole copy reads every one: a file it cannot is missing or damaged (the free set's art is the
+                    // game's own and is not counted)
+                    if !self.on_free_set() && !self.unreadable.iter().any(|f| f == rel) {
+                        self.unreadable.push(rel.to_string());
+                        self.unreadable_at = self.clock;
+                    }
                 }
                 None
             }
@@ -2222,6 +2270,11 @@ impl App {
                 g.ctx.delete_texture(t);
             }
         }
+        // the recoloured frames and the atlas were made from these sprites (by their indices)
+        for (_, t) in self.outfit_tex.drain() {
+            g.ctx.delete_texture(t);
+        }
+        self.forget_atlas(g);
         self.sprite_index.clear();
         self.hd.sprites.clear();
         self.pack_art.clear();
@@ -2236,6 +2289,13 @@ impl App {
         self.populate_props();
         self.register_portraits(g);
         true
+    }
+
+    /// Empties Classic's sprite atlas (atlas.rs) and where the frames were put in it: the art or how it is drawn changed.
+    pub fn forget_atlas(&mut self, g: &mut Gfx) {
+        self.sprite_atlas.clear();
+        self.outfit_atlas.clear();
+        g.atlas_clear();
     }
 
     // ---- golfers and the club -----------------------------------------------------------------------------------------------
@@ -2747,7 +2807,7 @@ impl App {
         let c = &self.club;
         let lazy: usize = self.sprites.iter().map(|s| s.tex.iter().filter(|t| t.is_some()).count()).sum();
         format!(
-            "props={} (weeds {} ambient {} objects {} trees {} shown {}) sprite_tex={lazy} outfit_tex={} red_tex={} textures={} snapshots={} batches={}/{}/{}/{} members={} roster={} \
+            "props={} (weeds {} ambient {} objects {} trees {} shown {}) sprite_tex={lazy} outfit_tex={} atlas={}+{} red_tex={} textures={} snapshots={} batches={}/{}/{}/{} members={} roster={} \
              event_log={} history={} out={} shot_recs={} ledger={} hole_stats={} ball_trail={} voices={}",
             self.props.len(),
             self.props.iter().filter(|p| p.weed).count(),
@@ -2756,6 +2816,8 @@ impl App {
             self.props.iter().filter(|p| p.tree).count(),
             self.props.iter().filter(|p| !p.hidden).count(),
             self.outfit_tex.len(),
+            self.sprite_atlas.len(),
+            self.outfit_atlas.len(),
             self.red_tex.len(),
             self.textures.len(),
             self.snapshots.len(),
@@ -4411,7 +4473,10 @@ impl App {
                     e.active = true;
                 }
             }
-            staff::spread_weeds(&self.terrain, &mut self.staff_tiles, self.game_tick, self.difficulty, &mut self.exe_rng, &mut out);
+            // OpenSGolf extras: Sandbox: no new dandelions (issue #105)
+            if !self.club.extras.no_weeds {
+                staff::spread_weeds(&self.terrain, &mut self.staff_tiles, self.game_tick, self.difficulty, &mut self.exe_rng, &mut out);
+            }
             staff::grow_weeds(&mut self.staff_tiles, &mut self.exe_rng);
         }
         for gi in 0..golf::SLOTS {

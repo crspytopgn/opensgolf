@@ -17,6 +17,11 @@
 //! * Looking round while aiming (the port's own, issue #75): a one-finger drag moves the target only when it starts on or
 //!   near it; a drag anywhere else on the course pans the view (it never shoots), a target dragged to the screen's edge
 //!   scrolls the view, a small round button centres the view on the pro's ball, and the first touch aim shows a short hint.
+//! * Mouse aim and swing (an OpenSGolf extra, off by default; extras.rs mouse_swing): the mouse aims the pro's shot through
+//!   this same path, as a finger whose press is the left button's: a click sets the target, a drag from it moves it (lifted
+//!   above the pointer, with the line and the plate), a drag elsewhere looks round, a target dragged to the edge scrolls,
+//!   and the Swing and Centre buttons show and take a click. Only the shot: buildings, the touch buttons' column, the long
+//!   press and the phone's keyboard stay a finger's; the right button, the wheel and the keys are untouched.
 //! * When a name is typed (rename, save) the phone's keyboard is raised: through the page in a browser (web/opensgolf.js),
 //!   through miniquad on Android.
 
@@ -85,7 +90,12 @@ pub struct Touch {
     hinted: bool,
     /// The clock at the last edge scroll of a dragged target (the next step's time is measured from it).
     edge_at: f64,
+    /// The finger down is the mouse's left button (Mouse aim and swing), from its press to its release.
+    mouse: bool,
 }
+
+/// The finger id the mouse's left button goes by (Mouse aim and swing); a real touch's ids are small.
+const MOUSE_ID: u64 = u64::MAX;
 
 /// How far above the finger a target it picks up is held, in device-independent pixels (a fingertip and a half), so the
 /// finger does not hide it.
@@ -137,6 +147,8 @@ pub enum TargetFor {
 pub struct TouchTarget {
     /// The last pointer was a finger.
     pub on: bool,
+    /// Mouse aim and swing is on (extras.rs, set every frame): the mouse aims the pro's shot as a finger does (not buildings).
+    pub mouse: bool,
     /// The ground point (world x, z): it stays on the ground while the camera moves.
     pub target: Option<(f32, f32)>,
     /// What the target is for: it goes when that changes (a new shot, another tool or kind).
@@ -151,14 +163,15 @@ impl TouchTarget {
         self.on = true;
     }
 
-    /// A mouse moved (not a finger's): hovering again, no target.
+    /// A mouse moved (not a finger's): hovering again, no target (Mouse aim and swing stays as it is).
     pub fn pointer_moved(&mut self) {
-        *self = Self::default();
+        *self = Self { mouse: self.mouse, ..Self::default() };
     }
 
-    /// Whether targets are set by touch for `what` (None: nothing to target now).
+    /// Whether targets are set by touch for `what` (None: nothing to target now): after a touch, or for the shot with Mouse
+    /// aim and swing.
     pub fn active(&self, what: Option<TargetFor>) -> bool {
-        self.on && what.is_some()
+        (self.on && what.is_some()) || (self.mouse && what == Some(TargetFor::Aim))
     }
 
     /// A tap on the course: the target is that ground point.
@@ -192,7 +205,7 @@ impl TouchTarget {
 
     /// The Swing or Place button shows: targeting by touch for `what` with a target set.
     pub fn ready(&self, what: Option<TargetFor>) -> bool {
-        self.on && what.is_some() && self.what == what && self.target.is_some()
+        self.active(what) && self.what == what && self.target.is_some()
     }
 
     /// Every frame, with what a target would be for now: when that changes (the shot taken, a new shot, another tool or
@@ -380,13 +393,20 @@ impl Stage {
     }
 
     fn touch_finger(&mut self, phase: TouchPhase, id: u64, x: f32, y: f32) {
-        self.touch.used = true;
-        // no pointer to hover with: the extras' name tags stay off (tags_ui)
-        self.app.xs.touched = true;
+        // the mouse's left button (Mouse aim and swing) is no touch: the touch buttons, the name tags and the touch targets
+        // for buildings stay as they are
+        let finger = !self.touch.mouse;
+        if finger {
+            self.touch.used = true;
+            // no pointer to hover with: the extras' name tags stay off (tags_ui)
+            self.app.xs.touched = true;
+        }
         let now = self.app.clock;
         match phase {
             TouchPhase::Started => {
-                self.app.touch_target.touched();
+                if finger {
+                    self.app.touch_target.touched();
+                }
                 self.touch.fingers.retain(|f| f.0 != id);
                 self.touch.fingers.push((id, (x, y), (x, y)));
                 match self.touch.fingers.len() {
@@ -505,6 +525,49 @@ impl Stage {
         }
     }
 
+    /// Mouse aim and swing (extras.rs mouse_swing): a left press on the Swing or Centre button, or (`course`, asked once the
+    /// dock, the panel, the card and the ticker have had the press) on the course while the pro waits for the shot, goes the
+    /// touch path as a finger going down there. True when it was taken so; its moves and release follow it there.
+    pub(crate) fn mouse_swing_down(&mut self, x: f32, y: f32, course: bool) -> bool {
+        // a press whose release never came (let go outside the window) is let go first
+        if self.touch.mouse && !self.by_finger() {
+            self.touch(TouchPhase::Cancelled, MOUSE_ID, x, y);
+            self.touch.mouse = false;
+        }
+        if !crate::extras::mouse_swing()
+            || self.by_finger()
+            || self.touch.mode != Mode::Idle
+            || !self.touch.fingers.is_empty()
+            || self.app.touch_target_for() != Some(TargetFor::Aim)
+        {
+            return false;
+        }
+        let take = if course { self.targets_here((x, y)) } else { matches!(self.touch_button_at(x, y), Some(Btn::Swing | Btn::Centre)) };
+        if take {
+            self.touch.mouse = true;
+            self.touch(TouchPhase::Started, MOUSE_ID, x, y);
+        }
+        take
+    }
+
+    /// The mouse moved with its left button down after a press `mouse_swing_down` took: the finger moves.
+    pub(crate) fn mouse_swing_move(&mut self, x: f32, y: f32) {
+        if self.touch.mouse && !self.by_finger() {
+            self.touch(TouchPhase::Moved, MOUSE_ID, x, y);
+        }
+    }
+
+    /// The left button let go after a press `mouse_swing_down` took: the finger lifts (a click that did not move is a
+    /// tap). True when it was so.
+    pub(crate) fn mouse_swing_up(&mut self, x: f32, y: f32) -> bool {
+        if !self.touch.mouse || self.by_finger() {
+            return false;
+        }
+        self.touch(TouchPhase::Ended, MOUSE_ID, x, y);
+        self.touch.mouse = false;
+        true
+    }
+
     /// One finger panning the view while a touch target is set: the course follows the finger as a mouse drag moves it
     /// (main.rs mouse_motion_event), with the smooth camera's inertia.
     fn finger_pan(&mut self, dx: f32, dy: f32) {
@@ -581,9 +644,11 @@ impl Stage {
         // the first touch aim: how to look round (once a run; issue #75)
         if !self.touch.hinted && self.app.touch_target.active(Some(TargetFor::Aim)) && self.app.touch_target_for() == Some(TargetFor::Aim) {
             self.touch.hinted = true;
-            self.app.show_toast(tr("STR_TOUCH_LOOK_HINT"));
+            // (the mouse's own words with Mouse aim and swing, before any touch)
+            self.app.show_toast(tr(if self.app.touch_target.on { "STR_TOUCH_LOOK_HINT" } else { "STR_MOUSE_SWING_HINT" }));
         }
-        if self.touch.mode == Mode::Pending && self.app.clock - self.touch.started > LONG_PRESS {
+        // a mouse button held still is no right click: the right button is there for that
+        if self.touch.mode == Mode::Pending && !self.touch.mouse && self.app.clock - self.touch.started > LONG_PRESS {
             let p = self.touch.fingers.first().map(|f| f.1);
             match p {
                 // the raise / lower tool over the course: the press lowers, as Shift+click does (issue #39), and the finger
@@ -752,7 +817,7 @@ impl Stage {
                 Some(TargetFor::Place(_)) => b == Btn::Place,
                 None => false,
             };
-            return self.touch.used
+            return (self.touch.used || a.touch_target.mouse)
                 && a.screen == Screen::Play
                 && a.photo.is_none()
                 && a.notice.is_none()
@@ -797,6 +862,11 @@ impl Stage {
         }
         if b == Btn::Centre {
             self.app.centre_on_pro();
+            return;
+        }
+        // the speed's one button cycles normal, x2 and x4 (the keys step and stop: App::step_speed)
+        if b == Btn::Speed {
+            self.app.cycle_speed();
             return;
         }
         let i = crate::controls::action(b.action());
@@ -1587,6 +1657,36 @@ mod tests {
                 assert!(x <= sx + big);
             }
         }
+    }
+
+    #[test]
+    fn mouse_aim_and_swing_targets_the_shot_only_and_survives_the_mouse_moving() {
+        let (aim, bench) = (Some(TargetFor::Aim), Some(TargetFor::Place(1)));
+        let mut t = TouchTarget::default();
+        t.sync(aim);
+        // off: the mouse hovers and clicks as in the original
+        assert!(!t.active(aim));
+        t.mouse = true;
+        // on: the shot is targeted as by touch, from the first frame (no tap needed to start), but no building is
+        assert!(t.active(aim) && !t.ready(aim) && !t.active(bench) && !t.active(None));
+        t.tap((3.0, 4.0));
+        assert!(t.ready(aim));
+        // the same lift and drag as a finger's
+        t.drag_start((200.0, 200.0), Some((200.0, 200.0)), 64.0);
+        assert_eq!(t.drag_point((210.0, 200.0)), Some((210.0, 136.0)));
+        t.drag_end();
+        // a building in hand: no target, and the mouse places as before
+        t.sync(bench);
+        t.tap((1.0, 1.0));
+        assert!(!t.ready(bench));
+        // a pointer move outside the shot (main.rs) clears the target but not the extra's switch
+        t.pointer_moved();
+        assert!(t.mouse && !t.on && t.target.is_none());
+        t.sync(aim);
+        assert!(t.active(aim));
+        // with a touch as well, buildings are targeted too, as for any finger
+        t.touched();
+        assert!(t.active(bench));
     }
 
     #[test]

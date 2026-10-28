@@ -289,8 +289,10 @@ pub fn smooth_edges() -> bool {
     smooth_ui()
 }
 pub fn widescreen() -> bool {
-    // pixel-perfect scaling keeps the picture 800 x 600 in its border: the HUD stays in it
-    on(|s| s.widescreen && !s.pixel_perfect)
+    // pixel-perfect scaling keeps the picture 800 x 600 in its border: the HUD stays in it. With Classic graphics the
+    // interface extra "the interface at the screen's edges" asks for the same (extras.rs wide_ui).
+    let s = settings();
+    !s.pixel_perfect && ((s.enabled && s.widescreen) || crate::extras::wide_ui())
 }
 pub fn terrain_filter() -> bool {
     on(|s| s.terrain_filter)
@@ -579,11 +581,11 @@ pub fn trial_clean_exit() {
 }
 
 /// The frame rate guard (issue #55): with Enhanced on, a graphics chip too slow for an option shows a game that hardly
-/// moves (on a laptop's chip in a browser the pixel-art scaler alone costs five times the frame). When the game draws
-/// fewer than [`GUARD_FPS`] frames a second over [`GUARD_SECS`] seconds, the costliest options go, one step at a time
-/// (the scaler, multisampling, the heavier effects, then Enhanced itself), saved and said in the ticker. Not in a window
+/// moves (on a laptop's chip in a browser the pixel-art scaler alone costs five times the frame), and one that only just
+/// keeps up stutters. When the game draws fewer than [`GUARD_FPS`] frames a second (below the lowest frame rate cap, 30) over [`GUARD_SECS`] seconds, the costliest options go, one step at a time
+/// (the scaler's quicker filter, the scaler, multisampling, the heavier effects, then Enhanced itself), saved and said in the ticker. Not in a window
 /// the browser stopped drawing (a hidden tab): a gap of over two seconds between frames starts the count again.
-const GUARD_FPS: f64 = 10.0;
+const GUARD_FPS: f64 = 20.0;
 const GUARD_SECS: f64 = 4.0;
 
 thread_local! {
@@ -638,6 +640,12 @@ const MSAA_COUNTS: bool = !cfg!(target_arch = "wasm32");
 
 /// The next step down from these settings: what to turn off, or None when nothing is left but Classic itself.
 fn slower(mut s: Settings, msaa_counts: bool) -> Option<(Settings, &'static str)> {
+    // the Smooth filter reads sixteen texels for each pixel it draws; the sharp one, one
+    if s.fx_scaler && s.scaler_mode() != 0 {
+        s.fx_scaler_mode = 0;
+        s.fx_scaler_sharp = false;
+        return Some((s, "STR_ENHANCED_SLOW_SCALER_SHARP"));
+    }
     if s.fx_scaler {
         s.fx_scaler = false;
         return Some((s, "STR_ENHANCED_SLOW_SCALER"));
@@ -843,6 +851,7 @@ impl App {
         for (_, t) in self.outfit_tex.drain() {
             g.ctx.delete_texture(t);
         }
+        self.forget_atlas(g);
     }
 }
 
@@ -1413,7 +1422,16 @@ mod guard_tests {
                 break;
             }
         }
-        assert_eq!(steps, ["STR_ENHANCED_SLOW_SCALER", "STR_ENHANCED_SLOW_MSAA", "STR_ENHANCED_SLOW_EFFECTS", "STR_ENHANCED_SLOW_OFF"]);
+        assert_eq!(
+            steps,
+            [
+                "STR_ENHANCED_SLOW_SCALER_SHARP",
+                "STR_ENHANCED_SLOW_SCALER",
+                "STR_ENHANCED_SLOW_MSAA",
+                "STR_ENHANCED_SLOW_EFFECTS",
+                "STR_ENHANCED_SLOW_OFF"
+            ]
+        );
     }
 
     #[test]
@@ -1475,13 +1493,13 @@ mod guard_tests {
             assert!(guard_frame(t).is_none());
             t += 1.0 / 30.0;
         }
-        // two frames a second: the scaler goes after the window
+        // fifteen frames a second (under the guard's twenty): the scaler's quicker filter after the window
         let mut hit = None;
-        for _ in 0..12 {
-            t += 0.5;
+        for _ in 0..90 {
+            t += 1.0 / 15.0;
             hit = hit.or(guard_frame(t));
         }
-        assert_eq!(hit.map(|h| h.1), Some("STR_ENHANCED_SLOW_SCALER"));
+        assert_eq!(hit.map(|h| h.1), Some("STR_ENHANCED_SLOW_SCALER_SHARP"));
         set(Settings::default());
     }
 }

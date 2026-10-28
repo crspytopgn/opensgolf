@@ -7,6 +7,7 @@
 // The port keeps the original code's own constants (3.14159, 6.28) so its results stay identical; index loops mirror its tables.
 #![allow(clippy::approx_constant, clippy::needless_range_loop, clippy::should_implement_trait)]
 
+pub mod aiscale;
 pub mod analysis;
 pub mod assets;
 pub mod bink;
@@ -30,6 +31,7 @@ pub mod fsutil;
 pub mod geom;
 pub mod golfer;
 pub mod gsm;
+pub mod hdgen;
 pub mod heightmap;
 pub mod hires;
 pub mod holetool;
@@ -73,6 +75,7 @@ pub mod visitors;
 pub mod wav;
 pub mod weather;
 pub mod wildlife;
+pub mod xbrz;
 pub mod zip;
 
 pub use assets::{Indexed, Rgba};

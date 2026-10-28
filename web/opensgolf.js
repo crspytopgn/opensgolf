@@ -150,6 +150,21 @@ function sgDrawWatch() {
     if (now - d.last > SG_STALL_MS) sgDrawingStopped("no frame drawn for " + Math.round((now - d.last) / 1000) + " seconds");
 }
 setInterval(sgDrawWatch, 250);
+
+// Enhanced graphics draw at most about 1440p's pixels (SG_ENHANCED_PIXELS): a 4K screen has four times 1080p's and each
+// effect runs on every one of them, which a laptop's chip cannot keep up with; the browser stretches the picture to the
+// screen. Classic draws at the screen's own pixels as always (its picture stays exact). miniquad's gl.js sizes the canvas
+// and places the mouse with its dpi_scale, which this replaces.
+const SG_ENHANCED_PIXELS = 2560 * 1440;
+const sgScreenDpr = dpi_scale;
+function sgDpr() {
+    const real = sgScreenDpr();
+    const c = document.getElementById("glcanvas");
+    const area = c ? c.clientWidth * c.clientHeight : 0;
+    if (!sgDraw.enhanced || !area || area * real * real <= SG_ENHANCED_PIXELS) return real;
+    return Math.max(1, Math.sqrt(SG_ENHANCED_PIXELS / area));
+}
+dpi_scale = sgDpr;
 document.addEventListener("visibilitychange", () => { if (sgDraw.last) sgDraw.last = performance.now(); });
 // Leaving a game that was drawing well (a reload, the tab closed, the title's exit button): the marker of Enhanced's
 // start-up trial goes, so a player who leaves within its first seconds keeps Enhanced next time.
@@ -172,7 +187,14 @@ miniquad_add_plugin({
         env.sg_frame_cap = function (fps) { sgFrameCap = fps; };
         // the watch over the game's drawing (sgDrawingStopped): a frame was drawn; Enhanced graphics on or off
         env.sg_frame_drawn = function () { sgDraw.last = performance.now(); };
-        env.sg_enhanced = function (on) { sgDraw.enhanced = on !== 0; };
+        env.sg_enhanced = function (on) {
+            const was = sgDraw.enhanced;
+            sgDraw.enhanced = on !== 0;
+            // the drawing's size follows (sgDpr), after this frame: the game hears of it as of a window resized
+            if (was !== sgDraw.enhanced) setTimeout(() => { const c = document.getElementById("glcanvas"); if (c && wasm_exports) resize(c, wasm_exports.resize); }, 0);
+        };
+        // the game asks for the screen's scale too (touch slop): the same as the drawing's
+        env.dpi_scale = sgDpr;
         // the game's quit (the title menu's exit button): a tab cannot close itself, so back to the start page
         env.sg_quit = function () { location.reload(); };
         env.sg_fs_size = function (ptr, len) {
@@ -190,6 +212,13 @@ miniquad_add_plugin({
             // download: it would be out of reach (and soon over the quota) in local storage. The accomplishment snapshots
             // the board shows (snapshots/accomp<n>.png) are kept like the saves.
             const low = sgKey(path);
+            // the HD pack the game makes itself (Preferences > Graphics > Make HD graphics..., hd_make.rs) goes with an HD pack
+            // the player picked: in this browser's IndexedDB (far too large for local storage)
+            if (low.startsWith("hd/")) {
+                sgAddFile(path, bytes);
+                sgHdKeep(path, bytes);
+                return;
+            }
             // Load Previous Game's Export this save (files_ui.rs) writes under download/: a download, kept nowhere
             if (low.startsWith("download/")) {
                 sgDownload(path.split(/[\\/]/).pop(), bytes);
@@ -224,6 +253,7 @@ miniquad_add_plugin({
                 // an older version of a downloaded pack
                 sgDb().then(db => db.transaction("packs", "readwrite").objectStore("packs").delete(path)).catch(() => {});
             }
+            if (k.startsWith("hd/")) sgHdKeep(path, null);
             try {
                 for (let i = localStorage.length - 1; i >= 0; i--) {
                     const lk = localStorage.key(i);
@@ -1422,6 +1452,45 @@ async function sgLoadHdZip(file) {
         return;
     }
     await sgUseHd(entries);
+}
+// The files of the HD pack the game makes (sg_fs_write), kept in IndexedDB in batches, in the order written (the manifest
+// after the pictures it lists); null bytes remove a file.
+const sgHdQueue = [];
+let sgHdFlushing = false;
+function sgHdKeep(path, bytes) {
+    sgHdQueue.push([path, bytes]);
+    if (!sgHdFlushing) {
+        sgHdFlushing = true;
+        setTimeout(sgHdFlush, 0);
+    }
+}
+async function sgHdFlush() {
+    try {
+        if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+        const db = await sgDb();
+        while (sgHdQueue.length > 0) {
+            const part = sgHdQueue.splice(0, 100);
+            await new Promise((ok, fail) => {
+                const tx = db.transaction("hd", "readwrite");
+                const st = tx.objectStore("hd");
+                // (a pack picked earlier and cut short leaves its marker: this store is complete again as the game writes it)
+                st.delete(SG_STORE_PARTIAL);
+                for (const [path, bytes] of part) {
+                    if (bytes === null) st.delete(path);
+                    else st.put(bytes, path);
+                }
+                tx.oncomplete = ok;
+                tx.onerror = () => fail(tx.error);
+                tx.onabort = () => fail(tx.error);
+            });
+        }
+    } catch (e) {
+        sgHdQueue.length = 0;
+        console.warn("could not keep the HD pack in this browser", e);
+        sgNote("The HD graphics could not be kept in this browser (" + (e && e.name === "QuotaExceededError" ?
+            "not enough storage space" : (e && e.message) || "storage refused") + "): they last until the page is closed.", true);
+    }
+    sgHdFlushing = false;
 }
 async function sgForgetHd() {
     try {

@@ -107,6 +107,16 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.6.0" date="2026-10-28">
+      <description>
+        <p>Smoother play: the short freezes as golfers came and went are gone, and the course draws faster.</p>
+        <p>Enhanced graphics keep up better on large screens and slower machines (a browser draws them at up to 1440p and stretches them to a 4K screen), and ease off a step at a time by themselves when the game runs slowly.</p>
+        <p>Preferences can make HD graphics from your own SimGolf files, on your own device.</p>
+        <p>The free graphics' golfers have a new cast of cartoon faces, and the game says when some of your SimGolf files cannot be read.</p>
+        <p>The game now looks for a newer version when it starts and offers to install it, saying nothing if there is none (Preferences, More switches it off).</p>
+        <p>Two new options, both off until switched on: aim and swing with the mouse the way touch screens do, and no new dandelions in sandbox games.</p>
+      </description>
+    </release>
     <release version="0.5.13" date="2026-10-27">
       <description>
         <p>Fixed the picture going black or jumbled after resizing or maximising the window (with multisampling, HD or some Enhanced effects on).</p>
