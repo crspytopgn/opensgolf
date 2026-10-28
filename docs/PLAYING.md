@@ -979,7 +979,8 @@ The port's own camera helpers (crates/simgolf/src/views.rs); nothing changes unt
 
 **Ctrl+Z** (Cmd+Z on a Mac) undoes the last click or drag with a building or terrain tool that changed the course:
 terrain, paths, holes, buildings and garden items. The whole game goes back to just before it, money included, as if that moment had been saved and loaded.
-Up to 30 steps are kept; the list starts empty with each game and is not saved. (The port's own; not in the original.)
+Up to 30 steps are kept; the list starts empty with each game and is not saved. On a phone or tablet the round **Undo**
+touch button does the same while you build. (The port's own; not in the original.)
 
 ### Building tools
 
@@ -1246,7 +1247,8 @@ zoom levels, twist to turn the view a quarter. Once the screen has been touched,
 keys that have no button in the game: **Speed** (], normal, x2, x4: its arrows show the speed), **Message** (?, the last
 message again), **Turn** (Tab; only while Tab turns something: a building or a green's look in hand, the Path styles
 extra's style with the Pathway tool, placed buildings with the Rotate extra) and **Open hole** (h; only once the hole being
-built has its tee and green). A button acts when the finger lifts on it (slide off to let it be) and shows its name while
+built has its tee and green). **Undo** (Ctrl+Z, a hooked arrow to the left of Speed) shows while you build (a tool in hand,
+or the Build Course or Add Buildings panel open) once there is a click to undo. A button acts when the finger lifts on it (slide off to let it be) and shows its name while
 pressed; it does what its action does whatever keys are set in Keyboard controls, and nothing under it is clicked. They
 step left of the Staff areas, Path view and Landing map legends while one is up, and are hidden with the interface (u),
 in photo mode and under any screen, box or name being typed. Naming a course or a save raises the
