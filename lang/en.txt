@@ -153,7 +153,7 @@ STR_MSG_TOP_18_HOLE                     :{NAME} has been rated as one of the Top
 STR_MSG_HOLE_HAS_TEE                    :Hole {HOLE} already has its tee; open it before starting the next hole.
 STR_MSG_MATCH_CANCELED                  :Match canceled.
 # The SGA's offer (0x4c62cc, the course name, 0x4c627c, the purse, 0x4c6250, the pro's name, 0x4c6230); {PURSE} in thousands
-STR_MSG_SGA_OFFER                       :The SGA is interested in holding a tournament at your course. 'We'd like to schedule the {COURSE} Open Golf Tournament here as soon as possible.' We can offer a top prize of §{PURSE},000!  Click the tournament button in the {PRO} panel to begin the tournament.
+STR_MSG_SGA_OFFER                       :The SGA is interested in holding a tournament at your course. 'We'd like to schedule the {COURSE} Open Golf Tournament here as soon as possible.' We can offer a top prize of §{PURSE},000!  To begin it, open the People panel and click Begin Tournament in {PRO}'s rows at the top (or press Shift+J).
 # A story's ending gives a landmark ({A_LANDMARK} is the landmark's long name as written after "a")
 STR_MSG_LANDMARK_AVAILABLE              :A{A_LANDMARK} is now available in your landmarks menu.
 # The design tip five months in (0x45fd80 at tick 0x1400)

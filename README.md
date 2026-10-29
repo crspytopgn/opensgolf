@@ -70,7 +70,7 @@ Or install it with a package manager:
 Every download is a real app that runs offline; the browser version is there for devices without one (iPhone and iPad)
 or for a quick try. Controllers (Xbox, PlayStation, Switch, Steam Deck) work on Windows, macOS, Linux and in the browser.
 The Windows and macOS warnings appear because the project has no paid code-signing certificate. Details for each system
-are in [docs/INSTALL.md](docs/INSTALL.md); how to play, keys and touch controls are in [docs/PLAYING.md](docs/PLAYING.md).
+are in [docs/INSTALL.md](docs/INSTALL.md); how to play, keys and touch controls are in [docs/PLAYING.md](docs/PLAYING.md), and quick answers to common questions in [docs/HOWTO.md](docs/HOWTO.md).
 
 ## Game files: original or free
 
