@@ -3,6 +3,7 @@
 [![Release](https://img.shields.io/github/v/release/crspytopgn/opensgolf?label=release)](https://github.com/crspytopgn/opensgolf/releases/latest)
 [![Licence: GPL-2.0-or-later](https://img.shields.io/badge/licence-GPL--2.0--or--later-blue)](LICENSE)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/crspytopgn)
+[![Sponsor on GitHub](https://img.shields.io/badge/Sponsor-EA4AAA?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/crspytopgn)
 
 OpenSGolf is an open source game engine that plays Sid Meier's SimGolf (2002). It uses the original game's files if you
 have them, or its own free graphics and sound if you don't. It runs on Windows, macOS, Linux, Android and in the browser.
@@ -219,7 +220,8 @@ with the GPL.
 ## Supporting the project
 
 OpenSGolf is free and always will be. If you enjoy it and feel like buying me a coffee, that's always nice:
-[buymeacoffee.com/crspytopgn](https://buymeacoffee.com/crspytopgn).
+[buymeacoffee.com/crspytopgn](https://buymeacoffee.com/crspytopgn). You can also
+[sponsor it on GitHub](https://github.com/sponsors/crspytopgn).
 The game itself asks at most twice, gently, after an hour of play and again five hours later if you said *Maybe later*
 (the play time is counted on your device; *Don't ask again* ends it; see
 [docs/PLAYING.md](docs/PLAYING.md#supporting-opensgolf)). Preferences > More has a *Support OpenSGolf* line.
@@ -231,6 +233,7 @@ saves or cookies). The game says so once; *Preferences > More > Count my play ti
 builds (Flathub, F-Droid) do not include it. See [docs/PLAYING.md](docs/PLAYING.md#play-time-count).
 
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/crspytopgn)
+[![Sponsor on GitHub](https://img.shields.io/badge/Sponsor%20on%20GitHub-EA4AAA?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/crspytopgn)
 
 Thank you to everyone who reports bugs, tests on their devices, draws art for the free set and shares the game, and to
 Sid Meier, Firaxis and the original SimGolf team for a game people still love twenty years on.
