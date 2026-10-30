@@ -404,8 +404,10 @@ impl App {
             .iter()
             .filter_map(|&n| self.club.holes.get(n as usize).map(|h| HoleView { number: n, par: h.par, yards: h.length }))
             .collect();
-        let golfers =
-            (0..self.club.g.len()).filter(|&g| self.club.g[g].hole > 0).map(|g| self.golfer_view(g, self.club.g[g].strokes)).collect();
+        let golfers = (0..self.club.g.len().min(sg_core::golfer::SLOTS))
+            .filter(|&g| self.club.g[g].hole > 0)
+            .map(|g| self.golfer_view(g, self.club.g[g].strokes))
+            .collect();
         GameView {
             year: 2001 + self.econ.year_index() as i32,
             month: 3 + self.econ.month_index().rem_euclid(8),

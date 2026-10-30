@@ -477,10 +477,11 @@ impl App {
             view = v.rem_euclid(views.max(1));
         }
         if p.mirror && views >= 8 {
-            // a mirrored prop (a left-handed golfer's swing): the view whose mirror image faces the same way on the screen.
-            // Views 3 and 7 face straight down and up the screen (the people's clips: each mirrors into itself), so view k
-            // mirrors into view 6 - k.
-            view = (6 - view).rem_euclid(8);
+            // a mirrored prop (a left-handed golfer's address and swing): the view whose mirror image sends the ball the same
+            // way on the screen. A golf clip's view sends it the way a walker in that view faces: 3 to the screen's right and
+            // 7 to its left, which the mirror swaps, 1 and 5 down and up the screen, which it keeps, so view k is drawn from
+            // view 2 - k. (Up to 0.6.4 it was 6 - k, which kept the body's facing and so aimed the other way.)
+            view = (2 - view).rem_euclid(8);
         }
         view
     }
@@ -518,7 +519,9 @@ impl App {
             let (a, b, cc, d) = (c(dx, dy), c(dx + w, dy), c(dx + w, dy + h), c(dx, dy + h));
             g.tris(Mode::Flat, None, u, &[a, b, cc, a, cc, d]);
         };
-        for i in 0..self.club.g.len() {
+        // the golfers' balls only: the hole tool's trial golfer past them (sg_core::holetool::TRIAL) keeps the last ball of
+        // its layout pass at the cup of the hole it planned, which the exe never draws (its golfer table ends at SLOTS)
+        for i in 0..self.club.g.len().min(sg_core::golfer::SLOTS) {
             let gl = &self.club.g[i];
             if gl.bx == 0 || gl.hole <= 0 || gl.hole >= 19 || gl.flags & flag::PENALTY != 0 {
                 self.ball_trail[i] = None;

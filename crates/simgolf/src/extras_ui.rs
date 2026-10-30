@@ -888,7 +888,9 @@ impl App {
             self.ui_sound(24);
             return self.show_toast(sg_core::lang::tr("STR_TOAST_ANIMALS_FULL"));
         }
+        let cash = self.econ.cash;
         self.econ.spend_to(sg_core::economy::LEDGER_FACILITIES, cost);
+        self.float_change(cash, (a, b));
     }
 }
 

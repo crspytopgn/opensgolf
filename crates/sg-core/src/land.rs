@@ -496,7 +496,7 @@ pub mod flag {
 }
 
 /// An object on the map (the exe's 16-byte object record): a building, a landmark or an obstacle.
-#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Object {
     pub kind: i32,
     pub a: i32,

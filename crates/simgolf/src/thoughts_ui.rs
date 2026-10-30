@@ -183,16 +183,17 @@ impl App {
         }
     }
 
-    /// Floating money (0x40c910): "+" and the amount in green for income, the amount in red for a cost, in Manual SSi 15
+    /// Floating money (0x40c910): "+" and the amount in green for income, "-" and the amount in red for a cost, in Manual SSi 15
     /// (0x51b360) with the shadowed centred call (0x404bc0): centred on the map point, its top 4 pixels up.
     pub fn draw_floats(&self, g: &mut Gfx, s: &Ui) {
         let c15 = |v: u16| rgb(((v >> 10) & 31) as f32 / 31.0, ((v >> 5) & 31) as f32 / 31.0, (v & 31) as f32 / 31.0);
-        for &(units, x, y, life) in &self.floats {
-            if life == 0 || self.econ.sandbox {
+        for &(units, x, y, life, until) in &self.floats {
+            if life == 0 || until <= self.clock || self.econ.sandbox {
                 continue;
             }
             let Some((sx, sy)) = self.screen_of(x, y) else { continue };
-            let text = format!("{}{}", if units > 0 { "+" } else { "" }, crate::ui::money(units as i64 * 100));
+            // the sign and the amount, without the money sign (footage of the original: "-400", "+5,000")
+            let text = format!("{}{}", if units > 0 { "+" } else { "-" }, crate::ui::group(units.unsigned_abs() as u64 * 100));
             let c = c15(if units > 0 { 0x23e8 } else { 0x7d08 });
             s.put_shadowed(g, crate::ui::F_MANUAL15, sx.floor(), sy.floor() - 4.0, &text, c, true);
         }

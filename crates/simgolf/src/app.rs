@@ -688,8 +688,9 @@ pub struct App {
     pub dock_tip: (i32, u32),
     /// Frames drawn while paused (0x5a9f5c): the dock's Pause button blinks gold every fourth frame.
     pub dock_blink: u32,
-    /// Floating money (0x40c890): an 8-entry ring of (amount in $100 units, map x, map y, ticks left).
-    pub floats: [(i32, i32, i32, u8); 8],
+    /// Floating money (0x40c890): an 8-entry ring of (amount in $100 units, map x, map y, ticks left, the clock when it goes
+    /// at the latest).
+    pub floats: [(i32, i32, i32, u8, f64); 8],
     pub float_next: usize,
     /// Words over map points (0x40c720, drawn by 0x40c7a0): (map x, map y, text, clock when they go), at most 8. The right
     /// click's undo preview is the one user.
@@ -1020,7 +1021,7 @@ impl App {
             show_names: true,
             dock_tip: (-1, 0),
             dock_blink: 0,
-            floats: [(0, 0, 0, 0); 8],
+            floats: [(0, 0, 0, 0, 0.0); 8],
             map_labels: Vec::new(),
             undo_mark: None,
             float_next: 0,
@@ -2246,7 +2247,7 @@ impl App {
         self.course = Course::default();
         self.staff_golfers.clear();
         // what was showing of the old course: its floating money, a golfer's card, the shot analysis
-        self.floats = [(0, 0, 0, 0); 8];
+        self.floats = [(0, 0, 0, 0, 0.0); 8];
         self.map_labels.clear();
         self.undo_mark = None;
         self.card = None;
@@ -2919,9 +2920,9 @@ impl App {
         const DY: [f32; 8] = [-1.0, -1.0, 0.0, 1.0, 1.0, 1.0, 0.0, -1.0];
         for pi in 0..self.props.len() {
             let Some(gi) = self.props[pi].golfer else { continue };
-            let (h, x, y, facing, anim, clip) = {
+            let (h, x, y, facing, anim, club) = {
                 let g = &self.club.g[gi];
-                (g.hole, g.x, g.y, g.facing, g.anim, g.clip as i32)
+                (g.hole, g.x, g.y, g.facing, g.anim, g.club)
             };
             if h == 0 || h == -1 {
                 self.props[pi].hidden = true;
@@ -2933,15 +2934,18 @@ impl App {
                 self.props[pi].hidden = true;
                 continue;
             };
-            // The exe draws the swing clips one view round from the golfer's facing (not the putt); the bench clips have four
-            // views and take half the eight-way view. A left-hander (the Left-handed golfers extra) is drawn mirrored while
-            // he addresses the ball and swings, as the mirror image about the line to his target: the swing's facing is a
-            // quarter turn round from the target (golfer.rs, the shot's start), so his view is three round where a
-            // right-hander's is one; the putt and the address face the target and stay as they are.
+            // The swing clips are drawn toward the shot, as the address is: in the original's art the address's last frame and
+            // the swing's first are the same picture in every view, and each view sends the ball the way a golfer walking in
+            // that view faces (MalePSS_NormalAddress.flc against MalePSS_PerfectSwing.flc). The swing's facing is a quarter
+            // turn round from the shot for every club but the putter (golfer.rs, the shot's start), so it is turned back
+            // here; OpenSGolf up to 0.6.4 drew it one view round from the facing, so the golfer turned 45 degrees as he
+            // started his swing and swung 45 degrees off the ball's line. The bench clips have four views and take half the
+            // eight-way view. A left-hander (the Left-handed golfers extra) is drawn mirrored while he addresses the ball and
+            // swings, in the view whose mirror image sends the ball the same way (prop_view).
             let mirror = (anim < 7 || anim == sg_core::golfer::anim::ADDRESS) && self.club.left_handed(gi);
             let mut d = facing & 7;
-            if anim < 7 && clip != 0x5a {
-                d = (d - if mirror { 3 } else { 1 }) & 7;
+            if anim < 7 && club != 13 {
+                d = (d - 2) & 7;
             }
             let (wx, wz) = self.units_to_world(x, y);
             let outfit = self.club.outfit(gi);
@@ -3519,7 +3523,9 @@ impl App {
                 Some(l) if keep => l.var[li] as i32,
                 _ => want,
             };
+            let cash = self.econ.cash;
             self.econ.spend_to(economy::LEDGER_BUILD_COURSE, cost as f64 * Economy::UNIT);
+            self.float_change(cash, (x, y));
             let hb = (self.club.next_hole as usize).min(18);
             if !self.econ.free {
                 self.club.holes[hb].build_cost += cost;
@@ -3789,7 +3795,9 @@ impl App {
         }
         land.write_area(&mut self.terrain, x, y, x, y);
         if cost != 0 {
+            let cash = self.econ.cash;
             self.econ.spend_to(economy::LEDGER_FACILITIES, amount);
+            self.float_change(cash, (x, y));
         }
         match kind {
             land::K_BENCH => self.ui_sound(262),
@@ -3876,8 +3884,15 @@ impl App {
     }
 
     /// Undo on a tile, as the exe's second right-click does: an item comes off with exactly what it cost back (booked to Build
-    /// course), a building is demolished with no refund.
+    /// course), a building is demolished with no refund. The money back (or a home site's price to buy its lot back) floats
+    /// over the tile.
     pub fn undo_tile(&mut self, x: i32, y: i32) {
+        let cash = self.econ.cash;
+        self.take_back_tile(x, y);
+        self.float_change(cash, (x, y));
+    }
+
+    fn take_back_tile(&mut self, x: i32, y: i32) {
         // a lamp post of the Path styles and lamps extra comes off first (paths_lamps.rs)
         if self.remove_lamp(x, y) {
             return;
@@ -4062,6 +4077,7 @@ impl App {
             self.club.free_landmarks &= !(1 << t);
         }
         land.write_area(&mut self.terrain, tx, ty, tx + size - 1, ty + size - 1);
+        let cash = self.econ.cash;
         self.econ.spend_to(economy::LEDGER_FACILITIES, cost);
         if lot > 0 {
             // the lot is sold at once
@@ -4069,6 +4085,8 @@ impl App {
             // OpenSGolf extras (homes_ui.rs): what the home site cost and sold for
             self.home_placed(tx, ty, cost.round() as i64, (lot as f64 * Economy::UNIT) as i64);
         }
+        // what it cost, less a home site's lot sold, floats over its middle tile (docs/DECODE_HOMES.md)
+        self.float_change(cash, (tx + (size - 1) / 2, ty + (size - 1) / 2));
         self.after_object_change();
         self.snd("Interface/Building.wav", 0.7, false);
         let kind = sg_core::data::object_id(kind as usize).to_string();
@@ -4269,13 +4287,27 @@ impl App {
         }
     }
 
-    /// Queues a floating amount at a map point for 24 ticks (0x40c890); none in a sandbox.
+    /// Queues a floating amount at a map point for 24 ticks (0x40c890); none in a sandbox. The port's own: it also goes once
+    /// 24 ticks' time has passed on the clock, so an amount shown while the game is paused (building) does not stay.
     pub fn float_money(&mut self, units: i32, at: (i32, i32)) {
         if units == 0 || self.econ.sandbox {
             return;
         }
-        self.floats[self.float_next] = (units, at.0, at.1, 0x18);
+        let until = self.clock + 0x18 as f64 * sg_core::flight::TICK_MS as f64 / 1000.0;
+        self.floats[self.float_next] = (units, at.0, at.1, 0x18, until);
         self.float_next = (self.float_next + 1) % 8;
+    }
+
+    /// What a building or terrain action did to the money on one tile, floating over it in green (given back) or red (paid):
+    /// `before` is the cash before it. Every tile painted, item or building placed and tile undone shows its own, as in
+    /// footage of the original (each tile of a stroke, a path, a water tile undone); the exe also floats a home site's net
+    /// cost at its tile (docs/DECODE_HOMES.md). Its callers of 0x40c890 for these are not read yet.
+    pub fn float_change(&mut self, before: f64, tile: (i32, i32)) {
+        let units = ((self.econ.cash - before) / Economy::UNIT).round() as i32;
+        let at = (tile.0 * 1024 + 512, tile.1 * 1024 + 512);
+        self.float_money(units, at);
+        // a click's amounts float again, given back, when it is undone (undo.rs)
+        self.undo.note_float(units, at);
     }
 
     pub fn pan(&mut self, right: f32, up: f32) {
@@ -5296,6 +5328,92 @@ mod tests {
         a.paint_tiles(&[(20, 20)]);
         assert_eq!(a.terrain.variation[ti], 2);
         assert_eq!(a.econ.cash, cash);
+    }
+
+    #[test]
+    fn undo_puts_back_the_click_and_its_money_and_leaves_the_time() {
+        // undoing a click no longer goes back in time: only what it painted, and what it cost, come back
+        let mut a = building_game();
+        a.econ.cash = 1e7;
+        a.ensure_land();
+        let ti = a.terrain.tile_index(20, 20);
+        a.pick_brush(PAINT.iter().position(|p| p.ty == 17 && p.vbyte == 0).unwrap());
+        let cash = a.econ.cash;
+        a.undo_press();
+        a.paint_tiles(&[(20, 20)]);
+        a.undo_release();
+        let cost = cash - a.econ.cash;
+        assert!(cost > 0.0 && a.terrain.ty[ti] == 17);
+        // the game goes on: time passes, a green fee comes in
+        a.game_tick += 500;
+        a.econ.earn_to(economy::LEDGER_GREEN_FEES, 3000.0);
+        assert!(a.undo_click_step());
+        assert_eq!(a.terrain.ty[ti], 2);
+        assert_eq!(a.land.as_ref().unwrap().ty[(20 * land::mn() + 20) as usize], 2);
+        assert_eq!(a.game_tick, 501);
+        assert_eq!(a.econ.cash, cash + 3000.0);
+        let y = &a.econ.ledger[a.econ.year_index()];
+        assert_eq!((y[economy::LEDGER_BUILD_COURSE], y[economy::LEDGER_GREEN_FEES]), (0.0, 3000.0));
+        assert!(a.floats.iter().any(|f| f.0 == (cost / Economy::UNIT) as i32), "the money back floats over the tile");
+        assert!(!a.undo.can_undo());
+    }
+
+    #[test]
+    fn undo_puts_back_a_holes_tee() {
+        let mut a = building_game();
+        a.econ.cash = 1e7;
+        a.pick_brush(PAINT.iter().position(|p| p.ty == 4).unwrap());
+        a.undo_press();
+        a.paint_tiles(&[(10, 10)]);
+        a.undo_release();
+        assert_eq!(a.club.holes[1].back.0, 0, "painting over the tee takes it from the hole");
+        assert!(a.undo_click_step());
+        assert_eq!(a.club.holes[1].back, (10, 10));
+        assert_eq!(a.terrain.ty[a.terrain.tile_index(10, 10)], 0);
+        assert_eq!(a.course.flags[sg_core::course::idx(10, 10)] & sg_core::course::f::LOW, 1, "the tee is hole 1's again");
+    }
+
+    #[test]
+    fn placing_and_removing_float_their_money() {
+        let mut a = building_game();
+        a.econ.cash = 1e7;
+        a.ensure_land();
+        a.edit = true;
+        a.tool = 2;
+        a.has_hit = true;
+        (a.hit_x, a.hit_z) = a.terrain.tile_centre(20, 20);
+        a.apply_tool(false, false);
+        let paid = a.floats.iter().find(|f| f.3 > 0).map(|f| f.0).unwrap();
+        assert!(paid < 0, "a path's cost floats in red");
+        a.apply_tool(true, false);
+        assert!(a.floats.iter().any(|f| f.3 > 0 && f.0 == -paid), "removing it floats the money back in green");
+    }
+
+    #[test]
+    fn each_tile_painted_floats_its_own_cost() {
+        // footage of the original: every tile of a stroke shows its own amount over it
+        let mut a = building_game();
+        a.econ.cash = 1e7;
+        a.pick_brush(PAINT.iter().position(|p| p.ty == 12).unwrap());
+        a.undo_press();
+        a.paint_tiles(&[(20, 20), (21, 20), (22, 20)]);
+        a.undo_release();
+        let shown: Vec<_> = a.floats.iter().filter(|f| f.3 > 0).map(|f| (f.0, f.1 >> 10, f.2 >> 10)).collect();
+        let each = -Economy::terrain_cost_units(12);
+        assert_eq!(shown, [(each, 20, 20), (each, 21, 20), (each, 22, 20)]);
+        // undone, each tile's money floats back over it
+        assert!(a.undo_click_step());
+        let back: Vec<_> = a.floats.iter().filter(|f| f.3 > 0 && f.0 > 0).map(|f| (f.0, f.1 >> 10)).collect();
+        assert_eq!(back, [(-each, 20), (-each, 21), (-each, 22)]);
+    }
+
+    #[test]
+    fn the_trial_golfers_ball_is_not_a_golfers() {
+        // the layout pass leaves the trial golfer's ball on the planned hole; it lies past the golfers the game draws
+        let a = building_game();
+        let t = &a.club.g[sg_core::holetool::TRIAL];
+        assert!(t.bx != 0 && (1..19).contains(&t.hole));
+        assert!(sg_core::holetool::TRIAL >= sg_core::golfer::SLOTS);
     }
 
     #[test]

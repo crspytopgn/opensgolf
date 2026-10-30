@@ -1534,6 +1534,8 @@ impl Stage {
                 Err(e) => app.show_toast(&sg_core::lang::trf("STR_TOAST_COULD_NOT_LOAD_GAME", &[("ERROR", &e)])),
             }
         }
+        // (the clock runs from here, so the floating money of the edits below lasts its two seconds into the still)
+        app.clock = now();
         apply_edit_spec(&mut app, &o.edit_spec);
         if !o.edit_spec.is_empty() || app.editor.is_some() {
             app.rebuild_batches(&mut g);
