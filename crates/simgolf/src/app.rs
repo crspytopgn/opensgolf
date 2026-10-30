@@ -5359,6 +5359,64 @@ mod tests {
     }
 
     #[test]
+    fn undo_leaves_what_a_tournament_built_since() {
+        // review of #149: a tournament's preparation puts its TV towers on the end of the objects after a click (tourney_ui.rs
+        // finish_prep); undoing the click leaves them, and the tile one of them stands on
+        let mut a = building_game();
+        a.econ.cash = 1e7;
+        a.ensure_land();
+        a.pick_brush(PAINT.iter().position(|p| p.ty == 17 && p.vbyte == 0).unwrap());
+        a.undo_press();
+        a.paint_tiles(&[(20, 20), (26, 20)]);
+        a.undo_release();
+        let theme = a.exe_theme();
+        let l = a.land.as_mut().unwrap();
+        let n = l.objects.len();
+        let tower = l.place(&mut a.exe_rng, 20, 20, land::K_TV_TOWER, 0, theme);
+        l.write_area(&mut a.terrain, 20, 20, 20, 20);
+        let li = |a: i32, b: i32| (a * land::mn() + b) as usize;
+        let under = l.ty[li(20, 20)];
+        assert_eq!(tower, n, "the tower goes on the end");
+        assert!(a.undo_click_step());
+        let l = a.land.as_ref().unwrap();
+        assert_eq!(l.objects.len(), n + 1);
+        assert_eq!(l.objects[tower].kind, land::K_TV_TOWER);
+        assert_eq!((l.ty[li(20, 20)], l.var[li(20, 20)]), (under, tower as u8), "the tower's tile stays");
+        assert_eq!(a.terrain.ty[a.terrain.tile_index(20, 20)], under);
+        assert_eq!((l.ty[li(26, 20)], a.terrain.ty[a.terrain.tile_index(26, 20)]), (2, 2), "the other tile goes back");
+    }
+
+    #[test]
+    fn undo_brings_back_a_building_whose_record_was_used_since() {
+        // a building taken away by a click, whose record a TV tower took (Land::place reuses the first free one), comes back
+        // in another record, and its tiles point there
+        let mut a = building_game();
+        a.econ.cash = 1e7;
+        a.ensure_land();
+        let theme = a.exe_theme();
+        let li = |a: i32, b: i32| (a * land::mn() + b) as usize;
+        let l = a.land.as_mut().unwrap();
+        let mark = l.place(&mut a.exe_rng, 24, 24, land::K_LANDMARK, 0, theme);
+        l.write_area(&mut a.terrain, 24, 24, 24, 24);
+        a.undo_press();
+        let l = a.land.as_mut().unwrap();
+        l.remove_object(mark);
+        l.write_area(&mut a.terrain, 24, 24, 24, 24);
+        a.undo_release();
+        let l = a.land.as_mut().unwrap();
+        let tower = l.place(&mut a.exe_rng, 30, 30, land::K_TV_TOWER, 0, theme);
+        assert_eq!(tower, mark, "the tower takes the landmark's record");
+        assert!(a.undo_click_step());
+        let l = a.land.as_ref().unwrap();
+        assert_eq!(l.objects[tower].kind, land::K_TV_TOWER);
+        let back = l.objects.len() - 1;
+        assert_ne!(back, mark);
+        assert_eq!((l.objects[back].kind, l.objects[back].a, l.objects[back].b), (land::K_LANDMARK, 24, 24));
+        assert_eq!(l.var[li(24, 24)], back as u8);
+        assert_eq!(l.var[li(30, 30)], tower as u8);
+    }
+
+    #[test]
     fn undo_puts_back_a_holes_tee() {
         let mut a = building_game();
         a.econ.cash = 1e7;

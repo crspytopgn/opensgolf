@@ -1002,7 +1002,9 @@ The port's own camera helpers (crates/simgolf/src/views.rs); nothing changes unt
 terrain, paths, holes, buildings and garden items. Only what that click changed goes back: its tiles, corners and
 buildings, the tees and cups of its holes, and the money it cost or gave (each tile's amount floating over it again,
 given back). The clock, the golfers and the rest of the game go on as they are, so undoing no longer winds time back
-(OpenSGolf up to 0.6.4 went back to just before the click, time and golfers too). A home site the undo takes away loses
+(OpenSGolf up to 0.6.4 went back to just before the click, time and golfers too). A tile goes back only while it is as
+the click left it: what has been built on it since, such as a tournament's TV towers, stays, and a building the click
+took away comes back only if none of its tiles has been built on since. A home site the undo takes away loses
 its residents, as when it is demolished. In the course editor a heightmap import or a change of the land owned goes back
 as a whole, as no time passes there. Up to 30 steps are kept; the list starts empty with each game and is not saved. On
 a phone or tablet the round **Undo** touch button does the same while you build. (The port's own; not in the original.)

@@ -1,8 +1,9 @@
 //! Undo for building and terrain (the port's own, docs/PLAYING.md "Undo"). At a click on the course the parts of the game
 //! that the building and terrain tools change are kept: the tiles and their corners, the objects, the holes' tees and cups and
 //! the money booked to building. When the button comes up and the click changed the course (its land, terrain or holes), what
-//! it changed goes on the undo list, each tile, corner and object as it was before. Ctrl+Z (Cmd+Z on a Mac) puts back only
-//! that, with the money the click took or gave: the clock, the golfers and the rest of the game go on as they are. The
+//! it changed goes on the undo list, each tile, corner and object as it was before and as the click left it. Ctrl+Z (Cmd+Z on
+//! a Mac) puts back only that, where it is still as the click left it, with the money the click took or gave: the clock, the
+//! golfers, the rest of the game and what has been built since (a tournament's TV towers) go on as they are. The
 //! course editor's heightmap and land changes are kept as a whole saved game instead, as no time passes there. The list is
 //! not saved and starts empty with each game.
 
@@ -10,6 +11,7 @@ use crate::app::App;
 use crate::gfx::Gfx;
 use sg_core::economy;
 use sg_core::land::{self, Land, Object};
+use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
 /// The most clicks the list keeps (the oldest go first).
@@ -60,24 +62,46 @@ enum Step {
     Save(Vec<u8>),
 }
 
-/// What a vector held before a click where the click changed it, and its length then (a new object makes the list longer).
+/// What a vector held before a click at each place the click changed, and what the click left there. Undo puts a place back
+/// only while it still holds what the click left: what has changed it since (a tournament's TV towers, the game) stays. A
+/// place the click added (a new object on the end of the list) has nothing before; the lists never get shorter (an object
+/// is freed, not taken off the list).
 struct Was<T> {
-    len: usize,
-    at: Vec<(u32, T)>,
+    at: Vec<(u32, Option<T>, T)>,
 }
 
-impl<T: Copy + PartialEq + Default> Was<T> {
+impl<T: Copy + PartialEq> Was<T> {
     fn of(before: &[T], after: &[T]) -> Self {
-        let at = before.iter().enumerate().filter(|&(i, v)| after.get(i) != Some(v)).map(|(i, &v)| (i as u32, v)).collect();
-        Was { len: before.len(), at }
+        let at = after
+            .iter()
+            .enumerate()
+            .filter(|&(i, v)| before.get(i) != Some(v))
+            .map(|(i, &v)| (i as u32, before.get(i).copied(), v))
+            .collect();
+        Was { at }
     }
 
-    fn put_back(&self, v: &mut Vec<T>) {
-        v.resize(self.len, T::default());
-        for &(i, x) in &self.at {
-            v[i as usize] = x;
+    /// The places that hold something else now than what the click left there.
+    fn changed_since<'a>(&'a self, v: &'a [T]) -> impl Iterator<Item = usize> + 'a {
+        self.at.iter().filter(move |&&(i, _, left)| v.get(i as usize) != Some(&left)).map(|&(i, ..)| i as usize)
+    }
+
+    /// Puts back what each place held before the click while it still holds what the click left, unless `keep` keeps it.
+    fn put_back(&self, v: &mut [T], keep: impl Fn(usize) -> bool) {
+        for &(i, was, left) in &self.at {
+            if let (Some(w), Some(x)) = (was, v.get_mut(i as usize)) {
+                if *x == left && !keep(i as usize) {
+                    *x = w;
+                }
+            }
         }
     }
+}
+
+/// The same object in the same place (a home site's owner and lot value, and whether an object is joined to the
+/// clubhouse, change as the game goes on).
+fn same(x: &Object, y: &Object) -> bool {
+    (x.kind, x.a, x.b) == (y.kind, y.a, y.b)
 }
 
 /// The land's tiles, corners and objects a click changed (not the growth counters, which are the simulation's).
@@ -106,16 +130,85 @@ impl LandWas {
         }
     }
 
-    fn put_back(&self, l: &mut Land) {
-        self.ty.put_back(&mut l.ty);
-        self.flags.put_back(&mut l.flags);
-        self.layer.put_back(&mut l.layer);
-        self.var.put_back(&mut l.var);
-        self.height.put_back(&mut l.height);
-        self.undo.put_back(&mut l.undo);
-        self.refund.put_back(&mut l.refund);
-        self.objects.put_back(&mut l.objects);
+    /// The tiles that hold something else now than what the click left on them.
+    fn changed_since(&self, l: &Land) -> HashSet<usize> {
+        let mut s: HashSet<usize> = self.ty.changed_since(&l.ty).collect();
+        s.extend(self.flags.changed_since(&l.flags));
+        s.extend(self.layer.changed_since(&l.layer));
+        s.extend(self.var.changed_since(&l.var));
+        s.extend(self.undo.changed_since(&l.undo));
+        s.extend(self.refund.changed_since(&l.refund));
+        s
     }
+
+    /// Puts back the tiles not in `kept` (a tile goes back whole or not at all), the corners and the objects. An object the
+    /// click took away comes back only with all of its tiles: if one of them has changed since, the object stays gone and
+    /// its tiles stay as they are (they join `kept`).
+    fn put_back(&self, l: &mut Land, kept: &mut HashSet<usize>) {
+        let moved = self.put_back_objects(l, kept);
+        let keep = |i: usize| kept.contains(&i);
+        self.ty.put_back(&mut l.ty, keep);
+        self.flags.put_back(&mut l.flags, keep);
+        self.layer.put_back(&mut l.layer, keep);
+        self.var.put_back(&mut l.var, keep);
+        self.undo.put_back(&mut l.undo, keep);
+        self.refund.put_back(&mut l.refund, keep);
+        self.height.put_back(&mut l.height, |_| false);
+        // an object back in another record: its tiles point there (Land::place keeps a footprint's object in var)
+        for (o, from, to) in moved {
+            for t in footprint(l, &o) {
+                if l.var[t] == from as u8 {
+                    l.var[t] = to as u8;
+                }
+            }
+        }
+    }
+
+    /// Puts back the objects, before their tiles. One the click added is freed, as Land::remove_object frees one. One it
+    /// took away comes back in its own record, or in a free one (or a new one on the end) if its own has been used since:
+    /// a tournament's TV tower takes the first free record. Returns the objects that came back in another record, from
+    /// where to where.
+    fn put_back_objects(&self, l: &mut Land, kept: &mut HashSet<usize>) -> Vec<(Object, usize, usize)> {
+        let mut moved = Vec::new();
+        for &(i, was, left) in &self.objects.at {
+            let i = i as usize;
+            let Some(now) = l.objects.get(i).copied() else { continue };
+            let Some(w) = was.filter(|w| w.kind >= 0) else {
+                // the click put an object in a free record, or on the end of the list
+                if same(&now, &left) {
+                    l.objects[i] = was.unwrap_or(Object { kind: -1, ..now });
+                }
+                continue;
+            };
+            let tiles = footprint(l, &w);
+            if tiles.iter().any(|t| kept.contains(t)) {
+                kept.extend(tiles);
+            } else if same(&now, &left) {
+                l.objects[i] = w;
+            } else if let Some(n) = l.objects.iter().position(|o| o.kind == -1) {
+                l.objects[n] = w;
+                moved.push((w, i, n));
+            } else if l.objects.len() < 0xff {
+                l.objects.push(w);
+                moved.push((w, i, l.objects.len() - 1));
+            } else {
+                // no record is free (0xff is a tile's "no object"): the object stays gone, and its tiles as they are
+                kept.extend(tiles);
+            }
+        }
+        moved
+    }
+}
+
+/// The land tiles under an object.
+fn footprint(l: &Land, o: &Object) -> Vec<usize> {
+    let (s, n) = (l.footprint_size(o), land::mn());
+    let inside = |v: i32| (0..n).contains(&v);
+    (0..s)
+        .flat_map(|r| (0..s).map(move |c| (o.a + r, o.b + c)))
+        .filter(|&(a, b)| inside(a) && inside(b))
+        .map(|(a, b)| (a * n + b) as usize)
+        .collect()
 }
 
 /// The hole tool's part of a hole record: its tees, its cup and its par (the hole's statistics are the golfers').
@@ -153,11 +246,12 @@ struct Click {
     terrain: [Was<u8>; 4],
     corner: Was<i8>,
     land: LandWas,
-    /// The holes whose tees, cup or par it changed, and what it added to each hole's building cost.
-    holes: Vec<(usize, HoleWas)>,
+    /// The holes whose tees, cup or par it changed, before and after, and what it added to each hole's building cost.
+    holes: Vec<(usize, HoleWas, HoleWas)>,
     build_cost: Vec<(usize, i32)>,
-    next_hole: Option<i32>,
-    free_landmarks: Option<u32>,
+    next_hole: Option<(i32, i32)>,
+    /// The free landmarks (one bit each) it used up, and any it gave.
+    free_landmarks: (u32, u32),
     /// What it booked to each of the building columns (negative for money paid), and the amounts it floated over its tiles.
     money: [f64; 3],
     floats: Vec<(i32, (i32, i32))>,
@@ -216,7 +310,7 @@ impl App {
         let mut build_cost = Vec::new();
         for (i, (h, (was, cost))) in self.club.holes.iter().zip(&b.holes).enumerate() {
             if HoleWas::of(h) != *was {
-                holes.push((i, *was));
+                holes.push((i, *was, HoleWas::of(h)));
             }
             if h.build_cost != *cost {
                 build_cost.push((i, h.build_cost - cost));
@@ -229,8 +323,8 @@ impl App {
             land: LandWas::of(&b.land, land),
             holes,
             build_cost,
-            next_hole: (self.club.next_hole != b.next_hole).then_some(b.next_hole),
-            free_landmarks: (self.club.free_landmarks != b.free_landmarks).then_some(b.free_landmarks),
+            next_hole: (self.club.next_hole != b.next_hole).then_some((b.next_hole, self.club.next_hole)),
+            free_landmarks: (b.free_landmarks & !self.club.free_landmarks, self.club.free_landmarks & !b.free_landmarks),
             money: std::array::from_fn(|k| money[k] - b.money[k]),
             floats: b.floats,
         };
@@ -264,11 +358,19 @@ impl App {
             |l: &Land| -> Vec<(i32, i32)> { l.objects.iter().filter(|o| o.kind == land::K_HOME_SITE).map(|o| (o.a, o.b)).collect() };
         let homes_now = homes(land);
         let t = &mut self.terrain;
-        for (w, v) in c.terrain.iter().zip([&mut t.ty, &mut t.variation, &mut t.set, &mut t.path_kind]) {
-            w.put_back(v);
+        // a tile goes back only while it holds all the click left on it, in the land and in the terrain: what has been built
+        // on it since (a tournament's TV towers) stays
+        let (w, n) = (t.w as usize, land::mn() as usize);
+        let to_land = |o: usize| if o % w < n && o / w < n { (o % w) * n + o / w } else { usize::MAX };
+        let mut kept = c.land.changed_since(land);
+        for (was, v) in c.terrain.iter().zip([&t.ty, &t.variation, &t.set, &t.path_kind]) {
+            kept.extend(was.changed_since(v).map(to_land));
         }
-        c.corner.put_back(&mut t.corner);
-        c.land.put_back(land);
+        c.land.put_back(land, &mut kept);
+        for (was, v) in c.terrain.iter().zip([&mut t.ty, &mut t.variation, &mut t.set, &mut t.path_kind]) {
+            was.put_back(v, |o| kept.contains(&to_land(o)));
+        }
+        c.corner.put_back(&mut t.corner, |_| false);
         land.green_looks_to(&mut self.terrain);
         // a home site the undo takes away loses its residents and its record, as when it is demolished (App::undo_tile)
         let homes_then = homes(land);
@@ -276,19 +378,23 @@ impl App {
             self.club.evict(a, b);
             self.home_removed(a, b);
         }
-        for &(i, w) in &c.holes {
+        for &(i, w, left) in &c.holes {
             let h = &mut self.club.holes[i];
-            (h.par, h.game_par, h.back, h.fwd, h.pin) = (w.par, w.game_par, w.back, w.fwd, w.pin);
+            if HoleWas::of(h) == left {
+                (h.par, h.game_par, h.back, h.fwd, h.pin) = (w.par, w.game_par, w.back, w.fwd, w.pin);
+            }
         }
         for &(i, d) in &c.build_cost {
             self.club.holes[i].build_cost -= d;
         }
-        if let Some(n) = c.next_hole {
-            self.club.next_hole = n;
+        if let Some((was, left)) = c.next_hole {
+            if self.club.next_hole == left {
+                self.club.next_hole = was;
+            }
         }
-        if let Some(f) = c.free_landmarks {
-            self.club.free_landmarks = f;
-        }
+        // the free landmarks it used come back, and any won since stay
+        let (used, gave) = c.free_landmarks;
+        self.club.free_landmarks = (self.club.free_landmarks & !gave) | used;
         // the money back, booked against the columns the click booked to
         let mut back = 0.0;
         for (k, &col) in BUILD_COLUMNS.iter().enumerate() {
@@ -343,14 +449,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn was_puts_back_changed_places_and_length() {
+    fn was_puts_back_only_what_the_click_left() {
         let before = vec![1u8, 2, 3];
-        let mut v = vec![1u8, 9, 3, 4];
+        let mut v = vec![1u8, 9, 8, 4];
         let w = Was::of(&before, &v);
-        assert_eq!(w.at, vec![(1, 2)]);
-        // a later change elsewhere stays
+        assert_eq!(w.at, vec![(1, Some(2), 9), (2, Some(3), 8), (3, None, 4)]);
+        // since the click: another change elsewhere, one at a place the click changed, and one more on the end
         v[0] = 7;
-        w.put_back(&mut v);
-        assert_eq!(v, vec![7, 2, 3]);
+        v[2] = 6;
+        v.push(5);
+        assert_eq!(w.changed_since(&v).collect::<Vec<_>>(), [2]);
+        w.put_back(&mut v, |_| false);
+        assert_eq!(v, vec![7, 2, 6, 4, 5], "only the click's own places go back, and the list stays as long");
+        let mut v = vec![1u8, 9, 8];
+        w.put_back(&mut v, |i| i == 1);
+        assert_eq!(v, vec![1, 9, 3]);
     }
 }
