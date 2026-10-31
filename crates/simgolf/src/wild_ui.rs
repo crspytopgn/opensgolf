@@ -173,6 +173,7 @@ impl App {
                 view,
                 lift,
                 track: 0x5000_0000 | fi as u32,
+                level: f.kind == wildlife::BLIMP,
                 ..Default::default()
             });
         }

@@ -107,6 +107,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.6.6" date="2026-10-31">
+      <description>
+        <p>With Enhanced graphics, the blimp's reflection in the water points the way the blimp does.</p>
+      </description>
+    </release>
     <release version="0.6.5" date="2026-10-31">
       <description>
         <p>Undo puts back only what the click changed and no longer winds the clock back; placing, removing and undoing show the money over each tile, as in the original.</p>
