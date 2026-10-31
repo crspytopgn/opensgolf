@@ -39,6 +39,7 @@ Enhanced graphics and HD.
 
 **Fix releases**
 
+- **0.6.6:** with Enhanced graphics, the blimp's reflection in the water points the way the blimp does (#147).
 - **0.6.5:** undo (Ctrl+Z, the touch Undo button) puts back only what the click changed and its money, and no longer winds
   the clock, the golfers and the money earned since back; what was built since (a tournament's TV towers) stays. Placing,
   removing and undoing show the money over each tile, as in the original ("-400" in red, "+5,000" in green). No ball is
