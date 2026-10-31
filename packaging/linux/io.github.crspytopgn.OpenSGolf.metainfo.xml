@@ -107,6 +107,12 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.6.5" date="2026-10-31">
+      <description>
+        <p>Undo puts back only what the click changed and no longer winds the clock back; placing, removing and undoing show the money over each tile, as in the original.</p>
+        <p>Golfers swing along the ball's line; no ball is left by the pin; the SGA's tournament offer says where to begin it.</p>
+      </description>
+    </release>
     <release version="0.6.4" date="2026-10-28">
       <description>
         <p>The view can no longer be scrolled off the map, and in full screen the pointer at the screen's edge scrolls it, as in the original.</p>
