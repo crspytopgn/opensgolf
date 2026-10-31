@@ -105,6 +105,9 @@ pub struct Prop {
     pub resident: Option<usize>,
     /// Ambient life and water effects (animals, fly-overs, splash, ripples, rocks, dolphins), rebuilt every update.
     pub ambient: bool,
+    /// Lies level rather than standing up (the blimp): Enhanced graphics' water reflection draws it the right way up at its
+    /// mirrored height, as a level shape's reflection runs along the same line on the ground (fx_reflect.rs; issue #147).
+    pub level: bool,
     /// Drawn size (1 = the sprite's own) and height of the body above the ground in world units (the shadow stays down).
     pub scale: f32,
     pub lift: f32,
@@ -152,6 +155,7 @@ impl Default for Prop {
             decor: false,
             resident: None,
             ambient: false,
+            level: false,
             scale: 1.0,
             lift: 0.0,
             outfit: None,
