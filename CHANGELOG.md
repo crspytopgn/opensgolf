@@ -39,6 +39,12 @@ Enhanced graphics and HD.
 
 **Fix releases**
 
+- **0.6.5:** undo (Ctrl+Z, the touch Undo button) puts back only what the click changed and its money, and no longer winds
+  the clock, the golfers and the money earned since back; what was built since (a tournament's TV towers) stays. Placing,
+  removing and undoing show the money over each tile, as in the original ("-400" in red, "+5,000" in green). No ball is
+  left by the pin of the last hole planned. Golfers swing along the ball's line instead of 45 degrees off it, as in the
+  original's art. The SGA's tournament offer says where Begin Tournament is (the People panel, or Shift+J), and a new
+  "How do I...?" page answers common questions. From puddin11: the undo, money, ball and swing changes.
 - **0.6.4:** the view can no longer be scrolled off the map, and in full screen the pointer at the screen's edge scrolls it
   as in the original (Edge scrolling, a new Controls option, on by default) (#138); painting over a flower bed, a garden
   border or a small object takes it away from the screen too (#136); a game's options stay that game's, so new games start
