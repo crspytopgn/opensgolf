@@ -1204,7 +1204,8 @@ impl App {
         }
         self.enh.tracks = seen;
         // the balls, by golfer (in the simulation's units: x, y along the ground and the height)
-        let n = self.club.g.len();
+        // (the golfers' only: not the hole tool's trial golfer past them, render.rs draw_balls)
+        let n = self.club.g.len().min(sg_core::golfer::SLOTS);
         self.enh.balls.resize(n, None);
         for i in 0..n {
             let gl = &self.club.g[i];

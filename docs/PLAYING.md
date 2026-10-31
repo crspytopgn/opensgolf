@@ -999,9 +999,22 @@ The port's own camera helpers (crates/simgolf/src/views.rs); nothing changes unt
   and the other touch buttons stay a touch screen's. The browser build has it too (touch.rs, `mouse_swing_down`).
 
 **Ctrl+Z** (Cmd+Z on a Mac) undoes the last click or drag with a building or terrain tool that changed the course:
-terrain, paths, holes, buildings and garden items. The whole game goes back to just before it, money included, as if that moment had been saved and loaded.
-Up to 30 steps are kept; the list starts empty with each game and is not saved. On a phone or tablet the round **Undo**
-touch button does the same while you build. (The port's own; not in the original.)
+terrain, paths, holes, buildings and garden items. Only what that click changed goes back: its tiles, corners and
+buildings, the tees and cups of its holes, and the money it cost or gave (each tile's amount floating over it again,
+given back). The clock, the golfers and the rest of the game go on as they are, so undoing no longer winds time back
+(OpenSGolf up to 0.6.4 went back to just before the click, time and golfers too). A tile goes back only while it is as
+the click left it: what has been built on it since, such as a tournament's TV towers, stays, and a building the click
+took away comes back only if none of its tiles has been built on since. A home site the undo takes away loses
+its residents, as when it is demolished. In the course editor a heightmap import or a change of the land owned goes back
+as a whole, as no time passes there. Up to 30 steps are kept; the list starts empty with each game and is not saved. On
+a phone or tablet the round **Undo** touch button does the same while you build. (The port's own; not in the original.)
+
+Placing, removing and undoing (the right click's or Ctrl+Z) show what they cost or gave back over each tile, as in the
+original: "-400" in red for money paid, "+5,000" in green for money back, without the money sign, in the font and
+colours of the green fees' amounts. The amount sits still on its tile for about two seconds (also while the game is
+paused). Each tile of
+a stroke, a rectangle or a fill shows its own; a building shows its cost over its middle (a home site its cost less the
+lot sold). As with green fees, a sandbox shows none.
 
 ### Building tools
 

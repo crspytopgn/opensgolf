@@ -76,7 +76,8 @@ impl App {
             return;
         }
         let tick = self.game_tick;
-        let n = self.club.g.len();
+        // (the golfers' only: not the hole tool's trial golfer past them, render.rs draw_balls)
+        let n = self.club.g.len().min(sg_core::golfer::SLOTS);
         let st = &mut self.fx.balls;
         st.trails.resize_with(n, Vec::new);
         st.last.resize(n, None);
