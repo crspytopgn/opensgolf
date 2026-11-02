@@ -107,6 +107,12 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.6.8" date="2026-11-02">
+      <description>
+        <p>The game's text draws Central European letters and typographic quotes, for translations.</p>
+        <p>A new optional extra, off by default: keep the County commissioner's land offer to buy land when you like.</p>
+      </description>
+    </release>
     <release version="0.6.7" date="2026-11-02">
       <description>
         <p>On touch screens a one-finger drag only scrolls the view, and the aim's label no longer hides the end of the shot.</p>

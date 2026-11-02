@@ -39,6 +39,9 @@ Enhanced graphics and HD.
 
 **Fix releases**
 
+- **0.6.8:** the game's text draws Central European letters (Hungarian ő ű, Polish, Czech and the rest) and the
+  typographic quotes, dashes and ellipsis („ ” – …), for translations (#153). A new gameplay extra, off by default:
+  **Keep the land offer**, to buy land when you like after the County commissioner approves an expansion (from puddin11).
 - **0.6.7:** on a touch screen, a one-finger drag with no tool in hand only scrolls the view (it no longer picks up the
   employee under it, or opens a golfer's card); the aim's plate moves aside so it no longer hides the end of the shot; with
   Enhanced graphics, no hard red and purple circles after rain. From puddin11.
