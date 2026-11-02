@@ -168,13 +168,60 @@ pub fn load_pcx_alpha(g: &mut Gfx, path: &Path, alpha: &Path) -> Option<Image> {
     Some(Image { tex: Some(tex), w: img.w as f32, h: img.h as f32 })
 }
 
-/// A character's place in the baked glyph sets (Latin-1; anything else draws as '?').
+/// A character's place in the baked glyph sets: Latin-1, then Latin Extended-A (Central European letters such as
+/// Hungarian ő and ű) and the typographic quotes, dashes and ellipsis (`PUNCT`); anything else draws as '?' (issue #153).
 fn glyph_index(c: char) -> usize {
     let cp = c as u32;
     if (FIRST..FIRST + COUNT).contains(&cp) {
         (cp - FIRST) as usize
+    } else if (LATIN_EXT_A..LATIN_EXT_A + 128).contains(&cp) {
+        (COUNT + cp - LATIN_EXT_A) as usize
+    } else if let Some(k) = PUNCT.iter().position(|&p| p == c) {
+        COUNT as usize + 128 + k
     } else {
         ('?' as u32 - FIRST) as usize
+    }
+}
+
+/// The character baked at place `i` of the glyph sets (the inverse of `glyph_index`).
+fn glyph_char(i: usize) -> char {
+    let i = i as u32;
+    let cp = if i < COUNT {
+        FIRST + i
+    } else if i < COUNT + 128 {
+        LATIN_EXT_A + i - COUNT
+    } else {
+        return PUNCT.get((i - COUNT - 128) as usize).copied().unwrap_or('?');
+    };
+    char::from_u32(cp).unwrap_or('?')
+}
+
+/// Where a face has no glyph for one of the added characters: the plain letter or mark it is drawn from (ő as o, „ as ").
+fn plain_char(c: char) -> char {
+    let cp = c as u32;
+    if (LATIN_EXT_A..LATIN_EXT_A + 128).contains(&cp) {
+        return LATIN_EXT_A_PLAIN.as_bytes()[(cp - LATIN_EXT_A) as usize] as char;
+    }
+    match c {
+        '\u{2018}' | '\u{2019}' => '\'',
+        '\u{201A}' => ',',
+        '\u{201C}' | '\u{201D}' | '\u{201E}' => '"',
+        '\u{2013}' | '\u{2014}' => '-',
+        '\u{2026}' => '.',
+        _ => '?',
+    }
+}
+
+/// The face's glyph for `ch` and where to draw it from: the face itself for Latin-1 (as it always was) and for an added
+/// character it has; else the fallback face (the system's Arial Bold or its bundled stand-in, which have them all); else
+/// the plain letter from the face.
+fn glyph_source<'a>(face: &'a fontdue::Font, fallback: Option<&'a fontdue::Font>, i: usize, ch: char) -> (&'a fontdue::Font, char) {
+    if i < COUNT as usize || face.has_glyph(ch) {
+        return (face, ch);
+    }
+    match fallback.filter(|f| f.has_glyph(ch)) {
+        Some(f) => (f, ch),
+        None => (face, plain_char(ch)),
     }
 }
 
@@ -193,8 +240,17 @@ struct Glyph {
 
 const FIRST: u32 = 32;
 const COUNT: u32 = 224;
+/// Latin Extended-A: U+0100 to U+017F.
+const LATIN_EXT_A: u32 = 0x100;
+/// Each Latin Extended-A letter's plain ASCII letter (its Unicode decomposition's base; ł as l, œ as o and so on).
+const LATIN_EXT_A_PLAIN: &str =
+    "AaAaAaCcCcCcCcDdDdEeEeEeEeEeGgGgGgGgHhHhIiIiIiIiIiIiJjKkkLlLlLlLlLlNnNnNnnNnOoOoOoOoRrRrRrSsSsSsSsTtTtTtUuUuUuUuUuUuWwYyYZzZzZzs";
+/// The typographic quotes (single, double and the low ones of Hungarian, Polish, German...), dashes and ellipsis.
+const PUNCT: [char; 9] = ['\u{2018}', '\u{2019}', '\u{201A}', '\u{201C}', '\u{201D}', '\u{201E}', '\u{2013}', '\u{2014}', '\u{2026}'];
+/// Every glyph the sets hold.
+const TOTAL: usize = COUNT as usize + 128 + PUNCT.len();
 const BAKE_PX: f32 = 32.0;
-const ATLAS: usize = 512;
+const ATLAS: usize = 1024;
 
 /// The exe's typefaces (fonts made at start up, 0x45bd83): Klepto ITC (klepto__.ttf) only on the title screens, Manual SSi
 /// Bold (manu3_.ttf) for most text, and Windows' Arial Bold for the small print. Arial is not on the disc: the system's copy
@@ -313,6 +369,8 @@ pub struct Font {
     vm: VMetrics,
     /// The typeface, kept for Enhanced graphics' text at the screen's own pixel size.
     raw: Option<fontdue::Font>,
+    /// Arial Bold (or its stand-in) for the added characters this face does not have.
+    fallback: Option<fontdue::Font>,
 }
 
 /// Enhanced graphics' text: a face's glyphs rasterised at one pixel size (the size asked for times the screen's scale).
@@ -374,7 +432,7 @@ impl VMetrics {
 }
 
 impl Font {
-    /// Bakes the Latin-1 glyphs of the three faces at a fixed size, each into its own texture, once at start up: Klepto and
+    /// Bakes the glyph sets (`glyph_index`) of the three faces at a fixed size, each into its own texture, once at start up: Klepto and
     /// Manual SSi from the game folder, Arial Bold from the system or the bundled stand-in.
     pub fn load(g: &mut Gfx, game_font: impl Fn(&str) -> std::path::PathBuf) -> bool {
         let read = |p: &Path| sg_core::fsutil::read_file(p);
@@ -384,8 +442,10 @@ impl Font {
             .iter()
             .find_map(|p| read(Path::new(p)))
             .unwrap_or_else(|| ARIAL_STANDIN.to_vec());
+        let fallback = fontdue::Font::from_bytes(arial.clone(), fontdue::FontSettings::default()).ok();
         for (i, ttf) in [klepto, manual, Some(arial)].into_iter().enumerate() {
-            if let Some(f) = ttf.and_then(|b| Self::load_inner(g, b)) {
+            let fb = if i < 2 { fallback.clone() } else { None };
+            if let Some(f) = ttf.and_then(|b| Self::load_inner(g, b, fb)) {
                 let _ = FONTS[i].set(f);
             }
         }
@@ -397,7 +457,7 @@ impl Font {
         FONTS[face as usize].get().or_else(|| FONTS.iter().find_map(|f| f.get()))
     }
 
-    fn load_inner(g: &mut Gfx, ttf: Vec<u8>) -> Option<Font> {
+    fn load_inner(g: &mut Gfx, ttf: Vec<u8>, fallback: Option<fontdue::Font>) -> Option<Font> {
         let vm = VMetrics::parse(&ttf);
         let font = fontdue::Font::from_bytes(ttf, fontdue::FontSettings::default()).ok()?;
         let vm = vm.unwrap_or_else(|| {
@@ -406,11 +466,11 @@ impl Font {
             VMetrics { upem: 1000.0, win_asc: a, win_desc: d, hhea_asc: a, hhea_desc: -d, hhea_gap: gap }
         });
         let mut atlas = vec![0u8; ATLAS * ATLAS * 4];
-        let mut glyphs = Vec::with_capacity(COUNT as usize);
+        let mut glyphs = Vec::with_capacity(TOTAL);
         let (mut x, mut y, mut row_h) = (1usize, 1usize, 0usize);
-        for cp in FIRST..FIRST + COUNT {
-            let ch = char::from_u32(cp).unwrap_or('?');
-            let (m, bmp) = font.rasterize(ch, BAKE_PX);
+        for i in 0..TOTAL {
+            let (src, ch) = glyph_source(&font, fallback.as_ref(), i, glyph_char(i));
+            let (m, bmp) = src.rasterize(ch, BAKE_PX);
             if x + m.width + 1 >= ATLAS {
                 x = 1;
                 y += row_h + 1;
@@ -441,7 +501,7 @@ impl Font {
         let img = sg_core::assets::Rgba { w: ATLAS as u32, h: ATLAS as u32, px: atlas };
         let tex = g.texture_classic(&img);
         crate::fx::plain_texture(tex); // text is not pixel art: the effects' scaler leaves it alone
-        Some(Font { tex: Some(tex), glyphs, vm, raw: Some(font) })
+        Some(Font { tex: Some(tex), glyphs, vm, raw: Some(font), fallback })
     }
 
     /// Top of the exe's text to its baseline: tmAscent - tmInternalLeading, which is the em less tmDescent.
@@ -465,15 +525,15 @@ impl Font {
         self.glyphs.get(glyph_index(c))
     }
 
-    /// Rasterises the Latin-1 glyphs at `px` pixels into one atlas (Enhanced graphics' text).
+    /// Rasterises the glyph sets (`glyph_index`) at `px` pixels into one atlas (Enhanced graphics' text).
     fn bake(&self, g: &mut Gfx, px: u32) -> Option<SizedFont> {
         let font = self.raw.as_ref()?;
         let width: usize = if px > 40 { 2048 } else { 1024 };
-        let mut cells = Vec::with_capacity(COUNT as usize);
+        let mut cells = Vec::with_capacity(TOTAL);
         let (mut x, mut y, mut row_h) = (1usize, 1usize, 0usize);
-        for cp in FIRST..FIRST + COUNT {
-            let ch = char::from_u32(cp).unwrap_or('?');
-            let (m, bmp) = font.rasterize(ch, px as f32);
+        for i in 0..TOTAL {
+            let (src, ch) = glyph_source(font, self.fallback.as_ref(), i, glyph_char(i));
+            let (m, bmp) = src.rasterize(ch, px as f32);
             if x + m.width + 1 >= width {
                 x = 1;
                 y += row_h + 1;
@@ -1054,6 +1114,32 @@ pub fn group(n: u64) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn central_european_letters_and_typographic_quotes_have_glyphs() {
+        // issue #153: a Hungarian translation needs ő ű Ő Ű and the low and high quotes „ ”
+        use super::{glyph_char, glyph_index, glyph_source, plain_char, TOTAL};
+        for i in 0..TOTAL {
+            assert_eq!(glyph_index(glyph_char(i)), i, "place {i}");
+        }
+        for c in ['ő', 'Ő', 'ű', 'Ű', 'ł', '\u{201E}', '\u{201D}', '\u{2026}', 'é', 'A'] {
+            assert_ne!(glyph_char(glyph_index(c)), '?', "{c}");
+        }
+        assert_eq!(glyph_index('\u{4E2D}'), glyph_index('?'), "outside the sets: '?'");
+        assert_eq!((plain_char('ő'), plain_char('Ű'), plain_char('ł'), plain_char('\u{201E}')), ('o', 'U', 'l', '"'));
+        // the free set's heading face has no ő or „: they come from the stand-in for Arial, which has them all; Latin-1
+        // stays the face's own
+        let font = |b: &[u8]| fontdue::Font::from_bytes(b, fontdue::FontSettings::default()).unwrap();
+        let (face, arial) = (font(sg_core::freeset::paint::DISPLAY_TTF), font(super::ARIAL_STANDIN));
+        for c in ['ő', '\u{201E}'] {
+            assert!(!face.has_glyph(c));
+            let (src, ch) = glyph_source(&face, Some(&arial), glyph_index(c), c);
+            assert!(std::ptr::eq(src, &arial) && ch == c, "{c} from the fallback");
+            assert_eq!(glyph_source(&face, None, glyph_index(c), c).1, plain_char(c), "{c} with no fallback");
+        }
+        let (src, _) = glyph_source(&face, Some(&arial), glyph_index('A'), 'A');
+        assert!(std::ptr::eq(src, &face));
+    }
+
     #[test]
     fn the_edges_a_phone_hides_narrow_where_the_window_edge_pieces_go() {
         // an iPhone 16 Pro Max sideways at 3 drawable pixels to a CSS pixel: 2868 x 1320, the camera cut-out on the left

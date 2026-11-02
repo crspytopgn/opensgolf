@@ -34,6 +34,10 @@ STR_TOAST_NOT_ENOUGH_MONEY              :Du hast nicht genug Geld.
 * Lines starting with `#` and blank lines are ignored. You do not need to keep the order or the comments, but keeping the
   English file's order makes it easy to compare.
 * Leave out what you have not translated yet: those texts stay English.
+* The letters the game can draw: Latin-1 (Western European) and Latin Extended-A (Central European: Hungarian ő ű, Polish
+  ą ł, Czech č ř and the rest), plus the typographic quotes ‘ ’ ‚ “ ” „, the dashes – — and the ellipsis …. Where the game's
+  own font has no glyph for one of the added letters it is drawn from Arial Bold (or the bundled stand-in), else as the
+  plain letter. Anything else (Cyrillic, Greek, CJK) shows as `?` for now.
 
 ## Parameters
 
