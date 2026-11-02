@@ -39,6 +39,9 @@ Enhanced graphics and HD.
 
 **Fix releases**
 
+- **0.6.7:** on a touch screen, a one-finger drag with no tool in hand only scrolls the view (it no longer picks up the
+  employee under it, or opens a golfer's card); the aim's plate moves aside so it no longer hides the end of the shot; with
+  Enhanced graphics, no hard red and purple circles after rain. From puddin11.
 - **0.6.6:** with Enhanced graphics, the blimp's reflection in the water points the way the blimp does (#147).
 - **0.6.5:** undo (Ctrl+Z, the touch Undo button) puts back only what the click changed and its money, and no longer winds
   the clock, the golfers and the money earned since back; what was built since (a tournament's TV towers) stays. Placing,
