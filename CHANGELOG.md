@@ -39,6 +39,9 @@ Enhanced graphics and HD.
 
 **Fix releases**
 
+- **0.6.9:** Hungarian ő Ő ű Ű are drawn in the game's own fonts, made from their ó Ó ú Ú (ő was blank and Ő another
+  symbol with the original game's fonts) (#153); with Enhanced graphics, the blimp's reflection sits below the water's
+  surface again instead of over its shadow, pointing the blimp's way (#147).
 - **0.6.8:** the game's text draws Central European letters (Hungarian ő ű, Polish, Czech and the rest) and the
   typographic quotes, dashes and ellipsis („ ” – …), for translations (#153). A new gameplay extra, off by default:
   **Keep the land offer**, to buy land when you like after the County commissioner approves an expansion (from puddin11).
