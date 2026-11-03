@@ -212,6 +212,65 @@ fn plain_char(c: char) -> char {
     }
 }
 
+/// The double-acute letters of Hungarian and the face's own acute letter and plain letter each is made from.
+const DOUBLE_ACUTE: [(char, char, char); 4] = [('Ő', 'Ó', 'O'), ('ő', 'ó', 'o'), ('Ű', 'Ú', 'U'), ('ű', 'ú', 'u')];
+
+/// Glyph `i` of the sets, `ch`, rasterised at `px`: see `glyph_source`. Hungarian's ő Ő ű Ű are made from the face's own
+/// ó Ó ú Ú with the accent drawn twice, so they match the face's other letters: the original game's fonts have no proper
+/// glyphs for them (ő blank, Ő some other symbol) and Arial's stand out among them (issue #153). An added character the
+/// face names but draws nothing for (an empty slot in an old font) is taken from the fallback as one it does not have.
+fn raster_glyph(face: &fontdue::Font, fallback: Option<&fontdue::Font>, i: usize, ch: char, px: f32) -> (fontdue::Metrics, Vec<u8>) {
+    if i >= COUNT as usize {
+        if let Some(g) = DOUBLE_ACUTE.iter().find(|d| d.0 == ch).and_then(|&(_, acute, plain)| double_acute(face, acute, plain, px)) {
+            return g;
+        }
+    }
+    let (src, c) = glyph_source(face, fallback, i, ch);
+    let (m, bmp) = src.rasterize(c, px);
+    let blank = !c.is_whitespace() && bmp.iter().all(|&a| a == 0);
+    if i >= COUNT as usize && blank && std::ptr::eq(src, face) {
+        return match fallback.filter(|f| f.has_glyph(ch)) {
+            Some(f) => f.rasterize(ch, px),
+            None => face.rasterize(plain_char(ch), px),
+        };
+    }
+    (m, bmp)
+}
+
+/// A double-acute letter made from the face's acute one (`acute`, ó) and plain one (`plain`, o): the rows of `acute` above
+/// the top of `plain` are its accent, drawn twice side by side over the letter. None when the face lacks either or the
+/// accent cannot be found.
+fn double_acute(face: &fontdue::Font, acute: char, plain: char, px: f32) -> Option<(fontdue::Metrics, Vec<u8>)> {
+    if !face.has_glyph(acute) || !face.has_glyph(plain) {
+        return None;
+    }
+    let (am, bmp) = face.rasterize(acute, px);
+    let (pm, _) = face.rasterize(plain, px);
+    let (w, h) = (am.width, am.height);
+    // bitmap row j (0 at the top) is at height ymin + h - 1 - j: the accent is what stands above the plain letter's top
+    let rows = (am.ymin + h as i32 - (pm.ymin + pm.height as i32)).clamp(0, h as i32) as usize;
+    let bm = &bmp;
+    let ink: Vec<usize> = (0..rows).flat_map(|j| (0..w).filter(move |&c| bm[j * w + c] > 0)).collect();
+    let (c0, c1) = (*ink.iter().min()?, *ink.iter().max()?);
+    // each copy half the accent's width to the side, so the two just meet
+    let s = (((c1 - c0 + 1) as f32 * 0.55).round() as usize).max(1);
+    let ow = w + 2 * s;
+    let mut out = vec![0u8; ow * h];
+    for j in 0..h {
+        for c in 0..w {
+            let a = bmp[j * w + c];
+            if j >= rows {
+                out[j * ow + c + s] = a;
+            } else if a > 0 {
+                for x in [c, c + 2 * s] {
+                    out[j * ow + x] = out[j * ow + x].max(a);
+                }
+            }
+        }
+    }
+    Some((fontdue::Metrics { xmin: am.xmin - s as i32, width: ow, ..am }, out))
+}
+
 /// The face's glyph for `ch` and where to draw it from: the face itself for Latin-1 (as it always was) and for an added
 /// character it has; else the fallback face (the system's Arial Bold or its bundled stand-in, which have them all); else
 /// the plain letter from the face.
@@ -469,8 +528,7 @@ impl Font {
         let mut glyphs = Vec::with_capacity(TOTAL);
         let (mut x, mut y, mut row_h) = (1usize, 1usize, 0usize);
         for i in 0..TOTAL {
-            let (src, ch) = glyph_source(&font, fallback.as_ref(), i, glyph_char(i));
-            let (m, bmp) = src.rasterize(ch, BAKE_PX);
+            let (m, bmp) = raster_glyph(&font, fallback.as_ref(), i, glyph_char(i), BAKE_PX);
             if x + m.width + 1 >= ATLAS {
                 x = 1;
                 y += row_h + 1;
@@ -532,8 +590,7 @@ impl Font {
         let mut cells = Vec::with_capacity(TOTAL);
         let (mut x, mut y, mut row_h) = (1usize, 1usize, 0usize);
         for i in 0..TOTAL {
-            let (src, ch) = glyph_source(font, self.fallback.as_ref(), i, glyph_char(i));
-            let (m, bmp) = src.rasterize(ch, px as f32);
+            let (m, bmp) = raster_glyph(font, self.fallback.as_ref(), i, glyph_char(i), px as f32);
             if x + m.width + 1 >= width {
                 x = 1;
                 y += row_h + 1;
@@ -1138,6 +1195,25 @@ mod tests {
         }
         let (src, _) = glyph_source(&face, Some(&arial), glyph_index('A'), 'A');
         assert!(std::ptr::eq(src, &face));
+    }
+
+    #[test]
+    fn hungarian_double_acute_letters_are_made_from_the_faces_own_acute_letters() {
+        // issue #153: with the original game's fonts ő drew blank, Ő as some other symbol, and ű Ű from Arial stood out
+        use super::{glyph_index, raster_glyph};
+        let font = |b: &[u8]| fontdue::Font::from_bytes(b, fontdue::FontSettings::default()).unwrap();
+        let arial = font(super::ARIAL_STANDIN);
+        for face in [font(sg_core::freeset::paint::DISPLAY_TTF), font(sg_core::freeset::paint::TEXT_TTF)] {
+            for (dbl, acute) in [('ő', 'ó'), ('Ő', 'Ó'), ('ű', 'ú'), ('Ű', 'Ú')] {
+                let (m, bmp) = raster_glyph(&face, Some(&arial), glyph_index(dbl), dbl, 32.0);
+                let (am, abmp) = face.rasterize(acute, 32.0);
+                let ink = |b: &[u8]| b.iter().map(|&a| a as u32).sum::<u32>();
+                // the face's letter with its accent twice: as tall, wider, more ink than the acute letter, same advance
+                assert_eq!((m.height, m.ymin, m.advance_width), (am.height, am.ymin, am.advance_width), "{dbl}");
+                assert!(m.width > am.width && ink(&bmp) > ink(&abmp), "{dbl}");
+                assert!(ink(&bmp) < 2 * ink(&abmp), "{dbl}: one letter, two accents");
+            }
+        }
     }
 
     #[test]
