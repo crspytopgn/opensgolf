@@ -962,8 +962,30 @@ fn water_one_type(t: &Terrain, tile_type: i32) -> Option<i32> {
     })
 }
 
-/// Texture type the original picks for a tile type (Tile::m116d).
-fn texture_type_for(tile_type: i32, vbyte: i32, param: i32, desert: bool, phase: i32) -> i32 {
+/// The edge (0 north, 1 east, 2 south, 3 west) each triangle record holds half of (`TILE_TRIS`).
+const EDGE_OF_REC: [usize; 8] = [3, 0, 0, 1, 3, 2, 2, 1];
+
+/// Desert theme, water tile: which of its edges meet a tee, green, fairway or sand (types 0, 1, 2, 3, 7, 8, 9). Tile::m1096
+/// (0x10013670) sets a flag per edge neighbour when the theme (0x10070a0c) is 1, the Desert (its lighting file, 0x1000399d),
+/// the tile's type is 17 and the neighbour passes Tile::m1311 (0x100155b0, that list of types); it then hands both of that
+/// edge's triangles to m116d as type 25, WaterShallowDesert, whose pictures have a grass shore. The rest of the water keeps
+/// the Desert's WaterShallow, whose shore is sand (issue #161). Off with the free base set's one-look water (`water_one`).
+fn desert_grass_edges(t: &Terrain, tx: i32, ty: i32) -> [bool; 4] {
+    let mut out = [false; 4];
+    if !t.desert || t.water_one || t.ty[t.tile_index(tx, ty)] != TT_WATER_SHALLOW {
+        return out;
+    }
+    for (d, o) in out.iter_mut().enumerate() {
+        let (nx, ny) = (tx + DX4[d], ty + DY4[d]);
+        *o = t.inside(nx, ny) && matches!(t.ty[t.tile_index(nx, ny)], 0 | 1 | 2 | 3 | 7 | 8 | 9);
+    }
+    out
+}
+
+/// Texture type the original picks for a tile type (Tile::m116d, 0x10012ec0): it switches on the tile's own type, so a water
+/// tile's depth turns `param` into WaterMiddle or WaterDeep whatever `param` is; shallow water keeps `param` (WaterShallow,
+/// or WaterShallowDesert for the triangles `desert_grass_edges` swaps).
+fn texture_type_for(tile_type: i32, vbyte: i32, param: i32, phase: i32) -> i32 {
     match tile_type {
         1 => {
             if vbyte & 0x80 != 0 {
@@ -981,7 +1003,6 @@ fn texture_type_for(tile_type: i32, vbyte: i32, param: i32, desert: bool, phase:
         17 => match vbyte {
             1 => TT_WATER_MIDDLE as i32,
             2 => TT_WATER_DEEP as i32,
-            _ if desert => TT_WATER_SHALLOW_DESERT as i32,
             _ => param,
         },
         22 => {
@@ -1116,7 +1137,7 @@ pub fn build_tile_triangles(t: &Terrain, tx: i32, ty: i32, out: &mut Vec<TileTri
         // Original triangle index -> (a, b, c), and -> record.
         let abc = [[n, e, ne], [e, n, ne], [e, s, se], [s, e, se], [s, w, sw], [w, s, sw], [w, n, nw], [n, w, nw]];
         const REC_OF: [usize; 8] = [2, 3, 7, 6, 5, 4, 0, 1];
-        let tex_type = water_one_type(t, ttype).unwrap_or_else(|| texture_type_for(ttype, vbyte, ttype, t.desert, t.sand_phase));
+        let tex_type = water_one_type(t, ttype).unwrap_or_else(|| texture_type_for(ttype, vbyte, ttype, t.sand_phase));
         for i in 0..8 {
             let mut v = blend_variation(abc[i][0], abc[i][1], abc[i][2]);
             if (tex_type == TT_ROUGH as i32 || ttype == 7 || tex_type == TT_FAIRWAY as i32) && v > 4 {
@@ -1128,9 +1149,10 @@ pub fn build_tile_triangles(t: &Terrain, tx: i32, ty: i32, out: &mut Vec<TileTri
     let tex_type = if ttype == TT_TEE as i32 || ttype == TT_POT_SAND_BUNKER as i32 {
         ttype
     } else {
-        water_one_type(t, ttype).unwrap_or_else(|| texture_type_for(ttype, vbyte, ttype, t.desert, t.sand_phase))
+        water_one_type(t, ttype).unwrap_or_else(|| texture_type_for(ttype, vbyte, ttype, t.sand_phase))
     };
     let use_set = if ttype == TT_TEE as i32 { vbyte } else { set };
+    let grass_edge = desert_grass_edges(t, tx, ty);
     type Tri = ([Vertex; 3], [(usize, usize); 3], usize);
     let mut tris_all: Vec<Tri> = Vec::with_capacity(8);
     for (r, ix) in TILE_TRIS.iter().enumerate() {
@@ -1143,6 +1165,8 @@ pub fn build_tile_triangles(t: &Terrain, tx: i32, ty: i32, out: &mut Vec<TileTri
     // (`own_tile_normals`).
     let normals = vertex_normals(t, tx, ty);
     for (tri, ix, r) in tris_all {
+        let tex_type =
+            if grass_edge[EDGE_OF_REC[r]] { texture_type_for(ttype, vbyte, TT_WATER_SHALLOW_DESERT as i32, 0) } else { tex_type };
         let mut tt = TileTri { tex_type, set: use_set, variation: var[r], v: tri };
         for (v, &(j, k)) in tt.v.iter_mut().zip(&ix) {
             (v.nx, v.ny, v.nz) = (normals[j][k][0], normals[j][k][1], normals[j][k][2]);
@@ -1218,6 +1242,34 @@ mod tests {
                 assert_eq!(c[q], want, "mask {m} quadrant {q}");
             }
         }
+    }
+
+    #[test]
+    fn desert_water_takes_the_grass_shore_only_where_it_meets_grass_or_sand() {
+        // a pond tile with a fairway north, desert ground (rough) east, a sand trap south and rock west (issue #161)
+        let pond = |desert: bool, depth: u8| {
+            let mut t = Terrain { w: 3, h: 3, ty: vec![TT_ROUGH; 9], variation: vec![0; 9], set: vec![0; 9], ..Default::default() };
+            t.corner = vec![0; 16];
+            t.path_kind = vec![0; 9];
+            t.wall_mask = vec![0; 9];
+            t.desert = desert;
+            t.ty[4] = TT_WATER_SHALLOW;
+            t.variation[4] = depth;
+            t.ty[1] = TT_FAIRWAY;
+            t.ty[7] = TT_SAND;
+            t.ty[3] = TT_ROCK;
+            let mut out = Vec::new();
+            build_tile_triangles(&t, 1, 1, &mut out);
+            out.iter().map(|tri| tri.tex_type).collect::<Vec<_>>()
+        };
+        let want = |shore: i32, other: i32| EDGE_OF_REC.iter().map(|&e| if e == 0 || e == 2 { shore } else { other }).collect::<Vec<_>>();
+        let (sh, desert_sh) = (TT_WATER_SHALLOW as i32, TT_WATER_SHALLOW_DESERT as i32);
+        assert_eq!(pond(true, 0), want(desert_sh, sh));
+        // other themes, and water with depth (m116d turns any type on a deep tile into its depth), keep their own pictures
+        assert_eq!(pond(false, 0), vec![sh; 8]);
+        assert_eq!(pond(true, 2), vec![TT_WATER_DEEP as i32; 8]);
+        // each record's edge is the one its blend variation reads first (the `abc` table's a)
+        assert_eq!(EDGE_OF_REC.iter().filter(|&&e| e == 0).count(), 2);
     }
 
     #[test]

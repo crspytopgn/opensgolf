@@ -39,6 +39,9 @@ Enhanced graphics and HD.
 
 **Fix releases**
 
+- **0.6.10:** desert ponds draw the Desert's sandy shore again, keeping the grassy shore only on the edges that meet a tee,
+  green, fairway or sand trap, as the original does (#161); a golfer becoming a member, or moving up a level, plays the
+  club's fanfare with the message (#162).
 - **0.6.9:** Hungarian ő Ő ű Ű are drawn in the game's own fonts, made from their ó Ó ú Ú (ő was blank and Ő another
   symbol with the original game's fonts) (#153); with Enhanced graphics, the blimp's reflection sits below the water's
   surface again instead of over its shadow, pointing the blimp's way (#147).

@@ -90,7 +90,7 @@ looks and edge shapes, not frames. The water's motion is the exe's sprites: shor
 rocks, the glints below and the waterfalls.
 At the closest zoom the frame plots single glinting pixels on water (0x411574, `draw_water_glints`): two tiles in three each
 frame, a 5 frame grey-white-grey twinkle once in 64 frames per tile, on the line through the tile's centre.
-In the Desert theme shallow water uses the `WaterShallowDesert` textures, which the original does by swapping type 17 for 25.
+In the Desert theme shallow water keeps its sandy shore against the desert ground; where it meets a tee, green, fairway or sand trap, the two triangles on that edge take the `WaterShallowDesert` textures (a grass shore), as the original does by handing them over as type 25.
 Where two water tiles meet across a wall the frame draws waterfalls (0x410ea4, `sg_core::decor::waterfalls`): a fall pours
 into the lower tile over the side facing the camera, short or tall by the height between them, with a spray at its foot, and
 a short fall seen from behind goes down the far sides; all in the theme's water palette, in fixed views, frames running from

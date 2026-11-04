@@ -107,6 +107,12 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.6.10" date="2026-11-04">
+      <description>
+        <p>Desert ponds have sandy shores again, with grass only where they meet a tee, green, fairway or sand trap.</p>
+        <p>A golfer becoming a member plays the club's fanfare, as in the original.</p>
+      </description>
+    </release>
     <release version="0.6.9" date="2026-11-03">
       <description>
         <p>Hungarian letters with double accents are drawn in the game's own fonts.</p>
