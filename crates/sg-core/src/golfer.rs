@@ -1548,6 +1548,9 @@ impl Club {
         };
         // the exe posts this with priority 0 and upgrades only when it shows (0x406670); here it always shows
         self.message_by(text, g as i32, 1);
+        // the club's fanfare, slot 0x38 (effects/tada 3.wav), with the message: heard in the original's recording on
+        // issue #162 (the clip matches it almost exactly), which the port had left silent
+        self.sound(0x38, None);
         self.invite_friend(rng);
     }
 
@@ -3665,6 +3668,19 @@ impl Club {
 pub(crate) mod tests {
     use super::*;
     use crate::land::Object;
+
+    #[test]
+    fn a_membership_plays_the_clubs_fanfare_with_its_message() {
+        // issue #162: the original sounds slot 0x38 (effects/tada 3.wav) as the member's message shows
+        let (_c, mut club) = test_course();
+        let mut rng = ExeRng { state: 7 };
+        club.new_game(&mut rng);
+        club.out.clear();
+        club.upgrade(&mut rng, 0);
+        assert!(club.out.iter().any(|e| matches!(e, Event::Message { .. })));
+        assert!(club.out.iter().any(|e| matches!(e, Event::Sound { slot: 0x38, at: None, .. })));
+        assert_eq!(crate::sounds::slot_file(0x38), Some("effects/tada 3.wav"));
+    }
 
     /// A flat one-hole course: fairway with a tee, a green and a clubhouse.
     pub(crate) fn test_course() -> (Course, Club) {

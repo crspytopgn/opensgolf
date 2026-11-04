@@ -188,8 +188,13 @@ special cases, sand dishing, type names and texture file selection, per-theme li
 case-insensitive lookup.
 
 Approximates (marked `APPROXIMATION` in code): elevation scale; the light direction and strength; the
-type class grouping; the water-in-desert-theme variant (`m1096` swaps triangles next to land to
-WaterShallowDesert when a global theme flag is 1, not ported yet).
+type class grouping.
+
+The Desert's water (`desert_grass_edges`, EXACT): `m1096` sets a flag per edge neighbour when the theme (0x10070a0c) is 1,
+the Desert (the lighting file it picks, 0x1000399d), the tile is type 17 and the neighbour is a tee, green, fairway, firm
+fairway or sand (types 0, 1, 2, 3, 7, 8, 9: `m1311`, 0x100155b0); both triangles on a flagged edge go to `m116d` as type 25,
+WaterShallowDesert, the pictures with a grass shore. All other desert water keeps the Desert's WaterShallow, whose shore is
+sand. `m116d` switches on the tile's own type, so a deep or middle tile's triangles still take WaterDeep or WaterMiddle.
 
 The type 7 phase: golf.exe hands the view to Terrain.dll as an angle (0x4498a0: view 0x5685f4 = 0, 2, 4, 6 gives 0, 90, 180
 and -90 degrees, through the import at 0x4a4f82), and the DLL's setter (0x1000adc0) stores the phase as 0 for 0 degrees, 1
