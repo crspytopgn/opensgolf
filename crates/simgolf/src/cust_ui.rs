@@ -360,7 +360,7 @@ impl App {
         }
         // the Left-handed golfers extra: the pro's own tick under his skills
         if self.left_tick_shown(&c) && left_tick_rect().has(vx, vy) {
-            self.club.pro_left = !self.club.pro_left;
+            self.act(sg_core::action::Action::ProLeft(!self.club.pro_left));
             self.ui_sound(0x0b);
             self.cust = Some(c);
             return;
@@ -640,13 +640,10 @@ impl App {
     /// Exit: the class toggles go into the record and the golfer; a pro's look goes back to the pro table (0x43a2b0); the
     /// card's golfer takes the record's age and marital byte (0x41ea62).
     fn cust_ok(&mut self, c: &Customise) {
-        let Some(p) = self.club.roster.get_mut(c.record) else { return };
-        p.fixed = (p.fixed & !7) | c.toggles as i32;
-        let b21 = p.b21;
-        if let Some(g) = c.slot.filter(|&g| g < sg_core::golfer::SLOTS) {
-            let gg = &mut self.club.g[g];
-            gg.class = (gg.class & 0xf8) | c.toggles;
-            gg.looks = b21 as i8 as i16 as u16;
+        let Some(p) = self.club.roster.get(c.record) else { return };
+        // the record as edited, and the card's golfer: an action (replay.rs)
+        if let Ok(person) = serde_json::to_value(p) {
+            self.act(sg_core::action::Action::Person { record: c.record, person, slot: c.slot, toggles: c.toggles });
         }
         self.cust_music(false);
         self.cust = None;

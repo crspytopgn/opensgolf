@@ -3,6 +3,11 @@
 //! each and a caption with the hole's number, par and length, going round the holes until a key, a click or a tap ends it;
 //! the camera, the zoom and the tool in hand then come back as they were. Golfers play on meanwhile. It only moves the
 //! camera, as the hole keys do, so it works the same in Classic and Enhanced graphics, and nothing changes until it is used.
+//!
+//! The Hole flyover (an OpenSGolf extra on the Looks page, off by default): Hole Stats' Fly over button flies the same way
+//! over that one hole only, from where the camera is to the back tee, down the hole's line over the fairway to the green
+//! and back to where the camera was, where it ends by itself (a key, a click or a tap ends it sooner). With Enhanced
+//! graphics' smooth camera the view also draws back a little over the middle of the hole and closes in again on the green.
 use crate::app::{App, Screen};
 use crate::gfx::Gfx;
 use crate::ui::{rgba, Screen as Ui, F_MANUAL20};
@@ -51,6 +56,37 @@ pub fn plan(cam: (f32, f32), holes: &[HoleSpot]) -> (Leg, Vec<Leg>) {
     (to_first, cycle)
 }
 
+/// The flyover of one hole from the camera at `cam`: the way to its tee, then the tee, the hole, the green and the way back
+/// to `cam`, once.
+pub fn flight(cam: (f32, f32), hole: HoleSpot) -> (Leg, Vec<Leg>) {
+    let dist = |a: (f32, f32), b: (f32, f32)| (a.0 - b.0).hypot(a.1 - b.1);
+    let (n, tee, green) = hole;
+    // the way there and back are quicker than the hole itself
+    let short = |d: f32| (0.8 + 0.2 * d / TILE_SIZE).clamp(1.2, 3.0);
+    let to_tee = Leg { from: cam, to: tee, secs: short(dist(cam, tee)), hole: 0 };
+    let cycle = vec![
+        Leg { from: tee, to: tee, secs: TEE_PAUSE, hole: n },
+        Leg { from: tee, to: green, secs: glide_secs(dist(tee, green)), hole: n },
+        Leg { from: green, to: green, secs: GREEN_PAUSE, hole: n },
+        Leg { from: green, to: cam, secs: short(dist(green, cam)), hole: 0 },
+    ];
+    (to_tee, cycle)
+}
+
+/// How long a flyover takes in all.
+pub fn flight_secs(first: &Leg, cycle: &[Leg]) -> f32 {
+    first.secs + cycle.iter().map(|l| l.secs).sum::<f32>()
+}
+
+/// The flyover's zoom `t` seconds in, as a share of the closest zoom: 1 but over the middle of the hole, where it draws back
+/// to `1 - wide` and closes in again by the green.
+pub fn flight_zoom(first: &Leg, cycle: &[Leg], t: f32, wide: f32) -> f32 {
+    let start = first.secs + cycle.first().map(|l| l.secs).unwrap_or(0.0);
+    let secs = cycle.get(1).map(|l| l.secs).unwrap_or(1.0).max(1e-3);
+    let k = ((t - start) / secs).clamp(0.0, 1.0);
+    1.0 - wide * (std::f32::consts::PI * k).sin()
+}
+
 /// Where the camera is `t` seconds into the fly-over, which hole it shows (0 between holes) and how far the caption is
 /// faded in (0 .. 1).
 pub fn at(first: &Leg, cycle: &[Leg], t: f32) -> ((f32, f32), usize, f32) {
@@ -90,6 +126,8 @@ pub struct Showcase {
     cam: (f32, f32),
     zoom: f32,
     edit: bool,
+    /// The Hole flyover: this hole only, once (none: the showcase's round of every hole).
+    only: Option<usize>,
 }
 
 impl App {
@@ -115,13 +153,48 @@ impl App {
             self.show_toast(tr("STR_SHOWCASE_NO_HOLES"));
             return;
         }
-        self.showcase = Some(Showcase { start: self.clock, held: None, cam: (self.cam_x, self.cam_z), zoom: self.zoom, edit: self.edit });
+        self.showcase =
+            Some(Showcase { start: self.clock, held: None, cam: (self.cam_x, self.cam_z), zoom: self.zoom, edit: self.edit, only: None });
         // the closest of the original's three zoom levels, as a golfer would see the hole
         self.zoom = crate::app::ZOOM_UNIT * 4.0;
         self.edit = false;
         self.xs.follow = None;
         self.enh.pan_left = (0.0, 0.0);
         self.enh.pan_vel = (0.0, 0.0);
+    }
+
+    /// The Hole flyover of open hole `n` (Hole Stats' Fly over button): the course view comes back for it. False when the
+    /// hole is not open.
+    pub fn start_flyover(&mut self, n: usize) -> bool {
+        if self.showcase.is_some() || !self.showcase_holes().iter().any(|h| h.0 == n) {
+            return false;
+        }
+        self.screen = Screen::Play;
+        self.showcase = Some(Showcase {
+            start: self.clock,
+            held: None,
+            cam: (self.cam_x, self.cam_z),
+            zoom: self.zoom,
+            edit: self.edit,
+            only: Some(n),
+        });
+        self.zoom = crate::app::ZOOM_UNIT * 4.0;
+        self.edit = false;
+        self.xs.follow = None;
+        self.enh.pan_left = (0.0, 0.0);
+        self.enh.pan_vel = (0.0, 0.0);
+        true
+    }
+
+    /// The legs of the fly-over under way: the showcase's round, or the flyover of its one hole (None: that hole has
+    /// closed).
+    fn showcase_legs(&self, s: &Showcase) -> Option<(Leg, Vec<Leg>)> {
+        let holes = self.showcase_holes();
+        match s.only {
+            Some(n) => holes.into_iter().find(|h| h.0 == n).map(|h| flight(s.cam, h)),
+            None if holes.is_empty() => None,
+            None => Some(plan(s.cam, &holes)),
+        }
     }
 
     /// Ends the fly-over: the camera, the zoom and the tool come back as they were. True when one was under way (the key,
@@ -134,8 +207,18 @@ impl App {
         true
     }
 
-    /// Test hook: SG_SHOWCASE=T starts the fly-over held T seconds in (for stills; docs/PLAYING.md).
+    /// Test hook: SG_SHOWCASE=T starts the fly-over held T seconds in (for stills; docs/PLAYING.md); SG_FLYOVER=H,T the Hole
+    /// flyover of hole H.
     pub fn showcase_test_hook(&mut self) {
+        if let Some(v) = std::env::var("SG_FLYOVER").ok().map(|v| crate::ints(&v)).filter(|v| v.len() >= 2) {
+            if self.showcase.is_none() {
+                self.start_flyover(v[0].max(0) as usize);
+            }
+            if let Some(s) = &mut self.showcase {
+                s.held = Some(v[1] as f32);
+            }
+            return;
+        }
         let Some(t) = std::env::var("SG_SHOWCASE").ok().and_then(|v| v.parse::<f64>().ok()) else { return };
         if self.showcase.is_none() {
             self.toggle_showcase();
@@ -157,22 +240,29 @@ impl App {
             self.end_showcase();
             return;
         }
-        let holes = self.showcase_holes();
-        if holes.is_empty() {
+        let Some((first, cycle)) = self.showcase_legs(s) else {
+            self.end_showcase();
+            return;
+        };
+        let t = self.showcase_secs(s);
+        // the flyover ends by itself, back where the camera was
+        if s.only.is_some() && t >= flight_secs(&first, &cycle) {
             self.end_showcase();
             return;
         }
-        let (first, cycle) = plan(s.cam, &holes);
-        let ((x, z), _, _) = at(&first, &cycle, self.showcase_secs(s));
+        let ((x, z), _, _) = at(&first, &cycle, t);
         self.cam_x = x;
         self.cam_z = z;
+        // with the smooth camera the flyover draws back over the hole's middle; the original's three zoom levels stay put
+        if s.only.is_some() && crate::enhanced::smooth_camera() {
+            self.zoom = crate::app::ZOOM_UNIT * 4.0 * flight_zoom(&first, &cycle, t, 0.4);
+        }
     }
 
     /// The fly-over's caption: the hole's number, par and length low on the screen, in the game's own font with a shadow.
     pub fn draw_showcase_caption(&self, g: &mut Gfx) {
         let Some(s) = &self.showcase else { return };
-        let holes = self.showcase_holes();
-        let (first, cycle) = plan(s.cam, &holes);
+        let Some((first, cycle)) = self.showcase_legs(s) else { return };
         let (_, n, k) = at(&first, &cycle, self.showcase_secs(s));
         if n == 0 || k <= 0.0 {
             return;
@@ -234,6 +324,27 @@ mod tests {
         // fading in on the tee
         let k = at(&first, &cycle, first.secs + FADE * 0.5).2;
         assert!(k > 0.4 && k < 0.6);
+    }
+
+    #[test]
+    fn the_flyover_goes_down_its_hole_and_back() {
+        let cam = (-800.0, -800.0);
+        let (first, cycle) = flight(cam, course()[1]);
+        let total = flight_secs(&first, &cycle);
+        assert_eq!(at(&first, &cycle, 0.0).0, cam, "it starts where the camera was");
+        let (p, n, _) = at(&first, &cycle, first.secs + TEE_PAUSE * 0.5);
+        assert_eq!((p, n), ((300.0, 1500.0), 2), "on the tee with the caption");
+        // the hole's line, with the view drawn back in the middle and close on the tee and the green
+        let mid = first.secs + TEE_PAUSE + cycle[1].secs * 0.5;
+        let (p, n, _) = at(&first, &cycle, mid);
+        assert_eq!(n, 2);
+        assert!((p.0 - 1150.0).abs() < 1.0 && (p.1 - 1500.0).abs() < 1e-3);
+        assert!((flight_zoom(&first, &cycle, mid, 0.4) - 0.6).abs() < 1e-3);
+        assert_eq!(flight_zoom(&first, &cycle, first.secs, 0.4), 1.0);
+        assert!((flight_zoom(&first, &cycle, total - 1.0, 0.4) - 1.0).abs() < 1e-6);
+        // and back where it began, at the end
+        let (p, n, _) = at(&first, &cycle, total - 1e-3);
+        assert!(n == 0 && (p.0 - cam.0).abs() < 1.0 && (p.1 - cam.1).abs() < 1.0);
     }
 
     #[test]

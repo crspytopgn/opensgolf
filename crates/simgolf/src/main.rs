@@ -94,6 +94,7 @@ mod prefs_ui;
 mod pro_ui;
 mod profile_ui;
 mod render;
+mod replay;
 mod report_tabs;
 mod reports_ui;
 mod scenario_ui;
@@ -141,6 +142,8 @@ struct Options {
     zoom: f32,
     rot: f32,
     png_out: Option<PathBuf>,
+    /// A replay file to play (replay.rs; a developer's option, not in the usage).
+    replay: Option<PathBuf>,
     time: f64,
     follow: bool,
     golfer: Option<String>,
@@ -240,6 +243,7 @@ fn parse_args() -> Options {
         zoom: app::ZOOM_UNIT * 4.0,
         rot: 0.0,
         png_out: None,
+        replay: None,
         time: 0.0,
         follow: false,
         golfer: None,
@@ -313,6 +317,8 @@ fn parse_args() -> Options {
             "--zoom" => o.zoom = next().parse().unwrap_or(app::ZOOM_UNIT * 4.0),
             "--rot" => o.rot = next().parse().unwrap_or(0.0),
             "--png" => o.png_out = Some(PathBuf::from(next())),
+            // a report's replay file played again (replay.rs; CONTRIBUTING.md "Replays")
+            "--replay" => o.replay = Some(PathBuf::from(next())),
             "--time" => o.time = next().parse().unwrap_or(0.0),
             "--follow" => o.follow = true,
             "--golfer" => o.golfer = Some(next()),
@@ -389,6 +395,8 @@ fn parse_args() -> Options {
 }
 
 struct Stage {
+    /// SG_ACTION_CHECK=1 (replay.rs): the game's state after the last drawn frame and the actions logged by then.
+    action_check: Option<(Vec<(&'static str, u64)>, usize)>,
     /// A controller (gamepad.rs).
     pad: gamepad::Pad,
     /// the desktop window is full screen (F11 or Alt+Enter)
@@ -1541,9 +1549,20 @@ impl Stage {
                 Err(e) => app.show_toast(&sg_core::lang::trf("STR_TOAST_COULD_NOT_LOAD_GAME", &[("ERROR", &e)])),
             }
         }
+        if let Some(f) = &o.replay {
+            let r = sg_core::fsutil::read_file(f).ok_or_else(|| format!("cannot read {}", f.display()));
+            if let Err(e) = r.and_then(|d| app.start_replay(Some(&mut g), &d)) {
+                eprintln!("error: {e}");
+                std::process::exit(1);
+            }
+            println!("replaying {} from tick {}", f.display(), app.game_tick);
+        }
         // (the clock runs from here, so the floating money of the edits below lasts its two seconds into the still)
         app.clock = now();
-        apply_edit_spec(&mut app, &o.edit_spec);
+        // each item is an action of its own (replay.rs)
+        for item in o.edit_spec.split(';').filter(|s| !s.is_empty()) {
+            app.act(sg_core::action::Action::Script(item.to_string()));
+        }
         if !o.edit_spec.is_empty() || app.editor.is_some() {
             app.rebuild_batches(&mut g);
             app.refresh_trees();
@@ -1669,6 +1688,7 @@ impl Stage {
             app.choose_game_folder(false);
         }
         Stage {
+            action_check: None,
             g,
             app,
             fullscreen: o.fullscreen,
@@ -1823,7 +1843,7 @@ impl Stage {
             }
             PopupKind::CareerOver => {
                 if k == 0 {
-                    self.app.econ.continue_in_sandbox();
+                    self.app.act(sg_core::action::Action::ContinueSandbox);
                 } else {
                     self.app.end_career();
                 }
@@ -1832,13 +1852,7 @@ impl Stage {
                 0 => self.app.open_save(),
                 1 => self.app.open_files(files_ui::ListKind::Load, true),
                 2 => {
-                    if self.app.club.game & sg_core::golfer::game::TOURNAMENT != 0 {
-                        self.app.cancel_tournament();
-                    } else {
-                        let mut rng = self.app.exe_rng;
-                        self.app.club.cancel_pro_round(&mut rng);
-                        self.app.exe_rng = rng;
-                    }
+                    self.app.act(sg_core::action::Action::CancelRound);
                 }
                 3 => self.app.save_championship_pro(),
                 4 => self.app.open_rename(),
@@ -2127,7 +2141,10 @@ impl Stage {
                 Some(t) => t,
                 None => app.pick_ground(self.mouse.0, self.mouse.1),
             };
-            app.hover_tile = hit.map(|(x, z)| app.terrain.tile_of(x, z));
+            // (a replay's pointer tile is its log's, which the simulation reads: replay.rs)
+            if !app.rec.replaying() {
+                app.hover_tile = hit.map(|(x, z)| app.terrain.tile_of(x, z));
+            }
             // the measuring tape's far end follows the pointer (build_tools.rs)
             app.tape_pointer(pin_world(app).or(hit));
             let (vx, vy) = app.view.to_virtual(self.mouse.0, self.mouse.1);
@@ -2525,7 +2542,7 @@ impl Stage {
                 _ => None,
             };
             if let Some(o) = opt {
-                app.club.set_shot_option(o);
+                app.act(sg_core::action::Action::ShotOption(o));
                 return;
             }
         }
@@ -3126,9 +3143,11 @@ impl Stage {
             self.mouse_motion_event(x, y);
         }
         for (x, y) in pts("SG_CLICK") {
+            let before = self.check_input_begin();
             self.mouse_motion_event(x, y);
             self.mouse_button_down_event(MouseButton::Left, x, y);
             self.mouse_button_up_event(MouseButton::Left, x, y);
+            self.check_input_end(before, &format!("click at {x},{y}"));
             // the pointer is tested against the interface as last drawn
             self.draw_frame(None);
         }
@@ -3139,6 +3158,7 @@ impl Stage {
         // SG_PRESS="u;Shift+F6;...": keys pressed after the clicks (names as settings.json's "controls" has them)
         for b in std::env::var("SG_PRESS").unwrap_or_default().split(';').filter_map(controls::Binding::parse) {
             let mods = KeyMods { shift: b.shift, ctrl: b.ctrl, ..Default::default() };
+            let before = self.check_input_begin();
             self.key_down_event(b.key, mods, false);
             // a letter or Space also types its character, as a keyboard does (not with Ctrl)
             let name = b.name();
@@ -3149,7 +3169,24 @@ impl Stage {
                 self.char_event(' ', mods, false);
             }
             self.key_up_event(b.key, mods);
+            self.check_input_end(before, &b.name());
             self.draw_frame(None);
+        }
+    }
+
+    /// SG_ACTION_CHECK=1 around a scripted input (replay.rs): the game as it was before it, and the actions logged by then.
+    fn check_input_begin(&self) -> Option<(Vec<(&'static str, u64)>, usize)> {
+        (replay::check_on() && self.app.land.is_some()).then(|| (replay::checked_parts(&self.app), replay::logged(&self.app)))
+    }
+
+    /// SG_ACTION_CHECK=1: says when the input changed the game with no action applied.
+    fn check_input_end(&self, before: Option<(Vec<(&'static str, u64)>, usize)>, what: &str) {
+        let Some((parts, n)) = before else { return };
+        let changed = replay::changed(&parts, &replay::checked_parts(&self.app));
+        if replay::logged(&self.app) == n && !changed.is_empty() {
+            bugreport::warn(&format!("action check: {what} changed the game with no action: {}", changed.join(" ")));
+        } else if replay::check_on() {
+            println!("action check: {what}: {} actions, changed {}", replay::logged(&self.app) - n, changed.join(" "));
         }
     }
 
@@ -3184,6 +3221,18 @@ impl EventHandler for Stage {
             std::process::exit(0);
         }
         perf::frame_begin();
+        // SG_ACTION_CHECK=1: the frame's input changed the game only through actions (replay.rs)
+        if let Some((before, n)) = self.action_check.take() {
+            let after = replay::checked_parts(&self.app);
+            let parts = replay::changed(&before, &after);
+            if replay::logged(&self.app) == n && !parts.is_empty() && !self.app.rec.replaying() {
+                bugreport::warn(&format!(
+                    "action check: the game changed with no action at tick {}: {}",
+                    self.app.game_tick,
+                    parts.join(" ")
+                ));
+            }
+        }
         let t = now();
         self.app.clock = t;
         self.touch_update();
@@ -3286,7 +3335,8 @@ impl EventHandler for Stage {
         app.support_tick(dt, playing);
         // the play-time count at each 15 minutes of that time, and its one-time notice (playcount.rs)
         app.playcount_frame();
-        app.club.turbo = app.speed > 1;
+        // the exe's fast mode follows the speed the game is played at (replay.rs: a replay's own, whatever the keys say)
+        app.club.turbo = app.rec.sim_speed > 1;
         let (w, h) = window::screen_size();
         app.draw_w = w.max(1.0);
         app.draw_h = h.max(1.0);
@@ -3374,6 +3424,9 @@ impl EventHandler for Stage {
         if self.frames == 1 {
             self.pointer_test_hook();
         }
+        if replay::check_on() && self.app.land.is_some() {
+            self.action_check = Some((replay::checked_parts(&self.app), replay::logged(&self.app)));
+        }
         // a photo asked for in photo mode is drawn offscreen once the frame is shown (photo.rs; after the scripted
         // pointer, which may set the focus)
         if self.app.photo.as_ref().is_some_and(|p| p.pending_shot.is_some()) {
@@ -3404,6 +3457,15 @@ impl EventHandler for Stage {
                         Err(e) => eprintln!("error: {e}"),
                     }
                     self.app.selfcheck_flush();
+                }
+                // test hook: SG_REPLAY_OUT=FILE writes the game's replay file (replay.rs)
+                if let Some(f) = std::env::var_os("SG_REPLAY_OUT") {
+                    match self.app.replay_file() {
+                        Some(d) if sg_core::fsutil::write_file(std::path::Path::new(&f), &d) => {
+                            println!("replay file {} at tick {}", PathBuf::from(&f).display(), self.app.game_tick)
+                        }
+                        _ => eprintln!("error: no replay file written"),
+                    }
                 }
                 std::process::exit(0);
             }

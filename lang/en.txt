@@ -3324,6 +3324,11 @@ STR_SHOWCASE_NO_HOLES                   :The showcase needs an open hole to fly 
 STR_TOUCH_SHOWCASE                      :Showcase
 STR_SHOWCASE_HOLE                       :Hole {HOLE}  -  Par {PAR}  -  {YARDS} yards
 
+# Replays of a report's game (replay.rs; CONTRIBUTING.md "Replays")
+STR_TOAST_REPLAY_PLAYING                :A replay is playing: the game is yours again when it ends.
+STR_TOAST_REPLAY_DONE                   :The replay has ended. The game is yours.
+STR_TOAST_REPLAY_DIVERGED               :The replay has ended. It stopped matching at game tick {TICK}.
+
 # Saved games of the original SimGolf brought over (share.rs, sg_core::sve, issue #49)
 STR_TOAST_SVE_IMPORTED                  :{COURSE} from the original SimGolf was added to Load Previous Game as {NAME}.
 STR_TOAST_SVE_UNREADABLE                :{FILE} could not be read as a saved game of the original SimGolf ({WHY}). Nothing was added.
@@ -3491,3 +3496,7 @@ STR_EXTRAS_DESC_WIDE_UI                 :On a wide screen the dock, panels and m
 # Edge scrolling (OpenSGolf extras, extras.rs edge_scroll; main.rs edge_scroll)
 STR_EXTRAS_EDGE_SCROLL                  : Edge scrolling
 STR_EXTRAS_DESC_EDGE_SCROLL             :In full screen the pointer at the screen's edge scrolls the view, as in the original (on by default).
+# The Hole flyover (OpenSGolf extras, showcase.rs; docs/PLAYING.md)
+STR_EXTRAS_HOLE_FLYOVER                 : Hole flyover: fly down a hole from its Hole Stats
+STR_EXTRAS_DESC_HOLE_FLYOVER            :Hole Stats gets a Fly over button: the camera flies from the tee down the hole to the green, then back. A key or a click ends it.
+STR_HOLESTATS_FLY_OVER                  :Fly over

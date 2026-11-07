@@ -364,6 +364,20 @@ impl App {
 
     /// Paints an area with the armed brush as one stroke; a fill or rectangle over the limit only says so.
     pub fn paint_area(&mut self, area: &Area) {
+        // the interface's call is an action (replay.rs): logged, then applied by App::apply
+        if self.rec.depth_zero() {
+            let p = &crate::app::PAINT[self.paint_idx];
+            let a = sg_core::action::Action::PaintArea {
+                ty: p.ty,
+                vbyte: p.vbyte,
+                turn: self.brush_turn(),
+                look: self.brush_look(),
+                tiles: area.tiles.clone(),
+                too_large: area.too_large,
+            };
+            self.act(a);
+            return;
+        }
         if area.too_large {
             self.ui_sound(24);
             self.show_toast(&trf("STR_TOAST_AREA_TOO_LARGE", &[("MAX", &MAX_AREA)]));
@@ -508,6 +522,20 @@ impl App {
 
     /// Places a row of the armed kind from tile `from` to tile `to`, one click's placement per item.
     pub fn place_row(&mut self, from: (i32, i32), to: (i32, i32)) {
+        // the interface's call is an action (replay.rs): logged, then applied by App::apply
+        if self.rec.depth_zero() {
+            let a = sg_core::action::Action::Row {
+                from,
+                to,
+                kind: self.build_idx as i32,
+                design: self.design,
+                turn: self.turn,
+                remove: false,
+                style: self.path_kind,
+            };
+            self.act(a);
+            return;
+        }
         for (x, y) in self.row_area(from, to) {
             self.edit_building(x, y, false);
         }

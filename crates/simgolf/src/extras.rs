@@ -126,6 +126,8 @@ pub struct Settings {
     /// where the pointer cannot leave the window). On by default (missing reads as on): it is the original's.
     #[serde(default = "on")]
     pub edge_scroll: bool,
+    /// Hole Stats' Fly over button: a short camera flight down the hole (showcase.rs). Off by default.
+    pub hole_flyover: bool,
 }
 
 impl Settings {
@@ -163,6 +165,7 @@ impl Settings {
         right_drop: false,
         wide_ui: false,
         edge_scroll: false,
+        hole_flyover: true,
     };
     pub const ALL_OFF: Settings = Settings {
         people: false,
@@ -193,6 +196,7 @@ impl Settings {
         right_drop: false,
         wide_ui: false,
         edge_scroll: false,
+        hole_flyover: false,
     };
 
     /// The ticks as the Extras box's checkbox bits (in `UI_KEYS` order).
@@ -226,6 +230,7 @@ impl Settings {
             self.right_drop,
             self.wide_ui,
             self.edge_scroll,
+            self.hole_flyover,
         ]
         .iter()
         .enumerate()
@@ -263,6 +268,7 @@ impl Settings {
             right_drop: on(25),
             wide_ui: on(26),
             edge_scroll: on(27),
+            hole_flyover: on(28),
         }
     }
 
@@ -300,7 +306,7 @@ impl Default for Settings {
 
 /// The interface extras' lines on the Extras box's Interface page (extras_ui.rs), one tick per extra in `Settings::bits`
 /// order (text keys in lang/en.txt).
-pub const UI_KEYS: [&str; 28] = [
+pub const UI_KEYS: [&str; 29] = [
     "STR_EXTRAS_PEOPLE",
     "STR_EXTRAS_HISTORY",
     "STR_EXTRAS_NAME_TAGS",
@@ -329,6 +335,7 @@ pub const UI_KEYS: [&str; 28] = [
     "STR_EXTRAS_RIGHT_DROP",
     "STR_EXTRAS_WIDE_UI",
     "STR_EXTRAS_EDGE_SCROLL",
+    "STR_EXTRAS_HOLE_FLYOVER",
 ];
 
 /// The update check's value when settings.json has none (`Settings::update_check`).
@@ -428,6 +435,9 @@ pub fn edge_scroll() -> bool {
 /// Whether a right click puts the tool in hand away (main.rs right_click).
 pub fn right_drop() -> bool {
     settings().right_drop
+}
+pub fn hole_flyover() -> bool {
+    settings().hole_flyover
 }
 pub fn random_trees() -> bool {
     settings().random_trees
@@ -1157,7 +1167,7 @@ mod tests {
         let f = Settings { save_files: true, ..Settings::ALL_OFF };
         assert_eq!(f.bits(), 1 << 22);
         assert_eq!(Settings::from_bits(f.bits()), f);
-        assert_eq!(UI_KEYS.len(), 28);
+        assert_eq!(UI_KEYS.len(), 29);
     }
 
     #[test]

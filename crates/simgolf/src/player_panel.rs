@@ -368,7 +368,9 @@ impl App {
             1 if practice => self.pro_button(0),
             2 if play => self.pro_button(1),
             3 if tournament => self.begin_tournament(),
-            4..=8 => self.club.set_shot_option(SHOTS[h as usize - 4]),
+            4..=8 => {
+                self.act(sg_core::action::Action::ShotOption(SHOTS[h as usize - 4]));
+            }
             9 => {
                 self.panel = 4;
                 self.golfer_page = 0;

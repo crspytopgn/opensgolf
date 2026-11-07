@@ -796,7 +796,9 @@ impl Stage {
             Some(TargetFor::Aim) => self.app.aim_pointer(w.0, w.1),
             Some(TargetFor::Place(_)) => {
                 (self.app.has_hit, self.app.hit_x, self.app.hit_z) = (true, w.0, w.1);
-                self.app.hover_tile = Some(self.app.terrain.tile_of(w.0, w.1));
+                if !self.app.rec.replaying() {
+                    self.app.hover_tile = Some(self.app.terrain.tile_of(w.0, w.1));
+                }
             }
             None => {}
         }

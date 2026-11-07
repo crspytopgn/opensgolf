@@ -540,7 +540,7 @@ impl App {
         if picks.is_empty() {
             return;
         }
-        if picks.len() != 2 || !self.club.pick_pair(&mut self.course, &mut self.exe_rng, picks[0], picks[1]) {
+        if picks.len() != 2 || !self.act(sg_core::action::Action::Pair { a: picks[0], b: picks[1] }) {
             self.ui_sound(0x18);
         }
     }
@@ -996,11 +996,7 @@ impl App {
                     self.cam_x = x;
                     self.cam_z = z;
                 }
-                for gg in [gi, gi ^ 1] {
-                    if self.club.g[gg].timer == 0 {
-                        self.club.g[gg].timer = 1;
-                    }
-                }
+                self.act(sg_core::action::Action::Snapshot { golfer: gi });
                 self.simfoto = Some(SimFoto { slot: gi, frames: 0, saved: false });
             }
             3 => self.card_ui.story = !self.card_ui.story,
@@ -1008,7 +1004,7 @@ impl App {
             5 => {
                 // Next Chapter: the replier's random reply, then a forced story beat (sg_core::stories::next_chapter)
                 let _ = p;
-                self.club.next_chapter(&mut self.course, &mut self.exe_rng, gi);
+                self.act(sg_core::action::Action::Chapter { golfer: gi });
                 self.card = None;
             }
             _ => {
@@ -1024,6 +1020,16 @@ impl App {
     /// A left click on the course while no tool is busy: a golfer held by Move/Eject is put down there; otherwise the
     /// nearest golfer within reach opens the card, or the pair screen when he is waiting in the clubhouse.
     pub fn golfer_click(&mut self, wx: f32, wz: f32, clubhouse: bool) -> bool {
+        // a golfer put down is an action (replay.rs): where, in map units, is what it holds
+        if self.rec.depth_zero() && self.card_ui.held.is_some() {
+            let k = sg_core::terrain::TILE_SIZE / sg_core::staff::UNIT as f32;
+            let ux = ((wx + self.terrain.w as f32 * sg_core::terrain::TILE_SIZE * 0.5) / k) as i32;
+            let uy = ((wz + self.terrain.h as f32 * sg_core::terrain::TILE_SIZE * 0.5) / k) as i32;
+            let unit = sg_core::staff::UNIT;
+            let (x, y) = (ux.div_euclid(unit) * unit + unit / 2, uy.div_euclid(unit) * unit + unit / 2);
+            let golfer = self.card_ui.held.take().unwrap_or(0);
+            return self.act(sg_core::action::Action::DropGolfer { golfer, x, y, clubhouse });
+        }
         if let Some(gi) = self.card_ui.held.take() {
             // the exe puts the golfer on the centre of the clicked tile (+0x9e cleared); dropped on the clubhouse he goes
             // home: hole 19, no strokes, mood 0, and an ordinary golfer's membership record marks the hole quit and the
@@ -1307,7 +1313,14 @@ impl App {
         self.great_shot.is_some()
     }
 
-    fn great_shot_release(&mut self) {
+    pub(crate) fn great_shot_release(&mut self) {
+        // the photo let go goes on with the game: an action (replay.rs)
+        if self.rec.depth_zero() {
+            if self.great_shot.is_some() {
+                self.act(sg_core::action::Action::GreatShotDone);
+            }
+            return;
+        }
         let Some(gs) = self.great_shot.take() else { return };
         self.club.great_shot_after(&mut self.course, &mut self.exe_rng, gs.g, gs.bad);
     }

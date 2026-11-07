@@ -1747,6 +1747,11 @@ impl App {
     /// vertex, the 2 x 2 square or the area, heights 3..13 with the lowering cap off hilly land, nothing spreading). No money
     /// is charged (none is in the exe's edit routines).
     pub fn edit_elevation(&mut self, cx: i32, cy: i32, delta: i32) {
+        // the interface's call is an action (replay.rs): logged, then applied by App::apply
+        if self.rec.depth_zero() {
+            self.act(sg_core::action::Action::Elevation { x: cx, y: cy, tool: self.pstate.elev_tool as i32, up: delta > 0 });
+            return;
+        }
         let hilly = self.land.as_ref().is_some_and(|l| l.slot.record().relief == 2);
         self.terrain.edit_elevation(self.pstate.elev_tool as i32, cx, cy, delta > 0, hilly);
         self.dirty = true;

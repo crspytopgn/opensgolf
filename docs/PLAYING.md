@@ -768,8 +768,8 @@ As in the original: **F1** Course Report, **F2** Player Comments (the twenty mos
 ## OpenSGolf extras
 
 The port's own additions to the interface, none of them in the original (crates/simgolf/src/extras.rs and the modules it
-names). They only add a screen, a tag, a strip, a button or a save: helpers (and two looks, random trees and the desert's
-Ravine and Brush art), none of them
+names). They only add a screen, a tag, a strip, a button or a save: helpers (and a few looks: random trees, the desert's
+Ravine and Brush art, the hole flyover), none of them
 changes how the game plays. A new player starts with them off; the *Original + helpers* and *OpenSGolf* presets turn
 them on in one click (the two pauses and the three controls ticks excepted, which stay as you set them), and System
 Functions, Preferences, *Game options...* ticks them on its Info, Saves and Controls pages (the Info page by groups) and
@@ -1137,6 +1137,13 @@ changed every key does what it did before.
   in a caption, round and round until any key, click or tap ends it; the camera, the zoom and the tool in hand then come
   back as they were. The golfers play on. Classic and Enhanced graphics alike (with the smooth camera the zoom eases in);
   it needs an open hole. Test hook: `SG_SHOWCASE=T` starts it held T seconds in, for stills.
+* **Hole flyover** (an OpenSGolf extra on the Looks page, off by default; on in the *Original + helpers* and *OpenSGolf*
+  presets): Hole Stats (a click on an open hole's flag, or the Course Report) gets a *Fly over* button. It shows that one
+  hole from the air: the interface goes and the camera glides from where it is to the back tee, down the hole over the
+  fairway to the green, with the hole's number, par and length in a caption, and back to where it was; any key, click or
+  tap ends it sooner. The view is the game's own (with Enhanced graphics' smooth camera it also draws back a little over
+  the middle of the hole). With the extra off Hole Stats is as in the original. Test hook: `SG_FLYOVER=H,T` starts the
+  flyover of hole H held T seconds in, for stills.
 * **u** hides the whole interface (dock, panels, messages, the money and ratings) during normal play, for a clear view of
   the course; a small note in the bottom left corner says which key brings it back. Clicks then go to the course. Photo
   mode (Enhanced graphics) has its own view and is not affected.
@@ -1169,7 +1176,8 @@ box's tick and Enter too) and *Cancel* (Esc too). OK:
   through the address (0.6.0 did, and a box filled in that way lost what the player typed);
 - writes a copy of the game being played (an ordinary saved game, `.sgs`), a text file (`.txt`) with the system line
   and the game's last 30 warnings and errors (a picture that could not be read, a pack's problem, a failed save; the game
-  keeps no log file of its own) and, when ticked, a screenshot of the screen under the box (`.png`), all named `OpenSGolf report <date> <time>` (UTC), to a **Reports** folder in the save folder,
+  keeps no log file of its own), a replay of the game since it was loaded or begun (`.sgr`: what you did and when, which
+  lets a developer play it again exactly; see CONTRIBUTING.md, *Replays*) and, when ticked, a screenshot of the screen under the box (`.png`), all named `OpenSGolf report <date> <time>` (UTC), to a **Reports** folder in the save folder,
   and opens that folder in the file manager (Explorer, the Finder, or the desktop's own through xdg-open). A box says
   which files to drag into the form. On the title screens there is no game to copy.
 - In the browser the form opens in a new tab (if the browser blocks it, a note over the game has the link to tap), and

@@ -1450,8 +1450,14 @@ impl App {
                             }
                         }
                         crate::extras::RenameFor::Bio(r) => {
-                            if let Some(p) = self.club.roster.get_mut(r.max(0) as usize) {
+                            // the person's record is the club's: an action (replay.rs)
+                            let rec = r.max(0) as usize;
+                            if let Some(mut p) = self.club.roster.get(rec).cloned() {
                                 p.bio = n;
+                                if let Ok(person) = serde_json::to_value(&p) {
+                                    let fixed = (p.fixed & 7) as u8;
+                                    self.act(sg_core::action::Action::Person { record: rec, person, slot: None, toggles: fixed });
+                                }
                             }
                         }
                     }
@@ -1472,8 +1478,7 @@ impl App {
                 if n.is_empty() || n.chars().any(|c| "\\/:*?\"<>|".contains(c)) {
                     self.ui_sound(0x18);
                 } else {
-                    self.course_name = n.clone();
-                    self.club.course_name = n;
+                    self.act(sg_core::action::Action::Rename(n));
                     self.rename = None;
                 }
             }

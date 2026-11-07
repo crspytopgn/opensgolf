@@ -168,6 +168,13 @@ impl App {
         let centre = |(a, b): (i32, i32)| (a * 0x400 + 0x200, b * 0x400 + 0x200);
         let (gx, gy) = centre(pin);
         let Some((x, y)) = self.screen_of(gx, gy) else { return };
+        // the original stores the hole's length as it draws it: an action (replay.rs), which a replay plays from its log
+        if rec.length == 0 {
+            if self.rec.replaying() {
+                return;
+            }
+            self.act(sg_core::action::Action::MeasureHole);
+        }
         let Some((h, yards, par)) = self.club.building_figures(&self.course) else { return };
         let s = Ui::new(self.draw_w, self.draw_h);
         let lift = 5.0 * (self.zoom / ZOOM_UNIT).round().max(1.0);
@@ -197,6 +204,11 @@ impl App {
     /// from the pointer's tile. `at` overrides the pointer (scripted runs).
     pub fn start_analysis(&mut self, at: Option<(i32, i32)>, nearest: bool) {
         let Some((a, b)) = at.or(self.hover_tile) else { return };
+        // the interface's call is an action (replay.rs): logged, then applied by App::apply
+        if self.rec.depth_zero() {
+            self.act(sg_core::action::Action::Analysis { x: a, y: b, nearest });
+            return;
+        }
         self.sync_course();
         if nearest {
             self.analysis_hole = self.club.nearest_hole(a, b);

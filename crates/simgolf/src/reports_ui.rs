@@ -913,6 +913,11 @@ impl App {
     /// shift by one, the tee and green tiles are renumbered and golfers on the course follow their hole. The selection keeps
     /// its number, so it now shows the hole that moved into the old place.
     pub fn move_hole(&mut self, from: usize, to: usize) {
+        // the interface's call is an action (replay.rs): logged, then applied by App::apply
+        if self.rec.depth_zero() {
+            self.act(sg_core::action::Action::MoveHole { from, to });
+            return;
+        }
         if !(1..=18).contains(&from) || !(1..=18).contains(&to) || from == to {
             return;
         }

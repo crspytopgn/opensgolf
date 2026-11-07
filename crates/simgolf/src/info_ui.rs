@@ -451,6 +451,7 @@ impl App {
         let par_ink = if hole.game_par != 0 { c15(0x0018) } else { ink };
         s.text_centered(g, 536.0, 135.0, &hole.par.to_string(), 14.0, par_ink);
         self.draw_par_buttons(g, &s);
+        self.draw_flyover_button(g, &s);
         s.text(g, 441.0, 156.0, tr("STR_HOLESTATS_STROKE_AVERAGE"), 14.0, ink);
         if let Some(a) = st.avg {
             s.text_centered(g, 591.0, 156.0, &hundredths(a), 14.0, ink);
@@ -530,7 +531,10 @@ impl App {
         if let Some(t) = sg_core::fsutil::read_file(&f).and_then(|d| top10::parse(&d)) {
             return t;
         }
-        let t = top10::defaults(&mut self.exe_rng);
+        // drawn with the game's generator: an action (replay.rs)
+        self.act(sg_core::action::Action::Top10);
+        // (refused during a replay: the table is shown without touching the game's generator)
+        let t = self.top10_drawn.take().unwrap_or_else(|| top10::defaults(&mut self.exe_rng.clone()));
         sg_core::fsutil::write_file(&f, &top10::to_bytes(&t));
         t
     }

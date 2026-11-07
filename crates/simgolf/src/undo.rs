@@ -282,6 +282,11 @@ impl App {
 
     /// A press on the course: keeps the course as it is now, in case the click changes it.
     pub fn undo_press(&mut self) {
+        // the interface's call is an action (replay.rs): logged, then applied by App::apply
+        if self.rec.depth_zero() {
+            self.act(sg_core::action::Action::UndoPress);
+            return;
+        }
         let Some(land) = self.land.clone() else { return };
         let t = &self.terrain;
         self.undo.pending = Some(Box::new(Before {
@@ -299,6 +304,11 @@ impl App {
 
     /// The button came up: what the click changed goes on the undo list when it changed the course.
     pub fn undo_release(&mut self) {
+        // the interface's call is an action (replay.rs): logged, then applied by App::apply
+        if self.rec.depth_zero() && self.undo.pending.is_some() {
+            self.act(sg_core::action::Action::UndoRelease);
+            return;
+        }
         let Some(b) = self.undo.pending.take() else { return };
         let Some(land) = self.land.as_ref() else { return };
         if self.course_fingerprint() == b.fingerprint {
@@ -345,6 +355,10 @@ impl App {
     /// Ctrl+Z: the course as it was before the last click that changed it, and the money that click took or gave. Returns
     /// false with nothing to undo.
     pub fn undo_step(&mut self, g: &mut Gfx) -> bool {
+        // a click's step is the Undo action (replay.rs); the course editor's whole game is not logged
+        if self.rec.depth_zero() && !self.undo_top_is_save() {
+            return self.act(sg_core::action::Action::Undo);
+        }
         match self.undo.steps.pop() {
             Some(Step::Click(c)) => self.undo_click(&c),
             Some(Step::Save(b)) => self.undo_save(g, b),
@@ -419,9 +433,25 @@ impl App {
     /// Undoes the last click as Ctrl+Z does, without the graphics a saved game's step needs (tests).
     #[cfg(test)]
     pub(crate) fn undo_click_step(&mut self) -> bool {
+        self.undo_click_top()
+    }
+
+    /// Whether the last step is the course editor's whole game (undone with `undo_step`, not an action: the editor keeps
+    /// no log).
+    pub fn undo_top_is_save(&self) -> bool {
+        matches!(self.undo.steps.last(), Some(Step::Save(_)))
+    }
+
+    /// The Undo action (replay.rs): the last click that changed the course put back. False with no click to undo (the
+    /// course editor's step stays for `undo_step`).
+    pub(crate) fn undo_click_top(&mut self) -> bool {
         match self.undo.steps.pop() {
             Some(Step::Click(c)) => self.undo_click(&c),
-            _ => false,
+            Some(s) => {
+                self.undo.steps.push(s);
+                false
+            }
+            None => false,
         }
     }
 
