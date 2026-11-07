@@ -787,6 +787,11 @@ impl App {
         }
         // the scorecard: hole numbers, strokes coloured against par, the hole in progress in grey, the total
         let mut total = 0;
+        // a golfer on Course B (the Second course extra, sg_core::second): its pars, and a B before the hole numbers
+        let on_b = gg.course_b && self.club.course_b.is_some();
+        if on_b {
+            s.text_centered(g, 248.0, top(132.0, SMALL), tr("STR_COURSE_B_HOLE").replace("{HOLE}", "").trim(), SMALL, black());
+        }
         for hole in 1..19 {
             let x = 266.0 + 18.0 * (hole - 1) as f32;
             s.text_centered(g, x, top(132.0, SMALL), &format!("{hole}"), SMALL, black());
@@ -794,7 +799,7 @@ impl App {
                 (gg.strokes, c15(0x4210))
             } else {
                 let k = gg.card[hole] as i32;
-                let par = self.club.holes[hole].par;
+                let par = self.club.course_holes(on_b).get(hole).map_or(0, |r| r.par);
                 let c = if par == 0 {
                     black()
                 } else if k < par - 1 {

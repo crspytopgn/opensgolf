@@ -179,8 +179,9 @@ impl App {
                 // 0x63) see-through, view 1 whatever the camera, its frame from the game tick, anchored 4 pixels left of the
                 // tile's centre at every zoom; painted at once (0x4628d0) after the sprite queue was drawn (0x463100), so over
                 // every sprite, as this pass is
-                let h = self.club.next_hole;
-                if !(1..19).contains(&h) || self.club.holes[h as usize].pin.0 != 0 {
+                let hb = self.hole_b();
+                let h = self.club.course_next_hole(hb);
+                if !(1..19).contains(&h) || self.club.course_holes(hb)[h as usize].pin.0 != 0 {
                     return;
                 }
                 let (body, _) = self.decor_sprite(0x189 + self.exe_theme().min(3) as u16, 0x63);
@@ -434,11 +435,12 @@ impl App {
     /// no tee. Nothing is drawn while the far end is off the screen (0x42f940). The line call's last argument, 7, is its alpha
     /// in tenths (Terrain.dll's drawLine); the font is taken as the small one the brush code selects just before (0x519fd8).
     fn draw_hole_reach(&self, g: &mut Gfx, s: &Ui, ty: i32, a: i32, b: i32, (sx, sy): (f32, f32)) {
-        let h = self.club.next_hole;
+        let hb = self.hole_b();
+        let h = self.club.course_next_hole(hb);
         if !(0..2).contains(&ty) || !(1..19).contains(&h) {
             return;
         }
-        let rec = &self.club.holes[h as usize];
+        let rec = &self.club.course_holes(hb)[h as usize];
         let from = match ty {
             1 if rec.pin.0 == 0 && rec.back.0 != 0 => rec.back,
             0 if rec.back.0 == 0 && rec.pin.0 != 0 => rec.pin,

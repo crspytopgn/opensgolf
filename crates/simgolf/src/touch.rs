@@ -1636,7 +1636,7 @@ impl App {
                 _ => false,
             },
             Btn::Turn => self.club.extras.rotate,
-            Btn::OpenHole => self.club.can_open_hole(),
+            Btn::OpenHole => self.club.can_open_course_hole(self.hole_b()),
             Btn::Showcase => self.club.holes.iter().skip(1).take(18).any(|h| h.par != 0),
             Btn::Undo => self.undo.can_undo() && (self.edit || matches!(self.panel, 1 | 2)),
             // shown on their own terms (Stage::button_shown)

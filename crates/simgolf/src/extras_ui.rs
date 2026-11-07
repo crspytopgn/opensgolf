@@ -163,6 +163,7 @@ const PAGE_LINES: [&[ExtrasLine]; 6] = {
             G(5), // set par
             G(x::KEEP_LAND),
             G(4), // animals
+            G(x::SECOND_COURSE),
             G(2), // hardcore
             G(CUT),
         ],
@@ -222,6 +223,8 @@ pub fn tag(l: ExtrasLine) -> Option<Tag> {
         ExtrasLine::Game(CUT) => Tag::Experimental,
         // hardcore, and the sandbox's freeze and unlock all
         ExtrasLine::Game(2 | 8 | 9) => Tag::Big,
+        // a second course of 18 holes
+        ExtrasLine::Game(i) if i == sg_core::extras::SECOND_COURSE => Tag::Big,
         _ => Tag::Noticeable,
     })
 }
@@ -244,6 +247,7 @@ const GAME_DESC: [&str; sg_core::extras::OPTION_KEYS.len()] = [
     "STR_EXTRAS_DESC_MORE_VISITORS",
     "STR_EXTRAS_DESC_NO_WEEDS",
     "STR_EXTRAS_DESC_KEEP_LAND",
+    "STR_EXTRAS_DESC_SECOND_COURSE",
 ];
 const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_PEOPLE",
@@ -658,7 +662,8 @@ impl App {
     /// out of `PAR_RANGE`, nothing at all when the hole's par may not be changed now).
     pub fn par_buttons(&self) -> Vec<(i32, Rect)> {
         let h = self.info.stats_hole.clamp(1, 18);
-        if !self.club.can_set_par(h) {
+        // (Course A's holes only: the Second course extra's Course B keeps the game's pars, sg_core::second)
+        if self.hole_b() || !self.club.can_set_par(h) {
             return Vec::new();
         }
         let par = self.club.holes[h].par;
@@ -947,6 +952,7 @@ mod tests {
         assert_eq!(tag(ExtrasLine::Calendar), Some(Tag::Noticeable));
         assert_eq!(tag(ExtrasLine::Game(x::LEFTIES)), Some(Tag::Light));
         assert_eq!((page_of(ExtrasLine::Game(x::KEEP_LAND)), tag(ExtrasLine::Game(x::KEEP_LAND))), (Some(0), Some(Tag::Light)));
+        assert_eq!((page_of(ExtrasLine::Game(x::SECOND_COURSE)), tag(ExtrasLine::Game(x::SECOND_COURSE))), (Some(0), Some(Tag::Big)));
         assert_eq!(page_of(ExtrasLine::Ui(5)), Some(4), "autosave");
         // the Controls page holds the mouse ticks, the most wanted first, then the two pauses
         assert_eq!(page_lines(5), [14, 25, 15, 20, 27, 24, 8, 9].map(ExtrasLine::Ui));
