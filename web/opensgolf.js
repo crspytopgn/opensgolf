@@ -1987,7 +1987,9 @@ let sgPadWas = false;
 function sgPadPoll() {
     sgRequestFrame(sgPadPoll);
     if (typeof wasm_exports === "undefined" || !wasm_exports.sg_gamepad || !navigator.getGamepads) return;
-    const p = Array.from(navigator.getGamepads()).find(g => g && g.connected);
+    // racing wheels, pedals and flight sticks are left alone (gamepad.rs `not_a_gamepad`, #169)
+    const notPad = /wheel|pedal|racing|driving force|g29|g920|g923|g27|g25|fanatec|thrustmaster t|flight|hotas|throttle|rudder|yoke/i;
+    const p = Array.from(navigator.getGamepads()).find(g => g && g.connected && !notPad.test(g.id));
     if (!p) {
         if (sgPadWas) wasm_exports.sg_gamepad(0, 0, 0, 0, 0);
         sgPadWas = false;
