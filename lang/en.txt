@@ -1454,6 +1454,16 @@ STR_EXTRAS_NO_WEEDS                     : Sandbox: no new dandelions
 STR_EXTRAS_KEEP_LAND                    : Keep the land offer: buy land when you like
 STR_MENU_INFO_BUY_LAND                  : Buy land (approved)
 STR_TOAST_LAND_KEPT                     :The commissioner's approval is kept: buy land whenever you like from the Information menu.
+# Second course (sg_core::second): Course B, 18 more holes once Course A's 18 are open
+STR_EXTRAS_SECOND_COURSE                : Second course: 18 more holes
+STR_EXTRAS_DESC_SECOND_COURSE           :Once your 18 holes are open, build a Course B of 18 more on the same land. The A/B switch above the Build Course panel picks the course to build and report on.
+STR_COURSE_B_HOLE                       :B{HOLE}
+STR_COURSE_SWITCH_A                     :Course A
+STR_COURSE_SWITCH_B                     :Course B
+STR_COURSE_SWITCH_TIP                   :Which course the hole tools and hole reports work on
+STR_COURSE_B_TITLE                      :{TITLE} - COURSE B
+STR_TOAST_COURSE_A                      :The hole tools now work on Course A.
+STR_TOAST_COURSE_B                      :The hole tools now work on Course B, holes B1 to B18.
 # Left-handed golfers (sg_core::extras): about one golfer in ten, and a tick for your pro on Customise Golfer
 STR_EXTRAS_LEFTIES                      : Left-handed golfers
 STR_SET_PAR_1                           :Change hole {HOLE} from par {OLD} to par {NEW}?

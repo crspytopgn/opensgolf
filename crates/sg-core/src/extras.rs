@@ -39,6 +39,9 @@
 //!   it, and the Information menu's Buy land line opens the land screen whenever the player likes. In the original the
 //!   approval is gone once the question is answered, though he comes again on a later visitor turn while the club's
 //!   rating stays over his mark (vips.rs `vip_check`). At most one approval waits; buying a tract uses it.
+//! * `second_course`: Second course: once Course A's 18 holes are open, the hole tool can build a Course B of up to 18
+//!   more holes on the same property (sg_core::second); golfers play one course or the other. The SGA, tournaments,
+//!   ratings and the original's reports keep to Course A.
 //!
 //! Freeze happiness and Unlock all are named "Sandbox: ..." in the Extras box as they are what a sandbox player wants
 //! most, but each works in a normal game too. The Extras box shows Slower seasons and Pause the calendar as one line,
@@ -72,13 +75,14 @@ pub struct Extras {
     pub more_visitors: bool,
     pub no_weeds: bool,
     pub keep_land: bool,
+    pub second_course: bool,
 }
 
 /// The options in the order the Extras box lists them (text keys of their lines). Option 6 has three values (a line with
 /// {VALUE}, `SPEED_KEYS`), the others are ticks; `Extras::option` and `Extras::set_option` read and set them by index.
 /// New options are appended so bits and saves keep working; the page each is shown on (Gameplay, Sandbox or Looks) is
 /// extras_ui.rs `PAGE_LINES`'s.
-pub const OPTION_KEYS: [&str; 16] = [
+pub const OPTION_KEYS: [&str; 17] = [
     "STR_EXTRAS_ROTATE",
     "STR_EXTRAS_CUT_CONTENT",
     "STR_EXTRAS_HARDCORE",
@@ -95,6 +99,7 @@ pub const OPTION_KEYS: [&str; 16] = [
     "STR_EXTRAS_MORE_VISITORS",
     "STR_EXTRAS_NO_WEEDS",
     "STR_EXTRAS_KEEP_LAND",
+    "STR_EXTRAS_SECOND_COURSE",
 ];
 
 /// The option of `OPTION_KEYS` that is Weather that matters.
@@ -111,6 +116,8 @@ pub const MORE_VISITORS: usize = 13;
 pub const NO_WEEDS: usize = 14;
 /// The option of `OPTION_KEYS` that is Keep the land offer.
 pub const KEEP_LAND: usize = 15;
+/// The option of `OPTION_KEYS` that is Second course.
+pub const SECOND_COURSE: usize = 16;
 
 /// The option of `OPTION_KEYS` that is the calendar speed.
 pub const SEASON_SPEED: usize = 6;
@@ -146,6 +153,7 @@ impl Extras {
         more_visitors: false,
         no_weeds: false,
         keep_land: false,
+        second_course: false,
     };
 
     /// The extras of the "OpenSGolf" preset: the looks, and the light gameplay extras that add to the game without changing
@@ -172,6 +180,8 @@ impl Extras {
         no_weeds: false,
         // it changes when land can be bought: not part of the preset
         keep_land: false,
+        // a big change to the course and the golfers' rounds: not part of the preset
+        second_course: false,
     };
 
     /// Everything off (the original game).
@@ -181,8 +191,8 @@ impl Extras {
 
     /// The options as bits (the `X:` test hook and `--extras`): one bit per tick in `OPTION_KEYS` order, except that the
     /// calendar speed takes two (bits 6 and 7), so the ticks after it sit one bit further on (8 to 12), Path styles and lamps
-    /// takes three (13 to 15), More visitors is bit 16, Sandbox: no new dandelions bit 17 and Keep the land offer bit 18. The
-    /// first six keep the bits they always had.
+    /// takes three (13 to 15), More visitors is bit 16, Sandbox: no new dandelions bit 17, Keep the land offer bit 18 and
+    /// Second course bit 19. The first six keep the bits they always had.
     pub fn bits(&self) -> u32 {
         self.rotate as u32
             | (self.cut_content as u32) << 1
@@ -200,6 +210,7 @@ impl Extras {
             | (self.more_visitors as u32) << 16
             | (self.no_weeds as u32) << 17
             | (self.keep_land as u32) << 18
+            | (self.second_course as u32) << 19
     }
 
     pub fn from_bits(b: u32) -> Extras {
@@ -220,6 +231,7 @@ impl Extras {
             more_visitors: b & 1 << 16 != 0,
             no_weeds: b & 1 << 17 != 0,
             keep_land: b & 1 << 18 != 0,
+            second_course: b & 1 << 19 != 0,
         }
     }
 
@@ -242,6 +254,7 @@ impl Extras {
             MORE_VISITORS => self.more_visitors as u8,
             NO_WEEDS => self.no_weeds as u8,
             KEEP_LAND => self.keep_land as u8,
+            SECOND_COURSE => self.second_course as u8,
             _ => 0,
         }
     }
@@ -266,6 +279,7 @@ impl Extras {
             MORE_VISITORS => self.more_visitors = on,
             NO_WEEDS => self.no_weeds = on,
             KEEP_LAND => self.keep_land = on,
+            SECOND_COURSE => self.second_course = on,
             _ => {}
         }
     }
@@ -928,6 +942,15 @@ mod path_tests {
         assert!(club.remove_lamp(1, 2) && club.remove_lamp(4, 2) && !club.remove_lamp(4, 2));
         club.extras.path_style = 0;
         assert_eq!(serde_json::to_string(&club).unwrap(), plain);
+    }
+
+    #[test]
+    fn second_course_has_its_own_bit_and_is_in_no_preset() {
+        let e = Extras { second_course: true, ..Default::default() };
+        assert_eq!(e.bits(), 1 << 19);
+        assert_eq!(Extras::from_bits(e.bits()), e);
+        assert_eq!(e.option(SECOND_COURSE), 1);
+        const { assert!(!Extras::OPENSGOLF.second_course && !Extras::LOOKS.second_course, "in no preset") };
     }
 
     #[test]

@@ -187,24 +187,29 @@ impl App {
     pub fn flag_click(&mut self, vx: f32, vy: f32) -> bool {
         let z = self.exe_zoom();
         let tall = 10.0 + 12.0 * z;
-        let mut best: Option<(f32, usize)> = None;
-        for h in 1..19 {
-            if self.club.holes[h].par == 0 {
+        let mut best: Option<(f32, usize, bool)> = None;
+        // (Course B's flags too, with the Second course extra: sg_core::second)
+        let courses: &[bool] = if self.club.course_b.is_some() { &[false, true] } else { &[false] };
+        for (&b, h) in courses.iter().flat_map(|b| std::iter::repeat_n(b, 18).zip(1..19)) {
+            let Some(&sg_core::golfer::Hole { par, pin: (pa, pb), .. }) = self.club.course_holes(b).get(h) else { continue };
+            if par == 0 {
                 continue;
             }
             // the pin is a tile; the cup stands at its centre (staff units)
-            let (pa, pb) = self.club.holes[h].pin;
             let u = sg_core::staff::UNIT;
             let Some((sx, sy)) = self.screen_of(pa * u + u / 2, pb * u + u / 2) else { continue };
             if (vx - sx).abs() <= 4.0 + 2.0 * z && vy <= sy + 4.0 && vy >= sy - tall {
                 let d = (vx - sx).abs() + (vy - (sy - tall * 0.5)).abs() * 0.2;
-                if best.is_none_or(|(bd, _)| d < bd) {
-                    best = Some((d, h));
+                if best.is_none_or(|(bd, _, _)| d < bd) {
+                    best = Some((d, h, b));
                 }
             }
         }
-        let Some((_, h)) = best else { return false };
+        let Some((_, h, b)) = best else { return false };
         self.info.stats_hole = h;
+        if self.club.course_b.is_some() {
+            self.hole_b_view = b;
+        }
         self.screen = Screen::HoleStats;
         self.ui_sound(0x38);
         true
@@ -212,6 +217,11 @@ impl App {
 
     /// A click on the Course Report: a hole's row opens its Hole Stats, anything else closes the report.
     pub fn report_click(&mut self, vx: f32, vy: f32) {
+        // (the holes of the course the hole panel's A/B switch shows: sg_core::second)
+        self.on_hole_course(|a| a.report_click_shown(vx, vy))
+    }
+
+    fn report_click_shown(&mut self, vx: f32, vy: f32) {
         let holes = self.report_holes();
         let row = ((vy - REPORT_TOP) / REPORT_PITCH).floor();
         if vy >= REPORT_TOP && (0.0..holes.len() as f32).contains(&row) && (0.0..800.0).contains(&vx) {
@@ -227,6 +237,29 @@ impl App {
     /// The Course Report (0x44fb30 mode 0): header, a 17 px strip per open hole with its numbers and the art's highlight cells,
     /// the totals strip and the legend.
     pub fn draw_report(&mut self, g: &mut Gfx) {
+        // (the course the hole panel's A/B switch shows: sg_core::second)
+        self.on_hole_course(|a| a.draw_report_shown(g))
+    }
+
+    /// A report's title, marked as Course B's while Course B is shown (the Second course extra, sg_core::second).
+    fn course_title(&self, t: &str) -> String {
+        if self.club.b_shown() {
+            trf("STR_COURSE_B_TITLE", &[("TITLE", &t)])
+        } else {
+            t.to_string()
+        }
+    }
+
+    /// A hole's name on the reports: Course B's numbered "Hole B3" (the Second course extra, sg_core::second).
+    fn report_hole_name(&self, h: usize, hole: &sg_core::golfer::Hole) -> String {
+        if self.club.b_shown() && hole.flags & 0x81 == 0 {
+            trf("STR_HOLE_NAME_NUMBER", &[("HOLE", &self.hole_text(true, h as i32))])
+        } else {
+            ratings::hole_name(h, hole)
+        }
+    }
+
+    fn draw_report_shown(&mut self, g: &mut Gfx) {
         let art = &self.info.art.report;
         if !self.ui_ok || art.tex.is_none() {
             return;
@@ -238,7 +271,7 @@ impl App {
         s.image_part(g, art, 0.0, 0.0, 0.0, 0.0, 800.0, REPORT_TOP);
         // fonts (0x44fb30): the title in 0x821020 (Klepto 24) centred at (316, 35); every other line
         // in 0x821ee8 (Manual SSi 14), the rows' tops 2 below their pieces, the totals' 11 below theirs
-        s.put_centered_fit(g, crate::ui::F_INFO_TITLE, 316.0, 35.0, crate::ui::TITLE_ROOM, tr("STR_REPORT_TITLE"), ink);
+        s.put_centered_fit(g, crate::ui::F_INFO_TITLE, 316.0, 35.0, crate::ui::TITLE_ROOM, &self.course_title(tr("STR_REPORT_TITLE")), ink);
         for c in 0..12 {
             cell_centred(&s, g, CX[c] + CW[c] / 2.0, 86.0, tr(HEAD[c]), ink);
         }
@@ -317,7 +350,7 @@ impl App {
             mark(g, 11, (r.profit < 0).then_some(0));
             let ty = y + 12.0;
             let hole = &self.club.holes[r.hole];
-            cell_left(&s, g, 15.0, ty, &ratings::hole_name(r.hole, hole), 72.0, ink);
+            cell_left(&s, g, 15.0, ty, &self.report_hole_name(r.hole, hole), 72.0, ink);
             // Top 100 / Top 18 / scenic marker (index 3..7 on the sheet's icon row), and the dogleg arrow in the type cell
             let tops = if r.flags & 1 != 0 { 1 + (r.flags >> 1 & 1) as usize } else { 0 };
             let m = 2 + tops + if r.scenic { 3 } else { 0 };
@@ -388,6 +421,11 @@ impl App {
 
     /// The Hole Stats dialog (0x453330) for the hole picked on the Course Report. It closes on any click.
     pub fn draw_hole_stats(&mut self, g: &mut Gfx) {
+        // (the course the hole panel's A/B switch shows: sg_core::second)
+        self.on_hole_course(|a| a.draw_hole_stats_shown(g))
+    }
+
+    fn draw_hole_stats_shown(&mut self, g: &mut Gfx) {
         let s = Ui::new(self.draw_w, self.draw_h);
         self.view = s.view;
         let art = &self.info.art.holestat;
@@ -404,12 +442,12 @@ impl App {
         let st = ratings::hole_stats(hole);
         let ink = black();
         s.image_part(g, art, 0.0, 0.0, 0.0, 0.0, 800.0, 220.0);
-        let mut title = trf("STR_HOLESTATS_TITLE", &[("HOLE", &ratings::hole_name(h, hole))]);
+        let mut title = trf("STR_HOLESTATS_TITLE", &[("HOLE", &self.report_hole_name(h, hole))]);
         if hole.flags & 0x81 != 0 {
             title += &trf("STR_HOLESTATS_NUMBER", &[("HOLE", &h)]);
         }
         // fonts (0x453330): the title in 0x821020 (Klepto 24) centred at (385, 48), the rest in 0x821ee8 (Manual SSi 14)
-        s.put_centered_fit(g, crate::ui::F_INFO_TITLE, 385.0, 48.0, crate::ui::TITLE_ROOM, &title, ink);
+        s.put_centered_fit(g, crate::ui::F_INFO_TITLE, 385.0, 48.0, crate::ui::TITLE_ROOM, &self.course_title(&title), ink);
         // left column: label at 190, value centred at 356
         let rows = [
             (83.0, tr("STR_HOLESTATS_FUN")),
@@ -434,7 +472,8 @@ impl App {
         if rounds > 0 {
             // the exe's clock picks one of five figures, a new one every 1.024 seconds
             let k = ((self.clock * 1000.0) as u64 >> 10) % 5;
-            let on_hole = self.club.g.iter().filter(|g| g.hole == h as i32 && g.strokes > 0).count() as i32;
+            let b = self.club.b_shown();
+            let on_hole = self.club.g.iter().filter(|g| g.hole == h as i32 && g.strokes > 0 && g.course_b == b).count() as i32;
             let r = (rounds - on_hole).max(1);
             let (label, value) = match k {
                 0 => (tr("STR_HOLESTATS_AVG_DRIVE"), trf("STR_UNIT_YDS", &[("YARDS", &(hole.drive_sum / rounds))])),

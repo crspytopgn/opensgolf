@@ -1212,6 +1212,16 @@ fn apply_edit_spec(app: &mut App, spec: &str) {
                 let ok = app.open_hole();
                 println!("open hole: {ok}, next hole {}", app.club.next_hole);
             }
+            b'Z' => {
+                // test hook: the Second course extra's A/B switch over the Build Course panel (sg_core::second)
+                app.toggle_hole_course();
+                let (a, b) = (app.club.next_hole, app.club.course_next_hole(true));
+                println!(
+                    "course switch: Course {}, next hole A {a} B {b}, Course B open {}",
+                    if app.hole_b() { "B" } else { "A" },
+                    app.club.course_b_open()
+                );
+            }
             b'r' if item.len() > 2 && v.len() >= 3 => {
                 let (a, b, c, d) = (at(0), at(1), at(2), at(3));
                 for dy in -d..=d {

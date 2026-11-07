@@ -924,6 +924,14 @@ impl App {
         for (k, &old) in order.iter().enumerate() {
             new_of[old] = k + 1;
         }
+        // (Course A's holes: the Second course extra's Course B keeps its order, its tiles and its golfers, sg_core::second)
+        let mn = land::mn();
+        let of_b: Vec<usize> = match self.land.as_ref() {
+            Some(l) if self.club.course_b.is_some() => {
+                (0..l.flags.len()).filter(|&i| self.club.tile_course((l.flags[i] & 0x1f) as usize, i as i32 / mn, i as i32 % mn)).collect()
+            }
+            _ => Vec::new(),
+        };
         let old = self.club.holes.clone();
         for (k, &o) in order.iter().enumerate() {
             self.club.holes[k + 1] = old[o].clone();
@@ -932,13 +940,13 @@ impl App {
             for i in 0..l.flags.len() {
                 let t = l.ty[i];
                 let n = (l.flags[i] & 0x1f) as usize;
-                if (t == land::T_TEE || t == land::T_GREEN) && (1..=18).contains(&n) {
+                if (t == land::T_TEE || t == land::T_GREEN) && (1..=18).contains(&n) && !of_b.contains(&i) {
                     l.flags[i] = (l.flags[i] & !0x1f) | new_of[n] as u16;
                 }
             }
         }
         for g in self.club.g.iter_mut().take(sg_core::golfer::SLOTS) {
-            if (1..=18).contains(&g.hole) {
+            if (1..=18).contains(&g.hole) && !g.course_b {
                 g.hole = new_of[g.hole as usize] as i32;
             }
         }

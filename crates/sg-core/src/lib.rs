@@ -58,6 +58,7 @@ pub mod rng;
 pub mod roster;
 pub mod scenario;
 pub mod script;
+pub mod second;
 pub mod sounds;
 pub mod sprites;
 pub mod staff;

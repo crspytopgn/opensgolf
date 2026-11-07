@@ -467,7 +467,7 @@ box (see *The title menu* and docs/FIXES.md).
 
 Each line on the Gameplay and Sandbox pages carries a coloured tag at its right end saying how much it changes the game:
 green **Light touch** (buyable animals, left-handed golfers), amber **Noticeable** (higher staff limits, set par, weather
-that matters, more visitors, the calendar), red **Big change** (hardcore economy, freeze golfer happiness, unlock all) or
+that matters, more visitors, the calendar), red **Big change** (hardcore economy, second course, freeze golfer happiness, unlock all) or
 slate **Experimental** (the cut content). The foot of the box describes the line under the pointer in a sentence (on a
 touch screen the line last tapped); with none, it says how to read the box. Preferences > More > Search lists every option with
 its place and tag ("Game options > Gameplay · Noticeable: Weather that matters..."), and typing a tag's words (*big change*) finds the
@@ -513,6 +513,22 @@ On the **Gameplay** page:
   is kept with the saved game. In the original the approval is gone once the question is answered, though the
   commissioner comes back on a later visitor turn while your rating stays over his mark (he comes when the fun rating, or
   the skill rating on Hard, is over (tracts bought + 2) x (difficulty + 2) x 50), and offers again if he enjoys that round.
+- **Second course: 18 more holes.** *(Big change)* The original stops at 18 holes. With this on, once your 18 holes
+  are open a small **Course A | Course B** switch appears over the top left of the Build Course panel. Click it to put the
+  hole tools on Course B: tees and greens then build holes B1 to B18 on the same property, in the usual way (paint a tee and
+  a green, press H or click the new cup green to open the hole), for up to 36 holes in all. The switch also picks which
+  course the Course Report and Hole Stats show (their titles say COURSE B), and clicking a Course B flag opens its Hole
+  Stats. Each pair of golfers that arrives plays one course, its holes in order: Course B when its first tee is free and
+  it has fewer golfers out than Course A (or Course A's first tee is busy), else Course A. Members, green fees, food,
+  drink, maintenance and the rest work as before, on both courses. Kept to Course A, as the original has it: the SGA
+  evaluation, tournaments, championships, the club's and holes' ratings, Top 100 and Top 18 holes, the Best Scores and
+  course record, the year-end report and the other reports of the original, the extra reports (comments by hole, landing
+  map, history graphs), Set par, the Routing screen, the building unlocks, rank and accomplishments that come with new
+  holes, and the player's pro. Special visitors (the commissioner, the CEO, the heiress, famous pros) play Course A. A
+  golfer's card shows a Course B round against Course B's pars. A member's last-round card and hole marks are one set,
+  whichever course was played last. Course B is saved with the game only once it has been started, so a game without it
+  saves exactly as before; switching the extra off stops new pairs going to Course B and hides the switch, while golfers
+  already out there finish their round and its holes stay on the land.
 - **Left-handed golfers.** *(Light touch)* About one golfer in ten who arrives from now on is left-handed (decided by the game's own
   random draws when the golfer is made, and kept with the saved game). A left-hander is drawn as the mirror image of a
   right-hander while addressing the ball, swinging and following through, still facing the shot's target; walking,
@@ -650,7 +666,8 @@ On the **Looks** page:
 Test hooks: `--extras BITS` sets the extras a new game starts with (1 Tab turns, 2 cut content, 4 hardcore, 8 higher staff
 limits, 16 animals, 32 set par, 64 or 128 the calendar at half or quarter speed, 256 the calendar stopped, 512 freeze golfer
 happiness, 1024 unlock all, 2048 left-handed golfers, 4096 weather that matters, bits 13 to 15 path styles and lamps (below),
-65536 more visitors, 131072 no new dandelions, 262144 keep the land offer; not saved to the settings); `--edit "c"` has the
+65536 more visitors, 131072 no new dandelions, 262144 keep the land offer, 524288 second course; not saved to the
+settings); `--edit "Z"` flips the second course's A/B switch (it starts Course B once Course A's 18 holes are open); `--edit "c"` has the
 County commissioner approve an expansion (his question comes on the next tick, and with Keep the land offer the approval
 waits), so `--extras 262144 --edit "c;M:0"` shows the Information menu's Buy land line; `--edit "H:N,M,..."` makes golfer slots N, M... left-handed (-1 your
 pro); `--edit "V:I,G"` makes golfer slot G (a negative G: the -G-th ordinary golfer out on the course) visitor I of
