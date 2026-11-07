@@ -32,6 +32,11 @@ impl Rect {
 /// The pro's aim line's points (map units) and how far up the screen each is drawn (`App::aim_path`).
 pub(crate) type AimPath = (Vec<(i32, i32)>, Vec<f32>);
 
+/// CALIBRATED: the decoded light leaves flat ground at about 58% of its texture, but the game's own rendered terrain icons
+/// (Data/<theme>.pcx, e.g. desert sand 223,161,96 against its texture's 234,171,110) show about 95%, so something in the
+/// original's setup brightens it further (not yet found). Ambient and diffuse are scaled to match.
+pub(crate) const BRIGHTNESS: f32 = 1.74;
+
 // ---- the course ---------------------------------------------------------------------------------------------------------------
 
 impl App {
@@ -54,10 +59,6 @@ impl App {
         // renderer has no clock); the exe animates water with its ripple, rock and waterfall sprites (wild_ui).
         let mut lit = Uniforms::flat(&proj, &mv);
         lit.lit = 1.0;
-        // CALIBRATED: the decoded light leaves flat ground at about 58% of its texture, but the game's own rendered terrain
-        // icons (Data/<theme>.pcx, e.g. desert sand 223,161,96 against its texture's 234,171,110) show about 95%, so
-        // something in the original's setup brightens it further (not yet found). Ambient and diffuse are scaled to match.
-        const BRIGHTNESS: f32 = 1.74;
         lit.light_amb = self.light.ambient.map(|v| v * BRIGHTNESS);
         lit.light_dif = self.light.diffuse.map(|v| v * BRIGHTNESS);
         lit.light_spec = self.light.specular;
