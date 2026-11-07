@@ -141,7 +141,9 @@ names and a version, holding only game values such as tiles, hole numbers, emplo
 amounts). The interface builds the action and hands it to `App::act` (`crates/simgolf/src/replay.rs`), which logs it with
 the game tick and applies it through `App::apply`, the one place where the player's doing changes the game; the methods
 the interface used to call directly (`paint_tiles`, `edit_building`, `open_hole`, `hire_employee`, `undo_step`, ...) turn
-a direct call into that action themselves. The game also logs what the game around the simulation hands it, which no save
+a direct call into that action themselves. The Second course extra's A/B switch is an action too, and a paint stroke
+holds the tee the Multiple tees extra's Tees tool places, so Course B and forward and middle tees replay as well. The
+game also logs what the game around the simulation hands it, which no save
 keeps: the pointer's tile while the pro's employee follows it, the flags set before each tick (the ticker's, the advisor's,
 the close view's), the view the golfers' places on the screen are measured in after a drawn frame, a redraw's refresh of
 the course (it plans the hole being built again after a terrain change), the tees' arrows and grown plants as the drawing

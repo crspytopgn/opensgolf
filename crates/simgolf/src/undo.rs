@@ -219,11 +219,13 @@ struct HoleWas {
     back: (i32, i32),
     fwd: (i32, i32),
     pin: (i32, i32),
+    /// The Multiple tees extra's forward and middle tees.
+    extra: [Option<(i32, i32)>; 2],
 }
 
 impl HoleWas {
     fn of(h: &sg_core::golfer::Hole) -> Self {
-        HoleWas { par: h.par, game_par: h.game_par, back: h.back, fwd: h.fwd, pin: h.pin }
+        HoleWas { par: h.par, game_par: h.game_par, back: h.back, fwd: h.fwd, pin: h.pin, extra: [h.front_tee, h.middle_tee] }
     }
 }
 
@@ -235,6 +237,8 @@ struct Before {
     land: Land,
     holes: Vec<(HoleWas, i32)>,
     next_hole: i32,
+    /// Course B's next hole (the Second course extra, sg_core::second; its records follow Course A's in `holes`).
+    next_hole_b: i32,
     free_landmarks: u32,
     money: [f64; 3],
     floats: Vec<(i32, (i32, i32))>,
@@ -250,6 +254,7 @@ struct Click {
     holes: Vec<(usize, HoleWas, HoleWas)>,
     build_cost: Vec<(usize, i32)>,
     next_hole: Option<(i32, i32)>,
+    next_hole_b: Option<(i32, i32)>,
     /// The free landmarks (one bit each) it used up, and any it gave.
     free_landmarks: (u32, u32),
     /// What it booked to each of the building columns (negative for money paid), and the amounts it floated over its tiles.
@@ -257,7 +262,16 @@ struct Click {
     floats: Vec<(i32, (i32, i32))>,
 }
 
+/// Hole records per course.
+const HOLES: usize = sg_core::golfer::HOLE_RECORDS;
+
 impl App {
+    /// Course A's hole records, then Course B's when there is one (the Second course extra, sg_core::second).
+    fn both_courses(&self) -> impl Iterator<Item = &sg_core::golfer::Hole> {
+        let b = if self.club.course_b.is_some() { self.club.course_holes(true) } else { &[] };
+        self.club.course_holes(false).iter().take(HOLES).chain(b.iter())
+    }
+
     /// A fingerprint of the course: what building and terrain tools change (not what the simulation changes as time goes
     /// by: growth, weeds, the undo records).
     fn course_fingerprint(&self) -> u64 {
@@ -294,8 +308,9 @@ impl App {
             terrain: [t.ty.clone(), t.variation.clone(), t.set.clone(), t.path_kind.clone()],
             corner: t.corner.clone(),
             land,
-            holes: self.club.holes.iter().map(|h| (HoleWas::of(h), h.build_cost)).collect(),
+            holes: self.both_courses().map(|h| (HoleWas::of(h), h.build_cost)).collect(),
             next_hole: self.club.next_hole,
+            next_hole_b: self.club.course_next_hole(true),
             free_landmarks: self.club.free_landmarks,
             money: self.build_money(),
             floats: Vec::new(),
@@ -318,7 +333,7 @@ impl App {
         let now = [&t.ty, &t.variation, &t.set, &t.path_kind];
         let mut holes = Vec::new();
         let mut build_cost = Vec::new();
-        for (i, (h, (was, cost))) in self.club.holes.iter().zip(&b.holes).enumerate() {
+        for (i, (h, (was, cost))) in self.both_courses().zip(&b.holes).enumerate() {
             if HoleWas::of(h) != *was {
                 holes.push((i, *was, HoleWas::of(h)));
             }
@@ -334,6 +349,7 @@ impl App {
             holes,
             build_cost,
             next_hole: (self.club.next_hole != b.next_hole).then_some((b.next_hole, self.club.next_hole)),
+            next_hole_b: (self.club.course_next_hole(true) != b.next_hole_b).then_some((b.next_hole_b, self.club.course_next_hole(true))),
             free_landmarks: (b.free_landmarks & !self.club.free_landmarks, self.club.free_landmarks & !b.free_landmarks),
             money: std::array::from_fn(|k| money[k] - b.money[k]),
             floats: b.floats,
@@ -392,18 +408,30 @@ impl App {
             self.club.evict(a, b);
             self.home_removed(a, b);
         }
+        // (records past Course A's 20 are Course B's: sg_core::second)
+        let rec = |i: usize| (i >= HOLES, i % HOLES);
         for &(i, w, left) in &c.holes {
-            let h = &mut self.club.holes[i];
+            let (b, k) = rec(i);
+            let Some(h) = self.club.course_hole_mut(b, k) else { continue };
             if HoleWas::of(h) == left {
                 (h.par, h.game_par, h.back, h.fwd, h.pin) = (w.par, w.game_par, w.back, w.fwd, w.pin);
+                [h.front_tee, h.middle_tee] = w.extra;
             }
         }
         for &(i, d) in &c.build_cost {
-            self.club.holes[i].build_cost -= d;
+            let (b, k) = rec(i);
+            if let Some(h) = self.club.course_hole_mut(b, k) {
+                h.build_cost -= d;
+            }
         }
         if let Some((was, left)) = c.next_hole {
             if self.club.next_hole == left {
                 self.club.next_hole = was;
+            }
+        }
+        if let Some((was, left)) = c.next_hole_b {
+            if self.club.course_next_hole(true) == left {
+                self.club.set_course_next_hole(true, was);
             }
         }
         // the free landmarks it used come back, and any won since stay

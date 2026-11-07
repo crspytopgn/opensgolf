@@ -141,7 +141,16 @@ impl App {
     /// The paint action of the brush in hand over these tiles.
     pub fn paint_action(&self, tiles: Vec<(i32, i32)>) -> Action {
         let p = &crate::app::PAINT[self.paint_idx];
-        Action::Paint { ty: p.ty, vbyte: p.vbyte, turn: self.brush_turn(), look: self.brush_look(), tiles }
+        Action::Paint { ty: p.ty, vbyte: p.vbyte, turn: self.brush_turn(), look: self.brush_look(), tiles, tee: self.tee_tool_step() }
+    }
+
+    /// The tee the tee brush places now, as an action holds it (0 the hole's own, 1 forward, 2 middle).
+    pub fn tee_tool_step(&self) -> u8 {
+        match self.tee_tool() {
+            sg_core::extras::Tee::Back => 0,
+            sg_core::extras::Tee::Forward => 1,
+            sg_core::extras::Tee::Middle => 2,
+        }
     }
 
     /// The building action of the kind in hand on tile x, y.
@@ -212,14 +221,28 @@ impl App {
                 self.pick_brush(k);
                 true
             }
-            Action::Paint { ty, vbyte, turn, look, tiles } => {
+            Action::Paint { ty, vbyte, turn, look, tiles, tee } => {
                 self.set_brush(*ty, *vbyte, *turn, *look);
+                self.tee_forced = Some(sg_core::extras::Tee::of_step(*tee));
                 self.paint_tiles(tiles);
+                self.tee_forced = None;
                 true
             }
-            Action::PaintArea { ty, vbyte, turn, look, tiles, too_large } => {
+            Action::PaintArea { ty, vbyte, turn, look, tiles, too_large, tee } => {
                 self.set_brush(*ty, *vbyte, *turn, *look);
+                self.tee_forced = Some(sg_core::extras::Tee::of_step(*tee));
                 self.paint_area(&Area { tiles: tiles.clone(), rect: None, too_large: *too_large });
+                self.tee_forced = None;
+                true
+            }
+            Action::CourseSwitch(b) => {
+                if *b != self.hole_b_view {
+                    self.toggle_hole_course();
+                }
+                self.hole_b_view == *b
+            }
+            Action::CourseShown(b) => {
+                self.hole_b_view = *b;
                 true
             }
             Action::Path { x, y, brush, remove, style } => {
@@ -374,7 +397,7 @@ impl App {
                 true
             }
             Action::MeasureHole => {
-                let _ = self.club.building_figures(&self.course);
+                let _ = self.on_hole_course(|a| a.club.building_figures(&a.course));
                 true
             }
             Action::BeginTournament => {
@@ -512,6 +535,7 @@ impl App {
             planned: self.plan_is_current(),
             speed: self.rec.sim_speed.max(1),
             rules: rules(),
+            course_b_view: self.hole_b_view,
             no_weather: c.place == sg_core::weather::Place::default() && c.today.is_none(),
             announced: c.announced,
             drag: c.planner.drag,
@@ -750,6 +774,7 @@ impl App {
             self.deco_rng = r;
         }
         set_rules(st.rules);
+        self.hole_b_view = st.course_b_view;
         self.speed = st.speed.max(1);
         self.rec.sim_speed = self.speed;
         self.club.turbo = self.speed > 1;

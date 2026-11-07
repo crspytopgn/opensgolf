@@ -107,6 +107,7 @@ mod staffview_ui;
 mod support;
 mod sysdiag;
 mod tags_ui;
+mod tees;
 mod textsize;
 mod thoughts_ui;
 mod touch;
@@ -115,6 +116,7 @@ mod ui;
 mod undo;
 mod update;
 mod views;
+mod walk;
 mod welcome;
 mod wild_ui;
 mod world_ui;
@@ -376,6 +378,9 @@ fn parse_args() -> Options {
                     o.center = Some((v[0], v[1]));
                 }
             }
+            // the walk camera, a hidden test view (walk.rs)
+            #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
+            "--walk" => walk::enable(),
             "--help" | "-h" => {
                 println!("{USAGE}");
                 std::process::exit(0);
@@ -436,6 +441,8 @@ struct Stage {
     pause_toggle: bool,
     shown_version: u32,
     touch: touch::Touch,
+    /// The walk camera (walk.rs; only with its switch).
+    walk: walk::Walking,
 }
 
 fn load_ui(app: &mut App, g: &mut Gfx) -> bool {
@@ -776,6 +783,10 @@ fn panel_test_hooks(app: &mut App) {
         app.edit = true;
         app.tool = 0;
         app.paint_idx = k;
+        // and SG_TEE_STEP=1 or 2 steps the Tees tool to the forward or middle tee (the Multiple tees extra, tees.rs)
+        if let Some(s) = std::env::var("SG_TEE_STEP").ok().and_then(|v| v.parse::<u8>().ok()) {
+            app.tee_step = s % 3;
+        }
     }
 }
 
@@ -926,15 +937,27 @@ fn apply_edit_spec(app: &mut App, spec: &str) {
             }
             b't' if item.len() > 2 && v.len() >= 3 => {
                 // paint one tile through the hole tool (type 0 tee, 1 green); t:x,y,type,V with the brush's variant V
-                // (the times Tab was pressed: an odd V is the tricky green)
+                // (the times Tab was pressed: an odd V is the tricky green); t:x,y,0,V,S with the Multiple tees extra
+                // places the Tees tool's step S (1 a forward tee, 2 a middle tee; tees.rs)
                 app.paint_idx = PAINT.iter().position(|p| p.ty == at(2)).unwrap_or(app.paint_idx);
                 if v.len() >= 4 {
                     app.paint_variant = Some((app.paint_idx, at(3)));
                 }
                 let r = std::mem::replace(&mut app.brush, 0);
+                let (edit, tool, step) = (app.edit, app.tool, app.tee_step);
+                if v.len() >= 5 {
+                    (app.edit, app.tool, app.tee_step) = (true, 0, at(4) as u8);
+                }
                 app.sync_course();
                 app.edit_paint(at(0), at(1));
                 app.brush = r;
+                if v.len() >= 5 {
+                    (app.edit, app.tool, app.tee_step) = (edit, tool, step);
+                    let h = app.club.course_holes(app.hole_b());
+                    let tees: Vec<_> =
+                        (1..19).filter(|&k| h[k].extra_tees().next().is_some()).map(|k| (k, h[k].front_tee, h[k].middle_tee)).collect();
+                    println!("extra tees: {tees:?}");
+                }
                 app.sync_course();
             }
             b'u' if v.len() >= 2 => {
@@ -1213,6 +1236,16 @@ fn apply_edit_spec(app: &mut App, spec: &str) {
             b'o' => {
                 let ok = app.open_hole();
                 println!("open hole: {ok}, next hole {}", app.club.next_hole);
+            }
+            b'Z' => {
+                // test hook: the Second course extra's A/B switch over the Build Course panel (sg_core::second)
+                app.toggle_hole_course();
+                let (a, b) = (app.club.next_hole, app.club.course_next_hole(true));
+                println!(
+                    "course switch: Course {}, next hole A {a} B {b}, Course B open {}",
+                    if app.hole_b() { "B" } else { "A" },
+                    app.club.course_b_open()
+                );
             }
             b'r' if item.len() > 2 && v.len() >= 3 => {
                 let (a, b, c, d) = (at(0), at(1), at(2), at(3));
@@ -1715,6 +1748,7 @@ impl Stage {
             wheel: (0.0, 0.0),
             pause_toggle: false,
             shown_version: 0,
+            walk: Default::default(),
         }
     }
 
@@ -2667,6 +2701,8 @@ impl Stage {
                 if app.edit && app.tool == 1 && app.pstate.elev_tool < 3 {
                     app.pstate.elev_tool = (app.pstate.elev_tool + 1) % 3;
                 }
+                // the Multiple tees extra: the Tees tool steps to the forward and middle tees (tees.rs)
+                app.tee_tab();
             }
             // only with a tool armed: the point under the pointer is followed only then, so without one it was where the
             // last tool left it, even in the next game (issue #146)
@@ -2832,6 +2868,9 @@ impl Stage {
             app.draw_menu(&mut self.g);
             ui::set_face(None);
             app.draw_scenarios(&mut self.g);
+        } else if let Some(cam) = self.walk.cam.filter(|_| walk::walk_screen(app)) {
+            // the walk camera, a hidden test view (walk.rs): the course alone and a line of help
+            app.render_walk(&mut self.g, &cam);
         } else if app.photo.is_some() {
             // Enhanced graphics' photo mode: the course alone (photo.rs)
             self.draw_photo(target);
@@ -3238,6 +3277,8 @@ impl EventHandler for Stage {
         self.touch_update();
         self.mouse_edge_scroll(t);
         self.photo_update();
+        // the walk camera's steps (walk.rs; nothing without its switch)
+        self.walk_update(t);
         if self.pause_toggle {
             self.pause_toggle = false;
             self.toggle_pause();
@@ -3484,6 +3525,10 @@ impl EventHandler for Stage {
         }
         self.mouse = (x, y);
         self.mouse_seen = true;
+        // the walk camera turns with a drag (walk.rs; nothing without its switch)
+        if self.walk_motion(dx, dy) {
+            return;
+        }
         // a left press Mouse aim and swing took: the target follows, or the view pans (touch.rs)
         self.mouse_swing_move(x, y);
         if self.app.photo.is_some() {
@@ -3563,6 +3608,9 @@ impl EventHandler for Stage {
     }
 
     fn mouse_wheel_event(&mut self, _x: f32, y: f32) {
+        if self.walk_shown() {
+            return;
+        }
         if self.app.photo.is_some() {
             self.photo_wheel(y);
             return;
@@ -3614,6 +3662,9 @@ impl EventHandler for Stage {
         let button = if self.ctrl_click { MouseButton::Right } else { button };
         sysdiag::event(sysdiag::Ev::Click);
         self.mouse = (x, y);
+        if self.walk_button(button, true) {
+            return;
+        }
         // a click or a tap ends the showcase fly-over (showcase.rs), and does nothing else
         if self.app.end_showcase() {
             self.showcase_up = true;
@@ -3879,6 +3930,9 @@ impl EventHandler for Stage {
 
     fn mouse_button_up_event(&mut self, button: MouseButton, x: f32, y: f32) {
         let button = if button == MouseButton::Left && std::mem::take(&mut self.ctrl_click) { MouseButton::Right } else { button };
+        if self.walk_button(button, false) {
+            return;
+        }
         if std::mem::take(&mut self.showcase_up) {
             return;
         }
@@ -3921,6 +3975,13 @@ impl EventHandler for Stage {
         // Android's back button (miniquad hands it over as Back): Esc, which closes a screen, goes back to the menu and
         // on the menu quits, as the back button does in Android apps
         let k = if k == KeyCode::Back { KeyCode::Escape } else { k };
+        // the walk camera's keys (walk.rs; nothing without its switch)
+        if walk::enabled() {
+            self.shift = mods.shift || k == KeyCode::LeftShift || k == KeyCode::RightShift;
+            if self.walk_key(k) {
+                return;
+            }
+        }
         // the port's own: F11 or Alt+Enter switches between a window and full screen on the desktop (the browser has its
         // own F11; a phone is always full screen)
         #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
@@ -3992,6 +4053,7 @@ impl EventHandler for Stage {
     }
 
     fn key_up_event(&mut self, k: KeyCode, mods: KeyMods) {
+        self.walk_key_up(k);
         self.shift = mods.shift && k != KeyCode::LeftShift && k != KeyCode::RightShift;
         self.app.shift_held = self.shift;
         self.ctrl = mods.ctrl && k != KeyCode::LeftControl && k != KeyCode::RightControl;

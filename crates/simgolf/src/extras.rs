@@ -75,6 +75,10 @@
 //!   look: the art and the game are the same. On by default and left alone by the presets (the original only ran at
 //!   4:3, where it changes nothing).
 //!
+//! * home names on hover (homes_ui.rs draw_home_labels): the celebrities' names over their home sites show only while the
+//!   pointer is on the lot, instead of the original's taking turns over every lot at the closest zoom (issue #160). A look,
+//!   on the Looks page; left alone by the presets, as it takes the original's labels away.
+//!
 //! With every extra off the game draws and plays exactly as before they existed (each hook asks its switch first).
 use serde::{Deserialize, Serialize};
 use std::cell::Cell;
@@ -126,6 +130,9 @@ pub struct Settings {
     /// where the pointer cannot leave the window). On by default (missing reads as on): it is the original's.
     #[serde(default = "on")]
     pub edge_scroll: bool,
+    /// The celebrities' home names only under the pointer (homes_ui.rs draw_home_labels; the port's own, issue #160).
+    #[serde(default)]
+    pub home_labels_hover: bool,
     /// Hole Stats' Fly over button: a short camera flight down the hole (showcase.rs). Off by default.
     pub hole_flyover: bool,
 }
@@ -165,6 +172,7 @@ impl Settings {
         right_drop: false,
         wide_ui: false,
         edge_scroll: false,
+        home_labels_hover: false,
         hole_flyover: true,
     };
     pub const ALL_OFF: Settings = Settings {
@@ -196,6 +204,7 @@ impl Settings {
         right_drop: false,
         wide_ui: false,
         edge_scroll: false,
+        home_labels_hover: false,
         hole_flyover: false,
     };
 
@@ -230,6 +239,7 @@ impl Settings {
             self.right_drop,
             self.wide_ui,
             self.edge_scroll,
+            self.home_labels_hover,
             self.hole_flyover,
         ]
         .iter()
@@ -268,7 +278,8 @@ impl Settings {
             right_drop: on(25),
             wide_ui: on(26),
             edge_scroll: on(27),
-            hole_flyover: on(28),
+            home_labels_hover: on(28),
+            hole_flyover: on(29),
         }
     }
 
@@ -292,6 +303,7 @@ impl Settings {
             right_drop: from.right_drop,
             wide_ui: from.wide_ui,
             edge_scroll: from.edge_scroll,
+            home_labels_hover: from.home_labels_hover,
             ..*self
         }
     }
@@ -306,7 +318,7 @@ impl Default for Settings {
 
 /// The interface extras' lines on the Extras box's Interface page (extras_ui.rs), one tick per extra in `Settings::bits`
 /// order (text keys in lang/en.txt).
-pub const UI_KEYS: [&str; 29] = [
+pub const UI_KEYS: [&str; 30] = [
     "STR_EXTRAS_PEOPLE",
     "STR_EXTRAS_HISTORY",
     "STR_EXTRAS_NAME_TAGS",
@@ -335,6 +347,7 @@ pub const UI_KEYS: [&str; 29] = [
     "STR_EXTRAS_RIGHT_DROP",
     "STR_EXTRAS_WIDE_UI",
     "STR_EXTRAS_EDGE_SCROLL",
+    "STR_EXTRAS_HOME_LABELS_HOVER",
     "STR_EXTRAS_HOLE_FLYOVER",
 ];
 
@@ -430,6 +443,11 @@ pub fn wide_ui() -> bool {
 
 pub fn edge_scroll() -> bool {
     settings().edge_scroll
+}
+
+/// Whether the celebrities' home names show only under the pointer (homes_ui.rs draw_home_labels).
+pub fn home_labels_hover() -> bool {
+    settings().home_labels_hover
 }
 
 /// Whether a right click puts the tool in hand away (main.rs right_click).
@@ -724,14 +742,20 @@ use std::collections::BTreeMap;
 /// A tab: the command buttons' navy on pale blue (lit under the pointer), the chosen one on the yellow the original's hire
 /// dialog lights its choice with (0x7f40).
 pub fn draw_tab(g: &mut Gfx, s: &Ui, r: Rect, f: Fnt, label: &str, on: bool, hover: bool) {
+    // a label too wide for its tab (a translation): smaller, on two lines or cut (ui.rs fit_in; issue #164)
+    let fitted = crate::ui::fit_in(f, label, (r.x, r.y, r.w, r.h));
     if crate::glass_ui::active() {
         crate::glass_ui::tab(g, s, r.x, r.y, r.w, r.h + 1.0, on, hover);
-        let x = (r.x + (r.w - f.width(label)) * 0.5).floor();
-        let y = r.y + ((r.h - f.px) * 0.5).floor();
-        if on {
-            s.put(g, f, x, y, label, crate::glass_ui::INK);
-        } else {
-            s.put_shadowed(g, f, x, y, label, c15(0x7fff), false);
+        let put = |g: &mut Gfx, f: Fnt, x: f32, y: f32, t: &str| {
+            if on {
+                s.put(g, f, x, y, t, crate::glass_ui::INK);
+            } else {
+                s.put_shadowed(g, f, x, y, t, c15(0x7fff), false);
+            }
+        };
+        match fitted {
+            Some((f, lines)) => lines.iter().for_each(|(t, cx, y)| put(g, f, (cx - f.width(t) * 0.5).floor(), *y, t)),
+            None => put(g, f, (r.x + (r.w - f.width(label)) * 0.5).floor(), r.y + ((r.h - f.px) * 0.5).floor(), label),
         }
         return;
     }
@@ -745,9 +769,18 @@ pub fn draw_tab(g: &mut Gfx, s: &Ui, r: Rect, f: Fnt, label: &str, on: bool, hov
         crate::ui::rgb(0.47, 0.47, 0.70)
     };
     s.fill(g, r.x, r.y, r.w, r.h, fill);
-    let x = (r.x + (r.w - f.width(label)) * 0.5).floor();
-    let y = r.y + ((r.h - f.px) * 0.5).floor();
-    s.put(g, f, x, y, label, c15(0x0018));
+    match fitted {
+        Some((f, lines)) => {
+            for (t, cx, y) in &lines {
+                s.put(g, f, (cx - f.width(t) * 0.5).floor(), *y, t, c15(0x0018));
+            }
+        }
+        None => {
+            let x = (r.x + (r.w - f.width(label)) * 0.5).floor();
+            let y = r.y + ((r.h - f.px) * 0.5).floor();
+            s.put(g, f, x, y, label, c15(0x0018));
+        }
+    }
 }
 
 /// A command button in the look of the Keyboard controls screen's page buttons (keys_ui): navy on the pale blue, lit under
@@ -755,17 +788,23 @@ pub fn draw_tab(g: &mut Gfx, s: &Ui, r: Rect, f: Fnt, label: &str, on: bool, hov
 pub fn draw_button(g: &mut Gfx, s: &Ui, r: Rect, label: &str, enabled: bool, hover: bool) {
     let f = crate::ui::F_ARIAL10;
     let lit = enabled && hover;
-    if crate::glass_ui::active() {
+    let c = if crate::glass_ui::active() {
         crate::glass_ui::button(g, s, r.x, r.y, r.w, r.h + 1.0, enabled, lit);
-        let y = r.y + ((r.h - 10.0) * 0.5).floor();
-        let c = if enabled { crate::glass_ui::INK } else { crate::glass_ui::DIM_INK };
-        s.put_centered(g, f, r.x + r.w / 2.0, y, label, c);
-        return;
+        if enabled {
+            crate::glass_ui::INK
+        } else {
+            crate::glass_ui::DIM_INK
+        }
+    } else {
+        s.fill(g, r.x - 1.0, r.y - 1.0, r.w + 2.0, r.h + 2.0, c15(if lit { 0x7fff } else { 0x2d6b }));
+        s.fill(g, r.x, r.y, r.w, r.h, if lit { crate::ui::rgb(0.85, 0.85, 1.0) } else { crate::ui::rgb(0.47, 0.47, 0.70) });
+        c15(if enabled { 0x0018 } else { 0x6318 })
+    };
+    // a label too wide for its button (a translation): smaller, on two lines or cut (ui.rs fit_in; issue #164)
+    match crate::ui::fit_in(f, label, (r.x, r.y, r.w, r.h)) {
+        Some((f, lines)) => lines.iter().for_each(|(t, cx, y)| s.put_centered(g, f, *cx, *y, t, c)),
+        None => s.put_centered(g, f, r.x + r.w / 2.0, r.y + ((r.h - 10.0) * 0.5).floor(), label, c),
     }
-    s.fill(g, r.x - 1.0, r.y - 1.0, r.w + 2.0, r.h + 2.0, c15(if lit { 0x7fff } else { 0x2d6b }));
-    s.fill(g, r.x, r.y, r.w, r.h, if lit { crate::ui::rgb(0.85, 0.85, 1.0) } else { crate::ui::rgb(0.47, 0.47, 0.70) });
-    let y = r.y + ((r.h - 10.0) * 0.5).floor();
-    s.put_centered(g, f, r.x + r.w / 2.0, y, label, c15(if enabled { 0x0018 } else { 0x6318 }));
 }
 
 /// A scroll arrow in the look of the roster's: a small triangle in the box's navy, pointing up or down.
@@ -1167,7 +1206,7 @@ mod tests {
         let f = Settings { save_files: true, ..Settings::ALL_OFF };
         assert_eq!(f.bits(), 1 << 22);
         assert_eq!(Settings::from_bits(f.bits()), f);
-        assert_eq!(UI_KEYS.len(), 29);
+        assert_eq!(UI_KEYS.len(), 30);
     }
 
     #[test]
@@ -1180,6 +1219,18 @@ mod tests {
 
     fn checking_on() -> Settings {
         Settings { wide_ui: true, ..Settings::ALL_OFF }
+    }
+
+    #[test]
+    fn home_names_on_hover_are_off_unless_ticked_and_the_presets_leave_them() {
+        assert!(!from_json(&serde_json::json!({ "people": true, "edge_scroll": true })).home_labels_hover, "missing: off");
+        assert!(from_json(&serde_json::json!({ "home_labels_hover": true })).home_labels_hover);
+        assert!(!Settings::ALL_OFF.home_labels_hover && !Settings::default().home_labels_hover && !Settings::HELPERS.home_labels_hover);
+        let h = Settings { home_labels_hover: true, ..Settings::ALL_OFF };
+        assert_eq!(h.bits(), 1 << 28, "after every older tick");
+        assert_eq!(Settings::from_bits(h.bits()), h);
+        assert_eq!(h.preset_part(), Settings::ALL_OFF);
+        assert!(Settings::HELPERS.with_kept(&h).home_labels_hover);
     }
 
     #[test]

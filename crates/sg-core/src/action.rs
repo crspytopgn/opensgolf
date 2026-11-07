@@ -143,6 +143,9 @@ pub enum Action {
         look: Option<u32>,
         #[serde(rename = "at")]
         tiles: Vec<(i32, i32)>,
+        /// The tee a tee brush places (the Multiple tees extra): 0 the hole's own, 1 forward, 2 middle.
+        #[serde(rename = "tee", default)]
+        tee: u8,
     },
     /// A rectangle or fill of the terrain brush (Shift or Alt), checked and charged as a whole.
     #[serde(rename = "area")]
@@ -159,6 +162,8 @@ pub enum Action {
         tiles: Vec<(i32, i32)>,
         #[serde(rename = "big", default)]
         too_large: bool,
+        #[serde(rename = "tee", default)]
+        tee: u8,
     },
     /// The path tool on tile x, y with a brush of radius `brush` (`remove`: taken up).
     #[serde(rename = "path")]
@@ -428,6 +433,12 @@ pub enum Action {
     /// The hole being built measured where the course view shows its figures (the original stores the length as it draws).
     #[serde(rename = "measure")]
     MeasureHole,
+    /// The Second course extra's A/B switch: Course B (`true`, started the first time) or Course A, said in a toast.
+    #[serde(rename = "course_switch")]
+    CourseSwitch(bool),
+    /// The course the hole panel and the hole tools work on, set without a word (a flag of the other course clicked).
+    #[serde(rename = "course_shown")]
+    CourseShown(bool),
     /// The game's own extras changed while it is played.
     #[serde(rename = "extras")]
     Extras(Extras),
@@ -507,6 +518,9 @@ pub struct Start {
     pub speed: u8,
     #[serde(rename = "rules", default)]
     pub rules: Rules,
+    /// The course the hole tools work on: Course B (the Second course extra) or Course A.
+    #[serde(rename = "course_b", default)]
+    pub course_b_view: bool,
     /// The weather the club had worked out (not saved: each tick sets it, and a load works it out at once): none yet
     /// (a game not played a tick since it began), and the last day announced and the planner's drag and bounce.
     #[serde(rename = "no_weather", default)]
@@ -600,13 +614,13 @@ mod tests {
     #[test]
     fn the_logs_names_stay_as_they_are() {
         // the format: older logs must keep reading, so the names written never change
-        let e = Entry { tick: 7, action: Action::Paint { ty: 2, vbyte: 0, turn: Some(1), look: None, tiles: vec![(3, 4)] } };
-        assert_eq!(serde_json::to_string(&e).unwrap(), r#"{"t":7,"a":{"paint":{"ty":2,"v":0,"turn":1,"look":null,"at":[[3,4]]}}}"#);
+        let e = Entry { tick: 7, action: Action::Paint { ty: 2, vbyte: 0, turn: Some(1), look: None, tiles: vec![(3, 4)], tee: 0 } };
+        assert_eq!(serde_json::to_string(&e).unwrap(), r#"{"t":7,"a":{"paint":{"ty":2,"v":0,"turn":1,"look":null,"at":[[3,4]],"tee":0}}}"#);
         assert_eq!(serde_json::to_string(&Action::UndoPress).unwrap(), r#""press""#);
         assert_eq!(serde_json::to_string(&Action::Hire { kind: 1, skilled: true }).unwrap(), r#"{"hire":{"k":1,"s":true}}"#);
         // a field a later version adds is read as its default from an older log
         let old: Action = serde_json::from_str(r#"{"paint":{"ty":2,"v":0,"at":[]}}"#).unwrap();
-        assert_eq!(old, Action::Paint { ty: 2, vbyte: 0, turn: None, look: None, tiles: vec![] });
+        assert_eq!(old, Action::Paint { ty: 2, vbyte: 0, turn: None, look: None, tiles: vec![], tee: 0 });
     }
 
     #[test]

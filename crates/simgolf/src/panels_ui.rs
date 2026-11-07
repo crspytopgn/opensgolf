@@ -60,6 +60,10 @@ const BUILDINGS_BODY: Cut = (216.0, 482.0, 584.0, 118.0);
 const ELEVATION_BODY: Cut = (215.0, 482.0, 585.0, 118.0);
 const EMPLOYEE_BODY: Cut = (215.0, 474.0, 585.0, 126.0);
 
+/// The Second course extra's A/B switch over the Build Course panel (sg_core::second), and its hit code.
+const COURSE_SWITCH: Rect = Rect { x: 224.0, y: 460.0, w: 132.0, h: 18.0 };
+const COURSE_SWITCH_HIT: i32 = -10;
+
 /// Tooltips show once the pointer has stayed on the same hit for more than 10 frames.
 const TIP_DELAY_FRAMES: u32 = 10;
 
@@ -777,13 +781,19 @@ impl App {
         self.employees.iter().enumerate().filter(|(_, e)| e.active && (-5..=-2).contains(&e.job)).map(|(i, _)| i).collect()
     }
 
-    /// The Tees button looks disabled while the hole being built has its tee, and once eighteen holes are built.
+    /// The Tees button looks disabled while the hole being built has its tee, and once eighteen holes are built (with the
+    /// Multiple tees extra on, not while an open hole may still take a forward or middle tee: tees.rs).
     fn tee_disabled(&self) -> bool {
-        let h = self.club.next_hole;
+        // (of the course the A/B switch shows: sg_core::second)
+        let b = self.hole_b();
+        if self.club.extras.tees && self.club.course_holes(b).iter().take(19).skip(1).any(|r| r.par != 0) {
+            return false;
+        }
+        let h = self.club.course_next_hole(b);
         if !(0..19).contains(&h) {
             return true;
         }
-        let Some(rec) = self.club.holes.get(h as usize) else { return false };
+        let Some(rec) = self.club.course_holes(b).get(h as usize) else { return false };
         let two = self.club.game & sg_core::golfer::game::TWO_TEES != 0;
         rec.back.0 != 0 && !(two && rec.fwd.0 == 0)
     }
@@ -797,6 +807,9 @@ impl App {
         let theme = self.exe_theme() as usize;
         match (self.panel, self.pstate.alt) {
             (1, false) => {
+                if self.club.second_course_offered() && COURSE_SWITCH.has(px, py) {
+                    return COURSE_SWITCH_HIT;
+                }
                 if let Some(i) = terrain_slot_at(theme, px, py) {
                     return i as i32;
                 }
@@ -933,8 +946,8 @@ impl App {
         // 0x433190: while the hole being built has no green (and is under 19) the theme's waving flag (sprite 0x189 + theme,
         // palette 0x63, view 3) stands on the Green button at (slot x + 31, slot y + 24), still on frame 0 unless the Green
         // tool is armed; footage of the original shows it on the button in a new game
-        let h1 = self.club.next_hole;
-        if (0..19).contains(&h1) && self.club.holes.get(h1 as usize).is_some_and(|r| r.pin.0 == 0) {
+        let h1 = self.club.course_next_hole(self.hole_b());
+        if (0..19).contains(&h1) && self.club.course_holes(self.hole_b()).get(h1 as usize).is_some_and(|r| r.pin.0 == 0) {
             // The loader (0x43d740, called with its shadow argument 1 for these flags) plays "<name>Shadow.flc" and then the
             // body into one canvas, so the flag carries its shadow (up and to the right, as in the footage at p1 1600-1700):
             // the port draws the shadow sprite first at the same anchor.
@@ -958,6 +971,10 @@ impl App {
                 blit(g, s, &body_art, cut, x, y);
             }
         }
+        // the Second course extra's A/B switch over the panel (sg_core::second)
+        if self.club.second_course_offered() {
+            self.draw_course_switch(g, s, h == COURSE_SWITCH_HIT);
+        }
         // the current tool's name over its button, white on a shadow, in every frame of the footage (not decoded)
         if let Some(i) = (0..16).find(|&i| current == Some(tile_id(i))) {
             let r = terrain_slot_rect(i, theme);
@@ -973,7 +990,30 @@ impl App {
         match h {
             -2 => tip_bar(g, s, tr("STR_TIP_AMENITIES"), mx, my),
             -3 => tip_bar(g, s, tr("STR_PANEL_UNDO"), mx, my),
+            COURSE_SWITCH_HIT => tip_bar(g, s, tr("STR_COURSE_SWITCH_TIP"), mx, my),
             _ => {}
+        }
+    }
+
+    /// The Second course extra's A/B switch (sg_core::second): two tabs over the Build Course panel's top left, the course
+    /// the hole tools and hole reports work on lit. The port's own, drawn in plain shapes and text.
+    fn draw_course_switch(&self, g: &mut Gfx, s: &Ui, hot: bool) {
+        let r = COURSE_SWITCH;
+        let b = self.hole_b();
+        s.fill(g, r.x - 1.0, r.y - 1.0, r.w + 2.0, r.h + 2.0, rgb(0.1, 0.12, 0.1));
+        for (k, key) in ["STR_COURSE_SWITCH_A", "STR_COURSE_SWITCH_B"].into_iter().enumerate() {
+            let on = (k == 1) == b;
+            let x = r.x + k as f32 * r.w / 2.0;
+            let c = if on {
+                rgb(0.86, 0.78, 0.42)
+            } else if hot {
+                rgb(0.42, 0.5, 0.36)
+            } else {
+                rgb(0.3, 0.36, 0.27)
+            };
+            s.fill(g, x + 1.0, r.y + 1.0, r.w / 2.0 - 2.0, r.h - 2.0, c);
+            let ink = if on { rgb(0.0, 0.0, 0.0) } else { rgb(1.0, 1.0, 1.0) };
+            s.put_centered(g, crate::ui::F_ARIAL10, x + r.w / 4.0, r.y + 4.0, tr(key), ink);
         }
     }
 
@@ -1449,7 +1489,7 @@ impl App {
         // fonts (0x459400): the title in 0x821020 (Klepto 24) centred at (377, 107), the rest in 0x821ee8 (Manual SSi 14),
         // all black: each kind's blurb left at 231 with its top at 0x97 + 0x47 k, 20 above its first line, the wage lines
         // left at 246
-        s.put_centered(g, crate::ui::F_INFO_TITLE, 377.0, 107.0, tr("STR_HIRE_TITLE"), ink);
+        s.put_centered_fit(g, crate::ui::F_INFO_TITLE, 377.0, 107.0, crate::ui::TITLE_ROOM, tr("STR_HIRE_TITLE"), ink);
         let (mx, my) = self.pstate.mouse;
         let hot = hire_choice_at(mx, my);
         for k in 0..4 {
@@ -1526,6 +1566,7 @@ impl App {
 
     fn terrain_click(&mut self, h: i32) -> bool {
         match h {
+            COURSE_SWITCH_HIT => self.toggle_hole_course(),
             -2 => self.pstate.alt = true,
             -3 => self.arm_undo(),
             i if i >= 0 => {

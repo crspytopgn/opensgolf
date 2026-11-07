@@ -139,7 +139,7 @@ fn actions_built_without_the_interface_play_as_the_interfaces_own() {
     b.apply(&Action::PickBrush { ty: 2, vbyte: 0 });
     let turn = b.brush_turn();
     assert!(turn.is_some(), "picking a brush rolls its turn");
-    b.apply(&Action::Paint { ty: 2, vbyte: 0, turn, look: None, tiles: vec![(25, 25), (26, 25)] });
+    b.apply(&Action::Paint { ty: 2, vbyte: 0, turn, look: None, tiles: vec![(25, 25), (26, 25)], tee: 0 });
     b.apply(&Action::Hire { kind: 1, skilled: false });
     b.apply(&Action::Raise { x: 5, y: 5, brush: 0, delta: 1 });
     play(&mut b, 50);
@@ -167,4 +167,51 @@ fn a_replay_refuses_the_players_actions_until_its_log_is_played() {
     b.replay_due();
     assert!(b.rec.replay.is_none());
     assert!(b.act(Action::Hire { kind: 0, skilled: false }), "after the log the game is the player's again");
+}
+
+/// A hole from the tee at x, y to the green three tiles on, through the interface's own calls, opened.
+fn build_hole(a: &mut App, x: i32, y: i32) {
+    let tee = PAINT.iter().position(|p| p.ty == 0).unwrap();
+    let green = PAINT.iter().position(|p| p.ty == 1 && p.vbyte == 0).unwrap();
+    a.pick_brush(tee);
+    a.paint_tiles(&[(x, y)]);
+    a.pick_brush(green);
+    a.paint_tiles(&[(x, y + 3)]);
+    assert!(a.open_hole(), "the hole at {x},{y} opens");
+}
+
+#[test]
+fn a_session_on_course_b_with_a_forward_tee_replays() {
+    // the Second course and Multiple tees extras: Course A's 18 holes, the A/B switch, B1, then B1's forward tee
+    let mut a = game();
+    let mut e = a.club.extras;
+    e.second_course = true;
+    e.tees = true;
+    a.set_extras(e);
+    assert!(a.open_hole());
+    for k in 0..17 {
+        build_hole(&mut a, 14 + 2 * k, 40);
+    }
+    play(&mut a, 60);
+    assert!(a.club.course_a_full());
+    a.toggle_hole_course();
+    assert!(a.hole_b(), "the switch starts Course B");
+    build_hole(&mut a, 40, 10);
+    assert_eq!(a.club.course_b_open(), 1);
+    play(&mut a, 40);
+    // the Tees tool stepped to a forward tee (Tab), a tile nearer the cup
+    let tee = PAINT.iter().position(|p| p.ty == 0).unwrap();
+    a.pick_brush(tee);
+    a.tee_tab();
+    assert_eq!(a.tee_tool_step(), 1);
+    a.paint_tiles(&[(41, 11)]);
+    assert!(a.club.course_holes(true)[1].extra_tees().next().is_some(), "B1 has its forward tee");
+    a.toggle_hole_course();
+    assert!(!a.hole_b());
+    play(&mut a, 300);
+    let file = a.replay_file().unwrap();
+    let b = replayed(&file, a.game_tick);
+    assert_eq!(b.replay_diverged(), None);
+    assert_eq!(b.total(), a.total(), "{:?}", changed(&checked_parts(&a), &checked_parts(&b)));
+    assert!(b.club.course_holes(true)[1].extra_tees().next().is_some());
 }

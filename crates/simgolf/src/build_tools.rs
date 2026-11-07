@@ -261,7 +261,7 @@ impl App {
             if hr.par == 0 && h != next {
                 return None;
             }
-            [hr.back, hr.fwd].into_iter().find(|t| t.0 != 0 && region.contains(t)).map(|t| (h, t))
+            [hr.back, hr.fwd].into_iter().chain(hr.extra_tees().map(|(_, p)| p)).find(|t| t.0 != 0 && region.contains(t)).map(|t| (h, t))
         })
     }
 
@@ -374,6 +374,7 @@ impl App {
                 look: self.brush_look(),
                 tiles: area.tiles.clone(),
                 too_large: area.too_large,
+                tee: self.tee_tool_step(),
             };
             self.act(a);
             return;
