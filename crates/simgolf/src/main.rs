@@ -106,6 +106,7 @@ mod staffview_ui;
 mod support;
 mod sysdiag;
 mod tags_ui;
+mod tees;
 mod textsize;
 mod thoughts_ui;
 mod touch;
@@ -768,6 +769,10 @@ fn panel_test_hooks(app: &mut App) {
         app.edit = true;
         app.tool = 0;
         app.paint_idx = k;
+        // and SG_TEE_STEP=1 or 2 steps the Tees tool to the forward or middle tee (the Multiple tees extra, tees.rs)
+        if let Some(s) = std::env::var("SG_TEE_STEP").ok().and_then(|v| v.parse::<u8>().ok()) {
+            app.tee_step = s % 3;
+        }
     }
 }
 
@@ -918,15 +923,27 @@ fn apply_edit_spec(app: &mut App, spec: &str) {
             }
             b't' if item.len() > 2 && v.len() >= 3 => {
                 // paint one tile through the hole tool (type 0 tee, 1 green); t:x,y,type,V with the brush's variant V
-                // (the times Tab was pressed: an odd V is the tricky green)
+                // (the times Tab was pressed: an odd V is the tricky green); t:x,y,0,V,S with the Multiple tees extra
+                // places the Tees tool's step S (1 a forward tee, 2 a middle tee; tees.rs)
                 app.paint_idx = PAINT.iter().position(|p| p.ty == at(2)).unwrap_or(app.paint_idx);
                 if v.len() >= 4 {
                     app.paint_variant = Some((app.paint_idx, at(3)));
                 }
                 let r = std::mem::replace(&mut app.brush, 0);
+                let (edit, tool, step) = (app.edit, app.tool, app.tee_step);
+                if v.len() >= 5 {
+                    (app.edit, app.tool, app.tee_step) = (true, 0, at(4) as u8);
+                }
                 app.sync_course();
                 app.edit_paint(at(0), at(1));
                 app.brush = r;
+                if v.len() >= 5 {
+                    (app.edit, app.tool, app.tee_step) = (edit, tool, step);
+                    let h = &app.club.holes;
+                    let tees: Vec<_> =
+                        (1..19).filter(|&k| h[k].extra_tees().next().is_some()).map(|k| (k, h[k].front_tee, h[k].middle_tee)).collect();
+                    println!("extra tees: {tees:?}");
+                }
                 app.sync_course();
             }
             b'u' if v.len() >= 2 => {
@@ -2650,6 +2667,8 @@ impl Stage {
                 if app.edit && app.tool == 1 && app.pstate.elev_tool < 3 {
                     app.pstate.elev_tool = (app.pstate.elev_tool + 1) % 3;
                 }
+                // the Multiple tees extra: the Tees tool steps to the forward and middle tees (tees.rs)
+                app.tee_tab();
             }
             // only with a tool armed: the point under the pointer is followed only then, so without one it was where the
             // last tool left it, even in the next game (issue #146)

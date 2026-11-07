@@ -35,6 +35,12 @@ impl Club {
             return false;
         }
         let i = idx(a, b);
+        // the Multiple tees extra: painting over a hole's forward or middle tee takes only that tee away, as plain ground
+        // (sg_core::extras `Tee`; never with no such tee, so the original's bookkeeping below is untouched)
+        if old == t::TEE && new != t::TEE && self.game & game::TOURNAMENT == 0 && self.remove_extra_tee(a, b) {
+            c.flags[i] &= !f::LOW;
+            return self.paint_hole_tile(c, a, b, t::FAIRWAY, new, green_next);
+        }
         let h = self.next_hole;
         // eighteen holes built: no more tees, nor greens that would start a new one
         if h >= 19 && (new == t::TEE || (new == t::GREEN && !green_next)) {

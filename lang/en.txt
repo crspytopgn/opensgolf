@@ -1454,6 +1454,22 @@ STR_EXTRAS_NO_WEEDS                     : Sandbox: no new dandelions
 STR_EXTRAS_KEEP_LAND                    : Keep the land offer: buy land when you like
 STR_MENU_INFO_BUY_LAND                  : Buy land (approved)
 STR_TOAST_LAND_KEPT                     :The commissioner's approval is kept: buy land whenever you like from the Information menu.
+# Multiple tees (sg_core::extras): forward and middle tees, placed with the Tees tool after Tab
+STR_EXTRAS_TEES                         : Multiple tees: forward and middle tees
+STR_EXTRAS_DESC_TEES                    :Tab with the Tees tool places a forward or middle tee in front of a hole's tee. Weaker golfers play the shorter tees; par, length and tournaments stay as they were.
+STR_TEE_BACK                            :back tee
+STR_TEE_MIDDLE                          :middle tee
+STR_TEE_FORWARD                         :forward tee
+STR_TEE_HOLE_TOOL                       :the next hole's tee
+STR_CURSOR_EXTRA_TEE                    :Hole {HOLE}: {TEE}
+STR_TOAST_TEE_STEP                      :Tees tool: {TEE}
+STR_TOAST_TEE_PLACED                    :Hole {HOLE} has a new {TEE}, {YARDS} yards from the cup.
+STR_TOAST_TEE_NO_HOLE                   :A {TEE} goes in front of a hole's tee, near the line to its cup.
+STR_TOAST_TEE_TAKEN                     :A {TEE} needs open ground, not a tee or a green.
+STR_TOAST_TEE_HAS                       :Hole {HOLE} has its {TEE}. Paint over it to move it.
+STR_TOAST_TEE_ORDER                     :Hole {HOLE}'s forward tee must be nearer the cup than its middle tee.
+STR_TOAST_TEE_TOURNAMENT                :Tees cannot change during a tournament.
+STR_TOAST_TEE_TAB                       :Press Tab with the Tees tool to add a forward or middle tee to a hole.
 # Left-handed golfers (sg_core::extras): about one golfer in ten, and a tick for your pro on Customise Golfer
 STR_EXTRAS_LEFTIES                      : Left-handed golfers
 STR_SET_PAR_1                           :Change hole {HOLE} from par {OLD} to par {NEW}?

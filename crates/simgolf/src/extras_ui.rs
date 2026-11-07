@@ -162,6 +162,7 @@ const PAGE_LINES: [&[ExtrasLine]; 6] = {
             G(3), // higher staff limits
             G(5), // set par
             G(x::KEEP_LAND),
+            G(x::TEES),
             G(4), // animals
             G(2), // hardcore
             G(CUT),
@@ -217,8 +218,11 @@ pub fn tag(l: ExtrasLine) -> Option<Tag> {
         return None;
     }
     Some(match l {
-        // animals, left-handed golfers, keeping the commissioner's approval
-        ExtrasLine::Game(i) if i == 4 || i == sg_core::extras::LEFTIES || i == sg_core::extras::KEEP_LAND => Tag::Light,
+        // animals, left-handed golfers, keeping the commissioner's approval, multiple tees (nothing changes until one is
+        // placed)
+        ExtrasLine::Game(i) if i == 4 || i == sg_core::extras::LEFTIES || i == sg_core::extras::KEEP_LAND || i == sg_core::extras::TEES => {
+            Tag::Light
+        }
         ExtrasLine::Game(CUT) => Tag::Experimental,
         // hardcore, and the sandbox's freeze and unlock all
         ExtrasLine::Game(2 | 8 | 9) => Tag::Big,
@@ -244,6 +248,7 @@ const GAME_DESC: [&str; sg_core::extras::OPTION_KEYS.len()] = [
     "STR_EXTRAS_DESC_MORE_VISITORS",
     "STR_EXTRAS_DESC_NO_WEEDS",
     "STR_EXTRAS_DESC_KEEP_LAND",
+    "STR_EXTRAS_DESC_TEES",
 ];
 const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_PEOPLE",
@@ -947,6 +952,7 @@ mod tests {
         assert_eq!(tag(ExtrasLine::Calendar), Some(Tag::Noticeable));
         assert_eq!(tag(ExtrasLine::Game(x::LEFTIES)), Some(Tag::Light));
         assert_eq!((page_of(ExtrasLine::Game(x::KEEP_LAND)), tag(ExtrasLine::Game(x::KEEP_LAND))), (Some(0), Some(Tag::Light)));
+        assert_eq!((page_of(ExtrasLine::Game(x::TEES)), tag(ExtrasLine::Game(x::TEES))), (Some(0), Some(Tag::Light)));
         assert_eq!(page_of(ExtrasLine::Ui(5)), Some(4), "autosave");
         // the Controls page holds the mouse ticks, the most wanted first, then the two pauses
         assert_eq!(page_lines(5), [14, 25, 15, 20, 27, 24, 8, 9].map(ExtrasLine::Ui));

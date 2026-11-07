@@ -236,6 +236,13 @@ pub struct Hole {
     /// `par` (0: the par is the game's own). Saved only when set.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub game_par: i32,
+    /// The port's Multiple tees extra (sg_core::extras `Tee`): the hole's forward and middle tees (tiles), besides its own
+    /// tee `back`. Not the exe's forward tee `fwd`, which the original's unused two-tee mode would fill and which stays
+    /// the back tee. Saved only when set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub front_tee: Option<(i32, i32)>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub middle_tee: Option<(i32, i32)>,
 }
 
 fn is_zero(v: &i32) -> bool {
@@ -1990,7 +1997,13 @@ impl Club {
                 }
             } else {
                 let hr = &self.holes[h.clamp(0, 19) as usize];
-                let tee = if me.class < 5 && me.class != 3 && me.kind == 0 { hr.fwd } else { hr.back };
+                // the port's Multiple tees extra: the forward or middle tee for golfers of their skill (sg_core::extras
+                // `Tee`); otherwise, and with the extra off, the exe's own choice
+                let tee = match self.extra_tee_for(&me, h) {
+                    Some(t) => t,
+                    None if me.class < 5 && me.class != 3 && me.kind == 0 => hr.fwd,
+                    None => hr.back,
+                };
                 tee_pos = (tee.0 * UNIT + 512, tee.1 * UNIT + 512);
                 let d = dir8(angle(pin_c.0 - tee_pos.0, pin_c.1 - tee_pos.1)) as usize;
                 let k = if d & 1 == 1 { 3 } else { 5 } * 0x40;

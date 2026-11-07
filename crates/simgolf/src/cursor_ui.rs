@@ -425,7 +425,31 @@ impl App {
         if ty == 1 && v & 1 != 0 {
             top_text(g, s, sx + 4.0, sy - 16.0, tr("STR_CURSOR_TRICKY_GREEN"), SMALL, c15(WHITE));
         }
-        self.draw_hole_reach(g, s, ty, a, b, (sx, sy));
+        if ty == 0 && self.tee_tool() != sg_core::extras::Tee::Back {
+            self.draw_extra_tee_reach(g, s, a, b, (sx, sy));
+        } else {
+            self.draw_hole_reach(g, s, ty, a, b, (sx, sy));
+        }
+    }
+
+    /// The Tees tool stepped to a forward or middle tee (the Multiple tees extra, tees.rs): the tee's name by the pointer,
+    /// and where it may go the hole it would belong to, with the line from that hole's cup to the pointer and the yards,
+    /// drawn as the tee tool's line from a green.
+    fn draw_extra_tee_reach(&self, g: &mut Gfx, s: &Ui, a: i32, b: i32, (sx, sy): (f32, f32)) {
+        let t = self.tee_tool();
+        let old = if sg_core::course::inside(a, b) { self.course.ty[sg_core::course::idx(a, b)] } else { sg_core::course::t::OUT };
+        let Ok(h) = self.club.extra_tee_check(&self.course, t, a, b, old) else {
+            top_text(g, s, sx + 4.0, sy - 16.0, tr(t.key()), SMALL, c15(WHITE));
+            return;
+        };
+        let label = trf("STR_CURSOR_EXTRA_TEE", &[("TEE", &tr(t.key())), ("HOLE", &h)]);
+        top_text(g, s, sx + 4.0, sy - 16.0, &label, SMALL, c15(WHITE));
+        let pin = self.club.holes[h].pin;
+        let Some((fx, fy)) = self.tile_on_screen(pin.0, pin.1) else { return };
+        s.line(g, fx, fy, sx, sy, 2.0, line_rgba(WHITE as u32, 7));
+        let yards = self.yards_to_cup(h, (a, b));
+        let (mx, my) = (((fx as i32 + sx as i32) / 2) as f32, ((fy as i32 + sy as i32) / 2) as f32);
+        top_text(g, s, mx, my, &trf("STR_CURSOR_YARDS", &[("YARDS", &yards)]), SMALL, c15(WHITE));
     }
 
     /// The length of the hole being built (0x41aedd): with the green brush while the hole has its tee and no green, a white

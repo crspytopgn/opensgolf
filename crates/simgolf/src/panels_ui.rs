@@ -777,8 +777,12 @@ impl App {
         self.employees.iter().enumerate().filter(|(_, e)| e.active && (-5..=-2).contains(&e.job)).map(|(i, _)| i).collect()
     }
 
-    /// The Tees button looks disabled while the hole being built has its tee, and once eighteen holes are built.
+    /// The Tees button looks disabled while the hole being built has its tee, and once eighteen holes are built (with the
+    /// Multiple tees extra on, not while an open hole may still take a forward or middle tee: tees.rs).
     fn tee_disabled(&self) -> bool {
+        if self.club.extras.tees && (1..19).any(|h| self.club.holes[h].par != 0) {
+            return false;
+        }
         let h = self.club.next_hole;
         if !(0..19).contains(&h) {
             return true;

@@ -844,6 +844,9 @@ pub struct App {
     pub paint_idx: usize,
     /// The paint tool's variant (0x5a34f0, drawn when a terrain brush is picked) and the brush it was drawn for.
     pub paint_variant: Option<(usize, i32)>,
+    /// The Tees tool's step under the Multiple tees extra (Tab): 0 the hole's own tee (the original's tool), 1 a forward
+    /// tee, 2 a middle tee (sg_core::extras `Tee::of_step`; tees.rs).
+    pub tee_step: u8,
     /// The design the next bench, flower bed, willow, scenic bridge or landmark takes and the kind it is for (the exe's
     /// 0x56a514 and 0x5a9f60): set when the amenity is picked, then chosen from the strip of designs over the panel; it stays
     /// after a placement. None for a landmark not chosen yet.
@@ -1134,6 +1137,7 @@ impl App {
             speed: 1,
             paint_idx: 0,
             paint_variant: None,
+            tee_step: 0,
             design: None,
             design_hover: -1,
             extras_next: crate::extras_ui::saved(),
@@ -1956,7 +1960,7 @@ impl App {
     }
 
     /// Pushes a decoration sprite as a prop on tile (a, b).
-    fn push_decor(&mut self, a: i32, b: i32, d: sg_core::decor::Draw, object: bool, decor: bool) {
+    pub(crate) fn push_decor(&mut self, a: i32, b: i32, d: sg_core::decor::Draw, object: bool, decor: bool) {
         let (body, shadow) = self.decor_sprite(d.sprite, d.pal);
         let Some(bi) = body else { return };
         let n = self.sprites[bi].s.frames_per_view;
@@ -1997,7 +2001,9 @@ impl App {
                     continue;
                 }
                 let r = &self.club.holes[h];
-                let v = sg_core::decor::tee_arrow(r.par, r.tee_facing, r.flags, camera);
+                // a forward or middle tee (the Multiple tees extra, tees.rs) points toward its hole's cup
+                let facing = self.extra_tee_facing(h, (a, b)).unwrap_or(r.tee_facing);
+                let v = sg_core::decor::tee_arrow(r.par, facing, r.flags, camera);
                 if self.terrain.variation[o] != v {
                     self.terrain.variation[o] = v;
                     changed = true;
@@ -2046,6 +2052,7 @@ impl App {
                 }
             }
         }
+        self.push_extra_tee_markers();
         self.push_holemarks();
     }
 
@@ -2350,6 +2357,8 @@ impl App {
                 }
             }
         }
+        // the Multiple tees extra's forward and middle tees (nothing on a course without them)
+        self.club.sync_extra_tees(&mut self.course);
         let door = self.course.door;
         let home = &mut self.club.holes[19];
         home.par = 0;
@@ -3430,6 +3439,9 @@ impl App {
             land.sync_from_terrain(&self.terrain);
         }
         let tournament = self.club.game & golf::game::TOURNAMENT != 0;
+        // the Multiple tees extra's Tees tool stepped to a forward or middle tee (tees.rs; the hole's own tee otherwise)
+        let extra_tee = self.tee_tool();
+        let mut tee_said: Option<String> = None;
         let mut refused = false;
         let mut broke = false;
         let mut warned = false;
@@ -3500,9 +3512,32 @@ impl App {
                 }
             }
             // tees and greens go through the hole tool's bookkeeping (the hole being built gets its tee or cup)
-            if old <= 1 || new <= 1 {
+            let mut extra_hole = None;
+            if new == 0 && extra_tee != sg_core::extras::Tee::Back {
+                // a forward or middle tee of the hole it is in front of
+                match self.club.place_extra_tee(&mut self.course, extra_tee, x, y, old) {
+                    Ok(h) => {
+                        extra_hole = Some(h);
+                        let yards = self.yards_to_cup(h, (x, y));
+                        let tee = tr(extra_tee.key());
+                        tee_said = Some(trf("STR_TOAST_TEE_PLACED", &[("HOLE", &h), ("TEE", &tee), ("YARDS", &yards)]));
+                    }
+                    Err(e) => {
+                        // a tee placed in the same stroke says so rather than the refusals of the brush's other tiles
+                        if tee_said.is_none() {
+                            tee_said = self.tee_refusal_text(extra_tee, e);
+                        }
+                        refused = true;
+                        continue;
+                    }
+                }
+            } else if old <= 1 || new <= 1 {
                 let green_next = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|&(ex, ey)| self.green_joins(x + ex, y + ey));
                 if !self.club.paint_hole_tile(&mut self.course, x, y, old, new, green_next) {
+                    // the hole being built has its tee: with the extra on, Tab is how to add another to a hole
+                    if new == 0 && self.club.extras.tees && tee_said.is_none() {
+                        tee_said = Some(tr("STR_TOAST_TEE_TAB").to_string());
+                    }
                     continue;
                 }
             }
@@ -3530,7 +3565,7 @@ impl App {
             let cash = self.econ.cash;
             self.econ.spend_to(economy::LEDGER_BUILD_COURSE, cost as f64 * Economy::UNIT);
             self.float_change(cash, (x, y));
-            let hb = (self.club.next_hole as usize).min(18);
+            let hb = extra_hole.unwrap_or(self.club.next_hole as usize).min(18);
             if !self.econ.free {
                 self.club.holes[hb].build_cost += cost;
             }
@@ -3550,6 +3585,9 @@ impl App {
             self.show_toast(tr("STR_TOAST_NOT_ENOUGH_MONEY"));
         } else if refused {
             self.ui_sound(24);
+        }
+        if let Some(t) = tee_said.filter(|_| !broke) {
+            self.show_toast(&t);
         }
         // one "already has its tee" message per stroke, not per tile
         self.club.out.dedup();

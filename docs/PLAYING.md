@@ -466,7 +466,7 @@ along its top; a click on a tab, Left and Right or Tab turn them). A banner unde
 box (see *The title menu* and docs/FIXES.md).
 
 Each line on the Gameplay and Sandbox pages carries a coloured tag at its right end saying how much it changes the game:
-green **Light touch** (buyable animals, left-handed golfers), amber **Noticeable** (higher staff limits, set par, weather
+green **Light touch** (buyable animals, left-handed golfers, keep the land offer, multiple tees), amber **Noticeable** (higher staff limits, set par, weather
 that matters, more visitors, the calendar), red **Big change** (hardcore economy, freeze golfer happiness, unlock all) or
 slate **Experimental** (the cut content). The foot of the box describes the line under the pointer in a sentence (on a
 touch screen the line last tapped); with none, it says how to read the box. Preferences > More > Search lists every option with
@@ -513,6 +513,28 @@ On the **Gameplay** page:
   is kept with the saved game. In the original the approval is gone once the question is answered, though the
   commissioner comes back on a later visitor turn while your rating stays over his mark (he comes when the fun rating, or
   the skill rating on Hard, is over (tracts bought + 2) x (difficulty + 2) x 50), and offers again if he enjoys that round.
+- **Multiple tees: forward and middle tees.** *(Light touch)* Real courses have several tee boxes so that a hole plays
+  shorter for weaker golfers. With this on, a hole may have a **forward tee** and a **middle tee** besides its own tee
+  (the back tee). With the Tees tool in hand, **Tab** steps the tool from *the next hole's tee* (the original's tool) to
+  *forward tee* and *middle tee* and back (the ticker says which). Pointing at the course then names the tee, and where it
+  may go, the hole it would belong to, with a line from that hole's cup and the yards. A click paints a one-tile tee there
+  at the usual price, booked to that hole's building cost. A forward or middle tee goes on open ground (not a tee or a
+  green) of an open hole, or of the hole being built once it has its tee and cup: nearer the cup than the hole's own tee,
+  within 6 tiles of the line from that tee to the cup (the nearest such hole takes it), the forward tee nearer the cup than
+  the middle one. A hole has at most one of each; to move one, paint over it with any brush and place it again (as the
+  original moves a tee), which takes only that tee away: the hole stays open. The tees are drawn with the game's own tee
+  arrow, pointing to the cup, and its own tee markers, red on the forward tee and white on the middle one.
+
+  Ordinary golfers tee off by skill: a golfer's level (the game's own 0 to 2 for each golfer, which on Normal and harder
+  adds to his driving distance) plus one for each of the Length, Accuracy and Imagination classes he has beyond the first.
+  Skill 0 or 1 plays the forward tee, 2 the middle tee, 3 and up the back tee, so a person always plays the same tee.
+  Without a forward tee its golfers play the middle tee, and without a middle tee
+  the back tee. Touring pros, VIPs, famous challengers and your own pro always play the back tee, and so does everyone in
+  a tournament. The hole itself is still the back tee's, as the original defines it: its length, its par, its Hole Stats,
+  its ratings, the Course Report and the SGA's rating are unchanged, and the statistics count every golfer's play as
+  before (a drive from the forward tee counts in the hole's driving figures). The tees are saved with the game; a game that
+  never places one saves exactly as before, and switching the extra off sends every golfer back to the back tee (the tee
+  tiles stay, and come back into play when it is switched on again).
 - **Left-handed golfers.** *(Light touch)* About one golfer in ten who arrives from now on is left-handed (decided by the game's own
   random draws when the golfer is made, and kept with the saved game). A left-hander is drawn as the mirror image of a
   right-hander while addressing the ball, swinging and following through, still facing the shot's target; walking,
@@ -645,7 +667,9 @@ On the **Looks** page:
 Test hooks: `--extras BITS` sets the extras a new game starts with (1 Tab turns, 2 cut content, 4 hardcore, 8 higher staff
 limits, 16 animals, 32 set par, 64 or 128 the calendar at half or quarter speed, 256 the calendar stopped, 512 freeze golfer
 happiness, 1024 unlock all, 2048 left-handed golfers, 4096 weather that matters, bits 13 to 15 path styles and lamps (below),
-65536 more visitors, 131072 no new dandelions, 262144 keep the land offer; not saved to the settings); `--edit "c"` has the
+65536 more visitors, 131072 no new dandelions, 262144 keep the land offer, 524288 multiple tees; not saved to the settings);
+`--edit "t:x,y,0,V,S"` places the Tees tool's step S there (1 a forward tee, 2 a middle tee, with multiple tees on; it
+prints the holes' extra tees; `SG_PAINT=0 SG_TEE_STEP=1` arms the Tees tool at that step); `--edit "c"` has the
 County commissioner approve an expansion (his question comes on the next tick, and with Keep the land offer the approval
 waits), so `--extras 262144 --edit "c;M:0"` shows the Information menu's Buy land line; `--edit "H:N,M,..."` makes golfer slots N, M... left-handed (-1 your
 pro); `--edit "V:I,G"` makes golfer slot G (a negative G: the -G-th ordinary golfer out on the course) visitor I of

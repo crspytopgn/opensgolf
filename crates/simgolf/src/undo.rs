@@ -219,11 +219,13 @@ struct HoleWas {
     back: (i32, i32),
     fwd: (i32, i32),
     pin: (i32, i32),
+    /// The Multiple tees extra's forward and middle tees.
+    extra: [Option<(i32, i32)>; 2],
 }
 
 impl HoleWas {
     fn of(h: &sg_core::golfer::Hole) -> Self {
-        HoleWas { par: h.par, game_par: h.game_par, back: h.back, fwd: h.fwd, pin: h.pin }
+        HoleWas { par: h.par, game_par: h.game_par, back: h.back, fwd: h.fwd, pin: h.pin, extra: [h.front_tee, h.middle_tee] }
     }
 }
 
@@ -382,6 +384,7 @@ impl App {
             let h = &mut self.club.holes[i];
             if HoleWas::of(h) == left {
                 (h.par, h.game_par, h.back, h.fwd, h.pin) = (w.par, w.game_par, w.back, w.fwd, w.pin);
+                [h.front_tee, h.middle_tee] = w.extra;
             }
         }
         for &(i, d) in &c.build_cost {
