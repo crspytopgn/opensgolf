@@ -238,7 +238,7 @@ impl App {
         s.image_part(g, art, 0.0, 0.0, 0.0, 0.0, 800.0, REPORT_TOP);
         // fonts (0x44fb30): the title in 0x821020 (Klepto 24) centred at (316, 35); every other line
         // in 0x821ee8 (Manual SSi 14), the rows' tops 2 below their pieces, the totals' 11 below theirs
-        s.put_centered(g, crate::ui::F_INFO_TITLE, 316.0, 35.0, tr("STR_REPORT_TITLE"), ink);
+        s.put_centered_fit(g, crate::ui::F_INFO_TITLE, 316.0, 35.0, crate::ui::TITLE_ROOM, tr("STR_REPORT_TITLE"), ink);
         for c in 0..12 {
             cell_centred(&s, g, CX[c] + CW[c] / 2.0, 86.0, tr(HEAD[c]), ink);
         }
@@ -409,7 +409,7 @@ impl App {
             title += &trf("STR_HOLESTATS_NUMBER", &[("HOLE", &h)]);
         }
         // fonts (0x453330): the title in 0x821020 (Klepto 24) centred at (385, 48), the rest in 0x821ee8 (Manual SSi 14)
-        s.put_centered(g, crate::ui::F_INFO_TITLE, 385.0, 48.0, &title, ink);
+        s.put_centered_fit(g, crate::ui::F_INFO_TITLE, 385.0, 48.0, crate::ui::TITLE_ROOM, &title, ink);
         // left column: label at 190, value centred at 356
         let rows = [
             (83.0, tr("STR_HOLESTATS_FUN")),
@@ -501,7 +501,7 @@ impl App {
         s.image_part(g, art, 195.0, 45.0, 195.0, 45.0, 411.0, 79.0);
         let n = (1..19).filter(|&h| self.club.holes[h].par != 0).count();
         // fonts (0x455a30): the title in 0x821020 (Klepto 24) centred at (413, 59), the rest in 0x821ee8 (Manual SSi 14)
-        s.put_centered(g, crate::ui::F_INFO_TITLE, 413.0, 59.0, &trf("STR_BEST_TITLE", &[("HOLES", &n)]), ink);
+        s.put_centered_fit(g, crate::ui::F_INFO_TITLE, 413.0, 59.0, crate::ui::TITLE_ROOM, &trf("STR_BEST_TITLE", &[("HOLES", &n)]), ink);
         s.text(g, 236.0, 106.0, tr("STR_BEST_GOLFER"), 14.0, ink);
         s.text_centered(g, 551.0, 106.0, tr("STR_BEST_SCORE"), 14.0, ink);
         let mut y = 124.0;

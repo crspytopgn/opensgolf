@@ -80,7 +80,7 @@ messages to that console. Screenshots (Shift+F6) go to the save folder as `opens
 
 ## The title menu
 
-Start OpenSGolf (from a source build: `opensgolf --game "../game/Program_Files_(ENGLISH)"`). It opens on the title menu, drawn from the disc's own Interface art with the game's font: Start New Game (Standard) or Sandbox Mode opens the property chooser, and picking a property starts a course on that property's theme. A property is paid for out of the §100,000 starting funds (sandbox: unlimited). Esc goes back, and from the course returns to the menu. Continue Saved Game opens Load Previous Game (the disc's Title_LoadGame art): the saved games in a list of 16 rows with the scroll arrows, a click on a row shows its holes, par, yards, cash, ratings, theme pack, designer and course record on the left, the tick loads it, the folder deletes it after a yes/no box, the arrow goes back; saves whose names start with '&' are listed as autosaves. Select A Theme opens Select a Theme Pack (the folders under Themes with what each holds); a click on a row picks it, the tick keeps it, the arrow or a key goes back to Standard. A click on the logo shows the credits (credits.txt from the game folder over creditsbckgrd.pcx; a click or key ends them).
+Start OpenSGolf (from a source build: `opensgolf --game "../game/Program_Files_(ENGLISH)"`). It opens on the title menu, drawn from the disc's own Interface art with the game's font: Start New Game (Standard) or Sandbox Mode opens the property chooser, and picking a property starts a course on that property's theme. A property is paid for out of the §100,000 starting funds (sandbox: unlimited). Esc goes back, and from the course returns to the menu. Continue Saved Game opens Load Previous Game (the disc's Title_LoadGame art): the saved games in a list of 16 rows with the scroll arrows, a click on a row shows its holes, par, yards, cash, ratings, theme pack, designer and course record on the left, the tick loads it (so does a double-click on the row, or a double tap with a finger: the port's own, issue #145), the folder deletes it after a yes/no box, the arrow goes back; saves whose names start with '&' are listed as autosaves. Select A Theme opens Select a Theme Pack (the folders under Themes with what each holds); a click on a row picks it, the tick keeps it, the arrow or a key goes back to Standard. A click on the logo shows the credits (credits.txt from the game folder over creditsbckgrd.pcx; a click or key ends them).
 
 **Check for updates** (the port's own button, top right of the title menu, on Windows, macOS, Linux and Android) asks
 GitHub for OpenSGolf's newest release and says whether you have it. When a newer version is out, the box offers:
@@ -445,7 +445,7 @@ along its top; a click on a tab, Left and Right or Tab turn them). A banner unde
 - **Gameplay** (gameplay): "Changes how the game plays." (below)
 - **Sandbox** (gameplay): "Bends the rules for relaxed play." (the calendar and the sandbox switches, below)
 - **Looks** (looks): "Changes how it looks. Play is unchanged." (path styles and lamps, Tab turns buildings, random
-  trees, below)
+  trees, home names only under the pointer, below)
 - **Info** (helpers): "Shows more about your club. Play is unchanged." Five lines, each ticking a group of the helpers
   described under *OpenSGolf extras* further down: **People screen, name tags and live scorecards**; **Extra reports**
   (landing map, comments by hole, history graphs, the year in numbers, tabs over the reports); **Message history and
@@ -632,6 +632,11 @@ On the **Looks** page:
   random design when you pick a flower bed, scenic tree or bridge (and the first bench); you then choose from the strip.
 - **Random trees.** Every tree the brushes plant takes a random look of its kind (see *Random trees* under *Camera
   bookmarks and the mouse*).
+- **Home names only under the pointer** (issue #160; off by default, and no preset sets it: it takes the original's
+  labels away). The original names the celebrity of each home site over the lot at the closest zoom, the lots taking
+  turns ("Name's" over "Home", a few seconds each). With this on the names stay hidden until the pointer is on a home site,
+  and that lot's name shows for as long as the pointer stays there (at the closest zoom, as before). With a finger, which
+  cannot hover, the names do not show. Kept as `home_labels_hover` under `ui_extras` in `settings.json`.
 - *Fix the desert's swapped Ravine and Brush art* (issue #89, 0.5.6 to 0.5.13) is gone: the pictures were the
   original's all along, and it was the port's names that were swapped (issue #117). In the desert theme (Las Vegas,
   Phoenix, Spain and the other desert properties) the original calls tile 10 (drawn with its Overgrowth textures, dry
@@ -1487,6 +1492,13 @@ Report cells (115% where the rows are tight), the F5 routing pages' headings, an
 Enhanced graphics' sharp text the bigger text is rasterised at the screen's own size; in Classic it is the same font
 drawn bigger. Test hook: `SG_TEXT_SIZE=125` or `150` uses a size for
 one run without saving it.
+
+Text longer than its box (mostly a translation's, issue #164) is fitted to it, in Classic too: a label wider than its
+button, tab, title menu sign, Select Difficulty name, screen title, Load list row or the widest a pop-up box can grow (the
+screen's width) is drawn a little smaller, down to three quarters of its size; where its box is tall enough (the port's own
+buttons and tabs) it then goes onto two lines; and only as a last resort it is cut with an ellipsis (…), so it never runs
+over what is next to it. Text that fits is drawn exactly as before. Test hook: `SG_TEXTFIT=1` prints each text that had
+to be fitted (docs/TRANSLATING.md).
 
 The port's own boxes (OpenSGolf extras, Enhanced graphics, Search, Preferences' Graphics, Game files and More, and the
 port's yes/no questions) are drawn for

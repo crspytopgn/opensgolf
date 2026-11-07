@@ -177,7 +177,7 @@ impl App {
         // fonts (0x4546b0): the title in 0x821020 (Klepto 24) centred at (389, 61), the rest in 0x821ee8 (Manual SSi 14): the
         // headings with their tops at 96, "Comments" left at 182, the hole and frequency centred on 504 and 598
         use crate::ui::{F_INFO14, F_INFO_TITLE};
-        s.put_centered(g, F_INFO_TITLE, 389.0, 61.0, tr("STR_COMMENTS_TITLE"), black());
+        s.put_centered_fit(g, F_INFO_TITLE, 389.0, 61.0, crate::ui::TITLE_ROOM, tr("STR_COMMENTS_TITLE"), black());
         s.put(g, F_INFO14, 182.0, 96.0, tr("STR_COMMENTS_COMMENTS"), black());
         s.put_centered(g, F_INFO14, 504.0, 96.0, tr("STR_COMMENTS_HOLE"), black());
         s.put_centered(g, F_INFO14, 598.0, 96.0, tr("STR_COMMENTS_FREQUENCY"), black());
@@ -229,7 +229,7 @@ impl App {
         // fonts (0x455ed0): the title in 0x821020 (Klepto 24) centred at (375, 20); the legend and the scales in 0x821ee8
         // (Manual SSi 14), the legend centred with its top at 542
         use crate::ui::{F_INFO14, F_INFO_TITLE};
-        s.put_centered(g, F_INFO_TITLE, 375.0, 20.0, tr("STR_HISTOGRAPH_TITLE"), black());
+        s.put_centered_fit(g, F_INFO_TITLE, 375.0, 20.0, crate::ui::TITLE_ROOM, tr("STR_HISTOGRAPH_TITLE"), black());
         for (x, t) in [
             (177.0, tr("STR_HISTOGRAPH_SKILL")),
             (332.0, tr("STR_HISTOGRAPH_CASH")),
@@ -890,7 +890,7 @@ impl App {
         // fonts (0x44e770): the title in 0x821020 (Klepto 24) centred at (287, 28); the keys centred and the descriptions
         // left, in 0x821ee8 (Manual SSi 14), tops as listed
         use crate::ui::{F_INFO14, F_INFO_TITLE};
-        s.put_centered(g, F_INFO_TITLE, 287.0, 28.0, tr("STR_SHORTCUTS_TITLE"), black());
+        s.put_centered_fit(g, F_INFO_TITLE, 287.0, 28.0, crate::ui::TITLE_ROOM, tr("STR_SHORTCUTS_TITLE"), black());
         let ys = [0x51, 0x62, 0x73, 0x84, 0x95, 0xa6, 0xb7, 200, 0xd9, 0xea, 0xfb, 0x10c, 0x11d, 0x12e, 0x13f, 0x157];
         for (i, (k, d)) in SHORTCUTS.iter().enumerate() {
             let y = ys[i] as f32;

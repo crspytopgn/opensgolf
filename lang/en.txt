@@ -3491,3 +3491,6 @@ STR_EXTRAS_DESC_WIDE_UI                 :On a wide screen the dock, panels and m
 # Edge scrolling (OpenSGolf extras, extras.rs edge_scroll; main.rs edge_scroll)
 STR_EXTRAS_EDGE_SCROLL                  : Edge scrolling
 STR_EXTRAS_DESC_EDGE_SCROLL             :In full screen the pointer at the screen's edge scrolls the view, as in the original (on by default).
+# Home names on hover (OpenSGolf extras, extras.rs home_labels_hover; homes_ui.rs draw_home_labels)
+STR_EXTRAS_HOME_LABELS_HOVER            : Home names only under the pointer
+STR_EXTRAS_DESC_HOME_LABELS_HOVER       :A celebrity's name shows over a home site only while the pointer is on it, instead of the names taking turns over every home.

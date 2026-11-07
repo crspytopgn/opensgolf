@@ -1449,7 +1449,7 @@ impl App {
         // fonts (0x459400): the title in 0x821020 (Klepto 24) centred at (377, 107), the rest in 0x821ee8 (Manual SSi 14),
         // all black: each kind's blurb left at 231 with its top at 0x97 + 0x47 k, 20 above its first line, the wage lines
         // left at 246
-        s.put_centered(g, crate::ui::F_INFO_TITLE, 377.0, 107.0, tr("STR_HIRE_TITLE"), ink);
+        s.put_centered_fit(g, crate::ui::F_INFO_TITLE, 377.0, 107.0, crate::ui::TITLE_ROOM, tr("STR_HIRE_TITLE"), ink);
         let (mx, my) = self.pstate.mouse;
         let hot = hire_choice_at(mx, my);
         for k in 0..4 {

@@ -413,7 +413,7 @@ impl App {
         if r.score <= 0 {
             s.put_centered(g, F_INFO16, 400.0, 310.0, tr("STR_SGA_IMPROVEMENT_REQUIRED"), red);
         } else {
-            s.put_centered(g, F_INFO_TITLE, 400.0, 310.0, r.event, ink);
+            s.put_centered_fit(g, F_INFO_TITLE, 400.0, 310.0, crate::ui::TITLE_ROOM, r.event, ink);
             s.put_centered(
                 g,
                 F_INFO16,
@@ -507,7 +507,7 @@ impl App {
         // fonts (0x45a090): the title in 0x821020 (Klepto 24) centred at (320, 16), the rest in 0x821ee8 (Manual SSi 14),
         // every y below the text's top
         use crate::ui::F_INFO14 as F;
-        s.put_centered(g, crate::ui::F_INFO_TITLE, 320.0, 16.0, tr("STR_RESULTS_TITLE"), ink);
+        s.put_centered_fit(g, crate::ui::F_INFO_TITLE, 320.0, 16.0, crate::ui::TITLE_ROOM, tr("STR_RESULTS_TITLE"), ink);
         let nh = (1..19).filter(|&h| res.pars[h] != 0).count();
         // the headings at y 50: "Ranking" from x 25, each open hole's number centred on its column (175 + 27 (h - 1), by
         // hole number), "F" on 667 and "Prize" from 700

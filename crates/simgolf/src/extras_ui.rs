@@ -168,8 +168,9 @@ const PAGE_LINES: [&[ExtrasLine]; 6] = {
         ],
         // unlock all, no new dandelions, freeze moods, the calendar (slower seasons, pause)
         &[G(9), G(x::NO_WEEDS), G(8), Calendar],
-        // the interface at the edges, path styles and lamps, random trees, Tab turns buildings (only the picture turns)
-        &[U(26), G(x::PATHS), U(21), G(0)],
+        // the interface at the edges, path styles and lamps, random trees, Tab turns buildings (only the picture turns),
+        // home names on hover
+        &[U(26), G(x::PATHS), U(21), G(0), U(28)],
         // People, extra reports, messages, home-site details, path help
         &[Group(0), Group(1), Group(2), U(19), U(4)],
         // autosave, import and export saved games, sharing, save pictures
@@ -274,6 +275,7 @@ const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_RIGHT_DROP",
     "STR_EXTRAS_DESC_WIDE_UI",
     "STR_EXTRAS_DESC_EDGE_SCROLL",
+    "STR_EXTRAS_DESC_HOME_LABELS_HOVER",
 ];
 
 /// A line's description (what ticking it changes; for the preset line, what the preset in use is).
@@ -936,7 +938,7 @@ mod tests {
             }
         }
         // looks: only the picture changes
-        for l in [ExtrasLine::Game(0), ExtrasLine::Game(x::PATHS), ExtrasLine::Ui(21), ExtrasLine::Ui(26)] {
+        for l in [ExtrasLine::Game(0), ExtrasLine::Game(x::PATHS), ExtrasLine::Ui(21), ExtrasLine::Ui(26), ExtrasLine::Ui(28)] {
             assert_eq!(page_of(l), Some(2), "{l:?}");
         }
         // animals cost money and lift moods: gameplay, a light touch
