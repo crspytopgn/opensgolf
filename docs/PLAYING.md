@@ -80,7 +80,7 @@ messages to that console. Screenshots (Shift+F6) go to the save folder as `opens
 
 ## The title menu
 
-Start OpenSGolf (from a source build: `opensgolf --game "../game/Program_Files_(ENGLISH)"`). It opens on the title menu, drawn from the disc's own Interface art with the game's font: Start New Game (Standard) or Sandbox Mode opens the property chooser, and picking a property starts a course on that property's theme. A property is paid for out of the §100,000 starting funds (sandbox: unlimited). Esc goes back, and from the course returns to the menu. Continue Saved Game opens Load Previous Game (the disc's Title_LoadGame art): the saved games in a list of 16 rows with the scroll arrows, a click on a row shows its holes, par, yards, cash, ratings, theme pack, designer and course record on the left, the tick loads it, the folder deletes it after a yes/no box, the arrow goes back; saves whose names start with '&' are listed as autosaves. Select A Theme opens Select a Theme Pack (the folders under Themes with what each holds); a click on a row picks it, the tick keeps it, the arrow or a key goes back to Standard. A click on the logo shows the credits (credits.txt from the game folder over creditsbckgrd.pcx; a click or key ends them).
+Start OpenSGolf (from a source build: `opensgolf --game "../game/Program_Files_(ENGLISH)"`). It opens on the title menu, drawn from the disc's own Interface art with the game's font: Start New Game (Standard) or Sandbox Mode opens the property chooser, and picking a property starts a course on that property's theme. A property is paid for out of the §100,000 starting funds (sandbox: unlimited). Esc goes back, and from the course returns to the menu. Continue Saved Game opens Load Previous Game (the disc's Title_LoadGame art): the saved games in a list of 16 rows with the scroll arrows, a click on a row shows its holes, par, yards, cash, ratings, theme pack, designer and course record on the left, the tick loads it (so does a double-click on the row, or a double tap with a finger: the port's own, issue #145), the folder deletes it after a yes/no box, the arrow goes back; saves whose names start with '&' are listed as autosaves. Select A Theme opens Select a Theme Pack (the folders under Themes with what each holds); a click on a row picks it, the tick keeps it, the arrow or a key goes back to Standard. A click on the logo shows the credits (credits.txt from the game folder over creditsbckgrd.pcx; a click or key ends them).
 
 **Check for updates** (the port's own button, top right of the title menu, on Windows, macOS, Linux and Android) asks
 GitHub for OpenSGolf's newest release and says whether you have it. When a newer version is out, the box offers:
@@ -443,9 +443,9 @@ describes the preset in use while the pointer is on it). Below it the options ar
 along its top; a click on a tab, Left and Right or Tab turn them). A banner under the tabs says what the page's ticks do:
 
 - **Gameplay** (gameplay): "Changes how the game plays." (below)
-- **Sandbox** (gameplay): "Bends the rules for relaxed play." (the calendar and the sandbox switches, below)
+- **Sandbox** (gameplay): "Bends the rules for relaxed play." (the calendar, the sandbox switches and keep the land offer, below)
 - **Looks** (looks): "Changes how it looks. Play is unchanged." (path styles and lamps, Tab turns buildings, random
-  trees, below)
+  trees, home names only under the pointer, below)
 - **Info** (helpers): "Shows more about your club. Play is unchanged." Five lines, each ticking a group of the helpers
   described under *OpenSGolf extras* further down: **People screen, name tags and live scorecards**; **Extra reports**
   (landing map, comments by hole, history graphs, the year in numbers, tabs over the reports); **Message history and
@@ -467,7 +467,7 @@ box (see *The title menu* and docs/FIXES.md).
 
 Each line on the Gameplay and Sandbox pages carries a coloured tag at its right end saying how much it changes the game:
 green **Light touch** (buyable animals, left-handed golfers, keep the land offer, multiple tees), amber **Noticeable** (higher staff limits, set par, weather
-that matters, more visitors, the calendar), red **Big change** (hardcore economy, freeze golfer happiness, unlock all) or
+that matters, more visitors, the calendar), red **Big change** (hardcore economy, second course, freeze golfer happiness, unlock all) or
 slate **Experimental** (the cut content). The foot of the box describes the line under the pointer in a sentence (on a
 touch screen the line last tapped); with none, it says how to read the box. Preferences > More > Search lists every option with
 its place and tag ("Game options > Gameplay · Noticeable: Weather that matters..."), and typing a tag's words (*big change*) finds the
@@ -506,13 +506,22 @@ On the **Gameplay** page:
   hole on the Routing screen. Rebuilding the hole (painting over its tee or cup green and opening it again) gives it the
   game's par anew, a tournament's checklist sets its own pars, and switching the extra off puts every hole back to the
   game's par. Pars cannot be changed during a tournament.
-- **Keep the land offer: buy land when you like.** *(Light touch)* When the County commissioner enjoys his round and
-  approves an expansion, his approval waits until you buy land. Saying *No, I'm fine* to his question, closing it, or
-  leaving TRACTS FOR SALE without buying keeps it (the ticker says so), and the Information menu shows **Buy land
-  (approved)**, which opens TRACTS FOR SALE whenever you like. Buying a tract uses the approval; at most one waits, and it
-  is kept with the saved game. In the original the approval is gone once the question is answered, though the
-  commissioner comes back on a later visitor turn while your rating stays over his mark (he comes when the fun rating, or
-  the skill rating on Hard, is over (tracts bought + 2) x (difficulty + 2) x 50), and offers again if he enjoys that round.
+- **Second course: 18 more holes.** *(Big change)* The original stops at 18 holes. With this on, once your 18 holes
+  are open a small **Course A | Course B** switch appears over the top left of the Build Course panel. Click it to put the
+  hole tools on Course B: tees and greens then build holes B1 to B18 on the same property, in the usual way (paint a tee and
+  a green, press H or click the new cup green to open the hole), for up to 36 holes in all. The switch also picks which
+  course the Course Report and Hole Stats show (their titles say COURSE B), and clicking a Course B flag opens its Hole
+  Stats. Each pair of golfers that arrives plays one course, its holes in order: Course B when its first tee is free and
+  it has fewer golfers out than Course A (or Course A's first tee is busy), else Course A. Members, green fees, food,
+  drink, maintenance and the rest work as before, on both courses. Kept to Course A, as the original has it: the SGA
+  evaluation, tournaments, championships, the club's and holes' ratings, Top 100 and Top 18 holes, the Best Scores and
+  course record, the year-end report and the other reports of the original, the extra reports (comments by hole, landing
+  map, history graphs), Set par, the Routing screen, the building unlocks, rank and accomplishments that come with new
+  holes, and the player's pro. Special visitors (the commissioner, the CEO, the heiress, famous pros) play Course A. A
+  golfer's card shows a Course B round against Course B's pars. A member's last-round card and hole marks are one set,
+  whichever course was played last. Course B is saved with the game only once it has been started, so a game without it
+  saves exactly as before; switching the extra off stops new pairs going to Course B and hides the switch, while golfers
+  already out there finish their round and its holes stay on the land.
 - **Multiple tees: forward and middle tees.** *(Light touch)* Real courses have several tee boxes so that a hole plays
   shorter for weaker golfers. With this on, a hole may have a **forward tee** and a **middle tee** besides its own tee
   (the back tee). With the Tees tool in hand, **Tab** steps the tool from *the next hole's tee* (the original's tool) to
@@ -523,13 +532,15 @@ On the **Gameplay** page:
   within 6 tiles of the line from that tee to the cup (the nearest such hole takes it), the forward tee nearer the cup than
   the middle one. A hole has at most one of each; to move one, paint over it with any brush and place it again (as the
   original moves a tee), which takes only that tee away: the hole stays open. The tees are drawn with the game's own tee
-  arrow, pointing to the cup, and its own tee markers, red on the forward tee and white on the middle one.
+  arrow, pointing to the cup, and its own tee markers, red on the forward tee and white on the middle one. With *Second
+  course* on, the tees go to the holes of the course the Build Course panel's **Course A | Course B** switch shows, so
+  Course B's holes may have them too.
 
   Ordinary golfers tee off by skill: a golfer's level (the game's own 0 to 2 for each golfer, which on Normal and harder
   adds to his driving distance) plus one for each of the Length, Accuracy and Imagination classes he has beyond the first.
   Skill 0 or 1 plays the forward tee, 2 the middle tee, 3 and up the back tee, so a person always plays the same tee.
   Without a forward tee its golfers play the middle tee, and without a middle tee
-  the back tee. Touring pros, VIPs, famous challengers and your own pro always play the back tee, and so does everyone in
+  the back tee, on Course B as on Course A. Touring pros, VIPs, famous challengers and your own pro always play the back tee, and so does everyone in
   a tournament. The hole itself is still the back tee's, as the original defines it: its length, its par, its Hole Stats,
   its ratings, the Course Report and the SGA's rating are unchanged, and the statistics count every golfer's play as
   before (a drive from the forward tee counts in the hole's driving figures). The tees are saved with the game; a game that
@@ -626,6 +637,13 @@ On the **Sandbox** page:
   what the course has not earned; landmarks the club owns stay.
 - **Sandbox: no new dandelions.** *(Noticeable)* Dandelions and other weeds stop spreading over the course and unhappy golfers no longer start them, so it stays
   clear without groundskeepers or the landmarks that keep weeds away. The ones already there stay until pulled.
+- **Keep the land offer: buy land when you like.** *(Light touch)* When the County commissioner enjoys his round and
+  approves an expansion, his approval waits until you buy land. Saying *No, I'm fine* to his question, closing it, or
+  leaving TRACTS FOR SALE without buying keeps it (the ticker says so), and the Information menu shows **Buy land
+  (approved)**, which opens TRACTS FOR SALE whenever you like. Buying a tract uses the approval; at most one waits, and it
+  is kept with the saved game. In the original the approval is gone once the question is answered, though the
+  commissioner comes back on a later visitor turn while your rating stays over his mark (he comes when the fun rating, or
+  the skill rating on Hard, is over (tracts bought + 2) x (difficulty + 2) x 50), and offers again if he enjoys that round.
 
 The "Sandbox:" switches and a stopped calendar are what a Sandbox Mode game (unlimited money) is most often wanted
 with, but each works in a normal game too.
@@ -654,6 +672,11 @@ On the **Looks** page:
   random design when you pick a flower bed, scenic tree or bridge (and the first bench); you then choose from the strip.
 - **Random trees.** Every tree the brushes plant takes a random look of its kind (see *Random trees* under *Camera
   bookmarks and the mouse*).
+- **Home names only under the pointer** (issue #160; off by default, and no preset sets it: it takes the original's
+  labels away). The original names the celebrity of each home site over the lot at the closest zoom, the lots taking
+  turns ("Name's" over "Home", a few seconds each). With this on the names stay hidden until the pointer is on a home site,
+  and that lot's name shows for as long as the pointer stays there (at the closest zoom, as before). With a finger, which
+  cannot hover, the names do not show. Kept as `home_labels_hover` under `ui_extras` in `settings.json`.
 - *Fix the desert's swapped Ravine and Brush art* (issue #89, 0.5.6 to 0.5.13) is gone: the pictures were the
   original's all along, and it was the port's names that were swapped (issue #117). In the desert theme (Las Vegas,
   Phoenix, Spain and the other desert properties) the original calls tile 10 (drawn with its Overgrowth textures, dry
@@ -667,9 +690,11 @@ On the **Looks** page:
 Test hooks: `--extras BITS` sets the extras a new game starts with (1 Tab turns, 2 cut content, 4 hardcore, 8 higher staff
 limits, 16 animals, 32 set par, 64 or 128 the calendar at half or quarter speed, 256 the calendar stopped, 512 freeze golfer
 happiness, 1024 unlock all, 2048 left-handed golfers, 4096 weather that matters, bits 13 to 15 path styles and lamps (below),
-65536 more visitors, 131072 no new dandelions, 262144 keep the land offer, 524288 multiple tees; not saved to the settings);
-`--edit "t:x,y,0,V,S"` places the Tees tool's step S there (1 a forward tee, 2 a middle tee, with multiple tees on; it
-prints the holes' extra tees; `SG_PAINT=0 SG_TEE_STEP=1` arms the Tees tool at that step); `--edit "c"` has the
+65536 more visitors, 131072 no new dandelions, 262144 keep the land offer, 524288 second course, 1048576 multiple tees; not
+saved to the settings); `--edit "Z"` flips the second course's A/B switch (it starts Course B once Course A's 18 holes are
+open); `--edit "t:x,y,0,V,S"` places the Tees tool's step S there (1 a forward tee, 2 a middle tee, with multiple tees on,
+on the course the A/B switch shows; it prints the holes' extra tees; `SG_PAINT=0 SG_TEE_STEP=1` arms the Tees tool at that
+step); `--edit "c"` has the
 County commissioner approve an expansion (his question comes on the next tick, and with Keep the land offer the approval
 waits), so `--extras 262144 --edit "c;M:0"` shows the Information menu's Buy land line; `--edit "H:N,M,..."` makes golfer slots N, M... left-handed (-1 your
 pro); `--edit "V:I,G"` makes golfer slot G (a negative G: the -G-th ordinary golfer out on the course) visitor I of
@@ -1511,6 +1536,13 @@ Report cells (115% where the rows are tight), the F5 routing pages' headings, an
 Enhanced graphics' sharp text the bigger text is rasterised at the screen's own size; in Classic it is the same font
 drawn bigger. Test hook: `SG_TEXT_SIZE=125` or `150` uses a size for
 one run without saving it.
+
+Text longer than its box (mostly a translation's, issue #164) is fitted to it, in Classic too: a label wider than its
+button, tab, title menu sign, Select Difficulty name, screen title, Load list row or the widest a pop-up box can grow (the
+screen's width) is drawn a little smaller, down to three quarters of its size; where its box is tall enough (the port's own
+buttons and tabs) it then goes onto two lines; and only as a last resort it is cut with an ellipsis (…), so it never runs
+over what is next to it. Text that fits is drawn exactly as before. Test hook: `SG_TEXTFIT=1` prints each text that had
+to be fitted (docs/TRANSLATING.md).
 
 The port's own boxes (OpenSGolf extras, Enhanced graphics, Search, Preferences' Graphics, Game files and More, and the
 port's yes/no questions) are drawn for

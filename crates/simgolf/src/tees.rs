@@ -10,6 +10,9 @@
 //!   and the game's own tee markers either side of it, red for the forward tee and white for the middle one (the original
 //!   sets those colours by par on a hole's own tee, which keeps its colour).
 //!
+//! * With the Second course extra (sg_core::second) the tees go to the holes of the course the Build Course panel's A/B
+//!   switch shows, and Course B's golfers choose their tee in the same way.
+//!
 //! Nothing here changes or draws anything while the extra is off, or on a hole without such a tee.
 use crate::app::App;
 use sg_core::extras::{Tee, TeeRefusal};
@@ -51,43 +54,39 @@ impl App {
             TeeRefusal::Tournament => tr("STR_TOAST_TEE_TOURNAMENT").to_string(),
             TeeRefusal::NoHole => trf("STR_TOAST_TEE_NO_HOLE", &[("TEE", &tee)]),
             TeeRefusal::Taken => trf("STR_TOAST_TEE_TAKEN", &[("TEE", &tee)]),
-            TeeRefusal::Has(h) => trf("STR_TOAST_TEE_HAS", &[("HOLE", &h), ("TEE", &tee)]),
-            TeeRefusal::Order(h) => trf("STR_TOAST_TEE_ORDER", &[("HOLE", &h)]),
+            TeeRefusal::Has(h) => trf("STR_TOAST_TEE_HAS", &[("HOLE", &self.hole_text(self.hole_b(), h as i32)), ("TEE", &tee)]),
+            TeeRefusal::Order(h) => trf("STR_TOAST_TEE_ORDER", &[("HOLE", &self.hole_text(self.hole_b(), h as i32))]),
         })
     }
 
-    /// The yards from tile (a, b) to hole `h`'s cup, as the tee tool's line counts them (25 a tile, truncated).
-    pub fn yards_to_cup(&self, h: usize, (a, b): (i32, i32)) -> i32 {
-        let pin = self.club.holes[h].pin;
+    /// The yards from tile (a, b) to the cup of hole `h` of Course B (`course_b`, the Second course extra) or Course A, as
+    /// the tee tool's line counts them (25 a tile, truncated).
+    pub fn yards_to_cup(&self, course_b: bool, h: usize, (a, b): (i32, i32)) -> i32 {
+        let Some(pin) = self.club.course_holes(course_b).get(h).map(|r| r.pin) else { return 0 };
         let (dx, dy) = ((a - pin.0) * 25, (b - pin.1) * 25);
         ((dx * dx + dy * dy) as f64).sqrt() as i32
     }
 
-    /// The facing of hole `h`'s forward or middle tee on tile `at`: toward the hole's cup. None for any other tile.
-    pub fn extra_tee_facing(&self, h: usize, at: (i32, i32)) -> Option<i32> {
-        let hr = self.club.holes.get(h)?;
-        hr.extra_tees().find(|&(_, p)| p == at)?;
-        Some(sg_core::geom::dir8(sg_core::geom::angle(hr.pin.0 - at.0, hr.pin.1 - at.1)))
-    }
-
-    /// The tee markers of the open holes' forward (red) and middle (white) tees, with the extra on: the game's own markers,
-    /// chosen as the original chooses them by par (red the par 3's, white the par 4's).
+    /// The tee markers of the open holes' forward (red) and middle (white) tees, with the extra on, on both courses (the
+    /// Second course extra's Course B too): the game's own markers, chosen as the original chooses them by par (red the
+    /// par 3's, white the par 4's).
     pub(crate) fn push_extra_tee_markers(&mut self) {
         if !self.club.extras.tees {
             return;
         }
         let mut draws = Vec::new();
-        for h in 1..19 {
-            let rec = &self.club.holes[h];
-            if rec.par == 0 {
-                continue;
-            }
-            for (t, p) in rec.extra_tees() {
-                if !sg_core::course::inside(p.0, p.1) {
+        for course_b in [false, true] {
+            for rec in self.club.course_holes(course_b).iter().take(19).skip(1) {
+                if rec.par == 0 {
                     continue;
                 }
-                let facing = self.extra_tee_facing(h, p).unwrap_or(rec.tee_facing);
-                draws.push((p, if t == Tee::Forward { 3 } else { 4 }, facing));
+                for (t, p) in rec.extra_tees() {
+                    if !sg_core::course::inside(p.0, p.1) {
+                        continue;
+                    }
+                    let facing = rec.extra_tee_facing(p).unwrap_or(rec.tee_facing);
+                    draws.push((p, if t == Tee::Forward { 3 } else { 4 }, facing));
+                }
             }
         }
         for ((a, b), par, facing) in draws {

@@ -161,16 +161,18 @@ const PAGE_LINES: [&[ExtrasLine]; 6] = {
             G(x::LEFTIES),
             G(3), // higher staff limits
             G(5), // set par
-            G(x::KEEP_LAND),
             G(x::TEES),
             G(4), // animals
+            G(x::SECOND_COURSE),
             G(2), // hardcore
             G(CUT),
         ],
-        // unlock all, no new dandelions, freeze moods, the calendar (slower seasons, pause)
-        &[G(9), G(x::NO_WEEDS), G(8), Calendar],
-        // the interface at the edges, path styles and lamps, random trees, Tab turns buildings (only the picture turns)
-        &[U(26), G(x::PATHS), U(21), G(0)],
+        // unlock all, no new dandelions, freeze moods, the calendar (slower seasons, pause), keeping the commissioner's
+        // approval (moved here when the Gameplay page grew too long for the box)
+        &[G(9), G(x::NO_WEEDS), G(8), Calendar, G(x::KEEP_LAND)],
+        // the interface at the edges, path styles and lamps, random trees, Tab turns buildings (only the picture turns),
+        // home names on hover
+        &[U(26), G(x::PATHS), U(21), G(0), U(28)],
         // People, extra reports, messages, home-site details, path help
         &[Group(0), Group(1), Group(2), U(19), U(4)],
         // autosave, import and export saved games, sharing, save pictures
@@ -226,6 +228,8 @@ pub fn tag(l: ExtrasLine) -> Option<Tag> {
         ExtrasLine::Game(CUT) => Tag::Experimental,
         // hardcore, and the sandbox's freeze and unlock all
         ExtrasLine::Game(2 | 8 | 9) => Tag::Big,
+        // a second course of 18 holes
+        ExtrasLine::Game(i) if i == sg_core::extras::SECOND_COURSE => Tag::Big,
         _ => Tag::Noticeable,
     })
 }
@@ -248,6 +252,7 @@ const GAME_DESC: [&str; sg_core::extras::OPTION_KEYS.len()] = [
     "STR_EXTRAS_DESC_MORE_VISITORS",
     "STR_EXTRAS_DESC_NO_WEEDS",
     "STR_EXTRAS_DESC_KEEP_LAND",
+    "STR_EXTRAS_DESC_SECOND_COURSE",
     "STR_EXTRAS_DESC_TEES",
 ];
 const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
@@ -279,6 +284,7 @@ const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_RIGHT_DROP",
     "STR_EXTRAS_DESC_WIDE_UI",
     "STR_EXTRAS_DESC_EDGE_SCROLL",
+    "STR_EXTRAS_DESC_HOME_LABELS_HOVER",
 ];
 
 /// A line's description (what ticking it changes; for the preset line, what the preset in use is).
@@ -663,7 +669,8 @@ impl App {
     /// out of `PAR_RANGE`, nothing at all when the hole's par may not be changed now).
     pub fn par_buttons(&self) -> Vec<(i32, Rect)> {
         let h = self.info.stats_hole.clamp(1, 18);
-        if !self.club.can_set_par(h) {
+        // (Course A's holes only: the Second course extra's Course B keeps the game's pars, sg_core::second)
+        if self.hole_b() || !self.club.can_set_par(h) {
             return Vec::new();
         }
         let par = self.club.holes[h].par;
@@ -941,7 +948,7 @@ mod tests {
             }
         }
         // looks: only the picture changes
-        for l in [ExtrasLine::Game(0), ExtrasLine::Game(x::PATHS), ExtrasLine::Ui(21), ExtrasLine::Ui(26)] {
+        for l in [ExtrasLine::Game(0), ExtrasLine::Game(x::PATHS), ExtrasLine::Ui(21), ExtrasLine::Ui(26), ExtrasLine::Ui(28)] {
             assert_eq!(page_of(l), Some(2), "{l:?}");
         }
         // animals cost money and lift moods: gameplay, a light touch
@@ -951,7 +958,8 @@ mod tests {
         assert_eq!(tag(ExtrasLine::Game(x::WEATHER)), Some(Tag::Noticeable));
         assert_eq!(tag(ExtrasLine::Calendar), Some(Tag::Noticeable));
         assert_eq!(tag(ExtrasLine::Game(x::LEFTIES)), Some(Tag::Light));
-        assert_eq!((page_of(ExtrasLine::Game(x::KEEP_LAND)), tag(ExtrasLine::Game(x::KEEP_LAND))), (Some(0), Some(Tag::Light)));
+        assert_eq!((page_of(ExtrasLine::Game(x::KEEP_LAND)), tag(ExtrasLine::Game(x::KEEP_LAND))), (Some(1), Some(Tag::Light)));
+        assert_eq!((page_of(ExtrasLine::Game(x::SECOND_COURSE)), tag(ExtrasLine::Game(x::SECOND_COURSE))), (Some(0), Some(Tag::Big)));
         assert_eq!((page_of(ExtrasLine::Game(x::TEES)), tag(ExtrasLine::Game(x::TEES))), (Some(0), Some(Tag::Light)));
         assert_eq!(page_of(ExtrasLine::Ui(5)), Some(4), "autosave");
         // the Controls page holds the mouse ticks, the most wanted first, then the two pauses

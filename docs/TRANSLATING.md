@@ -39,6 +39,16 @@ STR_TOAST_NOT_ENOUGH_MONEY              :Du hast nicht genug Geld.
   own font has no glyph for one of the added letters it is drawn from Arial Bold (or the bundled stand-in), else as the
   plain letter. Anything else (Cyrillic, Greek, CJK) shows as `?` for now.
 
+## Longer texts
+
+Translations are often longer than the English the screens were laid out for. You do not have to squeeze your words:
+a label that is too wide for its button, tab, menu sign, panel or screen title, or for the widest a pop-up box can grow
+(the width of the screen), is first drawn a little smaller (down to three quarters of its size), then, where its box is
+tall enough, wrapped onto a second line, and only as a last resort cut short with an ellipsis (…), so it never runs over
+its neighbours. Message windows and descriptions wrap as before. Text that fits is drawn exactly as it always was. Still,
+prefer a shorter word where your language has one: smaller and cut text is harder to read. `SG_TEXTFIT=1` (an
+environment variable) prints every text the game had to fit this way, each once, with the width it had.
+
 ## Parameters
 
 Names in braces are filled in by the game: `{GOLFER}` a golfer's name, `{PRO}` the player's pro (or a famous golfer),

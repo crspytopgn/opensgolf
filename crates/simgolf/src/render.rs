@@ -32,6 +32,11 @@ impl Rect {
 /// The pro's aim line's points (map units) and how far up the screen each is drawn (`App::aim_path`).
 pub(crate) type AimPath = (Vec<(i32, i32)>, Vec<f32>);
 
+/// CALIBRATED: the decoded light leaves flat ground at about 58% of its texture, but the game's own rendered terrain icons
+/// (Data/<theme>.pcx, e.g. desert sand 223,161,96 against its texture's 234,171,110) show about 95%, so something in the
+/// original's setup brightens it further (not yet found). Ambient and diffuse are scaled to match.
+pub(crate) const BRIGHTNESS: f32 = 1.74;
+
 // ---- the course ---------------------------------------------------------------------------------------------------------------
 
 impl App {
@@ -54,10 +59,6 @@ impl App {
         // renderer has no clock); the exe animates water with its ripple, rock and waterfall sprites (wild_ui).
         let mut lit = Uniforms::flat(&proj, &mv);
         lit.lit = 1.0;
-        // CALIBRATED: the decoded light leaves flat ground at about 58% of its texture, but the game's own rendered terrain
-        // icons (Data/<theme>.pcx, e.g. desert sand 223,161,96 against its texture's 234,171,110) show about 95%, so
-        // something in the original's setup brightens it further (not yet found). Ambient and diffuse are scaled to match.
-        const BRIGHTNESS: f32 = 1.74;
         lit.light_amb = self.light.ambient.map(|v| v * BRIGHTNESS);
         lit.light_dif = self.light.diffuse.map(|v| v * BRIGHTNESS);
         lit.light_spec = self.light.specular;
@@ -886,10 +887,13 @@ impl App {
             s.put_centered(g, f, cx, cy + 15.0 + f.px * 0.36 - f.base(), &theme, rgba(0.42, 0.18, 0.0, 1.0));
         } else {
             let grey = crate::info_ui::c15(0x6318);
+            // a label longer than its sign (a translation): smaller or cut (ui.rs fit_line; issue #164)
+            let room = |b: usize| MENU_BTN[b].w - 20.0;
             for b in 0..5 {
-                s.put_centered(g, crate::ui::F_KLEPTO18, MENU_LABEL_X[b], MENU_LABEL_Y[b] + 8.0, tr(MENU_LABEL_KEYS[b]), grey);
+                let (x, y) = (MENU_LABEL_X[b], MENU_LABEL_Y[b] + 8.0);
+                s.put_centered_fit(g, crate::ui::F_KLEPTO18, x, y, room(b), tr(MENU_LABEL_KEYS[b]), grey);
             }
-            s.put_centered(g, crate::ui::F_KLEPTO18, MENU_LABEL_X[1], MENU_LABEL_Y[1] + 24.0, &theme, grey);
+            s.put_centered_fit(g, crate::ui::F_KLEPTO18, MENU_LABEL_X[1], MENU_LABEL_Y[1] + 24.0, room(1), &theme, grey);
         }
         // the port's own: "Use my SimGolf files..." (gamefiles.rs)
         self.draw_files_button(g, &s);
@@ -956,12 +960,19 @@ impl App {
         // 0x43a400: all in Klepto ITC 24 (0x519a40), centred with the given tops; the hovered name black, the others in
         // 0x4210, two pixels lower
         let k24 = crate::ui::F_KLEPTO24;
-        s.put_centered(g, k24, 602.0, 42.0, tr("STR_TITLE_SELECT_DIFFICULTY"), rgb(0.0, 0.0, 0.0));
+        // longer names (a translation) are fitted: the title to the top right's room, each name to its sign (the free set's
+        // plates are smaller: tools/freeset_art) (ui.rs fit_line; issue #164)
+        let (title_room, room) = if self.on_free_set() {
+            (330.0, 172.0)
+        } else {
+            (2.0 * (800.0 - 602.0) - 16.0, DIFF_CUTS.iter().map(|c| c.2).fold(f32::MAX, f32::min) - 32.0)
+        };
+        s.put_centered_fit(g, k24, 602.0, 42.0, title_room, tr("STR_TITLE_SELECT_DIFFICULTY"), rgb(0.0, 0.0, 0.0));
         for (i, &(x, y)) in DIFF_LABELS.iter().enumerate() {
             if self.hover == i as i32 {
-                s.put_centered(g, k24, x, y, tr(DIFFICULTY_KEYS[i]), rgb(0.0, 0.0, 0.0));
+                s.put_centered_fit(g, k24, x, y, room, tr(DIFFICULTY_KEYS[i]), rgb(0.0, 0.0, 0.0));
             } else {
-                s.put_centered(g, k24, x, y + 2.0, tr(DIFFICULTY_KEYS[i]), crate::info_ui::c15(0x4210));
+                s.put_centered_fit(g, k24, x, y + 2.0, room, tr(DIFFICULTY_KEYS[i]), crate::info_ui::c15(0x4210));
             }
         }
         if self.course_size_choosable() {
@@ -977,9 +988,9 @@ impl App {
         self.free_box_or_fill(g, s, r, lit);
         let n = self.course_size;
         let name = trf("STR_COURSE_SIZE", &[("SIZE", &sg_core::mapsize::name(n))]);
-        s.text(g, r.x + 10.0, r.y + 19.0, &name, 17.0, if lit { rgb(1.0, 1.0, 0.6) } else { rgb(1.0, 1.0, 1.0) });
+        s.text_fit(g, r.x + 10.0, r.y + 19.0, r.w - 20.0, &name, 17.0, if lit { rgb(1.0, 1.0, 0.6) } else { rgb(1.0, 1.0, 1.0) });
         let detail = trf("STR_COURSE_SIZE_DETAIL", &[("TILES", &n), ("YARDS", &(n * 25))]);
-        s.text(g, r.x + 10.0, r.y + 37.0, &detail, 12.0, rgb(0.85, 0.85, 1.0));
+        s.text_fit(g, r.x + 10.0, r.y + 37.0, r.w - 20.0, &detail, 12.0, rgb(0.85, 0.85, 1.0));
     }
 
     /// The game's preset box (the port's own, extras_ui.rs Preset): Original, Original + helpers, OpenSGolf or Custom, a
@@ -995,8 +1006,8 @@ impl App {
             crate::extras_ui::Preset::OpenSGolf => "STR_STYLE_OPENSGOLF_DETAIL",
             crate::extras_ui::Preset::Custom => "STR_STYLE_CUSTOM_DETAIL",
         };
-        s.text(g, r.x + 10.0, r.y + 19.0, &name, 17.0, if lit { rgb(1.0, 1.0, 0.6) } else { rgb(1.0, 1.0, 1.0) });
-        s.text(g, r.x + 10.0, r.y + 37.0, tr(detail), 12.0, rgb(0.85, 0.85, 1.0));
+        s.text_fit(g, r.x + 10.0, r.y + 19.0, r.w - 20.0, &name, 17.0, if lit { rgb(1.0, 1.0, 0.6) } else { rgb(1.0, 1.0, 1.0) });
+        s.text_fit(g, r.x + 10.0, r.y + 37.0, r.w - 20.0, tr(detail), 12.0, rgb(0.85, 0.85, 1.0));
     }
 
     /// Whether Select Difficulty offers the course size: for a new game or a sandbox, not a championship or a scenario.

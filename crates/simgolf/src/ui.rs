@@ -1152,6 +1152,173 @@ pub fn wrap_text(s: &str, size: f32, max_w: f32) -> Vec<String> {
     out
 }
 
+// ---- text too wide for its box (the port's own, issue #164) -----------------------------------------------------------------
+//
+// A translation is often longer than the English the original's buttons, tabs and titles were drawn for. A label that
+// measures wider than its box is first drawn a little smaller (a pixel at a time, down to `FIT_MIN` of its size), then,
+// where the box is tall enough, wrapped onto more lines, and as a last resort cut with an ellipsis, so it never runs over
+// its neighbours. A label that fits is left exactly as it was: every helper below hands back the font, text and place it
+// was given, so English (and Classic graphics) draw the same pixels as before.
+
+/// The room of a title over one of the info screens or title screens (Klepto 24): wider than any of the original's titles
+/// in English, inside the art's frames.
+pub const TITLE_ROOM: f32 = 440.0;
+
+/// The smallest share of its own size a label shrinks to before it wraps or is cut.
+pub const FIT_MIN: f32 = 0.75;
+/// What a cut label ends with (in the glyph sets: `PUNCT`).
+const ELLIPSIS: char = '\u{2026}';
+
+/// A label laid out to fit its box: the font (its own, or smaller) and its lines.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Fitted {
+    pub font: Fnt,
+    pub lines: Vec<String>,
+}
+
+/// Test hook: SG_TEXTFIT=1 prints each label that had to be fitted to its box, once (for checking a translation).
+fn log_fit(s: &str, w: f32) {
+    thread_local! {
+        static SEEN: std::cell::RefCell<Option<std::collections::HashSet<String>>> = const { std::cell::RefCell::new(None) };
+    }
+    if std::env::var_os("SG_TEXTFIT").is_none() {
+        return;
+    }
+    SEEN.with(|v| {
+        if v.borrow_mut().get_or_insert_with(Default::default).insert(s.to_string()) {
+            println!("text fitted to {w:.0} pixels: {s}");
+        }
+    });
+}
+
+/// Lines of `s` no wider than `w` in `f` (a word wider than the line stays whole: `fit_box` cuts it).
+fn wrap_fnt(f: Fnt, s: &str, w: f32) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    for word in s.split_whitespace() {
+        let t = if cur.is_empty() { word.to_string() } else { format!("{cur} {word}") };
+        if !cur.is_empty() && f.width(&t) > w {
+            out.push(std::mem::replace(&mut cur, word.to_string()));
+        } else {
+            cur = t;
+        }
+    }
+    if !cur.is_empty() || out.is_empty() {
+        out.push(cur);
+    }
+    out
+}
+
+/// `s` cut to fit `w` in `f` with an ellipsis at its end (always one when `cut`: words were dropped after it).
+fn ellipsize(f: Fnt, s: &str, w: f32, cut: bool) -> String {
+    if !cut && f.width(s) <= w {
+        return s.to_string();
+    }
+    let mut t: Vec<char> = s.trim_end().chars().collect();
+    loop {
+        let mut out: String = t.iter().collect::<String>().trim_end().to_string();
+        out.push(ELLIPSIS);
+        if t.is_empty() || f.width(&out) <= w {
+            return out;
+        }
+        t.pop();
+    }
+}
+
+/// How many lines of `f` a box `h` high holds (at least one; a box no taller than a line holds one).
+fn rows_in(f: Fnt, h: f32) -> usize {
+    if h <= f.px {
+        return 1;
+    }
+    ((h - f.px) / f.line().max(1.0)).floor() as usize + 1
+}
+
+/// How `s` in `f` goes into a box `w` wide and `h` high: None when it fits as it is (draw it as always). Else the first
+/// that fits of: one line a pixel smaller at a time, down to `FIT_MIN` of the size; the lines the box has room for, at the
+/// biggest of those sizes that holds them; at the smallest size, as many lines as there is room for, the last (and any
+/// word too long for a line) cut with an ellipsis.
+pub fn fit_box(f: Fnt, s: &str, w: f32, h: f32) -> Option<Fitted> {
+    if w <= 0.0 || f.width(s) <= w {
+        return None;
+    }
+    log_fit(s, w);
+    let lo = (f.px * FIT_MIN).ceil().min(f.px);
+    let sizes: Vec<Fnt> = (0..).map(|i| Fnt { face: f.face, px: f.px - i as f32 }).take_while(|g| g.px >= lo).collect();
+    let one = |g: Fnt| Fitted { font: g, lines: vec![s.to_string()] };
+    if let Some(&g) = sizes.iter().skip(1).find(|g| g.width(s) <= w) {
+        return Some(one(g));
+    }
+    for &g in &sizes {
+        let n = rows_in(g, h);
+        if n > 1 {
+            let lines = wrap_fnt(g, s, w);
+            if lines.len() <= n && lines.iter().all(|l| g.width(l) <= w) {
+                return Some(Fitted { font: g, lines });
+            }
+        }
+    }
+    let g = sizes.last().copied().unwrap_or(f);
+    let n = rows_in(g, h);
+    let mut lines = wrap_fnt(g, s, w);
+    let cut = lines.len() > n;
+    lines.truncate(n);
+    let last = lines.len() - 1;
+    let lines = lines.iter().enumerate().map(|(i, l)| ellipsize(g, l, w, cut && i == last)).collect();
+    Some(Fitted { font: g, lines })
+}
+
+/// One line of `s` in `f` no wider than `w` (`fit_box` with room for one line): the font, the text and how far down to
+/// put it so a smaller font keeps the line's middle where it was. `f`, `s` and 0 when it fits.
+pub fn fit_line(f: Fnt, s: &str, w: f32) -> (Fnt, std::borrow::Cow<'_, str>, f32) {
+    match fit_box(f, s, w, 0.0) {
+        None => (f, std::borrow::Cow::Borrowed(s), 0.0),
+        Some(t) => {
+            let dy = ((f.px - t.font.px) / 2.0).floor();
+            (t.font, std::borrow::Cow::Owned(t.lines.into_iter().next().unwrap_or_default()), dy)
+        }
+    }
+}
+
+/// A fitted label's font and its lines, each with the x it is centred on and its top (`fit_in`).
+pub type FitLines = (Fnt, Vec<(String, f32, f32)>);
+
+/// `s` in `f` centred in the box (x, y, w, h) when it is too wide for it (`fit_box`): the font and each line with its
+/// top, the lines spaced by the font's line and the block in the box's middle (a single line at
+/// `y + ((h - px) / 2).floor()`, as the port's buttons and tabs place a label). None when it fits: draw it as always.
+pub fn fit_in(f: Fnt, s: &str, (x, y, w, h): (f32, f32, f32, f32)) -> Option<FitLines> {
+    let t = fit_box(f, s, w, h)?;
+    let (g, n) = (t.font, t.lines.len());
+    let pitch = if n > 1 { g.line().min((h - g.px) / (n - 1) as f32).floor() } else { 0.0 };
+    let block = pitch * (n - 1) as f32 + g.px;
+    let top = y + ((h - block) / 2.0).floor();
+    let cx = x + w / 2.0;
+    Some((g, t.lines.into_iter().enumerate().map(|(i, l)| (l, cx, top + pitch * i as f32)).collect()))
+}
+
+impl Screen {
+    /// `put_centered` for a label in a room `w` wide: as before when it fits, else a little smaller or cut (`fit_line`).
+    #[allow(clippy::too_many_arguments)]
+    pub fn put_centered_fit(&self, g: &mut Gfx, f: Fnt, cx: f32, y: f32, w: f32, s: &str, c: [f32; 4]) {
+        let (f, s, dy) = fit_line(f, s, w);
+        self.put_centered(g, f, cx, y + dy, &s, c);
+    }
+
+    /// `put` for a label in a room `w` wide (from x): as before when it fits, else a little smaller or cut (`fit_line`).
+    #[allow(clippy::too_many_arguments)]
+    pub fn put_fit(&self, g: &mut Gfx, f: Fnt, x: f32, y: f32, w: f32, s: &str, c: [f32; 4]) {
+        let (f, s, dy) = fit_line(f, s, w);
+        self.put(g, f, x, y + dy, &s, c);
+    }
+
+    /// `text` (by size, the baseline at y) for a label in a room `w` wide from x: as before when it fits, else a little
+    /// smaller or cut (`fit_line`), on the same baseline.
+    #[allow(clippy::too_many_arguments)]
+    pub fn text_fit(&self, g: &mut Gfx, x: f32, y: f32, w: f32, s: &str, size: f32, c: [f32; 4]) {
+        let (f, s, _) = fit_line(Fnt { face: face_for(size), px: size }, s, w);
+        self.text_in(g, f.face, x, y, &s, f.px, c);
+    }
+}
+
 /// "§1,234,567" (the game's currency sign).
 pub fn money(v: i64) -> String {
     format!("{}\u{a7}{}", if v < 0 { "-" } else { "" }, group(v.unsigned_abs()))
@@ -1232,6 +1399,43 @@ mod tests {
         // still wider than the 800 x 600 screen: the edge pieces only come in from the window's sides
         assert!(sl < 0.0 && sr > 800.0);
         super::set_safe_area([0.0; 4]);
+    }
+
+    #[test]
+    fn text_too_wide_for_its_box_shrinks_then_wraps_then_is_cut() {
+        // issue #164 (the fonts are not loaded in tests: a letter is half the size wide, a line 1.25 sizes)
+        use super::{fit_box, fit_in, fit_line, Face, Fnt, FIT_MIN};
+        let f = Fnt { face: Face::Manual, px: 20.0 };
+        // a label that fits is left as it is, to the pixel
+        assert_eq!(fit_box(f, "abcdefghij", 100.0, 40.0), None);
+        let (g, t, dy) = fit_line(f, "abcdefghij", 100.0);
+        assert_eq!((g, &*t, dy), (f, "abcdefghij", 0.0));
+        assert_eq!(fit_in(f, "abcdefghij", (0.0, 0.0, 100.0, 30.0)), None);
+        // a little too wide: a pixel or two smaller, on one line, its middle kept
+        let t = fit_box(f, "abcdefghij", 90.0, 0.0).unwrap();
+        assert_eq!((t.font.px, t.lines.len()), (18.0, 1));
+        assert_eq!(fit_line(f, "abcdefghij", 90.0).2, 1.0);
+        // too wide even at the smallest size: onto two lines where the box is tall enough, at the size that holds them
+        let s = "aaaa bbbb cccc dddd";
+        let t = fit_box(f, s, 100.0, 60.0).unwrap();
+        assert_eq!((t.font.px, t.lines.clone()), (20.0, vec!["aaaa bbbb".to_string(), "cccc dddd".to_string()]));
+        // the lines in the box's middle, one line apart, inside it
+        let (_, lines) = fit_in(f, s, (10.0, 100.0, 100.0, 60.0)).unwrap();
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].2 >= 100.0 && lines[1].2 + 20.0 <= 160.0 && lines[1].2 - lines[0].2 == 25.0);
+        assert!(lines.iter().all(|l| l.1 == 60.0));
+        // no room for a second line: at the smallest size, cut with an ellipsis, never wider than the box
+        let t = fit_box(f, s, 100.0, 22.0).unwrap();
+        assert_eq!(t.font.px, (20.0 * FIT_MIN).ceil());
+        assert_eq!(t.lines.len(), 1);
+        assert!(t.lines[0].ends_with('\u{2026}') && t.font.width(&t.lines[0]) <= 100.0, "{:?}", t.lines);
+        // more words than lines: the last line kept says it was cut
+        let t = fit_box(f, "aaaa bbbb cccc dddd eeee ffff gggg", 100.0, 42.0).unwrap();
+        assert_eq!(t.lines.len(), 2);
+        assert!(t.lines[1].ends_with('\u{2026}') && t.lines.iter().all(|l| t.font.width(l) <= 100.0), "{:?}", t.lines);
+        // one word longer than the box is cut too
+        let t = fit_box(f, "abcdefghijklmnopqrstuvwxyz", 100.0, 80.0).unwrap();
+        assert!(t.lines.iter().all(|l| t.font.width(l) <= 100.0));
     }
 
     #[test]

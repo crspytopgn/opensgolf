@@ -177,7 +177,7 @@ impl App {
         // fonts (0x4546b0): the title in 0x821020 (Klepto 24) centred at (389, 61), the rest in 0x821ee8 (Manual SSi 14): the
         // headings with their tops at 96, "Comments" left at 182, the hole and frequency centred on 504 and 598
         use crate::ui::{F_INFO14, F_INFO_TITLE};
-        s.put_centered(g, F_INFO_TITLE, 389.0, 61.0, tr("STR_COMMENTS_TITLE"), black());
+        s.put_centered_fit(g, F_INFO_TITLE, 389.0, 61.0, crate::ui::TITLE_ROOM, tr("STR_COMMENTS_TITLE"), black());
         s.put(g, F_INFO14, 182.0, 96.0, tr("STR_COMMENTS_COMMENTS"), black());
         s.put_centered(g, F_INFO14, 504.0, 96.0, tr("STR_COMMENTS_HOLE"), black());
         s.put_centered(g, F_INFO14, 598.0, 96.0, tr("STR_COMMENTS_FREQUENCY"), black());
@@ -229,7 +229,7 @@ impl App {
         // fonts (0x455ed0): the title in 0x821020 (Klepto 24) centred at (375, 20); the legend and the scales in 0x821ee8
         // (Manual SSi 14), the legend centred with its top at 542
         use crate::ui::{F_INFO14, F_INFO_TITLE};
-        s.put_centered(g, F_INFO_TITLE, 375.0, 20.0, tr("STR_HISTOGRAPH_TITLE"), black());
+        s.put_centered_fit(g, F_INFO_TITLE, 375.0, 20.0, crate::ui::TITLE_ROOM, tr("STR_HISTOGRAPH_TITLE"), black());
         for (x, t) in [
             (177.0, tr("STR_HISTOGRAPH_SKILL")),
             (332.0, tr("STR_HISTOGRAPH_CASH")),
@@ -890,7 +890,7 @@ impl App {
         // fonts (0x44e770): the title in 0x821020 (Klepto 24) centred at (287, 28); the keys centred and the descriptions
         // left, in 0x821ee8 (Manual SSi 14), tops as listed
         use crate::ui::{F_INFO14, F_INFO_TITLE};
-        s.put_centered(g, F_INFO_TITLE, 287.0, 28.0, tr("STR_SHORTCUTS_TITLE"), black());
+        s.put_centered_fit(g, F_INFO_TITLE, 287.0, 28.0, crate::ui::TITLE_ROOM, tr("STR_SHORTCUTS_TITLE"), black());
         let ys = [0x51, 0x62, 0x73, 0x84, 0x95, 0xa6, 0xb7, 200, 0xd9, 0xea, 0xfb, 0x10c, 0x11d, 0x12e, 0x13f, 0x157];
         for (i, (k, d)) in SHORTCUTS.iter().enumerate() {
             let y = ys[i] as f32;
@@ -924,6 +924,14 @@ impl App {
         for (k, &old) in order.iter().enumerate() {
             new_of[old] = k + 1;
         }
+        // (Course A's holes: the Second course extra's Course B keeps its order, its tiles and its golfers, sg_core::second)
+        let mn = land::mn();
+        let of_b: Vec<usize> = match self.land.as_ref() {
+            Some(l) if self.club.course_b.is_some() => {
+                (0..l.flags.len()).filter(|&i| self.club.tile_course((l.flags[i] & 0x1f) as usize, i as i32 / mn, i as i32 % mn)).collect()
+            }
+            _ => Vec::new(),
+        };
         let old = self.club.holes.clone();
         for (k, &o) in order.iter().enumerate() {
             self.club.holes[k + 1] = old[o].clone();
@@ -932,13 +940,13 @@ impl App {
             for i in 0..l.flags.len() {
                 let t = l.ty[i];
                 let n = (l.flags[i] & 0x1f) as usize;
-                if (t == land::T_TEE || t == land::T_GREEN) && (1..=18).contains(&n) {
+                if (t == land::T_TEE || t == land::T_GREEN) && (1..=18).contains(&n) && !of_b.contains(&i) {
                     l.flags[i] = (l.flags[i] & !0x1f) | new_of[n] as u16;
                 }
             }
         }
         for g in self.club.g.iter_mut().take(sg_core::golfer::SLOTS) {
-            if (1..=18).contains(&g.hole) {
+            if (1..=18).contains(&g.hole) && !g.course_b {
                 g.hole = new_of[g.hole as usize] as i32;
             }
         }

@@ -431,7 +431,7 @@ impl App {
         // tract numbers in 0x821f28 (Manual SSi 16), the rest in 0x821ee8 (Manual SSi 14): the tract texts left at the box
         // plus (4, 2), "Cash Reserve" left at (548, 263) and the cash centred at (720, 264), both black
         use crate::ui::{F_INFO14, F_INFO16, F_INFO_TITLE};
-        s.put_centered(g, F_INFO_TITLE, 400.0, 16.0, tr("STR_TRACT_TITLE"), black_ink());
+        s.put_centered_fit(g, F_INFO_TITLE, 400.0, 16.0, crate::ui::TITLE_ROOM, tr("STR_TRACT_TITLE"), black_ink());
         for i in 0..9usize {
             let tract = self.tracts[i];
             let (col, row) = (i / 3, i % 3);

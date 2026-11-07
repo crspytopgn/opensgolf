@@ -182,6 +182,9 @@ pub struct Golfer {
     /// when set.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub left: bool,
+    /// The Second course extra (sg_core::second): the golfer plays Course B; saved only when set.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub course_b: bool,
 }
 
 impl Golfer {
@@ -498,6 +501,13 @@ pub struct Club {
     /// been bought since, so the Information menu's Buy land line opens the land screen; saved only while it waits.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub land_kept: bool,
+    /// The Second course extra (sg_core::second): Course B's hole records, saved only once Course B is started.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub course_b: Option<crate::second::SecondCourse>,
+    /// Course B's records are in `holes` and `next_hole` for the moment (sg_core::second, `Club::show_course`). Not saved:
+    /// Course A is always in place outside those moments.
+    #[serde(skip)]
+    pub(crate) b_shown: bool,
 }
 
 impl Default for Club {
@@ -513,15 +523,7 @@ impl Club {
     pub fn new(roster: Vec<Person>) -> Club {
         Club {
             g: vec![Golfer::default(); crate::holetool::TRIAL + 1],
-            holes: (0..HOLE_RECORDS)
-                .map(|_| Hole {
-                    hist: vec![0; 11 * 16],
-                    events: vec![0; 0x50],
-                    event_args: vec![0; 0x50],
-                    markers: [(-1, -1); 3],
-                    ..Default::default()
-                })
-                .collect(),
+            holes: crate::second::blank_holes(),
             next_hole: 1,
             members: vec![Member::default(); crate::roster::PEOPLE],
             roster,
@@ -611,6 +613,8 @@ impl Club {
             lamps: Vec::new(),
             visits: Default::default(),
             land_kept: false,
+            course_b: None,
+            b_shown: false,
         }
     }
 
@@ -1244,6 +1248,19 @@ impl Club {
         }
     }
 
+    /// The Second course extra (sg_core::second): the pair just sent to the first tee plays Course B, unless one of them is
+    /// a special visitor or the player's pro, who play Course A.
+    fn send_to_b(&mut self, u: usize) {
+        let v = u ^ 1;
+        if [u, v].iter().any(|&s| self.g[s].kind != 0 || self.g[s].flags & flag::GARY != 0) {
+            return;
+        }
+        for s in [u, v] {
+            self.g[s].course_b = true;
+            self.g[s].facing = self.course_holes(true).get(1).map_or(self.g[s].facing, |r| r.tee_facing);
+        }
+    }
+
     /// The pairing routine (0x45de80) for owner-to-be p1 and p2: a story, a possible visitor in p2's place, both moods from
     /// the pair's compatibility, the story kept only by chance once many have ended happily, the pair relationship.
     pub(crate) fn pair_setup(&mut self, rng: &mut ExeRng, p1: usize, p2: usize) {
@@ -1299,6 +1316,9 @@ impl Club {
         let mut waiting_pair: i32 = -1;
         let mut on_hole1 = 0;
         let mut can_tee = self.holes[1].par != 0;
+        // the Second course extra (sg_core::second): Course B's first tee, free while nobody on B1 has yet to tee off
+        let second = self.extras.second_course && self.course_b.as_ref().is_some_and(|b| b.holes.get(1).is_some_and(|r| r.par != 0));
+        let mut can_tee_b = second;
         for k in 0..SLOTS as i32 {
             let s = (self.last_created + SLOTS as i32 - k).rem_euclid(SLOTS as i32) as usize;
             if self.g[s].hole == -1 {
@@ -1310,7 +1330,11 @@ impl Club {
             if self.g[s].hole == 1 {
                 on_hole1 += 1;
                 if self.g[s].strokes == 0 {
-                    can_tee = false;
+                    if self.g[s].course_b {
+                        can_tee_b = false;
+                    } else {
+                        can_tee = false;
+                    }
                     queue += 1;
                 }
             }
@@ -1322,7 +1346,27 @@ impl Club {
         // Weather that matters: nobody tees off while a storm holds play
         let storm = self.today.is_some_and(|t| t.storm);
         if !tournament && on_hole1 == 0 && can_tee && waiting_pair != -1 && self.g[waiting_pair as usize ^ 1].hole == -1 && !storm {
+            // with a Course B open, a pair goes there instead when it has fewer golfers on it
+            let to_b = can_tee_b && {
+                let (a, b) = self.golfers_per_course();
+                b < a
+            };
             self.start_pair(c, rng, waiting_pair as usize);
+            if to_b {
+                self.send_to_b(waiting_pair as usize);
+            }
+        } else if second
+            && can_tee_b
+            && !tournament
+            && on_hole1 == 0
+            && waiting_pair != -1
+            && self.g[waiting_pair as usize ^ 1].hole == -1
+            && !storm
+            && self.holes[1].par != 0
+        {
+            // Course A's first tee is taken, Course B's is free
+            self.start_pair(c, rng, waiting_pair as usize);
+            self.send_to_b(waiting_pair as usize);
         }
         // the More visitors extra (sg_core::visitors): a celebrity's crowd arrives on top
         let crowd = self.visitor_crowd(false);
@@ -1494,7 +1538,8 @@ impl Club {
                 all = false;
             }
         }
-        if all {
+        // the Best Scores and the course record are Course A's (the Second course extra, sg_core::second)
+        if all && !self.b_shown {
             if let Some(i) = (0..10).find(|&i| self.top_rounds[i] == 0 || total < self.top_rounds[i]) {
                 for j in (i + 1..10).rev() {
                     self.top_rounds[j] = self.top_rounds[j - 1];
@@ -1612,6 +1657,8 @@ impl Club {
 
     /// One game tick for the golfers: arrivals, the animation pass of the drawing routine, then every golfer's update.
     pub fn tick(&mut self, c: &mut Course, rng: &mut ExeRng, tick: u32) {
+        // Course A's records in place (the Second course extra, sg_core::second; nothing to do without a Course B)
+        self.show_course(false);
         self.tick = tick;
         // the Weather that matters extra (the port's own): this tick's weather, the morning's forecast, a storm
         if self.extras.weather || self.today.is_some() {
@@ -1628,8 +1675,16 @@ impl Club {
         // the Freeze golfer happiness extra (the port's own): whatever lowered a mood this tick is undone (a pair's mood
         // set at the first tee from its compatibility, in `arrivals` above, is its starting mood)
         let moods: Option<Vec<i32>> = self.extras.freeze_moods.then(|| self.g.iter().take(SLOTS).map(|g| g.mood).collect());
+        // the Second course extra (sg_core::second): a golfer on Course B is updated with Course B's records in place
         for g in 0..SLOTS {
+            let b = self.g[g].course_b && self.course_b.is_some();
+            if b {
+                self.show_course(true);
+            }
             self.update(c, rng, g);
+            if b {
+                self.show_course(false);
+            }
         }
         if let Some(m) = moods {
             for (g, &before) in self.g.iter_mut().take(SLOTS).zip(m.iter()) {
@@ -1837,7 +1892,7 @@ impl Club {
             _ => (tr("STR_MSG_QUIT_DISGUST").to_string(), ("STR_MSG_QUIT_AFTER_HOLE", "STR_MSG_QUIT_AFTER_ROUND")),
         };
         let h = self.g[g].hole;
-        let at = if h < 19 { trf(word.0, &[("HOLE", &h)]) } else { tr(word.1).to_string() };
+        let at = if h < 19 { trf(word.0, &[("HOLE", &self.hole_label(h))]) } else { tr(word.1).to_string() };
         let name = self.name(g);
         // one ticker message, the resignation appended, said by the golfer; the exe frees the ticker first (0x40cb00 with
         // priority 0 right after clearing its busy flag), so it always shows
@@ -1908,7 +1963,14 @@ impl Club {
             if self.g[g].strokes == 0 {
                 for o in 0..SLOTS {
                     let og = &self.g[o];
-                    if og.hole > 0 && o != g && og.hole == h && og.strokes == 0 && og.tee_order <= self.g[g].tee_order && o != p {
+                    if og.hole > 0
+                        && o != g
+                        && og.hole == h
+                        && og.strokes == 0
+                        && og.tee_order <= self.g[g].tee_order
+                        && o != p
+                        && self.same_course(o, g)
+                    {
                         if (g as i32 == self.gary || p as i32 == self.gary) && self.game & game::REPEAT == 0 {
                             self.round_end(rng, o);
                             self.round_end(rng, o ^ 1);
@@ -2442,6 +2504,7 @@ impl Club {
                     if og.hole <= me.hole
                         && og.tee_order <= me.tee_order
                         && (ou != p || (me.facing == pg.facing && pg.anim != anim::STAND && (ou != p || yield_)))
+                        && og.course_b == me.course_b
                     {
                         if og.hole == me.hole && og.strokes == 0 {
                             ahead += 1;
@@ -2864,6 +2927,7 @@ impl Club {
                 for o in 0..SLOTS {
                     let og = &self.g[o];
                     if !(og.hole == me.hole
+                        && og.course_b == me.course_b
                         && og.tee_order <= me.tee_order
                         && o != p
                         && o != g
@@ -3258,11 +3322,13 @@ impl Club {
             }
             if self.g[g].vz > 200 {
                 let my = self.g[g].hole;
+                let mine_b = self.g[g].course_b;
                 let (bx, by) = (self.g[g].bx, self.g[g].by);
                 let r = ((self.difficulty + 2) * 0x400) / 2;
                 for o in 0..SLOTS {
                     let og = &self.g[o];
-                    if og.hole != 0 && og.bx != 0 && og.hole != my && og.hole != 19 && len(bx - og.x, by - og.y) < r {
+                    let other = og.hole != my || og.course_b != mine_b;
+                    if og.hole != 0 && og.bx != 0 && other && og.hole != 19 && len(bx - og.x, by - og.y) < r {
                         self.event(c, rng, o, 9, 0x14);
                     }
                 }

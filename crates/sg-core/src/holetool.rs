@@ -60,8 +60,10 @@ impl Club {
                     go = false;
                 } else if cup {
                     let k = (old_flags & f::LOW) as usize;
-                    self.holes[k].close();
-                    self.holes[k].pin.0 = 0;
+                    self.on_tile_course(k, a, b, |cl| {
+                        cl.holes[k].close();
+                        cl.holes[k].pin.0 = 0;
+                    });
                 }
                 self.holes[hu].back = (a, b);
                 c.flags[i] = h as u16;
@@ -76,14 +78,16 @@ impl Club {
                 } else {
                     go = false;
                 }
-                self.message(trf("STR_MSG_HOLE_HAS_TEE", &[("HOLE", &h)]));
+                self.message(trf("STR_MSG_HOLE_HAS_TEE", &[("HOLE", &self.hole_label(h))]));
             }
         } else if new == t::GREEN {
             if self.holes[hu].pin.0 == 0 && a != 0 && (!green_next || self.holes[hu].back.0 != 0) {
                 if old == t::TEE {
                     let k = (c.flags[i] & f::LOW) as usize;
-                    self.holes[k].close();
-                    self.holes[k].back.0 = 0;
+                    self.on_tile_course(k, a, b, |cl| {
+                        cl.holes[k].close();
+                        cl.holes[k].back.0 = 0;
+                    });
                 } else if cup {
                     return false;
                 }
@@ -105,41 +109,59 @@ impl Club {
         let k = (old_flags & f::LOW) as i32;
         if k != 0 {
             let ku = k as usize;
-            if old == t::TEE {
-                self.next_hole = self.next_hole.min(k);
-                let fwd = self.holes[ku].fwd;
-                if (a, b) != fwd {
-                    self.holes[ku].back.0 = 0;
-                } else {
-                    self.holes[ku].fwd.0 = 0;
-                    if !self.two_tees() {
-                        self.holes[ku].back.0 = 0;
+            // (the hole of the course the tile belongs to: sg_core::second; Course A's without a Course B)
+            self.on_tile_course(ku, a, b, |cl| {
+                if old == t::TEE {
+                    cl.next_hole = cl.next_hole.min(k);
+                    let fwd = cl.holes[ku].fwd;
+                    if (a, b) != fwd {
+                        cl.holes[ku].back.0 = 0;
+                    } else {
+                        cl.holes[ku].fwd.0 = 0;
+                        if !cl.two_tees() {
+                            cl.holes[ku].back.0 = 0;
+                        }
+                    }
+                    cl.holes[ku].close();
+                    if !(new == t::GREEN && c.flags[i] & f::CUP != 0) {
+                        c.flags[i] &= !f::LOW;
+                    }
+                } else if old == t::GREEN {
+                    cl.next_hole = cl.next_hole.min(k);
+                    cl.holes[ku].close();
+                    cl.holes[ku].pin.0 = 0;
+                    if new != t::TEE {
+                        c.flags[i] &= !f::LOW;
                     }
                 }
-                self.holes[ku].close();
-                if !(new == t::GREEN && c.flags[i] & f::CUP != 0) {
-                    c.flags[i] &= !f::LOW;
-                }
-            } else if old == t::GREEN {
-                self.next_hole = self.next_hole.min(k);
-                self.holes[ku].close();
-                self.holes[ku].pin.0 = 0;
-                if new != t::TEE {
-                    c.flags[i] &= !f::LOW;
-                }
-            }
+            });
         }
         true
+    }
+
+    /// Runs `f` with the course that tee or cup tile (a, b), numbered `k`, belongs to shown (sg_core::second): Course A's
+    /// records stay in place without a Course B, as in the original.
+    fn on_tile_course(&mut self, k: usize, a: i32, b: i32, f: impl FnOnce(&mut Club)) {
+        if self.course_b.is_none() {
+            return f(self);
+        }
+        let owner = self.tile_course(k, a, b);
+        self.on_course(owner, f)
     }
 
     /// Whether the hole being built has what [`Self::open_hole`] needs: a tee and a green (and the forward tee in two-tee
     /// games) on a hole number from 1 to 18.
     pub fn can_open_hole(&self) -> bool {
-        let h = self.next_hole;
+        self.can_open_course_hole(self.b_shown())
+    }
+
+    /// `can_open_hole` for Course B (`b`) or Course A, whichever is shown (the Second course extra, sg_core::second).
+    pub fn can_open_course_hole(&self, b: bool) -> bool {
+        let h = self.course_next_hole(b);
         if !(1..19).contains(&h) {
             return false;
         }
-        let hr = &self.holes[h as usize];
+        let Some(hr) = self.course_holes(b).get(h as usize) else { return false };
         hr.back.0 != 0 && hr.pin.0 != 0 && (!self.two_tees() || hr.fwd.0 != 0)
     }
 
@@ -153,8 +175,13 @@ impl Club {
         }
         let h = self.next_hole;
         let hu = h as usize;
-        self.top_rounds = [0; 10];
-        self.top_names = Default::default();
+        // Course B's holes (the Second course extra, sg_core::second) leave Course A's Best Scores, unlocks, rank, event log
+        // and accomplishments alone
+        let b = self.b_shown;
+        if !b {
+            self.top_rounds = [0; 10];
+            self.top_names = Default::default();
+        }
         self.out.push(Event::Sound { slot: OPENED, at: None, delay: 0 });
         let level10 = c.level[10];
         let hr = &mut self.holes[hu];
@@ -206,7 +233,7 @@ impl Club {
         }
         let par = hr.par;
         let len = hr.length;
-        if h == 1 {
+        if h == 1 && !b {
             let home = self.holes[19].back;
             self.first_post = Some(((home.0 + back.0 * 2) / 3, (home.1 + back.1 * 2) / 3));
         }
@@ -214,12 +241,17 @@ impl Club {
         while (self.next_hole as usize) < 19 && self.holes[self.next_hole as usize].par != 0 {
             self.next_hole += 1;
         }
-        let mut msg = opening_text(h, par, len, eff, self.holes[hu].flags);
+        let mut msg = opening_text_for(&self.hole_label(h), par, len, eff, self.holes[hu].flags);
         let unlocked = self.unlocked;
-        msg += &self.unlock_text(h);
+        if !b {
+            msg += &self.unlock_text(h);
+        }
         // a building unlocked with this hole speaks with its picture (minus its kind), otherwise nobody (0x40e720)
         let speaker = if self.unlocked != unlocked { -unlocked } else { -1 };
         self.message_by(msg, speaker, 1);
+        if b {
+            return Some(hu);
+        }
         self.log_event(crate::records::log::HOLE, h);
         let fl = self.holes[hu].flags;
         let pin = self.holes[hu].pin;
@@ -422,6 +454,11 @@ impl Club {
 /// yards (par 4 under 350, par 5 under 500) is short, one over 200 (425, 575) long; the dogleg and slope come from the
 /// hole's flags.
 pub fn opening_text(h: i32, par: i32, len: i32, eff: i32, flags: u32) -> String {
+    opening_text_for(&h.to_string(), par, len, eff, flags)
+}
+
+/// `opening_text` with the hole as the message names it ("3", or "B3" on the Second course extra's Course B).
+pub fn opening_text_for(h: &str, par: i32, len: i32, eff: i32, flags: u32) -> String {
     let size = match par {
         3 if eff < 125 => tr("STR_HOLE_OPEN_SHORT"),
         3 if eff > 200 => tr("STR_HOLE_OPEN_LONG"),

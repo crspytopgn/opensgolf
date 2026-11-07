@@ -575,6 +575,9 @@ pub struct App {
     /// The terrain came from outside the hole tool (demo course, saved terrain, scripted edits): its painted tee and green
     /// pairs become holes at the next course sync.
     pub adopt_holes: bool,
+    /// The Second course extra (sg_core::second): the hole panel's A/B switch is on Course B, so the hole tools and the hole
+    /// reports work on it (`App::hole_b`). Not saved: a loaded game starts on Course A.
+    pub hole_b_view: bool,
     /// What the plan of the hole being built was last made on (`plan_inputs`): a course sync plans the hole again only when
     /// that changed, as the exe plans it again only after its terrain refresh 0x42f7a0 clears game flag 0x40000 (0x42f929),
     /// which neither the Course Report (0x44fb30) nor the instant shot analysis (0x41d0e3..0x41d8f3) runs. Not saved: a load
@@ -989,6 +992,7 @@ impl App {
             course: Course::default(),
             hole_numbers: Vec::new(),
             adopt_holes: true,
+            hole_b_view: false,
             plan_made_on: None,
             sim_time: 0.0,
             golfer_clips: HashMap::new(),
@@ -2000,9 +2004,10 @@ impl App {
                 if self.terrain.ty[o] != sg_core::terrain::TT_TEE {
                     continue;
                 }
-                let r = &self.club.holes[h];
+                // (the record of the course the tee belongs to: sg_core::second)
+                let Some(r) = self.club.course_holes(self.club.tile_course(h, a, b)).get(h) else { continue };
                 // a forward or middle tee (the Multiple tees extra, tees.rs) points toward its hole's cup
-                let facing = self.extra_tee_facing(h, (a, b)).unwrap_or(r.tee_facing);
+                let facing = r.extra_tee_facing((a, b)).unwrap_or(r.tee_facing);
                 let v = sg_core::decor::tee_arrow(r.par, facing, r.flags, camera);
                 if self.terrain.variation[o] != v {
                     self.terrain.variation[o] = v;
@@ -2346,14 +2351,21 @@ impl App {
         for f in self.course.flags.iter_mut() {
             *f &= !(sg_core::course::f::CUP | if *f & sg_core::course::f::FOOTPRINT == 0 { sg_core::course::f::LOW } else { 0 });
         }
-        // the hole numbers on tees and cup greens, from the golfers' hole records
-        for h in 1..19 {
-            let rec = &self.club.holes[h];
-            for (k, (a, b)) in [rec.back, rec.fwd, rec.pin].into_iter().enumerate() {
-                if a != 0 && sg_core::course::inside(a, b) {
-                    let i = sg_core::course::idx(a, b);
-                    let cup = if k == 2 { sg_core::course::f::CUP } else { 0 };
-                    self.course.flags[i] = (self.course.flags[i] & !0x1f) | cup | h as u16;
+        // the hole numbers on tees and cup greens, from the golfers' hole records (Course B's too, numbered 1 to 18 as
+        // well: sg_core::second)
+        self.club.show_course(false);
+        for b in [false, true] {
+            if b && self.club.course_b.is_none() {
+                break;
+            }
+            for h in 1..19 {
+                let Some(rec) = self.club.course_holes(b).get(h) else { continue };
+                for (k, (a, b)) in [rec.back, rec.fwd, rec.pin].into_iter().enumerate() {
+                    if a != 0 && sg_core::course::inside(a, b) {
+                        let i = sg_core::course::idx(a, b);
+                        let cup = if k == 2 { sg_core::course::f::CUP } else { 0 };
+                        self.course.flags[i] = (self.course.flags[i] & !0x1f) | cup | h as u16;
+                    }
                 }
             }
         }
@@ -2370,10 +2382,11 @@ impl App {
         }
         // every terrain change plans the hole being built again; a sync with nothing changed (a redraw, the Course Report, the
         // shot analysis) keeps the plan (see `plan_made_on`)
+        // (the hole being built on the course the hole panel's A/B switch shows: sg_core::second)
         let inputs = self.plan_inputs();
         if self.plan_made_on != Some(inputs) {
             self.club.game &= !golf::game::LAYOUT;
-            self.club.layout(&mut self.course, &mut self.exe_rng);
+            self.on_hole_course(|a| a.club.layout(&mut a.course, &mut a.exe_rng));
             self.plan_made_on = Some(inputs);
         }
         self.rebuild_hole_routes();
@@ -2393,10 +2406,50 @@ impl App {
         for o in &c.objects {
             h.u64(sg_core::fingerprint::hash(&(o.kind, o.a, o.b, o.dir)));
         }
-        let n = self.club.next_hole;
-        let r = &self.club.holes[n.clamp(0, 19) as usize];
+        let b = self.hole_b();
+        let n = self.club.course_next_hole(b);
+        let r = &self.club.course_holes(b)[n.clamp(0, 19) as usize];
         h.u64(sg_core::fingerprint::hash(&(n, r.back, r.fwd, r.pin, self.club.game & golf::game::TWO_TEES)));
+        if b {
+            h.u64(1);
+        }
         h.finish()
+    }
+
+    /// The Second course extra (sg_core::second): the hole panel's A/B switch is on Course B and there is one.
+    pub fn hole_b(&self) -> bool {
+        self.hole_b_view && self.club.course_b.is_some() && self.club.extras.second_course
+    }
+
+    /// Runs `f` with the course the hole panel's A/B switch shows in the club's hole records (Course A's, as always,
+    /// without the Second course extra), then puts back what was there.
+    pub fn on_hole_course<R>(&mut self, f: impl FnOnce(&mut App) -> R) -> R {
+        let was = self.club.b_shown();
+        let b = self.hole_b();
+        self.club.show_course(b);
+        let r = f(self);
+        self.club.show_course(was);
+        r
+    }
+
+    /// Hole `h` of Course B (`b`) or Course A as the screens name it: "B3", or the number as the original has it.
+    pub fn hole_text(&self, b: bool, h: i32) -> String {
+        if b {
+            trf("STR_COURSE_B_HOLE", &[("HOLE", &h)])
+        } else {
+            h.to_string()
+        }
+    }
+
+    /// The A/B switch (the Second course extra): flips between Course A and Course B, starting Course B the first time.
+    pub fn toggle_hole_course(&mut self) {
+        if !self.hole_b_view && !self.club.start_course_b() {
+            return;
+        }
+        self.hole_b_view = !self.hole_b_view;
+        self.show_toast(tr(if self.hole_b() { "STR_TOAST_COURSE_B" } else { "STR_TOAST_COURSE_A" }));
+        self.dirty = true;
+        self.sync_course();
     }
 
     /// The numbers of the open holes, from the golfers' hole records.
@@ -2447,13 +2500,15 @@ impl App {
     /// green; its par comes from its length.
     pub fn open_hole(&mut self) -> bool {
         self.sync_course();
-        let Some(h) = self.club.open_hole(&mut self.course) else { return false };
+        let Some(h) = self.on_hole_course(|a| a.club.open_hole(&mut a.course)) else { return false };
         if let Some(post) = self.club.first_post.take() {
             if let Some(e) = self.employees.first_mut().filter(|e| e.active) {
                 e.post = Some(post);
             }
         }
-        println!("hole {h} open: par {}, length {}", self.club.holes[h].par, self.club.holes[h].length);
+        let rec = &self.club.course_holes(self.hole_b())[h];
+        let label = if self.hole_b() { "B" } else { "" };
+        println!("hole {label}{h} open: par {}, length {}", rec.par, rec.length);
         self.sync_course();
         true
     }
@@ -2588,7 +2643,7 @@ impl App {
         self.club.homesite_demand = self.club.ratings.waitlist;
         if tick.is_multiple_of(1024 / (self.difficulty.clamp(0, 3) as u32 + 2)) {
             // hole maintenance (+0x1f8): one unit per open hole each charge interval
-            for h in self.club.holes.iter_mut() {
+            for h in self.club.holes.iter_mut().chain(self.club.course_b.iter_mut().flat_map(|b| b.holes.iter_mut())) {
                 if h.par != 0 {
                     h.maint += 1;
                 }
@@ -2736,6 +2791,8 @@ impl App {
                         self.post_message(&text, if priority < 0 { priority } else { 1 }, speaker);
                     }
                 }
+                // a hole of Course B (sg_core::second) counts in the takings, not in Course A's hole figures and graphs
+                golf::Event::HoleDone { g, .. } if self.club.g.get(g).is_some_and(|gg| gg.course_b) => {}
                 golf::Event::HoleDone { g, hole, strokes, mood, fee } => {
                     self.script_hole_done(g, hole, strokes);
                     if crate::extras::graphs() {
@@ -3269,6 +3326,7 @@ impl App {
             }
         }
         self.adopt_holes = false;
+        self.hole_b_view = false;
         match g.as_deref_mut() {
             Some(g) if keep_art && s.theme == self.theme => {
                 self.rebuild_batches(g);
@@ -3515,12 +3573,14 @@ impl App {
             let mut extra_hole = None;
             if new == 0 && extra_tee != sg_core::extras::Tee::Back {
                 // a forward or middle tee of the hole it is in front of
-                match self.club.place_extra_tee(&mut self.course, extra_tee, x, y, old) {
+                // (on the course the A/B switch shows: sg_core::second)
+                match self.on_hole_course(|a| a.club.place_extra_tee(&mut a.course, extra_tee, x, y, old)) {
                     Ok(h) => {
                         extra_hole = Some(h);
-                        let yards = self.yards_to_cup(h, (x, y));
-                        let tee = tr(extra_tee.key());
-                        tee_said = Some(trf("STR_TOAST_TEE_PLACED", &[("HOLE", &h), ("TEE", &tee), ("YARDS", &yards)]));
+                        let course_b = self.hole_b();
+                        let yards = self.yards_to_cup(course_b, h, (x, y));
+                        let (hole, tee) = (self.hole_text(course_b, h as i32), tr(extra_tee.key()));
+                        tee_said = Some(trf("STR_TOAST_TEE_PLACED", &[("HOLE", &hole), ("TEE", &tee), ("YARDS", &yards)]));
                     }
                     Err(e) => {
                         // a tee placed in the same stroke says so rather than the refusals of the brush's other tiles
@@ -3533,7 +3593,7 @@ impl App {
                 }
             } else if old <= 1 || new <= 1 {
                 let green_next = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|&(ex, ey)| self.green_joins(x + ex, y + ey));
-                if !self.club.paint_hole_tile(&mut self.course, x, y, old, new, green_next) {
+                if !self.on_hole_course(|a| a.club.paint_hole_tile(&mut a.course, x, y, old, new, green_next)) {
                     // the hole being built has its tee: with the extra on, Tab is how to add another to a hole
                     if new == 0 && self.club.extras.tees && tee_said.is_none() {
                         tee_said = Some(tr("STR_TOAST_TEE_TAB").to_string());
@@ -3565,9 +3625,11 @@ impl App {
             let cash = self.econ.cash;
             self.econ.spend_to(economy::LEDGER_BUILD_COURSE, cost as f64 * Economy::UNIT);
             self.float_change(cash, (x, y));
-            let hb = extra_hole.unwrap_or(self.club.next_hole as usize).min(18);
+            let hb = extra_hole.unwrap_or(self.club.course_next_hole(self.hole_b()) as usize).min(18);
             if !self.econ.free {
-                self.club.holes[hb].build_cost += cost;
+                if let Some(h) = self.club.course_hole_mut(self.hole_b(), hb) {
+                    h.build_cost += cost;
+                }
             }
             if old > 1 {
                 if let Some(l) = self.land.as_mut() {
@@ -3976,7 +4038,7 @@ impl App {
             // taking a tee or a green away goes through the hole tool's bookkeeping, as painting over it does: the hole it
             // belonged to is out of play (par 0) until it is rebuilt
             let green_next = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().any(|&(ex, ey)| self.green_joins(x + ex, y + ey));
-            self.club.paint_hole_tile(&mut self.course, x, y, old, new, green_next);
+            self.on_hole_course(|a| a.club.paint_hole_tile(&mut a.course, x, y, old, new, green_next));
         }
         let Some(land) = self.land.as_mut() else { return };
         match undone {
@@ -4580,7 +4642,8 @@ impl App {
                 economy::Payroll { kind: (-2 - e.job as i32).clamp(0, 3) as usize, experienced: e.upgraded }
             })
             .collect();
-        let holes = self.hole_numbers.len();
+        // (Course B's open holes are kept up too: sg_core::second)
+        let holes = self.hole_numbers.len() + self.club.course_b_open();
         let paid = self.econ.on_tick_dated(self.game_tick, &self.club.cal, self.difficulty, holes, &payroll, &mut self.exe_rng);
         if self.club.cal.new_year(self.game_tick) {
             // the year's debt lines for the year-end report (none when the cash is not negative)
@@ -5154,8 +5217,12 @@ impl App {
         if self.moving_employee.is_none() && sg_core::course::inside(t.0, t.1) {
             let fl = self.course.flags[sg_core::course::idx(t.0, t.1)];
             let h = (fl & 0x1f) as usize;
-            if fl & sg_core::course::f::CUP != 0 && h > 0 && h < 19 && self.club.holes[h].par == 0 {
-                self.open_hole();
+            // (on the course the tile belongs to: sg_core::second)
+            let b = self.club.tile_course(h, t.0, t.1);
+            if fl & sg_core::course::f::CUP != 0 && h > 0 && h < 19 && self.club.course_holes(b).get(h).is_some_and(|r| r.par == 0) {
+                if b == self.hole_b() {
+                    self.open_hole();
+                }
                 return;
             }
         }
