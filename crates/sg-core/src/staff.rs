@@ -64,7 +64,7 @@ pub struct Employee {
 }
 
 /// What the staff code needs to know about, and may change on, a golfer.
-#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StaffGolfer {
     /// On the course and playing.
     pub present: bool,

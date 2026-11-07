@@ -179,8 +179,9 @@ impl App {
                 // 0x63) see-through, view 1 whatever the camera, its frame from the game tick, anchored 4 pixels left of the
                 // tile's centre at every zoom; painted at once (0x4628d0) after the sprite queue was drawn (0x463100), so over
                 // every sprite, as this pass is
-                let h = self.club.next_hole;
-                if !(1..19).contains(&h) || self.club.holes[h as usize].pin.0 != 0 {
+                let hb = self.hole_b();
+                let h = self.club.course_next_hole(hb);
+                if !(1..19).contains(&h) || self.club.course_holes(hb)[h as usize].pin.0 != 0 {
                     return;
                 }
                 let (body, _) = self.decor_sprite(0x189 + self.exe_theme().min(3) as u16, 0x63);
@@ -425,7 +426,33 @@ impl App {
         if ty == 1 && v & 1 != 0 {
             top_text(g, s, sx + 4.0, sy - 16.0, tr("STR_CURSOR_TRICKY_GREEN"), SMALL, c15(WHITE));
         }
-        self.draw_hole_reach(g, s, ty, a, b, (sx, sy));
+        if ty == 0 && self.tee_tool() != sg_core::extras::Tee::Back {
+            self.draw_extra_tee_reach(g, s, a, b, (sx, sy));
+        } else {
+            self.draw_hole_reach(g, s, ty, a, b, (sx, sy));
+        }
+    }
+
+    /// The Tees tool stepped to a forward or middle tee (the Multiple tees extra, tees.rs): the tee's name by the pointer,
+    /// and where it may go the hole it would belong to, with the line from that hole's cup to the pointer and the yards,
+    /// drawn as the tee tool's line from a green.
+    fn draw_extra_tee_reach(&self, g: &mut Gfx, s: &Ui, a: i32, b: i32, (sx, sy): (f32, f32)) {
+        let t = self.tee_tool();
+        let old = if sg_core::course::inside(a, b) { self.course.ty[sg_core::course::idx(a, b)] } else { sg_core::course::t::OUT };
+        // (on the course the A/B switch shows: sg_core::second)
+        let course_b = self.hole_b();
+        let Ok(h) = self.club.extra_tee_check_on(course_b, &self.course, t, a, b, old) else {
+            top_text(g, s, sx + 4.0, sy - 16.0, tr(t.key()), SMALL, c15(WHITE));
+            return;
+        };
+        let label = trf("STR_CURSOR_EXTRA_TEE", &[("TEE", &tr(t.key())), ("HOLE", &self.hole_text(course_b, h as i32))]);
+        top_text(g, s, sx + 4.0, sy - 16.0, &label, SMALL, c15(WHITE));
+        let pin = self.club.course_holes(course_b)[h].pin;
+        let Some((fx, fy)) = self.tile_on_screen(pin.0, pin.1) else { return };
+        s.line(g, fx, fy, sx, sy, 2.0, line_rgba(WHITE as u32, 7));
+        let yards = self.yards_to_cup(course_b, h, (a, b));
+        let (mx, my) = (((fx as i32 + sx as i32) / 2) as f32, ((fy as i32 + sy as i32) / 2) as f32);
+        top_text(g, s, mx, my, &trf("STR_CURSOR_YARDS", &[("YARDS", &yards)]), SMALL, c15(WHITE));
     }
 
     /// The length of the hole being built (0x41aedd): with the green brush while the hole has its tee and no green, a white
@@ -434,11 +461,12 @@ impl App {
     /// no tee. Nothing is drawn while the far end is off the screen (0x42f940). The line call's last argument, 7, is its alpha
     /// in tenths (Terrain.dll's drawLine); the font is taken as the small one the brush code selects just before (0x519fd8).
     fn draw_hole_reach(&self, g: &mut Gfx, s: &Ui, ty: i32, a: i32, b: i32, (sx, sy): (f32, f32)) {
-        let h = self.club.next_hole;
+        let hb = self.hole_b();
+        let h = self.club.course_next_hole(hb);
         if !(0..2).contains(&ty) || !(1..19).contains(&h) {
             return;
         }
-        let rec = &self.club.holes[h as usize];
+        let rec = &self.club.course_holes(hb)[h as usize];
         let from = match ty {
             1 if rec.pin.0 == 0 && rec.back.0 != 0 => rec.back,
             0 if rec.back.0 == 0 && rec.pin.0 != 0 => rec.pin,

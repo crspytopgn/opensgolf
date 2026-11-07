@@ -76,19 +76,29 @@ impl App {
     /// Each home site's resident, as the exe's main view labels it (0x415c32..0x415ebc): at the closest zoom, over every
     /// occupied lot on the screen, "<name>'s" and "Home" under it, in pink (0x7e9f) Manual SSi 15 with the shadowed centred
     /// call (0x404bc0), centred on the lot; each lot's label shows for 16 of every 64 game ticks, staggered by its record
-    /// (`(13 * record + tick) & 0x30 == 0`), so the names take turns (#141).
+    /// (`(13 * record + tick) & 0x30 == 0`), so the names take turns (#141). With the home names on hover extra (extras.rs;
+    /// the port's own, #160) only the lot under the pointer is labelled, for as long as the pointer stays on it.
     pub fn draw_home_labels(&self, g: &mut Gfx, s: &Ui) {
         let exe_zoom = self.zoom * 4.0 / 0.905;
         if exe_zoom.round() < 4.0 || self.screen != Screen::Play {
             return;
         }
         let Some(l) = self.land.as_ref() else { return };
+        let hover = crate::extras::home_labels_hover();
         for (slot, o) in l.objects.iter().enumerate() {
-            if o.kind != land::K_HOME_SITE || o.sub <= 0 || (13 * slot as u32).wrapping_add(self.game_tick) & 0x30 != 0 {
+            if o.kind != land::K_HOME_SITE || o.sub <= 0 {
+                continue;
+            }
+            let size = l.footprint_size(o);
+            let shown = if hover {
+                self.hover_tile.is_some_and(|(x, y)| (o.a..o.a + size.max(1)).contains(&x) && (o.b..o.b + size.max(1)).contains(&y))
+            } else {
+                (13 * slot as u32).wrapping_add(self.game_tick) & 0x30 == 0
+            };
+            if !shown {
                 continue;
             }
             let Some(c) = self.club.celebrities.get((o.sub - 1) as usize) else { continue };
-            let size = l.footprint_size(o);
             let Some((x, y)) = self.screen_of(o.a * 1024 + size * 512, o.b * 1024 + size * 512) else { continue };
             let (x, y) = (x.floor(), y.floor());
             let pink = c15(0x7e9f);

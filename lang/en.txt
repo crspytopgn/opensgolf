@@ -1454,6 +1454,32 @@ STR_EXTRAS_NO_WEEDS                     : Sandbox: no new dandelions
 STR_EXTRAS_KEEP_LAND                    : Keep the land offer: buy land when you like
 STR_MENU_INFO_BUY_LAND                  : Buy land (approved)
 STR_TOAST_LAND_KEPT                     :The commissioner's approval is kept: buy land whenever you like from the Information menu.
+# Second course (sg_core::second): Course B, 18 more holes once Course A's 18 are open
+STR_EXTRAS_SECOND_COURSE                : Second course: 18 more holes
+STR_EXTRAS_DESC_SECOND_COURSE           :Once your 18 holes are open, build a Course B of 18 more on the same land. The A/B switch above the Build Course panel picks the course to build and report on.
+STR_COURSE_B_HOLE                       :B{HOLE}
+STR_COURSE_SWITCH_A                     :Course A
+STR_COURSE_SWITCH_B                     :Course B
+STR_COURSE_SWITCH_TIP                   :Which course the hole tools and hole reports work on
+STR_COURSE_B_TITLE                      :{TITLE} - COURSE B
+STR_TOAST_COURSE_A                      :The hole tools now work on Course A.
+STR_TOAST_COURSE_B                      :The hole tools now work on Course B, holes B1 to B18.
+# Multiple tees (sg_core::extras): forward and middle tees, placed with the Tees tool after Tab
+STR_EXTRAS_TEES                         : Multiple tees: forward and middle tees
+STR_EXTRAS_DESC_TEES                    :Tab with the Tees tool places a forward or middle tee in front of a hole's tee. Weaker golfers play the shorter tees; par, length and tournaments stay as they were.
+STR_TEE_BACK                            :back tee
+STR_TEE_MIDDLE                          :middle tee
+STR_TEE_FORWARD                         :forward tee
+STR_TEE_HOLE_TOOL                       :the next hole's tee
+STR_CURSOR_EXTRA_TEE                    :Hole {HOLE}: {TEE}
+STR_TOAST_TEE_STEP                      :Tees tool: {TEE}
+STR_TOAST_TEE_PLACED                    :Hole {HOLE} has a new {TEE}, {YARDS} yards from the cup.
+STR_TOAST_TEE_NO_HOLE                   :A {TEE} goes in front of a hole's tee, near the line to its cup.
+STR_TOAST_TEE_TAKEN                     :A {TEE} needs open ground, not a tee or a green.
+STR_TOAST_TEE_HAS                       :Hole {HOLE} has its {TEE}. Paint over it to move it.
+STR_TOAST_TEE_ORDER                     :Hole {HOLE}'s forward tee must be nearer the cup than its middle tee.
+STR_TOAST_TEE_TOURNAMENT                :Tees cannot change during a tournament.
+STR_TOAST_TEE_TAB                       :Press Tab with the Tees tool to add a forward or middle tee to a hole.
 # Left-handed golfers (sg_core::extras): about one golfer in ten, and a tick for your pro on Customise Golfer
 STR_EXTRAS_LEFTIES                      : Left-handed golfers
 STR_SET_PAR_1                           :Change hole {HOLE} from par {OLD} to par {NEW}?
@@ -3324,6 +3350,11 @@ STR_SHOWCASE_NO_HOLES                   :The showcase needs an open hole to fly 
 STR_TOUCH_SHOWCASE                      :Showcase
 STR_SHOWCASE_HOLE                       :Hole {HOLE}  -  Par {PAR}  -  {YARDS} yards
 
+# Replays of a report's game (replay.rs; CONTRIBUTING.md "Replays")
+STR_TOAST_REPLAY_PLAYING                :A replay is playing: the game is yours again when it ends.
+STR_TOAST_REPLAY_DONE                   :The replay has ended. The game is yours.
+STR_TOAST_REPLAY_DIVERGED               :The replay has ended. It stopped matching at game tick {TICK}.
+
 # Saved games of the original SimGolf brought over (share.rs, sg_core::sve, issue #49)
 STR_TOAST_SVE_IMPORTED                  :{COURSE} from the original SimGolf was added to Load Previous Game as {NAME}.
 STR_TOAST_SVE_UNREADABLE                :{FILE} could not be read as a saved game of the original SimGolf ({WHY}). Nothing was added.
@@ -3491,3 +3522,10 @@ STR_EXTRAS_DESC_WIDE_UI                 :On a wide screen the dock, panels and m
 # Edge scrolling (OpenSGolf extras, extras.rs edge_scroll; main.rs edge_scroll)
 STR_EXTRAS_EDGE_SCROLL                  : Edge scrolling
 STR_EXTRAS_DESC_EDGE_SCROLL             :In full screen the pointer at the screen's edge scrolls the view, as in the original (on by default).
+# Home names on hover (OpenSGolf extras, extras.rs home_labels_hover; homes_ui.rs draw_home_labels)
+STR_EXTRAS_HOME_LABELS_HOVER            : Home names only under the pointer
+STR_EXTRAS_DESC_HOME_LABELS_HOVER       :A celebrity's name shows over a home site only while the pointer is on it, instead of the names taking turns over every home.
+# The Hole flyover (OpenSGolf extras, showcase.rs; docs/PLAYING.md)
+STR_EXTRAS_HOLE_FLYOVER                 : Hole flyover: fly down a hole from its Hole Stats
+STR_EXTRAS_DESC_HOLE_FLYOVER            :Hole Stats gets a Fly over button: the camera flies from the tee down the hole to the green, then back. A key or a click ends it.
+STR_HOLESTATS_FLY_OVER                  :Fly over

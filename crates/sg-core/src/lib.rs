@@ -7,6 +7,7 @@
 // The port keeps the original code's own constants (3.14159, 6.28) so its results stay identical; index loops mirror its tables.
 #![allow(clippy::approx_constant, clippy::needless_range_loop, clippy::should_implement_trait)]
 
+pub mod action;
 pub mod aiscale;
 pub mod analysis;
 pub mod assets;
@@ -58,6 +59,7 @@ pub mod rng;
 pub mod roster;
 pub mod scenario;
 pub mod script;
+pub mod second;
 pub mod sounds;
 pub mod sprites;
 pub mod staff;

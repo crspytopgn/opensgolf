@@ -94,6 +94,7 @@ mod prefs_ui;
 mod pro_ui;
 mod profile_ui;
 mod render;
+mod replay;
 mod report_tabs;
 mod reports_ui;
 mod scenario_ui;
@@ -106,6 +107,7 @@ mod staffview_ui;
 mod support;
 mod sysdiag;
 mod tags_ui;
+mod tees;
 mod textsize;
 mod thoughts_ui;
 mod touch;
@@ -114,6 +116,7 @@ mod ui;
 mod undo;
 mod update;
 mod views;
+mod walk;
 mod welcome;
 mod wild_ui;
 mod world_ui;
@@ -141,6 +144,8 @@ struct Options {
     zoom: f32,
     rot: f32,
     png_out: Option<PathBuf>,
+    /// A replay file to play (replay.rs; a developer's option, not in the usage).
+    replay: Option<PathBuf>,
     time: f64,
     follow: bool,
     golfer: Option<String>,
@@ -240,6 +245,7 @@ fn parse_args() -> Options {
         zoom: app::ZOOM_UNIT * 4.0,
         rot: 0.0,
         png_out: None,
+        replay: None,
         time: 0.0,
         follow: false,
         golfer: None,
@@ -313,6 +319,8 @@ fn parse_args() -> Options {
             "--zoom" => o.zoom = next().parse().unwrap_or(app::ZOOM_UNIT * 4.0),
             "--rot" => o.rot = next().parse().unwrap_or(0.0),
             "--png" => o.png_out = Some(PathBuf::from(next())),
+            // a report's replay file played again (replay.rs; CONTRIBUTING.md "Replays")
+            "--replay" => o.replay = Some(PathBuf::from(next())),
             "--time" => o.time = next().parse().unwrap_or(0.0),
             "--follow" => o.follow = true,
             "--golfer" => o.golfer = Some(next()),
@@ -370,6 +378,9 @@ fn parse_args() -> Options {
                     o.center = Some((v[0], v[1]));
                 }
             }
+            // the walk camera, a hidden test view (walk.rs)
+            #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
+            "--walk" => walk::enable(),
             "--help" | "-h" => {
                 println!("{USAGE}");
                 std::process::exit(0);
@@ -389,6 +400,8 @@ fn parse_args() -> Options {
 }
 
 struct Stage {
+    /// SG_ACTION_CHECK=1 (replay.rs): the game's state after the last drawn frame and the actions logged by then.
+    action_check: Option<(Vec<(&'static str, u64)>, usize)>,
     /// A controller (gamepad.rs).
     pad: gamepad::Pad,
     /// the desktop window is full screen (F11 or Alt+Enter)
@@ -428,6 +441,8 @@ struct Stage {
     pause_toggle: bool,
     shown_version: u32,
     touch: touch::Touch,
+    /// The walk camera (walk.rs; only with its switch).
+    walk: walk::Walking,
 }
 
 fn load_ui(app: &mut App, g: &mut Gfx) -> bool {
@@ -768,6 +783,10 @@ fn panel_test_hooks(app: &mut App) {
         app.edit = true;
         app.tool = 0;
         app.paint_idx = k;
+        // and SG_TEE_STEP=1 or 2 steps the Tees tool to the forward or middle tee (the Multiple tees extra, tees.rs)
+        if let Some(s) = std::env::var("SG_TEE_STEP").ok().and_then(|v| v.parse::<u8>().ok()) {
+            app.tee_step = s % 3;
+        }
     }
 }
 
@@ -918,15 +937,27 @@ fn apply_edit_spec(app: &mut App, spec: &str) {
             }
             b't' if item.len() > 2 && v.len() >= 3 => {
                 // paint one tile through the hole tool (type 0 tee, 1 green); t:x,y,type,V with the brush's variant V
-                // (the times Tab was pressed: an odd V is the tricky green)
+                // (the times Tab was pressed: an odd V is the tricky green); t:x,y,0,V,S with the Multiple tees extra
+                // places the Tees tool's step S (1 a forward tee, 2 a middle tee; tees.rs)
                 app.paint_idx = PAINT.iter().position(|p| p.ty == at(2)).unwrap_or(app.paint_idx);
                 if v.len() >= 4 {
                     app.paint_variant = Some((app.paint_idx, at(3)));
                 }
                 let r = std::mem::replace(&mut app.brush, 0);
+                let (edit, tool, step) = (app.edit, app.tool, app.tee_step);
+                if v.len() >= 5 {
+                    (app.edit, app.tool, app.tee_step) = (true, 0, at(4) as u8);
+                }
                 app.sync_course();
                 app.edit_paint(at(0), at(1));
                 app.brush = r;
+                if v.len() >= 5 {
+                    (app.edit, app.tool, app.tee_step) = (edit, tool, step);
+                    let h = app.club.course_holes(app.hole_b());
+                    let tees: Vec<_> =
+                        (1..19).filter(|&k| h[k].extra_tees().next().is_some()).map(|k| (k, h[k].front_tee, h[k].middle_tee)).collect();
+                    println!("extra tees: {tees:?}");
+                }
                 app.sync_course();
             }
             b'u' if v.len() >= 2 => {
@@ -1205,6 +1236,16 @@ fn apply_edit_spec(app: &mut App, spec: &str) {
             b'o' => {
                 let ok = app.open_hole();
                 println!("open hole: {ok}, next hole {}", app.club.next_hole);
+            }
+            b'Z' => {
+                // test hook: the Second course extra's A/B switch over the Build Course panel (sg_core::second)
+                app.toggle_hole_course();
+                let (a, b) = (app.club.next_hole, app.club.course_next_hole(true));
+                println!(
+                    "course switch: Course {}, next hole A {a} B {b}, Course B open {}",
+                    if app.hole_b() { "B" } else { "A" },
+                    app.club.course_b_open()
+                );
             }
             b'r' if item.len() > 2 && v.len() >= 3 => {
                 let (a, b, c, d) = (at(0), at(1), at(2), at(3));
@@ -1541,9 +1582,20 @@ impl Stage {
                 Err(e) => app.show_toast(&sg_core::lang::trf("STR_TOAST_COULD_NOT_LOAD_GAME", &[("ERROR", &e)])),
             }
         }
+        if let Some(f) = &o.replay {
+            let r = sg_core::fsutil::read_file(f).ok_or_else(|| format!("cannot read {}", f.display()));
+            if let Err(e) = r.and_then(|d| app.start_replay(Some(&mut g), &d)) {
+                eprintln!("error: {e}");
+                std::process::exit(1);
+            }
+            println!("replaying {} from tick {}", f.display(), app.game_tick);
+        }
         // (the clock runs from here, so the floating money of the edits below lasts its two seconds into the still)
         app.clock = now();
-        apply_edit_spec(&mut app, &o.edit_spec);
+        // each item is an action of its own (replay.rs)
+        for item in o.edit_spec.split(';').filter(|s| !s.is_empty()) {
+            app.act(sg_core::action::Action::Script(item.to_string()));
+        }
         if !o.edit_spec.is_empty() || app.editor.is_some() {
             app.rebuild_batches(&mut g);
             app.refresh_trees();
@@ -1669,6 +1721,7 @@ impl Stage {
             app.choose_game_folder(false);
         }
         Stage {
+            action_check: None,
             g,
             app,
             fullscreen: o.fullscreen,
@@ -1695,6 +1748,7 @@ impl Stage {
             wheel: (0.0, 0.0),
             pause_toggle: false,
             shown_version: 0,
+            walk: Default::default(),
         }
     }
 
@@ -1823,7 +1877,7 @@ impl Stage {
             }
             PopupKind::CareerOver => {
                 if k == 0 {
-                    self.app.econ.continue_in_sandbox();
+                    self.app.act(sg_core::action::Action::ContinueSandbox);
                 } else {
                     self.app.end_career();
                 }
@@ -1832,13 +1886,7 @@ impl Stage {
                 0 => self.app.open_save(),
                 1 => self.app.open_files(files_ui::ListKind::Load, true),
                 2 => {
-                    if self.app.club.game & sg_core::golfer::game::TOURNAMENT != 0 {
-                        self.app.cancel_tournament();
-                    } else {
-                        let mut rng = self.app.exe_rng;
-                        self.app.club.cancel_pro_round(&mut rng);
-                        self.app.exe_rng = rng;
-                    }
+                    self.app.act(sg_core::action::Action::CancelRound);
                 }
                 3 => self.app.save_championship_pro(),
                 4 => self.app.open_rename(),
@@ -2127,7 +2175,10 @@ impl Stage {
                 Some(t) => t,
                 None => app.pick_ground(self.mouse.0, self.mouse.1),
             };
-            app.hover_tile = hit.map(|(x, z)| app.terrain.tile_of(x, z));
+            // (a replay's pointer tile is its log's, which the simulation reads: replay.rs)
+            if !app.rec.replaying() {
+                app.hover_tile = hit.map(|(x, z)| app.terrain.tile_of(x, z));
+            }
             // the measuring tape's far end follows the pointer (build_tools.rs)
             app.tape_pointer(pin_world(app).or(hit));
             let (vx, vy) = app.view.to_virtual(self.mouse.0, self.mouse.1);
@@ -2525,7 +2576,7 @@ impl Stage {
                 _ => None,
             };
             if let Some(o) = opt {
-                app.club.set_shot_option(o);
+                app.act(sg_core::action::Action::ShotOption(o));
                 return;
             }
         }
@@ -2650,6 +2701,8 @@ impl Stage {
                 if app.edit && app.tool == 1 && app.pstate.elev_tool < 3 {
                     app.pstate.elev_tool = (app.pstate.elev_tool + 1) % 3;
                 }
+                // the Multiple tees extra: the Tees tool steps to the forward and middle tees (tees.rs)
+                app.tee_tab();
             }
             // only with a tool armed: the point under the pointer is followed only then, so without one it was where the
             // last tool left it, even in the next game (issue #146)
@@ -2815,6 +2868,9 @@ impl Stage {
             app.draw_menu(&mut self.g);
             ui::set_face(None);
             app.draw_scenarios(&mut self.g);
+        } else if let Some(cam) = self.walk.cam.filter(|_| walk::walk_screen(app)) {
+            // the walk camera, a hidden test view (walk.rs): the course alone and a line of help
+            app.render_walk(&mut self.g, &cam);
         } else if app.photo.is_some() {
             // Enhanced graphics' photo mode: the course alone (photo.rs)
             self.draw_photo(target);
@@ -3126,9 +3182,11 @@ impl Stage {
             self.mouse_motion_event(x, y);
         }
         for (x, y) in pts("SG_CLICK") {
+            let before = self.check_input_begin();
             self.mouse_motion_event(x, y);
             self.mouse_button_down_event(MouseButton::Left, x, y);
             self.mouse_button_up_event(MouseButton::Left, x, y);
+            self.check_input_end(before, &format!("click at {x},{y}"));
             // the pointer is tested against the interface as last drawn
             self.draw_frame(None);
         }
@@ -3139,6 +3197,7 @@ impl Stage {
         // SG_PRESS="u;Shift+F6;...": keys pressed after the clicks (names as settings.json's "controls" has them)
         for b in std::env::var("SG_PRESS").unwrap_or_default().split(';').filter_map(controls::Binding::parse) {
             let mods = KeyMods { shift: b.shift, ctrl: b.ctrl, ..Default::default() };
+            let before = self.check_input_begin();
             self.key_down_event(b.key, mods, false);
             // a letter or Space also types its character, as a keyboard does (not with Ctrl)
             let name = b.name();
@@ -3149,7 +3208,24 @@ impl Stage {
                 self.char_event(' ', mods, false);
             }
             self.key_up_event(b.key, mods);
+            self.check_input_end(before, &b.name());
             self.draw_frame(None);
+        }
+    }
+
+    /// SG_ACTION_CHECK=1 around a scripted input (replay.rs): the game as it was before it, and the actions logged by then.
+    fn check_input_begin(&self) -> Option<(Vec<(&'static str, u64)>, usize)> {
+        (replay::check_on() && self.app.land.is_some()).then(|| (replay::checked_parts(&self.app), replay::logged(&self.app)))
+    }
+
+    /// SG_ACTION_CHECK=1: says when the input changed the game with no action applied.
+    fn check_input_end(&self, before: Option<(Vec<(&'static str, u64)>, usize)>, what: &str) {
+        let Some((parts, n)) = before else { return };
+        let changed = replay::changed(&parts, &replay::checked_parts(&self.app));
+        if replay::logged(&self.app) == n && !changed.is_empty() {
+            bugreport::warn(&format!("action check: {what} changed the game with no action: {}", changed.join(" ")));
+        } else if replay::check_on() {
+            println!("action check: {what}: {} actions, changed {}", replay::logged(&self.app) - n, changed.join(" "));
         }
     }
 
@@ -3184,11 +3260,25 @@ impl EventHandler for Stage {
             std::process::exit(0);
         }
         perf::frame_begin();
+        // SG_ACTION_CHECK=1: the frame's input changed the game only through actions (replay.rs)
+        if let Some((before, n)) = self.action_check.take() {
+            let after = replay::checked_parts(&self.app);
+            let parts = replay::changed(&before, &after);
+            if replay::logged(&self.app) == n && !parts.is_empty() && !self.app.rec.replaying() {
+                bugreport::warn(&format!(
+                    "action check: the game changed with no action at tick {}: {}",
+                    self.app.game_tick,
+                    parts.join(" ")
+                ));
+            }
+        }
         let t = now();
         self.app.clock = t;
         self.touch_update();
         self.mouse_edge_scroll(t);
         self.photo_update();
+        // the walk camera's steps (walk.rs; nothing without its switch)
+        self.walk_update(t);
         if self.pause_toggle {
             self.pause_toggle = false;
             self.toggle_pause();
@@ -3286,7 +3376,8 @@ impl EventHandler for Stage {
         app.support_tick(dt, playing);
         // the play-time count at each 15 minutes of that time, and its one-time notice (playcount.rs)
         app.playcount_frame();
-        app.club.turbo = app.speed > 1;
+        // the exe's fast mode follows the speed the game is played at (replay.rs: a replay's own, whatever the keys say)
+        app.club.turbo = app.rec.sim_speed > 1;
         let (w, h) = window::screen_size();
         app.draw_w = w.max(1.0);
         app.draw_h = h.max(1.0);
@@ -3374,6 +3465,9 @@ impl EventHandler for Stage {
         if self.frames == 1 {
             self.pointer_test_hook();
         }
+        if replay::check_on() && self.app.land.is_some() {
+            self.action_check = Some((replay::checked_parts(&self.app), replay::logged(&self.app)));
+        }
         // a photo asked for in photo mode is drawn offscreen once the frame is shown (photo.rs; after the scripted
         // pointer, which may set the focus)
         if self.app.photo.as_ref().is_some_and(|p| p.pending_shot.is_some()) {
@@ -3405,6 +3499,15 @@ impl EventHandler for Stage {
                     }
                     self.app.selfcheck_flush();
                 }
+                // test hook: SG_REPLAY_OUT=FILE writes the game's replay file (replay.rs)
+                if let Some(f) = std::env::var_os("SG_REPLAY_OUT") {
+                    match self.app.replay_file() {
+                        Some(d) if sg_core::fsutil::write_file(std::path::Path::new(&f), &d) => {
+                            println!("replay file {} at tick {}", PathBuf::from(&f).display(), self.app.game_tick)
+                        }
+                        _ => eprintln!("error: no replay file written"),
+                    }
+                }
                 std::process::exit(0);
             }
         }
@@ -3422,6 +3525,10 @@ impl EventHandler for Stage {
         }
         self.mouse = (x, y);
         self.mouse_seen = true;
+        // the walk camera turns with a drag (walk.rs; nothing without its switch)
+        if self.walk_motion(dx, dy) {
+            return;
+        }
         // a left press Mouse aim and swing took: the target follows, or the view pans (touch.rs)
         self.mouse_swing_move(x, y);
         if self.app.photo.is_some() {
@@ -3501,6 +3608,9 @@ impl EventHandler for Stage {
     }
 
     fn mouse_wheel_event(&mut self, _x: f32, y: f32) {
+        if self.walk_shown() {
+            return;
+        }
         if self.app.photo.is_some() {
             self.photo_wheel(y);
             return;
@@ -3552,6 +3662,9 @@ impl EventHandler for Stage {
         let button = if self.ctrl_click { MouseButton::Right } else { button };
         sysdiag::event(sysdiag::Ev::Click);
         self.mouse = (x, y);
+        if self.walk_button(button, true) {
+            return;
+        }
         // a click or a tap ends the showcase fly-over (showcase.rs), and does nothing else
         if self.app.end_showcase() {
             self.showcase_up = true;
@@ -3817,6 +3930,9 @@ impl EventHandler for Stage {
 
     fn mouse_button_up_event(&mut self, button: MouseButton, x: f32, y: f32) {
         let button = if button == MouseButton::Left && std::mem::take(&mut self.ctrl_click) { MouseButton::Right } else { button };
+        if self.walk_button(button, false) {
+            return;
+        }
         if std::mem::take(&mut self.showcase_up) {
             return;
         }
@@ -3859,6 +3975,13 @@ impl EventHandler for Stage {
         // Android's back button (miniquad hands it over as Back): Esc, which closes a screen, goes back to the menu and
         // on the menu quits, as the back button does in Android apps
         let k = if k == KeyCode::Back { KeyCode::Escape } else { k };
+        // the walk camera's keys (walk.rs; nothing without its switch)
+        if walk::enabled() {
+            self.shift = mods.shift || k == KeyCode::LeftShift || k == KeyCode::RightShift;
+            if self.walk_key(k) {
+                return;
+            }
+        }
         // the port's own: F11 or Alt+Enter switches between a window and full screen on the desktop (the browser has its
         // own F11; a phone is always full screen)
         #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
@@ -3930,6 +4053,7 @@ impl EventHandler for Stage {
     }
 
     fn key_up_event(&mut self, k: KeyCode, mods: KeyMods) {
+        self.walk_key_up(k);
         self.shift = mods.shift && k != KeyCode::LeftShift && k != KeyCode::RightShift;
         self.app.shift_held = self.shift;
         self.ctrl = mods.ctrl && k != KeyCode::LeftControl && k != KeyCode::RightControl;

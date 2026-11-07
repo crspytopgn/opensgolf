@@ -54,6 +54,11 @@ impl App {
     /// Panel button 3, Begin Tournament (main frame command 0x4a): the SGA evaluates the course again; a failing course shows
     /// the report, a passing one the offer.
     pub fn begin_tournament(&mut self) {
+        // the interface's call is an action (replay.rs): logged, then applied by App::apply
+        if self.rec.depth_zero() {
+            self.act(sg_core::action::Action::BeginTournament);
+            return;
+        }
         if !self.club.can_begin_tournament() {
             self.show_toast(tr("STR_TOAST_NO_TOURNAMENT_OFFER"));
             return;
@@ -75,6 +80,11 @@ impl App {
 
     /// F7: the SGA evaluation as a report (a passing course is offered a tournament, as in the exe).
     pub fn sga_report(&mut self) {
+        // the evaluation keeps its figures in the club (Club::sga_evaluate): an action (replay.rs)
+        if self.rec.depth_zero() {
+            self.act(sg_core::action::Action::SgaReport);
+            return;
+        }
         let fac = self.facilities();
         let report = self.club.sga_evaluate(fac);
         if self.ui_ok {
@@ -87,6 +97,11 @@ impl App {
     /// mask of the pro's twelve skill bytes (0x4c2c9c) and, when none is set, runs the first allocation 0x4065c0 (10 points
     /// and 3 per accomplishment, the card with its explanation box) before 0x46c970 draws the field.
     pub fn accept_tournament(&mut self) {
+        // the interface's call is an action (replay.rs): logged, then applied by App::apply
+        if self.rec.depth_zero() {
+            self.act(sg_core::action::Action::AcceptTournament);
+            return;
+        }
         if self.club.pro_skill[..12].iter().all(|&v| v == 0) {
             let pts = self.club.first_skill_points();
             self.open_skills(pts, None);
@@ -152,7 +167,7 @@ impl App {
         }
     }
 
-    fn finish_prep(&mut self, prep: Prep, mask: i32) {
+    pub(crate) fn finish_prep(&mut self, prep: Prep, mask: i32) {
         let sites = self.club.apply_prep(&self.course, &mut self.exe_rng, &prep, mask);
         for l in prep.lines() {
             println!("  prep: {l}");
@@ -193,6 +208,11 @@ impl App {
 
     /// 'n' during a tournament: it ends with no prizes.
     pub fn cancel_tournament(&mut self) {
+        // the interface's call is an action (replay.rs): logged, then applied by App::apply
+        if self.rec.depth_zero() {
+            self.act(sg_core::action::Action::CancelTournament);
+            return;
+        }
         if self.club.cancel_tournament(&mut self.exe_rng, &self.course) {
             self.remove_tv();
             self.show_toast(tr("STR_TOAST_TOURNAMENT_CANCELED"));
@@ -245,7 +265,12 @@ impl App {
 
     /// "Great, let the games begin!" starts the tournament; "I think I need more practice." only drops the prize (the offer
     /// stays and the button can be pressed again).
-    fn offer_answer(&mut self, k: usize) {
+    pub(crate) fn offer_answer(&mut self, k: usize) {
+        // the interface's call is an action (replay.rs): logged, then applied by App::apply
+        if self.rec.depth_zero() {
+            self.act(sg_core::action::Action::TourneyAnswer(k));
+            return;
+        }
         self.sga = None;
         self.screen = Screen::Play;
         if k == 0 {
@@ -276,9 +301,10 @@ impl App {
                     mask ^= 1 << k;
                 }
                 if b.ok_tick().has(vx, vy) || vx < 0.0 {
-                    // bits 0..2 are the three options, the par changes follow from bit 3
+                    // bits 0..2 are the three options, the par changes follow from bit 3 (an action, replay.rs)
                     self.screen = Screen::Play;
-                    self.finish_prep(prep, mask);
+                    self.prep = Some((prep, mask));
+                    self.act(sg_core::action::Action::TourneyPrep(mask));
                 } else {
                     self.prep = Some((prep, mask));
                 }
@@ -293,7 +319,7 @@ impl App {
                 self.screen = Screen::Play;
                 if self.club.championship() {
                     // the championship is over: back to the title menu, nothing saved
-                    self.club.game = 0;
+                    self.act(sg_core::action::Action::TourneyDone);
                     self.screen = Screen::Menu;
                     self.hover = -1;
                 }
@@ -413,7 +439,7 @@ impl App {
         if r.score <= 0 {
             s.put_centered(g, F_INFO16, 400.0, 310.0, tr("STR_SGA_IMPROVEMENT_REQUIRED"), red);
         } else {
-            s.put_centered(g, F_INFO_TITLE, 400.0, 310.0, r.event, ink);
+            s.put_centered_fit(g, F_INFO_TITLE, 400.0, 310.0, crate::ui::TITLE_ROOM, r.event, ink);
             s.put_centered(
                 g,
                 F_INFO16,
@@ -507,7 +533,7 @@ impl App {
         // fonts (0x45a090): the title in 0x821020 (Klepto 24) centred at (320, 16), the rest in 0x821ee8 (Manual SSi 14),
         // every y below the text's top
         use crate::ui::F_INFO14 as F;
-        s.put_centered(g, crate::ui::F_INFO_TITLE, 320.0, 16.0, tr("STR_RESULTS_TITLE"), ink);
+        s.put_centered_fit(g, crate::ui::F_INFO_TITLE, 320.0, 16.0, crate::ui::TITLE_ROOM, tr("STR_RESULTS_TITLE"), ink);
         let nh = (1..19).filter(|&h| res.pars[h] != 0).count();
         // the headings at y 50: "Ranking" from x 25, each open hole's number centred on its column (175 + 27 (h - 1), by
         // hole number), "F" on 667 and "Prize" from 700

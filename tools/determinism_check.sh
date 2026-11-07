@@ -11,7 +11,9 @@
 #      is the same each time), and the save self-check must say it skipped that save,
 #   4. with --extras: 1 and 2 again with each gameplay extra (sg_core::extras) on in turn (the --extras test hook's bits),
 #   5. the save self-check (SG_SELFCHECK=1, selfcheck.rs): each save at a game tick must read back, in memory, to the game
-#      it was saved from (tools/selfcheck_test.sh tests its report).
+#      it was saved from (tools/selfcheck_test.sh tests its report),
+#   6. a replay (replay.rs): the scripted game's action log (SG_REPLAY_OUT) played again with --replay in a window of
+#      another size must have every game tick's fingerprint the first run had, and match at every hash in its log.
 # Each run is on a virtual display; the logs and fingerprint files stay in OUT_DIR. A difference names the first game
 # tick the runs part at; SG_FINGERPRINT_PARTS=2 (set for every run) gives each line's sections and fields, which say what
 # differs there.
@@ -181,6 +183,19 @@ for at in $SAVES; do
     reload_twice classic-building "$at"
 done
 EDIT=$PLAIN
+
+echo "== Classic, its action log played again (--replay, another window size)"
+SG_REPLAY_OUT="$OUT/save/replay.sgr" run replay-a --property 0 --clock 4242 --edit "$EDIT" --time "$TIME" &&
+    run replay-b --replay "$OUT/save/replay.sgr" --time "$TIME" --size 1024x700 && {
+    d=$(first_difference "$OUT/replay-a.fp" "$OUT/replay-b.fp")
+    n=$(shared "$OUT/replay-a.fp" "$OUT/replay-b.fp")
+    if [ -n "$d" ] || [ "$n" -eq 0 ] || ! grep -q "^replay: done at tick .* the game matched" "$OUT/replay-b.log"; then
+        echo "FAIL replay: the replayed game parts at ${d:-?} ($n game ticks shared; $(grep "replay" "$OUT/replay-b.log" | tail -1))"
+        fail=1
+    else
+        echo "ok   replay: the replayed game identical over $n game ticks, $(grep "^replay: done" "$OUT/replay-b.log")"
+    fi
+}
 
 if [ "$EXTRAS" = "--extras" ]; then
     echo "== each gameplay extra on in turn"

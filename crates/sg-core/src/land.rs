@@ -36,7 +36,7 @@ fn hp() -> i32 {
 
 /// The exe's random number generator: a 32-bit LCG (x * 1103515245 + 12345), seeded with the Windows millisecond clock times 37.
 /// A draw takes bits 16..30 as a fraction of 1 and scales it by the (16-bit) range, truncating.
-#[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ExeRng {
     pub state: u32,
 }

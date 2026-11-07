@@ -182,6 +182,8 @@ impl Club {
     }
 
     fn thought_as(&self, c: &Course, id: u32, arg: i32, g: usize, record: Option<i32>, own: bool) -> Line {
+        // the hole records of the course the golfer plays (the Second course extra, sg_core::second; Course A's without one)
+        let holes = if self.course_b.is_some() { self.course_holes(self.g[g].course_b) } else { &self.holes[..] };
         let rel = self.rel(g);
         let r = record.unwrap_or(self.g[g].roster.max(0));
         let male = match record {
@@ -379,7 +381,7 @@ impl Club {
                 // from the thought's stamp (hole * 11 + strokes, written when the event fired)
                 let gg = &self.g[g];
                 let hole = if gg.thought as u32 == id { (gg.thought_stamp / 11) as usize } else { hole }.min(18);
-                let par = self.holes[hole].par;
+                let par = holes[hole].par;
                 let d = self.g[g].card[hole] as i32 - par;
                 let word = match d {
                     -4 => tr("STR_THOUGHT_SCORE_TRIPLE_EAGLE"),
@@ -392,7 +394,7 @@ impl Club {
                     3 => tr("STR_THOUGHT_SCORE_TRIPLE_BOGEY"),
                     _ => tr("STR_THOUGHT_SCORE_ARGGG"),
                 };
-                let fl = self.holes[hole].flags;
+                let fl = holes[hole].flags;
                 let remark = if fl & 4 != 0 && d >= 2 {
                     tone = Tone::Bad;
                     tr("STR_THOUGHT_13_TOO_HARD").to_string()
@@ -490,14 +492,14 @@ impl Club {
             }
             0x1e => {
                 tone = Tone::Bad;
-                let fl = self.holes[hole].flags;
-                let pf = self.holes[hole.saturating_sub(1)].flags;
+                let fl = holes[hole].flags;
+                let pf = holes[hole.saturating_sub(1)].flags;
                 if fl & 0x20 != 0 && pf & 0x20 != 0 {
                     tr("STR_THOUGHT_1E_DOGLEG_LEFT").into()
                 } else if fl & 0x40 != 0 && pf & 0x40 != 0 {
                     tr("STR_THOUGHT_1E_DOGLEG_RIGHT").into()
-                } else if hole > 1 && self.holes[hole].par == self.holes[hole - 1].par {
-                    trf("STR_THOUGHT_1E_ANOTHER_PAR", &[("PAR", &self.holes[hole].par)])
+                } else if hole > 1 && holes[hole].par == holes[hole - 1].par {
+                    trf("STR_THOUGHT_1E_ANOTHER_PAR", &[("PAR", &holes[hole].par)])
                 } else {
                     tr("STR_THOUGHT_1E_LIKE_THE_LAST").into()
                 }
@@ -649,11 +651,11 @@ impl Club {
             }
             0x3b => {
                 let m = self.member(g);
-                if m.card.get(hole).copied().unwrap_or(0) != 0 && self.holes[hole].flags & 1 == 0 {
+                if m.card.get(hole).copied().unwrap_or(0) != 0 && holes[hole].flags & 1 == 0 {
                     trf("STR_THOUGHT_3B_LAST_TIME", &[("SCORE", &m.card[hole])])
-                } else if self.holes[hole].flags & 2 != 0 {
+                } else if holes[hole].flags & 2 != 0 {
                     tr("STR_THOUGHT_3B_TOP_18").into()
-                } else if self.holes[hole].flags & 1 != 0 {
+                } else if holes[hole].flags & 1 != 0 {
                     trf("STR_THOUGHT_3B_TOP_100", &[("PARTNER", &partner), ("HOLE", &hole)])
                 } else {
                     tone = Tone::Good;

@@ -304,6 +304,17 @@ impl App {
                 Ok(_) => failed = Some(path.display().to_string()),
                 Err(e) => failed = Some(e),
             }
+            // the actions since the game was loaded or begun, with the game they start from: `--replay` plays them again
+            // exactly (replay.rs)
+            if let Some(b) = self.replay_file() {
+                let name = format!("{stem}.{}", crate::replay::EXT);
+                let path = dir.join(&name);
+                if sg_core::fsutil::write_file(&path, &b) {
+                    files.push(name);
+                } else {
+                    failed = Some(path.display().to_string());
+                }
+            }
         }
         if let Some(img) = shot {
             let name = format!("{stem}.png");

@@ -272,6 +272,20 @@ impl ChoiceBox {
         CHOICE_FONT.scaled(self.k())
     }
 
+    /// The room a line of the box has (the port's own, issue #164): the box grows with its widest line up to the screen's
+    /// width (800 pixels with its margins); a longer line (a translation) is drawn smaller or cut to this
+    /// (ui.rs fit_line), so it never runs off the screen. No line of the original's boxes comes near it.
+    pub const MAX_TEXT_W: i32 = 752;
+
+    /// A line as drawn: smaller or cut when it is wider than the box can grow (`MAX_TEXT_W`), with how far down to move
+    /// it; as it is otherwise (notes and the divider always).
+    fn fitted<'a>(f: crate::ui::Fnt, l: &'a str) -> (crate::ui::Fnt, std::borrow::Cow<'a, str>, f32) {
+        if is_note(l) || is_divider(l) {
+            return (f, std::borrow::Cow::Borrowed(l), 0.0);
+        }
+        crate::ui::fit_line(f, l, Self::MAX_TEXT_W as f32)
+    }
+
     fn widest(&self, f: crate::ui::Fnt) -> i32 {
         self.lines.iter().map(|l| line_width(l, f).round() as i32).max().unwrap_or(0)
     }
@@ -280,7 +294,7 @@ impl ChoiceBox {
     /// (the port's own) it grows with its lines and moves in from the screen's edges to stay on it.
     pub fn rect(&self) -> Rect {
         let k = self.k();
-        let widest = self.widest(self.font()).max((self.min_w * k) as i32);
+        let widest = self.widest(self.font()).max((self.min_w * k) as i32).min(Self::MAX_TEXT_W);
         let w = (((widest - 1) | 15) + 0x31) as f32;
         let h = ((self.lines.len() as f32 * 3.0 + 3.0) * 8.0 * k).round();
         let (x, y) = (self.cx - (w / 2.0).trunc(), self.top);
@@ -380,29 +394,30 @@ impl App {
         let teal = c15(0x0210);
         let tops = b.line_tops();
         let opts = b.options();
-        for (i, l) in b.lines.iter().enumerate() {
+        for (i, line) in b.lines.iter().enumerate() {
             let y = tops[i];
+            let (lf, l, fy) = ChoiceBox::fitted(f, line);
             let Some(k) = opts.iter().position(|&o| o == i) else {
-                if is_note(l) {
+                if is_note(&l) {
                     // the port's note, in the dark teal of the Extras box's hints
                     s.put(g, note_font(f), r.x + 36.0 + f.width(" "), y + tk.round(), &l[1..], c15(OWN_TEAL));
                     continue;
                 }
-                if is_divider(l) {
+                if is_divider(&l) {
                     draw_divider(g, s, f, &r, y + ty, &l[1..], c15(OWN_INK));
                     continue;
                 }
                 let c = if b.checks.is_some() { c15(0x7ff0) } else { white };
                 if b.own {
-                    put_edged(g, s, f, cx, y, l, c);
+                    put_edged(g, s, lf, cx, y + fy, &l, c);
                 } else {
-                    s.put_shadowed(g, f, cx, y, l, c, true);
+                    s.put_shadowed(g, lf, cx, y + fy, &l, c, true);
                 }
                 continue;
             };
             let x = r.x + 36.0;
             if b.disabled & (1 << k) != 0 {
-                s.put(g, f, x, y + ty, l, c15(0x6318));
+                s.put(g, lf, x, y + ty + fy, &l, c15(0x6318));
                 continue;
             }
             let plain = b.plain & (1 << k) != 0;
@@ -415,9 +430,9 @@ impl App {
             };
             let c = if chosen { white } else { teal };
             if lit {
-                s.put_shadowed(g, f, x, y + ty - 1.0, l, c, false);
+                s.put_shadowed(g, lf, x, y + ty + fy - 1.0, &l, c, false);
             } else {
-                s.put(g, f, x, y + ty, l, c);
+                s.put(g, lf, x, y + ty + fy, &l, c);
             }
             let y = y + dy;
             match b.checks {
@@ -468,22 +483,23 @@ impl App {
         let opts = b.options();
         let head_bottom = tops.get(1).copied().unwrap_or(tops[0] + 22.0) + 1.0;
         gl::header(g, s, fx + 3.0, fy + 3.0, fw - 6.0, head_bottom - fy - 3.0, [0.24, 0.33, 0.78, 1.0]);
-        for (i, l) in b.lines.iter().enumerate() {
+        for (i, line) in b.lines.iter().enumerate() {
             let y = tops[i];
+            let (lf, l, fy) = ChoiceBox::fitted(f, line);
             let Some(k) = opts.iter().position(|&o| o == i) else {
-                if is_note(l) {
+                if is_note(&l) {
                     s.put(g, note_font(f), r.x + 36.0 + f.width(" "), y + tk.round(), &l[1..], INK);
                     continue;
                 }
-                if is_divider(l) {
+                if is_divider(&l) {
                     draw_divider(g, s, f, &r, y + ty, &l[1..], INK);
                     continue;
                 }
                 if i == 0 {
                     let c = if b.checks.is_some() { c15(0x7ff0) } else { white };
-                    s.put_shadowed(g, f, cx, y, l, c, true);
+                    s.put_shadowed(g, lf, cx, y + fy, &l, c, true);
                 } else {
-                    s.put_centered(g, f, cx, y, l, INK);
+                    s.put_centered(g, lf, cx, y + fy, &l, INK);
                 }
                 continue;
             };
@@ -496,7 +512,7 @@ impl App {
                 let n = if b.note_hits { b.lines[i + 1..].iter().take_while(|l| is_note(l) && l.len() > 1).count() } else { 0 };
                 gl::capsule(g, s, fx + 6.0, y + 3.0, fw - 12.0, row * (1 + n) as f32, [1.0, 0.93, 0.62, 0.95]);
             }
-            s.put(g, f, x, y + ty, l, if off { DIM_INK } else { INK });
+            s.put(g, lf, x, y + ty + fy, &l, if off { DIM_INK } else { INK });
             match b.checks {
                 None if plain => s.fill(g, r.x.max(fx + 7.0) + 11.0, y + mid - 3.0, 6.0, 6.0, INK),
                 Some(_) if plain => s.put(g, f, r.x + 12.0, y + ty, "\u{bb}", if off { DIM_INK } else { INK }),
@@ -1138,12 +1154,13 @@ impl App {
                 if hover && !on {
                     crate::glass_ui::ring(g, s, r.x, r.y + 1.0, r.w, r.h - 2.0, [1.0, 1.0, 1.0, 0.9]);
                 }
-                let label = p.page_name(page);
-                let x = r.x + (r.w - f.width(label)) * 0.5;
+                // a page name too wide for its tab (a translation): smaller or cut (ui.rs fit_line; issue #164)
+                let (f, label, fy) = crate::ui::fit_line(f, p.page_name(page), r.w);
+                let x = r.x + (r.w - f.width(&label)) * 0.5;
                 if on {
-                    s.put(g, f, x, r.y + y5, label, crate::glass_ui::INK);
+                    s.put(g, f, x, r.y + y5 + fy, &label, crate::glass_ui::INK);
                 } else {
-                    put_dark_shadow(g, s, f, x, r.y + y5, label, c15(0x7fff), false);
+                    put_dark_shadow(g, s, f, x, r.y + y5 + fy, &label, c15(0x7fff), false);
                 }
             }
             return;
@@ -1154,12 +1171,12 @@ impl App {
             let edge = if on || hover { c15(0x7fff) } else { c15(0x2d6b) };
             s.fill(g, r.x - 1.0, r.y - 1.0, r.w + 2.0, r.h + 2.0, edge);
             s.fill(g, r.x, r.y, r.w, r.h, if on { c15(0x5ade) } else { c15(TAB_OFF) });
-            let label = p.page_name(page);
-            let x = r.x + (r.w - f.width(label)) * 0.5;
+            let (f, label, fy) = crate::ui::fit_line(f, p.page_name(page), r.w);
+            let x = r.x + (r.w - f.width(&label)) * 0.5;
             if on {
-                s.put(g, f, x, r.y + y5, label, c15(OWN_INK));
+                s.put(g, f, x, r.y + y5 + fy, &label, c15(OWN_INK));
             } else {
-                put_dark_shadow(g, s, f, x, r.y + y6, label, c15(if hover { 0x7ff0 } else { 0x7fff }), false);
+                put_dark_shadow(g, s, f, x, r.y + y6 + fy, &label, c15(if hover { 0x7ff0 } else { 0x7fff }), false);
             }
         }
     }
@@ -1450,8 +1467,14 @@ impl App {
                             }
                         }
                         crate::extras::RenameFor::Bio(r) => {
-                            if let Some(p) = self.club.roster.get_mut(r.max(0) as usize) {
+                            // the person's record is the club's: an action (replay.rs)
+                            let rec = r.max(0) as usize;
+                            if let Some(mut p) = self.club.roster.get(rec).cloned() {
                                 p.bio = n;
+                                if let Ok(person) = serde_json::to_value(&p) {
+                                    let fixed = (p.fixed & 7) as u8;
+                                    self.act(sg_core::action::Action::Person { record: rec, person, slot: None, toggles: fixed });
+                                }
                             }
                         }
                     }
@@ -1472,8 +1495,7 @@ impl App {
                 if n.is_empty() || n.chars().any(|c| "\\/:*?\"<>|".contains(c)) {
                     self.ui_sound(0x18);
                 } else {
-                    self.course_name = n.clone();
-                    self.club.course_name = n;
+                    self.act(sg_core::action::Action::Rename(n));
                     self.rename = None;
                 }
             }

@@ -161,15 +161,18 @@ const PAGE_LINES: [&[ExtrasLine]; 6] = {
             G(x::LEFTIES),
             G(3), // higher staff limits
             G(5), // set par
-            G(x::KEEP_LAND),
+            G(x::TEES),
             G(4), // animals
+            G(x::SECOND_COURSE),
             G(2), // hardcore
             G(CUT),
         ],
-        // unlock all, no new dandelions, freeze moods, the calendar (slower seasons, pause)
-        &[G(9), G(x::NO_WEEDS), G(8), Calendar],
-        // the interface at the edges, path styles and lamps, random trees, Tab turns buildings (only the picture turns)
-        &[U(26), G(x::PATHS), U(21), G(0)],
+        // unlock all, no new dandelions, freeze moods, the calendar (slower seasons, pause), keeping the commissioner's
+        // approval (moved here when the Gameplay page grew too long for the box)
+        &[G(9), G(x::NO_WEEDS), G(8), Calendar, G(x::KEEP_LAND)],
+        // the interface at the edges, path styles and lamps, random trees, Tab turns buildings (only the picture turns),
+        // home names on hover, the hole flyover
+        &[U(26), G(x::PATHS), U(21), G(0), U(28), U(29)],
         // People, extra reports, messages, home-site details, path help
         &[Group(0), Group(1), Group(2), U(19), U(4)],
         // autosave, import and export saved games, sharing, save pictures
@@ -217,11 +220,16 @@ pub fn tag(l: ExtrasLine) -> Option<Tag> {
         return None;
     }
     Some(match l {
-        // animals, left-handed golfers, keeping the commissioner's approval
-        ExtrasLine::Game(i) if i == 4 || i == sg_core::extras::LEFTIES || i == sg_core::extras::KEEP_LAND => Tag::Light,
+        // animals, left-handed golfers, keeping the commissioner's approval, multiple tees (nothing changes until one is
+        // placed)
+        ExtrasLine::Game(i) if i == 4 || i == sg_core::extras::LEFTIES || i == sg_core::extras::KEEP_LAND || i == sg_core::extras::TEES => {
+            Tag::Light
+        }
         ExtrasLine::Game(CUT) => Tag::Experimental,
         // hardcore, and the sandbox's freeze and unlock all
         ExtrasLine::Game(2 | 8 | 9) => Tag::Big,
+        // a second course of 18 holes
+        ExtrasLine::Game(i) if i == sg_core::extras::SECOND_COURSE => Tag::Big,
         _ => Tag::Noticeable,
     })
 }
@@ -244,6 +252,8 @@ const GAME_DESC: [&str; sg_core::extras::OPTION_KEYS.len()] = [
     "STR_EXTRAS_DESC_MORE_VISITORS",
     "STR_EXTRAS_DESC_NO_WEEDS",
     "STR_EXTRAS_DESC_KEEP_LAND",
+    "STR_EXTRAS_DESC_SECOND_COURSE",
+    "STR_EXTRAS_DESC_TEES",
 ];
 const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_PEOPLE",
@@ -274,6 +284,8 @@ const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_RIGHT_DROP",
     "STR_EXTRAS_DESC_WIDE_UI",
     "STR_EXTRAS_DESC_EDGE_SCROLL",
+    "STR_EXTRAS_DESC_HOME_LABELS_HOVER",
+    "STR_EXTRAS_DESC_HOLE_FLYOVER",
 ];
 
 /// A line's description (what ticking it changes; for the preset line, what the preset in use is).
@@ -642,6 +654,11 @@ impl App {
             save(&e);
             return;
         }
+        // a game's own extras changed while it is played: an action (replay.rs)
+        if self.rec.depth_zero() {
+            self.act(sg_core::action::Action::Extras(e));
+            return;
+        }
         // a new path style redraws the paths (paths_lamps.rs)
         self.dirty |= self.club.extras.path_material() != e.path_material();
         self.club.extras = e;
@@ -658,7 +675,8 @@ impl App {
     /// out of `PAR_RANGE`, nothing at all when the hole's par may not be changed now).
     pub fn par_buttons(&self) -> Vec<(i32, Rect)> {
         let h = self.info.stats_hole.clamp(1, 18);
-        if !self.club.can_set_par(h) {
+        // (Course A's holes only: the Second course extra's Course B keeps the game's pars, sg_core::second)
+        if self.hole_b() || !self.club.can_set_par(h) {
             return Vec::new();
         }
         let par = self.club.holes[h].par;
@@ -683,8 +701,36 @@ impl App {
         }
     }
 
+    /// The Hole flyover extra's button on Hole Stats (showcase.rs): only for an open hole.
+    pub fn flyover_button(&self) -> Option<Rect> {
+        let h = self.info.stats_hole.clamp(1, 18);
+        (crate::extras::hole_flyover() && self.club.holes[h].par != 0).then(|| Rect::new(652.0, 36.0, 96.0, 22.0))
+    }
+
+    /// Draws the Fly over button (lit under the pointer), in the par buttons' colours.
+    pub fn draw_flyover_button(&self, g: &mut crate::gfx::Gfx, s: &crate::ui::Screen) {
+        use crate::info_ui::c15;
+        let Some(r) = self.flyover_button() else { return };
+        let (px, py) = self.info.pointer;
+        let lit = r.has(px, py);
+        s.fill(g, r.x - 1.0, r.y - 1.0, r.w + 2.0, r.h + 2.0, c15(0x0000));
+        s.fill(g, r.x, r.y, r.w, r.h, c15(if lit { 0x5ade } else { 0x3dd4 }));
+        s.text_centered(
+            g,
+            r.x + r.w * 0.5,
+            r.y + 16.0,
+            sg_core::lang::tr("STR_HOLESTATS_FLY_OVER"),
+            14.0,
+            c15(if lit { 0x7fff } else { 0x0000 }),
+        );
+    }
+
     /// A click on Hole Stats: a par button asks to confirm the change (true), anything else is the original's close.
     pub fn hole_stats_click(&mut self, x: f32, y: f32) -> bool {
+        if self.flyover_button().is_some_and(|r| r.has(x, y)) {
+            let h = self.info.stats_hole.clamp(1, 18);
+            return self.start_flyover(h);
+        }
         let Some((p, _)) = self.par_buttons().into_iter().find(|(_, r)| r.has(x, y)) else { return false };
         self.ask_par(p);
         true
@@ -716,7 +762,7 @@ impl App {
     /// The confirmation box's Yes: the hole gets the par asked for.
     pub fn confirm_par(&mut self) {
         if let Some((h, p)) = self.par_change.take() {
-            self.club.set_par(h, p);
+            self.act(sg_core::action::Action::SetPar { hole: h as i32, par: p });
         }
     }
 
@@ -735,7 +781,7 @@ impl App {
     /// one of those (the original's Tab is not taken then).
     pub fn extras_tab(&mut self) -> bool {
         // Path styles and lamps: with the Pathway tool in hand, Tab steps the course's path style (paths_lamps.rs)
-        if self.edit && self.tool == 2 && self.next_path_style() {
+        if self.edit && self.tool == 2 && self.club.extras.lamps() && self.act(sg_core::action::Action::PathStyle) {
             return true;
         }
         if !self.club.extras.rotate {
@@ -761,6 +807,11 @@ impl App {
             return false;
         }
         let (a, b) = self.terrain.tile_of(self.hit_x, self.hit_z);
+        self.act(sg_core::action::Action::Turn { x: a, y: b })
+    }
+
+    /// The Rotate extra's turn of the building whose footprint holds tile a, b: the Turn action (replay.rs).
+    pub(crate) fn turn_building(&mut self, a: i32, b: i32) -> bool {
         self.ensure_land();
         let Some(l) = self.land.as_mut() else { return false };
         // any object whose footprint holds the tile (the generator's clubhouse carries no footprint flag, so not object_on)
@@ -936,7 +987,7 @@ mod tests {
             }
         }
         // looks: only the picture changes
-        for l in [ExtrasLine::Game(0), ExtrasLine::Game(x::PATHS), ExtrasLine::Ui(21), ExtrasLine::Ui(26)] {
+        for l in [ExtrasLine::Game(0), ExtrasLine::Game(x::PATHS), ExtrasLine::Ui(21), ExtrasLine::Ui(26), ExtrasLine::Ui(28)] {
             assert_eq!(page_of(l), Some(2), "{l:?}");
         }
         // animals cost money and lift moods: gameplay, a light touch
@@ -946,7 +997,9 @@ mod tests {
         assert_eq!(tag(ExtrasLine::Game(x::WEATHER)), Some(Tag::Noticeable));
         assert_eq!(tag(ExtrasLine::Calendar), Some(Tag::Noticeable));
         assert_eq!(tag(ExtrasLine::Game(x::LEFTIES)), Some(Tag::Light));
-        assert_eq!((page_of(ExtrasLine::Game(x::KEEP_LAND)), tag(ExtrasLine::Game(x::KEEP_LAND))), (Some(0), Some(Tag::Light)));
+        assert_eq!((page_of(ExtrasLine::Game(x::KEEP_LAND)), tag(ExtrasLine::Game(x::KEEP_LAND))), (Some(1), Some(Tag::Light)));
+        assert_eq!((page_of(ExtrasLine::Game(x::SECOND_COURSE)), tag(ExtrasLine::Game(x::SECOND_COURSE))), (Some(0), Some(Tag::Big)));
+        assert_eq!((page_of(ExtrasLine::Game(x::TEES)), tag(ExtrasLine::Game(x::TEES))), (Some(0), Some(Tag::Light)));
         assert_eq!(page_of(ExtrasLine::Ui(5)), Some(4), "autosave");
         // the Controls page holds the mouse ticks, the most wanted first, then the two pauses
         assert_eq!(page_lines(5), [14, 25, 15, 20, 27, 24, 8, 9].map(ExtrasLine::Ui));
@@ -986,7 +1039,7 @@ mod tests {
         assert_eq!(foot_text(2, Some(2), &e, &ui), (sg_core::lang::tr("STR_EXTRAS_DESC_PATHS"), true));
         assert_eq!(foot_text(2, Some(0), &e, &ui), (sg_core::lang::tr("STR_PRESET_DESC_ORIGINAL"), true));
         assert_eq!(foot_text(0, Some(0), &Extras::OPENSGOLF, &Settings::HELPERS).0, sg_core::lang::tr("STR_PRESET_DESC_OPENSGOLF"));
-        assert!(!foot_text(2, Some(6), &e, &ui).1);
+        assert!(!foot_text(2, Some(7), &e, &ui).1);
         assert!(!foot_text(3, None, &e, &ui).1);
     }
 

@@ -354,7 +354,7 @@ mod tests {
         assert_eq!(place(Hit::Extra(ExtrasLine::Game(0))), into("STR_EXTRAS_PAGE_LOOKS"), "Tab turns buildings: a look");
         // the tag's words find the options so tagged
         let p = Prefs::original();
-        assert_eq!(search("big change", false, &p).len(), 3, "hardcore and two sandbox switches");
+        assert_eq!(search("big change", false, &p).len(), 4, "hardcore, the second course and two sandbox switches");
     }
 
     #[test]

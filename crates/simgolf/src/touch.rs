@@ -796,7 +796,9 @@ impl Stage {
             Some(TargetFor::Aim) => self.app.aim_pointer(w.0, w.1),
             Some(TargetFor::Place(_)) => {
                 (self.app.has_hit, self.app.hit_x, self.app.hit_z) = (true, w.0, w.1);
-                self.app.hover_tile = Some(self.app.terrain.tile_of(w.0, w.1));
+                if !self.app.rec.replaying() {
+                    self.app.hover_tile = Some(self.app.terrain.tile_of(w.0, w.1));
+                }
             }
             None => {}
         }
@@ -1636,7 +1638,7 @@ impl App {
                 _ => false,
             },
             Btn::Turn => self.club.extras.rotate,
-            Btn::OpenHole => self.club.can_open_hole(),
+            Btn::OpenHole => self.club.can_open_course_hole(self.hole_b()),
             Btn::Showcase => self.club.holes.iter().skip(1).take(18).any(|h| h.par != 0),
             Btn::Undo => self.undo.can_undo() && (self.edit || matches!(self.panel, 1 | 2)),
             // shown on their own terms (Stage::button_shown)
