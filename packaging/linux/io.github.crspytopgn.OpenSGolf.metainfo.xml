@@ -107,6 +107,17 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.7.0" date="2026-11-07">
+      <description>
+        <p>An optional second course of 18 more holes on the same land.</p>
+        <p>Optional forward and middle tees, chosen by each golfer's skill.</p>
+        <p>An optional flyover of a hole from its Hole Stats.</p>
+        <p>Double-click a saved game to load it.</p>
+        <p>Longer translated text shrinks or wraps to fit its box.</p>
+        <p>An option to show celebrities' names over home sites only under the pointer.</p>
+        <p>Problem reports can include an exact replay of the game.</p>
+      </description>
+    </release>
     <release version="0.6.10" date="2026-11-04">
       <description>
         <p>Desert ponds have sandy shores again, with grass only where they meet a tee, green, fairway or sand trap.</p>

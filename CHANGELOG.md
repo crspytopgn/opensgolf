@@ -8,6 +8,29 @@ Almost everything OpenSGolf adds to the original game is **off until you switch 
 unless you choose otherwise. Most of it is in Preferences: *Game options* holds the extras and presets, *Graphics* holds
 Enhanced graphics and HD.
 
+## 0.7 (7 November 2026)
+
+**Highlights**
+
+- **A second course on the same land (#77):** with *Second course: 18 more holes* (Preferences > Game options,
+  Gameplay; off unless you tick it), once your 18 holes are open a Course A | Course B switch appears over the Build
+  Course panel and the usual tools build holes B1 to B18. Arriving golfers play one course or the other, and Course B
+  has its own Course Report and Hole Stats. The SGA, tournaments, ratings and the other reports stay with Course A.
+- **Forward and middle tees (#120):** with *Multiple tees* (Gameplay, off unless you tick it), Tab with the Tees tool
+  places a hole's forward and middle tees. Less skilled golfers play from the front, average ones from the middle, and strong
+  golfers, pros and tournaments from the back. A hole's length, par and ratings stay those of its own tee.
+- **Fly over a hole:** with *Hole flyover* (Looks), Hole Stats gets a Fly over button that flies the camera from the
+  tee down the hole to the green and back.
+- **Double-click a save to load it (#145)**, or double-tap it.
+- **Longer translations fit (#164):** text that is too wide for its button, tab, sign or box now shrinks a little, then
+  wraps, then is cut short with "…", instead of running over its neighbours. English looks as before.
+- **Home names only under the pointer (#160):** a new Looks option shows a celebrity's name over a home site only while
+  the pointer is on it.
+- **Exact replays in problem reports:** *Report a problem* now also writes a replay of the game since it was loaded
+  (your own actions, nothing else), so a reported problem can be played back exactly as it happened. It stays on your
+  device unless you attach it to a report.
+- **Keep the land offer** has moved to the Sandbox page of the options.
+
 ## 0.6 (28 October 2026)
 
 **Highlights**
