@@ -1035,10 +1035,12 @@ impl App {
             s.fill(g, UP.x + 7.0, ty, 6.0, th, white);
         }
         let help = if clickable { "STR_HOLECOMMENTS_HELP_MAP" } else { "STR_HOLECOMMENTS_HELP" };
-        // the foot's two lines keep to the room left of the OK tick (bigger text only as far as fits)
-        let foot = |t: &str| crate::textsize::fit(FONT, 1.25, t, BOX.w - 110.0);
-        s.put(g, foot(tr("STR_HOLECOMMENTS_COUNTED")), BOX.x + 24.0, BOX.y + BOX.h - 46.0, tr("STR_HOLECOMMENTS_COUNTED"), navy);
-        s.put(g, foot(tr(help)), BOX.x + 24.0, BOX.y + BOX.h - 28.0, tr(help), navy);
+        // the foot's two lines keep to the room left of the OK tick (bigger text only as far as fits; a line wider than the
+        // room, a translation, a little smaller or cut: ui.rs fit_line, issue #164)
+        let room = ok_tick().x - 6.0 - (BOX.x + 24.0);
+        for (t, y) in [(tr("STR_HOLECOMMENTS_COUNTED"), BOX.y + BOX.h - 46.0), (tr(help), BOX.y + BOX.h - 28.0)] {
+            s.put_fit(g, crate::textsize::fit(FONT, 1.25, t, room), BOX.x + 24.0, y, room, t, navy);
+        }
         if self.art.trans.tex.is_some() {
             let r = ok_tick();
             s.image_part(g, &self.art.trans, r.x, r.y, 350.0, 140.0, 50.0, 50.0);

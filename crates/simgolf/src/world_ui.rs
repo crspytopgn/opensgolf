@@ -220,8 +220,10 @@ impl App {
         }
         s.image(g, &self.world_base, 0.0, 0.0);
         let navy = c15(0x2108);
-        s.text_centered(g, 126.0, 29.0, tr("STR_WORLD_WHERE_1"), 13.0, navy);
-        s.text_centered(g, 126.0, 43.0, tr("STR_WORLD_WHERE_2"), 13.0, navy);
+        // the port's own fitting of text too wide for its place (a translation, issue #164; ui.rs fit_line): the question to
+        // its box, each card's lines to the card (`CardRoom`), the legend's words to the gap before the next pin
+        s.text_centered_fit(g, 126.0, 29.0, WHERE_ROOM, tr("STR_WORLD_WHERE_1"), 13.0, navy);
+        s.text_centered_fit(g, 126.0, 43.0, WHERE_ROOM, tr("STR_WORLD_WHERE_2"), 13.0, navy);
         let funds = if self.world_unlimited() { tr("STR_WORLD_UNLIMITED").to_string() } else { money(self.world_cash() as i64) };
         s.text_centered(g, 740.0, 30.0, &funds, 14.0, navy);
         let a = &self.info.art;
@@ -267,37 +269,33 @@ impl App {
                 s.image_part(g, icon, cx + if sx == 300.0 { 0.0 } else { 2.0 }, cy, sx, 0.0, w, h);
             }
             let black = rgb(0.0, 0.0, 0.0);
-            s.text_centered(g, cx + 96.0, cy + 15.0, sg_core::data::records()[p].name(), 13.0, black);
-            s.text_centered(g, cx + 104.0, cy + 26.0, sg_core::data::records()[p].bonus(), 10.0, black);
+            s.text_centered_fit(g, cx + 96.0, cy + 15.0, CardRoom::NAME, sg_core::data::records()[p].name(), 13.0, black);
+            s.text_centered_fit(g, cx + 104.0, cy + 26.0, CardRoom::BONUS, sg_core::data::records()[p].bonus(), 10.0, black);
             let rec = &sg_core::data::records()[p];
             if sel && ok && !owned {
                 let relief = [tr("STR_WORLD_FLAT"), tr("STR_WORLD_ROLLING"), tr("STR_WORLD_HILLY")][rec.relief.min(2) as usize];
                 let lie = [tr("STR_WORLD_INLAND"), tr("STR_WORLD_COASTAL"), tr("STR_WORLD_ISLAND")][rec.coast.min(2) as usize];
                 let kind = [tr("STR_WORLD_PARKLAND"), tr("STR_WORLD_DESERT"), tr("STR_WORLD_TROPICAL"), tr("STR_WORLD_LINKS")]
                     [rec.theme.min(3) as usize];
-                s.text_centered(
-                    g,
-                    cx + 112.0,
-                    cy + 37.0,
-                    &trf("STR_WORLD_BUY_ACRES", &[("ACRES", &acres), ("RELIEF", &relief)]),
-                    10.0,
-                    navy,
-                );
-                s.text_centered(g, cx + 106.0, cy + 47.0, &trf("STR_WORLD_PROPERTY_KIND", &[("LIE", &lie), ("KIND", &kind)]), 10.0, navy);
+                let mut lines = vec![
+                    (112.0, 37.0, trf("STR_WORLD_BUY_ACRES", &[("ACRES", &acres), ("RELIEF", &relief)])),
+                    (106.0, 47.0, trf("STR_WORLD_PROPERTY_KIND", &[("LIE", &lie), ("KIND", &kind)])),
+                ];
                 // sandbox land has no price (0x46fdce)
                 if !self.world_unlimited() {
-                    s.text_centered(g, cx + 104.0, cy + 57.0, &trf("STR_WORLD_FOR_ONLY", &[("PRICE", &money(price as i64))]), 10.0, navy);
+                    lines.push((104.0, 57.0, trf("STR_WORLD_FOR_ONLY", &[("PRICE", &money(price as i64))])));
                 }
+                draw_offer(g, &s, cx, cy, &lines, navy);
             } else if !self.world_unlimited() {
                 // a bought property shows the year it was bought and the year it was left (never kept: "????")
                 let t = match self.bought_year(p).filter(|_| owned) {
                     Some(y) => format!("{} - ????", 2001 + y),
                     None => trf("STR_WORLD_ACRES_PRICE", &[("ACRES", &acres), ("PRICE", &money(price as i64))]),
                 };
-                s.text_centered(g, cx + 112.0, cy + 40.0, &t, 11.0, navy);
+                s.text_centered_fit(g, cx + 112.0, cy + 40.0, CardRoom::FOOT, &t, 11.0, navy);
             }
             if sel && owned {
-                s.text_centered(g, cx + 112.0, cy + 53.0, tr("STR_WORLD_ALREADY_PURCHASED"), 10.0, navy);
+                s.text_centered_fit(g, cx + 112.0, cy + 53.0, CardRoom::FOOT, tr("STR_WORLD_ALREADY_PURCHASED"), 10.0, navy);
             }
             let state = if sel && blink {
                 3
@@ -313,13 +311,14 @@ impl App {
             pin(g, cx + 160.0, cy + 10.0, variant, state);
         }
         // legend
-        for (x, st, t) in [
-            (24.0, 1, tr("STR_WORLD_AVAILABLE")),
-            (124.0, 0, tr("STR_WORLD_INSUFFICIENT_FUNDS")),
-            (244.0, 2, tr("STR_WORLD_LEGEND_PURCHASED")),
+        // (each name's room: up to two pixels before the next pin)
+        for (x, st, t, room) in [
+            (24.0, 1, tr("STR_WORLD_AVAILABLE"), 78.0),
+            (124.0, 0, tr("STR_WORLD_INSUFFICIENT_FUNDS"), 98.0),
+            (244.0, 2, tr("STR_WORLD_LEGEND_PURCHASED"), LEGEND_LAST_ROOM),
         ] {
             s.image_part(g, &a.tacks, x, 550.0, 0.0, 50.0 * st as f32, 20.0, 24.0);
-            s.text(g, x + 20.0, 570.0, t, 11.0, rgb(0.0, 0.0, 0.0));
+            s.text_fit(g, x + 20.0, 570.0, room, t, 11.0, rgb(0.0, 0.0, 0.0));
         }
         if self.world_options() {
             if self.course_size_choosable() {
@@ -494,6 +493,45 @@ impl App {
             s.image_part(g, &a.land_buttons, 662.0, 533.0, 194.0, 127.0, 64.0, 64.0);
         }
         g.flush();
+    }
+}
+
+/// The room of the question over the globe (`draw_property`): its box, 216 pixels round x 126.
+const WHERE_ROOM: f32 = 216.0;
+/// The room of the legend's last words (after the pin at x 244), as wide as the English "Already purchased" and a little.
+const LEGEND_LAST_ROOM: f32 = 110.0;
+
+/// The rooms of a world map card's lines (the port's own, issue #164), from the card's origin: the lit card is 182 x 73
+/// from x 2 (the free set's art shows its box from x 28 to 182), the property's circle over its left end and the pin from
+/// x 160 to 180 beside the first two lines. Each room is centred on its line's x as the exe places it.
+struct CardRoom;
+
+impl CardRoom {
+    /// The place's name, centred on x 96 (13 pixels), left of the pin.
+    const NAME: f32 = 124.0;
+    /// The bonus under it, centred on x 104 (10 pixels), left of the pin.
+    const BONUS: f32 = 108.0;
+    /// The acres and price (11 pixels) or "Already Purchased." (10 pixels), centred on x 112 in the card's strip, which
+    /// ends at about x 175.
+    const FOOT: f32 = 118.0;
+    /// The lit card's offer, its three lines centred on x 112, 106 and 104: the box from x 32 to 178.
+    const OFFER: (f32, f32) = (32.0, 178.0);
+}
+
+/// The lit card's offer (the lines' x and baseline from the card's origin, and their text) as the exe draws them in Arial
+/// Bold 10 when each fits the box (`CardRoom::OFFER`, centred on its x); else (a translation, issue #164) the lines are read
+/// as the one sentence they make and wrapped in the box from the first line's top to the card's foot, a little smaller
+/// where it needs (ui.rs fit_in).
+fn draw_offer(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, lines: &[(f32, f32, String)], c: [f32; 4]) {
+    let f = crate::ui::fnt_for(10.0);
+    let (l, r) = CardRoom::OFFER;
+    let fits = lines.iter().all(|(x, _, t)| f.width(t) <= 2.0 * (x - l).min(r - x));
+    let sentence = lines.iter().map(|(_, _, t)| t.trim()).filter(|t| !t.is_empty()).collect::<Vec<_>>().join(" ");
+    let top = cy + lines.first().map_or(37.0, |d| d.1) - f.base();
+    let fitted = if fits { None } else { crate::ui::fit_in(f, &sentence, (cx + l, top, r - l, cy + 70.0 - top)) };
+    match fitted {
+        Some((f, rows)) => rows.iter().for_each(|(t, x, y)| s.put_centered(g, f, *x, *y, t, c)),
+        None => lines.iter().for_each(|(x, y, t)| s.text_centered(g, cx + x, cy + y, t, 10.0, c)),
     }
 }
 

@@ -288,7 +288,8 @@ impl App {
                 s.text(g, X0 + 87.0, top(y + 7.0, BODY), &skill_value(v), BODY, rgb(0.0, 0.0, 0.0));
             }
             let c = if v != 0 { rgb(0.0, 0.0, 0.0) } else { c15(0x4210) };
-            s.text(g, X0 + 138.0, top(y + 7.0, BODY), pro::skill_label(r), BODY, c);
+            // a name too long for its pill (a translation, issue #164): a little smaller or cut, as on the skills card
+            s.text_fit(g, X0 + 138.0, top(y + 7.0, BODY), crate::screens_ui::SKILL_PILL_ROOM, pro::skill_label(r), BODY, c);
         }
         if d.editable {
             // the OK ball: footage of the original shows the yellow cut with the pointer away from it

@@ -11,7 +11,6 @@
 //! * the hole that sets its value (the nearest hole with the most fun, sg_core::homes::value_hole) and how much of the
 //!   value it makes.
 use crate::app::*;
-use crate::cursor_ui::label;
 use crate::gfx::Gfx;
 use crate::info_ui::c15;
 use crate::screens_ui::BODY;
@@ -31,6 +30,14 @@ pub struct Sale {
     pub cost: i64,
     pub sold: i64,
 }
+
+/// The room of a line of the home-site details box (the port's own, issue #164): the 180 pixel box as far as the screen's
+/// right edge leaves it (centred on x 710, 84 pixels either side); "Sylvester Stallion's home" is 160 pixels wide.
+const DETAILS_ROOM: f32 = 168.0;
+
+/// The room of a line of a home's label on the course (issue #164): a generous one, so only a very long name or translation
+/// is fitted ("Sylvester Stallion's" is 121 pixels wide).
+const LABEL_ROOM: f32 = 200.0;
 
 /// The most sales kept (a lot is placed on 2 x 2 tiles; no course holds this many).
 const MAX_SALES: usize = 400;
@@ -103,8 +110,11 @@ impl App {
             let (x, y) = (x.floor(), y.floor());
             let pink = c15(0x7e9f);
             let owner = trf("STR_HOME_LABEL_OWNER", &[("CELEBRITY", &c.name)]);
-            s.put_shadowed(g, crate::ui::F_MANUAL15, x, y - 12.0, &owner, pink, true);
-            s.put_shadowed(g, crate::ui::F_MANUAL15, x, y, tr("STR_HOME_LABEL_HOME"), pink, true);
+            // a line wider than `LABEL_ROOM` (a translation, issue #164): a little smaller or cut (ui.rs fit_line)
+            for (t, ty) in [(owner.as_str(), y - 12.0), (tr("STR_HOME_LABEL_HOME"), y)] {
+                let (f, t, dy) = crate::ui::fit_line(crate::ui::F_MANUAL15, t, LABEL_ROOM);
+                s.put_shadowed(g, f, x, ty + dy, &t, pink, true);
+            }
         }
     }
 
@@ -143,13 +153,25 @@ impl App {
             Some((h, adds)) => (trf("STR_HOMES_HOLE", &[("HOLE", &h), ("MONEY", &dollars(adds as i64 / 4 * 100))]), green),
             None => (tr("STR_HOMES_NO_HOLE").to_string(), c15(0x6318)),
         });
+        // a line wider than the box (a translation, issue #164): a little smaller, else on two lines (ui.rs fit_lines)
+        let f = crate::ui::fnt_for(BODY);
+        let rows: Vec<(crate::ui::Fnt, String, [f32; 4])> = lines
+            .iter()
+            .flat_map(|(t, c)| match crate::ui::fit_lines(f, t, DETAILS_ROOM, 2) {
+                None => vec![(f, t.clone(), *c)],
+                Some(fitted) => fitted.lines.into_iter().map(|l| (fitted.font, l, *c)).collect(),
+            })
+            .collect();
         // the lot box's frame (673, 380) grown leftward and upward to hold the lines, its bottom clear of the dock
-        let h = 22.0 + 15.0 * lines.len() as f32;
+        let h = 22.0 + 15.0 * rows.len() as f32;
         let (x, w) = (620.0, 180.0);
         let y = 470.0 - h;
         self.art.trans_frame(g, s, x, y, w, h);
-        for (i, (t, c)) in lines.iter().enumerate() {
-            label(g, s, x + w / 2.0, y + 10.0 + 15.0 * i as f32, t, BODY, *c);
+        for (i, (f, t, c)) in rows.iter().enumerate() {
+            // cursor_ui::label's look in the fitted font, a smaller one on the same middle
+            let top = y + 10.0 + 15.0 * i as f32 + ((BODY - f.px) / 2.0).floor();
+            s.put_centered(g, *f, x + w / 2.0, top + 1.0, t, [0.0, 0.0, 0.0, c[3]]);
+            s.put_centered(g, *f, x + w / 2.0, top, t, *c);
         }
     }
 }

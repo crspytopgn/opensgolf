@@ -340,6 +340,10 @@ fn strip_button(i: i32, state: i32) -> Cut {
 // ---- Add Buildings: the lots ---------------------------------------------------------------------------------------------------
 
 /// Lot i places building kind 6 + i. The hover text (third line of the info box) is the exe's.
+/// The room a line of a lot's info box has (`lot_info`; the port's own, issue #164): the 160 pixel box less its edges.
+/// The English names, costs and descriptions are at most 130 pixels wide.
+const LOT_ROOM: f32 = 150.0;
+
 const LOT_EFFECT: [&str; 9] = [
     "STR_LOT_PUTTING_GREEN",
     "STR_LOT_SNACK_BAR",
@@ -1252,11 +1256,19 @@ impl App {
 
     /// A lot's info box (0x434350): the pop-up frame (x, 460, 160, 100), three lines in Arial Bold 10 (0x519fd8), black,
     /// centred on the box with their tops at 462, 472 and 482. The cost is a plain grouped number ("Cost: 10,000" and
-    /// "Cost: 15,000" in footage of the original: 0x42dc00 adds no money sign).
+    /// "Cost: 15,000" in footage of the original: 0x42dc00 adds no money sign). Lines wider than the box (a translation)
+    /// are fitted to `LOT_ROOM`.
     fn lot_info(&self, g: &mut Gfx, s: &Ui, i: usize) {
         let level = self.lot_level(6 + i as i32);
         let cx = ((i % 5) as f32 * 80.0 + if i > 4 { 431.0 } else { 391.0 }).clamp(80.0, 720.0);
-        self.popup_frame(g, s, cx - 80.0, 460.0, 160.0, 100.0);
+        let f = crate::ui::F_ARIAL10;
+        // a description too wide for the box (a translation, issue #164): a little smaller, else on up to three lines,
+        // the box moving up 10 pixels for each line more so they all show above the panel (ui.rs fit_lines)
+        let effect = tr(LOT_EFFECT[i]);
+        let lines = crate::ui::fit_lines(f, effect, LOT_ROOM, 3);
+        let more = lines.as_ref().map_or(0.0, |t| 10.0 * (t.lines.len() - 1) as f32);
+        let y = 460.0 - more;
+        self.popup_frame(g, s, cx - 80.0, y, 160.0, 100.0);
         // the Snack Bar never says "Upgraded" nor shows the upgrade price
         let up = level != 0 && i != 1;
         let name = land::building_name(6 + i as i32);
@@ -1264,10 +1276,19 @@ impl App {
         let dollars = if up { units * 300 / 2 } else { units * 100 };
         let ink = rgb(0.0, 0.0, 0.0);
         let title = if up { trf("STR_LOT_UPGRADED", &[("BUILDING", &name)]) } else { name.to_string() };
-        let f = crate::ui::F_ARIAL10;
-        s.put_centered(g, f, cx, 462.0, &title, ink);
-        s.put_centered(g, f, cx, 472.0, &trf("STR_TIP_COST", &[("COST", &crate::ui::group(dollars.max(0) as u64))]), ink);
-        s.put_centered(g, f, cx, 482.0, tr(LOT_EFFECT[i]), ink);
+        s.put_centered_fit(g, f, cx, y + 2.0, LOT_ROOM, &title, ink);
+        let cost = trf("STR_TIP_COST", &[("COST", &crate::ui::group(dollars.max(0) as u64))]);
+        s.put_centered_fit(g, f, cx, y + 12.0, LOT_ROOM, &cost, ink);
+        match lines {
+            None => s.put_centered(g, f, cx, y + 22.0, effect, ink),
+            Some(t) => {
+                // a smaller font keeps its lines' middles where the full size's would be
+                let dy = ((f.px - t.font.px) / 2.0).floor();
+                for (k, l) in t.lines.iter().enumerate() {
+                    s.put_centered(g, t.font, cx, y + 22.0 + dy + 10.0 * k as f32, l, ink);
+                }
+            }
+        }
     }
 
     /// The exe's pop-up frame (0x40d0b0): a size that is not a multiple of 16 grows to the next 16 - 1 (a remainder r adds

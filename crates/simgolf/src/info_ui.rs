@@ -411,8 +411,8 @@ impl App {
         let by = total_y + 29.0;
         s.image_part(g, art, 0.0, by, 0.0, 468.0, 800.0, 72.0);
         // the legend's tops at the bottom piece's y - 63 + its height (72), the tick 15 below them (0x4520f0)
-        for (x, t) in [(178.0, tr("STR_REPORT_TOP_100")), (335.0, tr("STR_REPORT_TOP_18")), (487.0, tr("STR_REPORT_SCENIC"))] {
-            s.put_centered(g, crate::ui::F_INFO14, x, by + 9.0, t, ink);
+        for (k, t) in [tr("STR_REPORT_TOP_100"), tr("STR_REPORT_TOP_18"), tr("STR_REPORT_SCENIC")].into_iter().enumerate() {
+            draw_legend_word(g, &s, k, by + 9.0, t, ink);
         }
         self.ok_tick(g, &s, 734.0, by + 24.0, false);
         g.flush();
@@ -662,4 +662,23 @@ impl App {
         }
         g.flush();
     }
+}
+
+/// The Course Report legend's marks (the bottom piece's Top 100, Top 18 and scenic marks, 14 pixels wide) and its words'
+/// middles (0x4520f0), by entry.
+const LEGEND_MARK_X: [f32; 3] = [113.0, 271.0, 423.0];
+const LEGEND_WORD_X: [f32; 3] = [178.0, 335.0, 487.0];
+
+/// A legend entry's words as the exe centres them on its x (Manual SSi 14) when they fit between their mark and as far
+/// again on the other side; longer words (a translation, the port's own, issue #164) start after the mark and have the
+/// room up to the next entry's mark (the last: to the OK tick), a little smaller or cut if they still do not fit
+/// (ui.rs fit_line), so they never run over their mark.
+fn draw_legend_word(g: &mut Gfx, s: &Ui, k: usize, y: f32, t: &str, c: [f32; 4]) {
+    let f = crate::ui::F_INFO14;
+    let (x, after) = (LEGEND_WORD_X[k], LEGEND_MARK_X[k] + 14.0 + 4.0);
+    if f.width(t) <= 2.0 * (x - after) {
+        return s.put_centered(g, f, x, y, t, c);
+    }
+    let end = LEGEND_MARK_X.get(k + 1).copied().unwrap_or(728.0) - 8.0;
+    s.put_fit(g, f, after, y, end - after, t, c);
 }

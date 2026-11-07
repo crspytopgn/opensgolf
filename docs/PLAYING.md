@@ -1549,8 +1549,11 @@ Text longer than its box (mostly a translation's, issue #164) is fitted to it, i
 button, tab, title menu sign, Select Difficulty name, screen title, Load list row or the widest a pop-up box can grow (the
 screen's width) is drawn a little smaller, down to three quarters of its size; where its box is tall enough (the port's own
 buttons and tabs) it then goes onto two lines; and only as a last resort it is cut with an ellipsis (…), so it never runs
-over what is next to it. Text that fits is drawn exactly as before. Test hook: `SG_TEXTFIT=1` prints each text that had
-to be fitted (docs/TRANSLATING.md).
+over what is next to it. The same goes for the building info box over the Build Course panel, the home-site details
+box and labels, the golfer card's lines and bar names, the skill pills, the world map's cards and legend, the aim's lines
+and skill lines on the shot panel, the foot of Comments by Hole and the Course Report's legend; docs/TRANSLATING.md lists
+how each one fits. Text that fits is drawn exactly as before. Test hook: `SG_TEXTFIT=1` prints each text that had to be
+fitted (docs/TRANSLATING.md).
 
 The port's own boxes (OpenSGolf extras, Enhanced graphics, Search, Preferences' Graphics, Game files and More, and the
 port's yes/no questions) are drawn for

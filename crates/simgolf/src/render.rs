@@ -1111,7 +1111,8 @@ impl App {
                 s.fill(g, 600.0, 440.0 - h, 192.0, h, rgba(0.12, 0.1, 0.3, 0.85));
                 for (i, (l, on)) in rows.iter().enumerate() {
                     let c = if *on { rgb(1.0, 1.0, 1.0) } else { rgb(0.55, 0.55, 0.65) };
-                    s.text(g, 608.0, 440.0 - h + 20.0 + 16.0 * i as f32, l, 13.0, c);
+                    // a line wider than the box (a translation, issue #164): a little smaller or cut (ui.rs fit_line)
+                    s.text_fit(g, 608.0, 440.0 - h + 20.0 + 16.0 * i as f32, 176.0, l, 13.0, c);
                 }
             }
         }
