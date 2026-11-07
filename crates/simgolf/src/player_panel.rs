@@ -19,6 +19,12 @@ use sg_core::lang::{tr, trf};
 use sg_core::pro;
 use sg_core::tournament::OFFERED;
 
+/// The room of the aim's lines (the port's own, issue #164): the box from x 336 to 482 they are centred in on x 406.
+const AIM_ROOM: f32 = 140.0;
+/// The room of a skill line in the first column (from x 494, up to the second's x 641) and the second (to the screen's
+/// edge), issue #164. "High Backspin Shot +100%" is 132 pixels wide.
+const SKILL_ROOMS: [f32; 2] = [143.0, 153.0];
+
 /// The body, cut from the sheet and drawn at the same place.
 pub const PLAYER_BODY: Cut = (214.0, 474.0, 586.0, 126.0);
 
@@ -220,10 +226,11 @@ impl App {
                 blit(g, s, &im, cut(id, state), POS[id].0, POS[id].1);
             }
             // the aim's own lines (0x41b62f): Manual SSi Bold 15 (0x51b360) in dark blue 0x0018, centred on x 406 with tops
-            // at 542, 556, 570 and 584; then the skills as in the idle panel, white where they count for this shot, else grey
+            // at 542, 556, 570 and 584; then the skills as in the idle panel, white where they count for this shot, else grey.
+            // A line wider than the aim's box (a translation, issue #164) is drawn a little smaller or cut (ui.rs fit_line)
             if let Some((lines, skills)) = self.aim_text() {
                 for (i, l) in lines.iter().enumerate() {
-                    s.put_centered(g, crate::ui::F_MANUAL15, 406.0, 542.0 + 14.0 * i as f32, l, c15(0x0018));
+                    s.put_centered_fit(g, crate::ui::F_MANUAL15, 406.0, 542.0 + 14.0 * i as f32, AIM_ROOM, l, c15(0x0018));
                 }
                 self.draw_skill_lines(g, s, &skills);
             }
@@ -256,11 +263,12 @@ impl App {
     }
 
     /// Skill lines from (494, 540) 12 apart, a new column at x 641 once past y 599; lit ones white (0x7fff), the others grey
-    /// (0x4210).
+    /// (0x4210). A line wider than its column (a translation, issue #164) is drawn a little smaller or cut (`SKILL_ROOMS`).
     fn draw_skill_lines(&self, g: &mut Gfx, s: &Ui, rows: &[(String, bool)]) {
         let (mut x, mut y) = (494.0, 540.0);
         for (t, lit) in rows {
-            s.text(g, x, top(y, SMALL), t, SMALL, c15(if *lit { 0x7fff } else { 0x4210 }));
+            let room = SKILL_ROOMS[(x > 494.0) as usize];
+            s.text_fit(g, x, top(y, SMALL), room, t, SMALL, c15(if *lit { 0x7fff } else { 0x4210 }));
             y += 12.0;
             if y > 599.0 {
                 x = 641.0;

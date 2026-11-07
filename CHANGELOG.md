@@ -31,6 +31,12 @@ Enhanced graphics and HD.
   device unless you attach it to a report.
 - **Keep the land offer** has moved to the Sandbox page of the options.
 
+**Fix releases**
+
+- **0.7.1:** longer translations also fit the building info box, the home-site details, the golfer card, the pro's
+  skills, the world map's cards and legend, the shot panel, the foot of Comments by Hole and the Course Report's legend,
+  instead of running out of them (#164).
+
 ## 0.6 (28 October 2026)
 
 **Highlights**

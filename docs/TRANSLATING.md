@@ -49,6 +49,27 @@ its neighbours. Message windows and descriptions wrap as before. Text that fits 
 prefer a shorter word where your language has one: smaller and cut text is harder to read. `SG_TEXTFIT=1` (an
 environment variable) prints every text the game had to fit this way, each once, with the width it had.
 
+The boxes and places this covers:
+
+* buttons and tabs of the game's own screens, the pop-up boxes (their lines and page tabs), the title menu signs, Select
+  Difficulty, the info screens' titles and the Load list;
+* the building's info box over the Build Course panel (name, cost, what it does): a description too wide for the box
+  goes onto up to three lines, the box moving up to show them;
+* the home-site details box (the Home-site details extra): a line too wide goes onto two lines and the box grows; the
+  celebrity's name and "Home" over the lot on the course;
+* the golfer card: the name, the marital status and age, the traits, the quote and the likes between the face and the
+  bars, and the five bars' names (Fun, Attitude, Energy, Hunger, Thirst);
+* the skill names in their pills on a pro's skills card and in the skills dialog;
+* the world map: the question over the globe, each card's place, bonus and acres line, the legend, and the lit card's
+  offer. The offer's three texts (`STR_WORLD_BUY_ACRES`, `STR_WORLD_PROPERTY_KIND`, `STR_WORLD_FOR_ONLY`) are read as one
+  sentence when one of them is too wide: they are joined with spaces and wrapped in the card, so write them to follow
+  on from each other;
+* the shot panel while your pro aims: the Attitude, Club, Distance and Lie lines in their box, and the skill lines in
+  their two columns (and the box the aim's lines get when the Player panel is not open);
+* Comments by Hole: the two lines at its foot keep left of the OK tick;
+* the Course Report's legend (Top 100, Top 18, scenic hole): words too wide to sit centred beside their mark start
+  after the mark and may run on to the next one.
+
 ## Parameters
 
 Names in braces are filled in by the game: `{GOLFER}` a golfer's name, `{PRO}` the player's pro (or a famous golfer),

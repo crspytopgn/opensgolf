@@ -1295,7 +1295,27 @@ pub fn fit_in(f: Fnt, s: &str, (x, y, w, h): (f32, f32, f32, f32)) -> Option<Fit
     Some((g, t.lines.into_iter().enumerate().map(|(i, l)| (l, cx, top + pitch * i as f32)).collect()))
 }
 
+/// `s` in `f` in a room `w` wide with room for `lines` lines (`fit_box`): None when it fits as it is, else the font and
+/// the lines, at most `lines` of them.
+pub fn fit_lines(f: Fnt, s: &str, w: f32, lines: usize) -> Option<Fitted> {
+    fit_box(f, s, w, f.px + f.line() * lines.saturating_sub(1) as f32)
+}
+
+/// The font object `text` draws a size in (Arial below 12 pixels, Manual SSi above, or the screen's face): for fitting
+/// text that is drawn by its size.
+pub fn fnt_for(size: f32) -> Fnt {
+    Fnt { face: face_for(size), px: size }
+}
+
 impl Screen {
+    /// `text_centered` (by size, the baseline at y) for a label in a room `w` wide centred on cx: as before when it fits,
+    /// else a little smaller or cut (`fit_line`), on the same baseline and in the same face.
+    #[allow(clippy::too_many_arguments)]
+    pub fn text_centered_fit(&self, g: &mut Gfx, cx: f32, y: f32, w: f32, s: &str, size: f32, c: [f32; 4]) {
+        let (f, s, _) = fit_line(fnt_for(size), s, w);
+        self.text_in(g, f.face, cx - (f.width(&s) / 2.0).floor(), y, &s, f.px, c);
+    }
+
     /// `put_centered` for a label in a room `w` wide: as before when it fits, else a little smaller or cut (`fit_line`).
     #[allow(clippy::too_many_arguments)]
     pub fn put_centered_fit(&self, g: &mut Gfx, f: Fnt, cx: f32, y: f32, w: f32, s: &str, c: [f32; 4]) {
@@ -1436,6 +1456,23 @@ mod tests {
         // one word longer than the box is cut too
         let t = fit_box(f, "abcdefghijklmnopqrstuvwxyz", 100.0, 80.0).unwrap();
         assert!(t.lines.iter().all(|l| t.font.width(l) <= 100.0));
+    }
+
+    #[test]
+    fn fit_lines_keeps_to_its_lines_and_leaves_what_fits() {
+        // issue #164 (no fonts in tests: a letter is half the size wide, a line 1.25 sizes)
+        use super::{fit_lines, Face, Fnt};
+        let f = Fnt { face: Face::Arial, px: 10.0 };
+        assert_eq!(fit_lines(f, "aaaa bbbb", 50.0, 3), None);
+        let s = "aaaa bbbb cccc dddd eeee ffff gggg hhhh";
+        for n in 1..4 {
+            let t = fit_lines(f, s, 50.0, n).unwrap();
+            assert!(t.lines.len() <= n && t.lines.iter().all(|l| t.font.width(l) <= 50.0), "{n}: {:?}", t.lines);
+        }
+        // room for three: every word is kept, on three lines at the biggest size that holds them
+        let t = fit_lines(f, "aaaa bbbb cccc dddd eeee ffff", 50.0, 3).unwrap();
+        assert_eq!((t.font.px, t.lines.len()), (10.0, 3));
+        assert!(!t.lines.iter().any(|l| l.ends_with('\u{2026}')));
     }
 
     #[test]

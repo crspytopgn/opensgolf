@@ -399,6 +399,16 @@ pub const CLASS_WORDS: [&str; 3] = ["STR_CLASS_LENGTH", "STR_CLASS_ACCURACY", "S
 pub const LARGE: f32 = crate::ui::F_MANUAL20.px;
 pub const BODY: f32 = crate::ui::F_MANUAL15.px;
 pub const SMALL: f32 = crate::ui::F_ARIAL10.px;
+/// The room of the golfer card's identity lines (the port's own, issue #164), centred on x 420: the plate's middle panel
+/// (about x 294 to 542) and its frame, as wide as the widest English line ("This is the best course I've ever played!" in
+/// quotes, 256 pixels in Manual SSi 15). A wider line (a translation) is drawn a little smaller or cut.
+const CARD_ID_ROOM: f32 = 256.0;
+/// The room of a bar's name on the golfer card (issue #164): the bar's 80 pixels and a little either side, centred on x
+/// 586 inside the card's right edge.
+const CARD_BAR_ROOM: f32 = 86.0;
+/// The room of a skill's name in its pill on the pro's skills card and the skills dialog (issue #164): from the name's x,
+/// 56 pixels into the 191 pixel pill, to where its round end starts. "High Backspin Shot" is 126 pixels wide.
+pub(crate) const SKILL_PILL_ROOM: f32 = 133.0;
 
 fn black() -> [f32; 4] {
     rgb(0.05, 0.05, 0.1)
@@ -715,7 +725,8 @@ impl App {
         self.card_buttons(gi).iter().find(|b| dist(vx - b.4, vy - b.5) < 25.0).map(|b| b.0).unwrap_or(-1)
     }
 
-    /// The golfer card over the course (0x45c560), redrawn every frame while it is open.
+    /// The golfer card over the course (0x45c560), redrawn every frame while it is open. Its identity lines keep to
+    /// `CARD_ID_ROOM` and the bars' names to `CARD_BAR_ROOM` (issue #164).
     pub fn draw_card(&mut self, g: &mut Gfx, s: &Ui) {
         let Some(gi) = self.card else { return };
         let h = self.club.g[gi].hole;
@@ -764,10 +775,12 @@ impl App {
             trf("STR_CARD_NAME_JOB", &[("GOLFER", &self.club.vip_name(gi)), ("JOB", &p.job)])
         };
         // the card's art cannot grow: with bigger text (textsize.rs) each line takes what fits beside the face and the bars,
-        // and the 13 to 16 pixel rows between them cap the body lines at 125%
+        // and the 13 to 16 pixel rows between them cap the body lines at 125%; a line wider than the room (a translation,
+        // issue #164) is drawn a little smaller or cut (ui.rs fit_line)
         let id_line = |g: &mut Gfx, y: f32, t: &str, size: f32, cap: f32, c| {
-            let big = crate::textsize::fit_px(size, cap, t, 290.0);
-            s.text_centered(g, 420.0, top(y - ((big - size) / 2.0).floor(), big), t, big, c);
+            let big = crate::textsize::fit_px(size, cap, t, CARD_ID_ROOM);
+            let (f, t, dy) = crate::ui::fit_line(crate::ui::fnt_for(big), t, CARD_ID_ROOM);
+            s.put_centered(g, f, 420.0, y - ((big - size) / 2.0).floor() + dy, &t, c);
         };
         id_line(g, 40.0, &name, LARGE, 1.5, teal);
         let marital = trf("STR_CARD_MARITAL_AGE", &[("MARITAL", &self.club.marital(gi)), ("AGE", &self.club.age(gi))]);
@@ -780,7 +793,7 @@ impl App {
         // the five bars: the bright full length, then the dark part from the right end
         for (i, (label, w)) in bars(&gg).iter().enumerate() {
             let y = 44.0 + 16.0 * i as f32;
-            s.text_centered(g, 586.0, top(y, SMALL), label, SMALL, black());
+            s.text_centered_fit(g, 586.0, top(y, SMALL), CARD_BAR_ROOM, label, SMALL, black());
             let bad = *w > 40;
             s.fill(g, 546.0, y + 10.0, 80.0, 4.0, c15(if bad { 0x7d08 } else { 0x23e8 }));
             s.fill(g, 626.0 - *w as f32, y + 10.0, *w as f32, 4.0, c15(if bad { 0x6000 } else { 0x1284 }));
@@ -954,7 +967,9 @@ impl App {
             if v != 0 {
                 s.text(g, 37.0, top(y + 7.0, BODY), &skill_value(v), BODY, black());
             }
-            s.text(g, 88.0, top(y + 7.0, BODY), sg_core::pro::skill_label(r), BODY, if v != 0 { black() } else { c15(0x4210) });
+            // a name too long for its pill (a translation, issue #164): a little smaller or cut (ui.rs fit_line)
+            let c = if v != 0 { black() } else { c15(0x4210) };
+            s.text_fit(g, 88.0, top(y + 7.0, BODY), SKILL_PILL_ROOM, sg_core::pro::skill_label(r), BODY, c);
         }
     }
 
