@@ -380,13 +380,16 @@ impl App {
         s.put(g, F_INFO_TITLE, 190.0, 42.0, tr("STR_SGA_TITLE"), ink);
         let c = r.class.clamp(0, 3);
         let class = sg_core::economy::rank_name(c as usize);
-        s.put(g, F_INFO14, 75.0, 77.0, &trf("STR_SGA_SELECTION", &[("CLASS", &class)]), ink);
+        // a line wider than its pill (a translation, issue #164): a little smaller or cut (ui.rs fit_line)
+        s.put_fit(g, F_INFO14, 75.0, 77.0, SGA_SELECTION_ROOM, &trf("STR_SGA_SELECTION", &[("CLASS", &class)]), ink);
         // "Grade:" at (306, 77); the score out of 100 right-aligned at 396, or a failed course's red "0/100" at (370, 80)
-        s.put(g, F_INFO14, 306.0, 77.0, tr("STR_SGA_GRADE"), ink);
+        // a word wider than the room a score leaves it (a translation, issue #164): a little smaller or cut
+        let score = format!("{}/100", r.score);
+        s.put_fit(g, F_INFO14, 306.0, 77.0, SGA_GRADE_ROOM, tr("STR_SGA_GRADE"), ink);
         if r.score <= 0 {
             s.put(g, F_INFO14, 370.0, 80.0, "0/100", red);
         } else {
-            s.put_right(g, F_INFO14, 396.0, 77.0, &format!("{}/100", r.score), ink);
+            s.put_right(g, F_INFO14, 396.0, 77.0, &score, ink);
         }
         s.put(g, F_INFO14, 497.0, 77.0, tr("STR_SGA_IDEAL_MINIMUM"), ink);
         // the ideal, then the minimum in brackets (0x44fb30): the length grouped by thousands with a "+"
@@ -410,7 +413,9 @@ impl App {
         for (i, label) in SGA_ROWS.iter().enumerate() {
             let y = 104.0 + 17.0 * i as f32;
             let ty = y + 10.0;
-            s.text_centered(g, 119.0, ty, tr(label), 14.0, ink);
+            // a criterion or value wider than its pill, or an ideal wider than the frame leaves it (a translation, issue
+            // #164): a little smaller or cut
+            s.text_centered_fit(g, 119.0, ty, SGA_LABEL_ROOM, tr(label), 14.0, ink);
             let v = r.values[i];
             let value = match i {
                 0 => trf("STR_SGA_VALUE_YARDS", &[("YARDS", &num(v))]),
@@ -419,7 +424,7 @@ impl App {
                 3 => format!("{v}%"),
                 _ => v.to_string(),
             };
-            s.text_centered(g, 238.0, ty, &value, 14.0, ink);
+            s.text_centered_fit(g, 238.0, ty, SGA_VALUE_ROOM, &value, 14.0, ink);
             if r.scores[i] == 0 {
                 s.text_centered(g, 386.0, ty, tr("STR_SGA_NOT_ACCEPTABLE"), 14.0, red);
             } else {
@@ -433,7 +438,7 @@ impl App {
                     }
                 }
             }
-            s.text(g, 490.0, ty, &ideals[i], 14.0, ink);
+            s.text_fit(g, 490.0, ty, SGA_IDEAL_ROOM, &ideals[i], 14.0, ink);
         }
         s.put(g, F_INFO14, 174.0, 288.0, tr("STR_SGA_RECOMMENDATION"), ink);
         if r.score <= 0 {
@@ -600,6 +605,18 @@ const OK_X: f32 = 732.0;
 /// cutter trims (0x492000) and its draw does not put back.
 const TRIM_X: f32 = 2.0;
 const HEADER_TRIM_Y: f32 = 10.0;
+
+/// The rooms of the SGA report's words (the port's own, issue #164), read off the art's pills (SGA.pcx): the Selection
+/// Criteria line from x 75 to the end of its pill at 279; a criterion's name centred on 119 in its pill (x 58 to 180, and
+/// the pill's outline either side: "Holes with Variety" is 126 pixels wide in the free set's face), its value on 238 in
+/// its pill (196 to 280); an ideal from x 490 to the frame's inner edge.
+const SGA_SELECTION_ROOM: f32 = 204.0;
+/// "Grade:" from x 306 up to where a two-digit score right-aligned at 396 starts ("Grade:" is 45 pixels wide in the free
+/// set's face, 39 in Manual SSi).
+const SGA_GRADE_ROOM: f32 = 45.0;
+const SGA_LABEL_ROOM: f32 = 128.0;
+const SGA_VALUE_ROOM: f32 = 84.0;
+const SGA_IDEAL_ROOM: f32 = 265.0;
 
 const SGA_ROWS: [&str; 10] = [
     "STR_SGA_ROW_LENGTH",

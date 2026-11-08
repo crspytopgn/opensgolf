@@ -994,7 +994,7 @@ impl Screen {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn text_in(&self, g: &mut Gfx, face: Face, x: f32, y: f32, s: &str, size: f32, c: [f32; 4]) {
+    pub(crate) fn text_in(&self, g: &mut Gfx, face: Face, x: f32, y: f32, s: &str, size: f32, c: [f32; 4]) {
         log_text(s);
         let Some(f) = Font::get(face) else { return };
         if crate::enhanced::native_text() && self.text_native(g, f, face, x, y, s, size, c) {
