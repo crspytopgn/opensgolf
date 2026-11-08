@@ -2063,10 +2063,13 @@ impl Stage {
                 self.app.open_support_page();
                 self.app.open_popup(from);
             }
-            // What's new... (welcome.rs): the changelog in the browser; Preferences stays
+            // What's new... (welcome.rs): this version's What's new box, whose See everything that's new opens the
+            // changelog in the browser
             Line::WhatsNew => {
-                self.app.open_changelog();
-                self.app.open_popup(from);
+                self.app.prefs_stack.clear();
+                self.app.welcome.news = crate::welcome::HIGHLIGHTS.last().copied();
+                self.app.hover = -1;
+                self.app.open_popup(popup_ui::PopupKind::WhatsNew);
             }
             Line::MakeHd => {
                 self.app.prefs_stack.clear();

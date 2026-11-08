@@ -46,6 +46,14 @@ pub enum Try {
     RightDrop,
     /// Sandbox: no new dandelions on for the next games (sg_core::extras).
     NoWeeds,
+    /// Second course: 18 more holes on for the next games (sg_core::extras).
+    SecondCourse,
+    /// Multiple tees on for the next games (sg_core::extras).
+    Tees,
+    /// The Hole flyover extra on (extras.rs).
+    Flyover,
+    /// Home names only under the pointer on (extras.rs).
+    HomeHover,
 }
 
 /// One of a version's highlights: its line, the note under it, and what its Try it does (none: no option to try).
@@ -62,17 +70,30 @@ const fn hl(line: &'static str, note: &'static str, action: Option<Try>) -> High
 
 /// Each version's highlights, oldest first: a release adds its entry here (and its lines to lang/en.txt). A version is
 /// its minor version ("0.6"), the title's.
-pub const HIGHLIGHTS: &[(&str, &[Highlight])] = &[(
-    "0.6",
-    &[
-        hl("STR_WHATSNEW_SMOOTH", "STR_WHATSNEW_SMOOTH_NOTE", None),
-        hl("STR_WHATSNEW_HD", "STR_WHATSNEW_HD_NOTE", Some(Try::MakeHd)),
-        hl("STR_WHATSNEW_SWING", "STR_WHATSNEW_SWING_NOTE", Some(Try::MouseSwing)),
-        hl("STR_WHATSNEW_RIGHT", "STR_WHATSNEW_RIGHT_NOTE", Some(Try::RightDrop)),
-        hl("STR_WHATSNEW_WEEDS", "STR_WHATSNEW_WEEDS_NOTE", Some(Try::NoWeeds)),
-        hl("STR_WHATSNEW_MORE", "STR_WHATSNEW_MORE_NOTE", None),
-    ],
-)];
+pub const HIGHLIGHTS: &[(&str, &[Highlight])] = &[
+    (
+        "0.6",
+        &[
+            hl("STR_WHATSNEW_SMOOTH", "STR_WHATSNEW_SMOOTH_NOTE", None),
+            hl("STR_WHATSNEW_HD", "STR_WHATSNEW_HD_NOTE", Some(Try::MakeHd)),
+            hl("STR_WHATSNEW_SWING", "STR_WHATSNEW_SWING_NOTE", Some(Try::MouseSwing)),
+            hl("STR_WHATSNEW_RIGHT", "STR_WHATSNEW_RIGHT_NOTE", Some(Try::RightDrop)),
+            hl("STR_WHATSNEW_WEEDS", "STR_WHATSNEW_WEEDS_NOTE", Some(Try::NoWeeds)),
+            hl("STR_WHATSNEW_MORE", "STR_WHATSNEW_MORE_NOTE", None),
+        ],
+    ),
+    (
+        "0.7",
+        &[
+            hl("STR_WHATSNEW_SECOND", "STR_WHATSNEW_SECOND_NOTE", Some(Try::SecondCourse)),
+            hl("STR_WHATSNEW_TEES", "STR_WHATSNEW_TEES_NOTE", Some(Try::Tees)),
+            hl("STR_WHATSNEW_FLYOVER", "STR_WHATSNEW_FLYOVER_NOTE", Some(Try::Flyover)),
+            hl("STR_WHATSNEW_HOMEHOVER", "STR_WHATSNEW_HOMEHOVER_NOTE", Some(Try::HomeHover)),
+            hl("STR_WHATSNEW_DOUBLE", "STR_WHATSNEW_DOUBLE_NOTE", None),
+            hl("STR_WHATSNEW_MORE07", "STR_WHATSNEW_MORE07_NOTE", None),
+        ],
+    ),
+];
 
 /// A version as numbers ("0.6" and "0.6.0" alike); none for a version that does not read.
 pub fn parse(v: &str) -> Option<(u32, u32, u32)> {
@@ -314,6 +335,10 @@ impl App {
             Try::MouseSwing => crate::extras::mouse_swing(),
             Try::RightDrop => crate::extras::settings().right_drop,
             Try::NoWeeds => self.extras_next.no_weeds,
+            Try::SecondCourse => self.extras_next.second_course,
+            Try::Tees => self.extras_next.tees,
+            Try::Flyover => crate::extras::settings().hole_flyover,
+            Try::HomeHover => crate::extras::settings().home_labels_hover,
         }
     }
 
@@ -343,20 +368,25 @@ impl App {
                 self.hd_make_open();
                 false
             }
-            Some(Try::MouseSwing) | Some(Try::RightDrop) => {
+            Some(t @ (Try::MouseSwing | Try::RightDrop | Try::Flyover | Try::HomeHover)) => {
                 let mut ui = crate::extras::settings();
-                if x.action == Some(Try::MouseSwing) {
-                    ui.mouse_swing = true;
-                } else {
-                    ui.right_drop = true;
+                match t {
+                    Try::MouseSwing => ui.mouse_swing = true,
+                    Try::RightDrop => ui.right_drop = true,
+                    Try::Flyover => ui.hole_flyover = true,
+                    _ => ui.home_labels_hover = true,
                 }
                 crate::extras::set(ui);
                 crate::extras::save(&ui);
                 true
             }
-            Some(Try::NoWeeds) => {
+            Some(t @ (Try::NoWeeds | Try::SecondCourse | Try::Tees)) => {
                 let mut e = self.extras_next;
-                e.no_weeds = true;
+                match t {
+                    Try::NoWeeds => e.no_weeds = true,
+                    Try::SecondCourse => e.second_course = true,
+                    _ => e.tees = true,
+                }
                 self.extras_next = e;
                 crate::extras_ui::save_next(&e);
                 true
@@ -454,6 +484,20 @@ mod tests {
                 assert!(l[i + 1].starts_with('\t') && l[i + 1].len() > 1, "{}", l[i]);
             }
             assert_eq!(l.last().unwrap(), "\tYou can change this any time in Preferences > Game options.");
+        }
+    }
+
+    #[test]
+    fn this_versions_highlights_are_listed() {
+        // a minor release adds its highlights (#: 0.7.0 to 0.7.2 still showed 0.6's)
+        assert_eq!(HIGHLIGHTS.last().unwrap().0, marker(env!("CARGO_PKG_VERSION")));
+        assert_eq!(news(Some("0.6"), "0.7.3").map(|n| n.0), Some("0.7"));
+        assert_eq!(news(None, "0.7.3").map(|n| n.0), Some("0.7"));
+        assert!(news(Some("0.7"), "0.7.3").is_none());
+        for (_, h) in HIGHLIGHTS {
+            for x in *h {
+                assert!(tr(x.line) != x.line && tr(x.note) != x.note, "{}", x.line);
+            }
         }
     }
 

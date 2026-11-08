@@ -3466,12 +3466,24 @@ STR_WHATSNEW_WEEDS                      : Sandbox: no new dandelions
 STR_WHATSNEW_WEEDS_NOTE                 :Dandelions stop spreading, so the course stays clear.
 STR_WHATSNEW_MORE                       : And more
 STR_WHATSNEW_MORE_NOTE                  :Wide-screen interface, update check, [ ] for speed, desert fixes.
+STR_WHATSNEW_SECOND                     : A second course
+STR_WHATSNEW_SECOND_NOTE                :Once your 18 holes are open, build 18 more on the same land (new games).
+STR_WHATSNEW_TEES                       : Forward and middle tees
+STR_WHATSNEW_TEES_NOTE                  :Tab with the Tees tool places them; golfers pick theirs by skill (new games).
+STR_WHATSNEW_FLYOVER                    : Hole flyover
+STR_WHATSNEW_FLYOVER_NOTE               :Hole Stats gets a Fly over button: click a hole's flag to open it.
+STR_WHATSNEW_HOMEHOVER                  : Home names under the pointer
+STR_WHATSNEW_HOMEHOVER_NOTE             :A celebrity's name shows over a home site only while you point at it.
+STR_WHATSNEW_DOUBLE                     : Double-click a save to load it
+STR_WHATSNEW_DOUBLE_NOTE                :Or double-tap it on a touch screen.
+STR_WHATSNEW_MORE07                     : And more
+STR_WHATSNEW_MORE07_NOTE                :Longer translations fit, replays in problem reports, controller fixes.
 STR_WHATSNEW_ALL                        : See everything that's new
 STR_WHATSNEW_OK                         : OK
 STR_WHATSNEW_TRY                        :Try it
 STR_WHATSNEW_ON                         :On
 STR_MENU_PREFS_WHATSNEW                 : What's new...
-STR_PREFS_DESC_WHATSNEW                 :Opens the list of what's new in each version (the changelog) in your browser.
+STR_PREFS_DESC_WHATSNEW                 :Shows what's new in this version, with Try it for its new options; See everything that's new opens the full list (the changelog) in your browser.
 STR_PLAYCOUNT_NOTICE                    :OpenSGolf counts anonymous play time (no personal data). Turn it off in Preferences > More.
 STR_MENU_PREFS_PLAYCOUNT                : Count my play time (anonymous)
 STR_PREFS_DESC_PLAYCOUNT                :One count per 15 minutes played and one at start: only system and version, no names or saves. Offline counts are sent later.
