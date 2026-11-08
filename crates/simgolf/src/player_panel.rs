@@ -118,13 +118,16 @@ const CARD_CELLS: f32 = 436.0;
 const LINE_END: f32 = 414.0;
 /// The labels' room right of the lines on the round when they move left (a gap, and two pixels before the first cell).
 const LABEL_GAP: f32 = 3.0;
+/// The left edge of the dark header the labels are drawn on (its outline at x 403 on the cover cut): a label that moves
+/// left starts no further left than two pixels inside it, so its white stays on the dark.
+const HEADER_LEFT: f32 = 403.0;
 
 /// The scorecard's heads over the cover cut drawn at `COVER_AT` + `d`: the two lines on the round (`lines`: x and text, in
 /// black Manual SSi Bold 15 with their tops at 522 and 533) and the row labels "Hole" and "Par" in white Arial Bold 10 at
 /// (410, 519) and (414, 534) (0x461110). A line on the round too wide to end before the labels (a translation, the port's
 /// own, issue #164) is drawn a little smaller or cut; a label too wide to end before the first cell ends at the cell
-/// instead and starts as far left as the line on the round beside it leaves it, a little smaller or cut if it still does
-/// not fit (ui.rs fit_line). What fits is drawn as the exe draws it.
+/// instead and starts as far left as the line on the round beside it and the dark header's edge (`HEADER_LEFT`) leave
+/// it, a little smaller or cut if it still does not fit (ui.rs fit_line). What fits is drawn as the exe draws it.
 pub(crate) fn draw_card_heads(g: &mut Gfx, s: &Ui, d: (f32, f32), lines: [(f32, &str); 2]) {
     let (white, black) = (c15(0x7fff), c15(0));
     let fitted = lines.map(|(x, t)| (x, crate::ui::fit_line(crate::ui::fnt_for(BODY), t, LINE_END - x)));
@@ -138,7 +141,8 @@ pub(crate) fn draw_card_heads(g: &mut Gfx, s: &Ui, d: (f32, f32), lines: [(f32, 
             continue;
         }
         let end = CARD_CELLS - 2.0;
-        let (f, t, _) = crate::ui::fit_line(f, t, end - (after + LABEL_GAP).min(x));
+        let start = (after + LABEL_GAP).max(HEADER_LEFT + 2.0).min(x);
+        let (f, t, _) = crate::ui::fit_line(f, t, end - start);
         s.text_in(g, f.face, end - f.width(&t) + d.0, top(ty + d.1, SMALL), &t, f.px, white);
     }
     // the lines after the labels, as the exe draws them

@@ -71,7 +71,8 @@ The boxes and places this covers:
   after the mark and may run on to the next one;
 * the round's scorecard (on the Player panel during your pro's round, and the live scorecard under the golfer card):
   the two lines on the round keep left of the "Hole" and "Par" labels; a label too wide for its place ends at the first
-  hole's cell and starts as far left as the line beside it allows; "Total" keeps to its column's cell;
+  hole's cell and starts as far left as the line beside it and the dark header allow (a little smaller or cut if it still
+  does not fit); "Total" keeps to its column's cell;
 * the SGA report: the Selection Criteria line and "Grade:" in their pills, each criterion's name and value in its pill,
   and the ideals inside the frame;
 * the Routing Map: the box's title in its pill, and the two lines of help in the box (each a little smaller, else on
