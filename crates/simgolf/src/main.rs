@@ -76,6 +76,7 @@ mod insight;
 mod iso;
 mod keys_ui;
 mod language;
+mod launcher;
 mod member_panel;
 mod message_ui;
 mod net;
@@ -117,6 +118,9 @@ mod undo;
 mod update;
 mod views;
 mod walk;
+mod walk_gl;
+mod walk_ground;
+mod walk_objects;
 mod welcome;
 mod wild_ui;
 mod world_ui;
@@ -141,6 +145,8 @@ struct Options {
     seed: u32,
     win_w: i32,
     win_h: i32,
+    /// --size was given (the saved window size is not used then: launcher.rs).
+    size_given: bool,
     zoom: f32,
     rot: f32,
     png_out: Option<PathBuf>,
@@ -241,6 +247,7 @@ fn parse_args() -> Options {
         seed: 7,
         win_w: 1280,
         win_h: 800,
+        size_given: false,
         // the exe starts at its closest zoom level, 4
         zoom: app::ZOOM_UNIT * 4.0,
         rot: 0.0,
@@ -315,6 +322,7 @@ fn parse_args() -> Options {
                     o.win_w = w.parse().unwrap_or(1280);
                     o.win_h = h.parse().unwrap_or(800);
                 }
+                o.size_given = true;
             }
             "--zoom" => o.zoom = next().parse().unwrap_or(app::ZOOM_UNIT * 4.0),
             "--rot" => o.rot = next().parse().unwrap_or(0.0),
@@ -1270,6 +1278,8 @@ impl Stage {
         // the content packs first: their art, sounds and data replace the game's before anything is read (an App deals
         // its first property offer from the data when it is made)
         gamefiles::set_headless(o.png_out.is_some());
+        // (before any pack is put over the folder: the launcher says what was found, gamefiles.rs files_report)
+        let files_found = content::has_original(&o.game_dir);
         let mut content = content::startup(&o.game_dir, o.base.as_deref());
         // a game folder with some of the original's files but not the course textures (a copy cut short, on a phone most of
         // all): the free base set rather than closing at the first theme (load_theme below)
@@ -1291,6 +1301,7 @@ impl Stage {
             app.free_hint = cfg!(not(target_os = "android")) && gamefiles::take_hint();
         }
         app.content = content;
+        app.game_files_found = files_found;
         app.theme = o.theme;
         app.seed = o.seed;
         app.zoom = o.zoom;
@@ -1483,6 +1494,8 @@ impl Stage {
                     "difficulty" => app.screen = Screen::Difficulty,
                     "scenarios" => app.open_scenarios(),
                     "land" => app.open_land_screen(),
+                    // the launcher (launcher.rs), over the title menu
+                    "launcher" => app.screen = Screen::Menu,
                     s => {
                         app.test_title_screen(s, false);
                     }
@@ -1714,6 +1727,13 @@ impl Stage {
             app.check_for_updates();
         } else if o.png_out.is_none() || test_url {
             app.check_for_updates_at_start();
+        }
+        // the launcher (launcher.rs): at a real start over the title menu while the player keeps it (always for a new player),
+        // never in scripted runs unless --screen launcher or SG_LAUNCHER asks
+        let launcher_forced = o.screen.as_deref() == Some("launcher") || launcher::forced_by_env();
+        let still = o.png_out.is_some() || o.time != 0.0 || o.screen.is_some();
+        if (app.screen == Screen::Menu || launcher_forced) && launcher::decide(&welcome::settings_at_start(), still, launcher_forced) {
+            app.open_launcher(true, launcher_forced);
         }
         // test hook: SG_PICK_FOLDER=DIR takes DIR as the folder picked in "Use my SimGolf files..." ("free": Use the free
         // graphics), as if chosen on the title screen
@@ -1977,17 +1997,7 @@ impl Stage {
                 Line::Thoughts => self.app.show_thoughts = on,
                 Line::Advisor => self.app.show_advisor = on,
                 Line::Animals => self.app.club.wildlife.enabled = on,
-                Line::Sound if on == self.app.mute => {
-                    self.app.mute = !on;
-                    if self.app.mute {
-                        if let Some(mx) = &self.app.mixer {
-                            mx.stop_all();
-                        }
-                        self.app.ambience = -1;
-                        self.app.title_music = -1;
-                    }
-                    self.app.music_screen = None;
-                }
+                Line::Sound => self.set_sound(on),
                 Line::Hd => {
                     if self.app.switch_hd(&mut self.g, on) {
                         self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
@@ -2015,6 +2025,97 @@ impl Stage {
         }
         if self.app.apply_enhanced(&mut self.g, enh) {
             self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
+        }
+    }
+
+    /// The original's Sound tick (Preferences, and the launcher's Display & sound): off stops what plays.
+    fn set_sound(&mut self, on: bool) {
+        if on != self.app.mute {
+            return;
+        }
+        self.app.mute = !on;
+        if self.app.mute {
+            if let Some(mx) = &self.app.mixer {
+                mx.stop_all();
+            }
+            self.app.ambience = -1;
+            self.app.title_music = -1;
+        }
+        self.app.music_screen = None;
+    }
+
+    /// What a click (or a key) on the launcher does (launcher.rs): the tab, the tick and the links there, the rest here, as
+    /// the title menu, Preferences and Game options do it.
+    fn launcher_act(&mut self, h: launcher::Hit) {
+        use launcher::{Hit, Look};
+        self.app.ui_sound(0x18);
+        if self.app.launcher_simple(h) {
+            return;
+        }
+        // opened over a game from Preferences: changing the files starts the game again, so it asks first
+        let over_game = !self.app.on_title();
+        match h {
+            Hit::Files(a) => {
+                self.app.hover = -1;
+                if over_game {
+                    self.app.files_action_in_game(a);
+                } else {
+                    self.app.files_action(a);
+                }
+            }
+            // in a browser the page has the files' picker: back to it (as the title menu's Quit)
+            Hit::BackToPage => quit_game(),
+            // a preset put in use as "How would you like to play?" and Game options do; Custom without a mix of the
+            // player's own (or chosen again) opens Game options to tick one
+            Hit::Preset(k) => {
+                let (ex, ui) = (self.app.extras_shown(), extras::settings());
+                let again =
+                    welcome::CHOICES.get(k).is_some_and(|c| c.0 == extras_ui::Preset::Custom && extras_ui::Preset::of(&ex, &ui) == c.0);
+                match welcome::pick(Some(k), ex, ui, extras_ui::custom_mix()) {
+                    Some(welcome::Pick::Put(e, u)) if !again => self.apply_extras(e, u),
+                    Some(_) => self.app.open_popup(popup_ui::PopupKind::Extras),
+                    None => {}
+                }
+            }
+            Hit::GameOptions => self.app.open_popup(popup_ui::PopupKind::Extras),
+            #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
+            Hit::Fullscreen(on) => {
+                if on != self.fullscreen {
+                    self.fullscreen = on;
+                    miniquad::window::set_fullscreen(on);
+                    launcher::save_window(on, None);
+                }
+            }
+            #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
+            Hit::WindowSize(step) if !self.fullscreen => {
+                if let Some((w, h)) = launcher::next_size(self.app.draw_w / self.app.dpi.max(1.0), step) {
+                    miniquad::window::set_window_size(w, h);
+                    launcher::save_window(false, Some((w, h)));
+                }
+            }
+            // Classic is both off; Enhanced and HD each switch on or off, as Preferences > Graphics' ticks
+            Hit::Graphics(look) => {
+                let mut enh = enhanced::settings();
+                let hd = match look {
+                    Look::Classic => {
+                        enh.enabled = false;
+                        false
+                    }
+                    Look::Enhanced => {
+                        enh.enabled = !enh.enabled;
+                        self.app.hd.enabled
+                    }
+                    Look::Hd => !self.app.hd.enabled,
+                };
+                if self.app.switch_hd(&mut self.g, hd) {
+                    self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
+                }
+                if self.app.apply_enhanced(&mut self.g, enh) {
+                    self.app.ui_ok &= load_art(&mut self.app, &mut self.g);
+                }
+            }
+            Hit::Sound(on) => self.set_sound(on),
+            _ => {}
         }
     }
 
@@ -2063,14 +2164,22 @@ impl Stage {
                 self.app.open_support_page();
                 self.app.open_popup(from);
             }
-            // What's new... (welcome.rs): the changelog in the browser; Preferences stays
+            // What's new... (welcome.rs): this version's What's new box, whose See everything that's new opens the
+            // changelog in the browser
             Line::WhatsNew => {
-                self.app.open_changelog();
-                self.app.open_popup(from);
+                self.app.prefs_stack.clear();
+                self.app.welcome.news = crate::welcome::highlights().last().copied();
+                self.app.hover = -1;
+                self.app.open_popup(popup_ui::PopupKind::WhatsNew);
             }
             Line::MakeHd => {
                 self.app.prefs_stack.clear();
                 self.app.hd_make_open();
+            }
+            // Launcher... (launcher.rs): the launcher over the title menu or the game, its Play back to it
+            Line::Launcher => {
+                self.app.prefs_stack.clear();
+                self.app.open_launcher(false, false);
             }
             Line::RemoveHd => {
                 self.app.prefs_stack.clear();
@@ -2401,6 +2510,10 @@ impl Stage {
                     hit = gamefiles::FILES_HOVER;
                 }
             }
+            // the port's own: "Launcher..." (launcher.rs)
+            if app.launcher_button().has(vx, vy) {
+                hit = launcher::TITLE_HOVER;
+            }
             // the port's own: "Check for updates" (update.rs)
             if app.update_button().is_some_and(|r| r.has(vx, vy)) {
                 hit = update::UPDATE_HOVER;
@@ -2455,7 +2568,8 @@ impl Stage {
         if app.screen == Screen::Menu {
             match hit {
                 0 => app.open_files(files_ui::ListKind::Load, false),
-                // with scenario packs installed, Start New Game first asks: a free game or a scenario (the port's own)
+                // with scenario packs of the player's own installed, Start New Game first asks: a free game or a scenario (the
+                // port's own); with only the bundled example it goes straight on as in the original
                 1 if app.has_scenarios() => app.open_scenarios(),
                 2 => {
                     // Sandbox Mode goes straight to the world map at Moderate with a new Top 10 id (the exe keeps the one drawn on
@@ -2484,6 +2598,7 @@ impl Stage {
                     }
                 }
                 update::UPDATE_HOVER => app.check_for_updates(),
+                launcher::TITLE_HOVER => app.open_launcher(false, false),
                 editor::EDITOR_HOVER => app.open_editor_start(),
                 _ => quit_game(),
             }
@@ -2852,7 +2967,14 @@ impl Stage {
         if title_page && enhanced::widescreen() {
             enhanced::backdrop(&mut self.g, &ui::Screen::new(app.draw_w, app.draw_h), false);
         }
-        if matches!(app.screen, Screen::Files | Screen::Themes | Screen::Credits) && app.ui_ok {
+        if app.launcher.is_some() {
+            // the launcher over the whole window (launcher.rs), a box it opened (Game options) over it
+            app.draw_launcher(&mut self.g, self.fullscreen);
+            if app.screen == Screen::Popup {
+                ui::set_face(None);
+                app.draw_popup(&mut self.g);
+            }
+        } else if matches!(app.screen, Screen::Files | Screen::Themes | Screen::Credits) && app.ui_ok {
             app.draw_title_screen(&mut self.g);
         } else if app.screen == Screen::Menu && app.ui_ok {
             app.draw_menu(&mut self.g);
@@ -2868,9 +2990,9 @@ impl Stage {
             app.draw_menu(&mut self.g);
             ui::set_face(None);
             app.draw_scenarios(&mut self.g);
-        } else if let Some(cam) = self.walk.cam.filter(|_| walk::walk_screen(app)) {
+        } else if self.walk.cam.is_some() && walk::walk_screen(app) {
             // the walk camera, a hidden test view (walk.rs): the course alone and a line of help
-            app.render_walk(&mut self.g, &cam);
+            walk::draw(app, &mut self.g, &mut self.walk);
         } else if app.photo.is_some() {
             // Enhanced graphics' photo mode: the course alone (photo.rs)
             self.draw_photo(target);
@@ -2976,7 +3098,7 @@ impl Stage {
         self.app.draw_hd_badge(&mut self.g);
         self.app.draw_notice(&mut self.g);
         // pixel-perfect scaling's border round the picture (ui.rs; nothing when it is off), under the touch layer
-        if self.app.photo.is_none() {
+        if self.app.photo.is_none() && self.app.launcher.is_none() {
             ui::pixel_border(&mut self.g, self.app.draw_w, self.app.draw_h);
         }
         self.draw_touch_buttons();
@@ -3368,7 +3490,8 @@ impl EventHandler for Stage {
             && app.title.save_name.is_none()
             && app.analysis.is_none()
             && app.simfoto.is_none_or(|f| f.frames < 2)
-            && app.great_shot.is_none();
+            && app.great_shot.is_none()
+            && app.launcher.is_none();
         if playing {
             app.time += dt * app.speed.max(1) as f64 * perf::speed();
         }
@@ -3541,6 +3664,11 @@ impl EventHandler for Stage {
             self.app.notice_pointer(vx, vy, false);
             return;
         }
+        // the launcher (launcher.rs) lights the button under the pointer, unless a box it opened is over it
+        if self.app.launcher.is_some() && self.app.screen != Screen::Popup {
+            self.app.launcher_pointer(x, y, false);
+            return;
+        }
         self.app.card_pointer(vx, vy);
         if self.app.screen != Screen::Play {
             // the pointer has left the dock and the panel for another screen (the Information menu, a report, a question):
@@ -3608,7 +3736,7 @@ impl EventHandler for Stage {
     }
 
     fn mouse_wheel_event(&mut self, _x: f32, y: f32) {
-        if self.walk_shown() {
+        if self.walk_shown() || self.app.launcher.is_some() && self.app.screen != Screen::Popup {
             return;
         }
         if self.app.photo.is_some() {
@@ -3674,6 +3802,15 @@ impl EventHandler for Stage {
         if self.app.notice.is_some() {
             let (vx, vy) = self.app.view.to_virtual(x, y);
             self.app.notice_pointer(vx, vy, button == MouseButton::Left);
+            return;
+        }
+        // the launcher (launcher.rs) takes the click, unless a box it opened is over it
+        if self.app.launcher.is_some() && self.app.screen != Screen::Popup {
+            if button == MouseButton::Left {
+                if let Some(h) = self.app.launcher_pointer(x, y, true) {
+                    self.launcher_act(h);
+                }
+            }
             return;
         }
         // the corner note of a run of "Make HD graphics" brings its box back (hd_make.rs)
@@ -3944,6 +4081,9 @@ impl EventHandler for Stage {
             self.photo_button(false, button, x, y);
             return;
         }
+        if self.app.launcher.is_some() && self.app.screen != Screen::Popup {
+            return;
+        }
         // the Right-drag panning extra: a right button that did not drag is the original's right click
         if button == MouseButton::Right {
             if let Some((px, py, moved)) = self.right_down.take() {
@@ -3988,6 +4128,8 @@ impl EventHandler for Stage {
         if k == KeyCode::F11 || (mods.alt && matches!(k, KeyCode::Enter | KeyCode::KpEnter)) {
             self.fullscreen = !self.fullscreen;
             miniquad::window::set_fullscreen(self.fullscreen);
+            // kept for the next start, as the launcher's Display & sound keeps it (launcher.rs)
+            launcher::save_window(self.fullscreen, None);
             return;
         }
         // the port's own Course sharing: Ctrl+V (Cmd+V on a Mac) pastes a course code (share.rs)
@@ -4117,6 +4259,13 @@ impl Stage {
         // a notice (gamefiles.rs) takes the keys until it is closed
         if self.app.notice.is_some() {
             self.app.notice_key(k);
+            return;
+        }
+        // the launcher (launcher.rs) takes the keys, unless a box it opened is over it
+        if self.app.launcher.is_some() && self.app.screen != Screen::Popup {
+            if let Some(h) = self.app.launcher_key(k) {
+                self.launcher_act(h);
+            }
             return;
         }
         if self.app.photo.is_some() {
@@ -4344,6 +4493,15 @@ fn main() {
     match &o.lang_file {
         Some(f) => _ = language::apply_file(f),
         None => _ = language::apply(&o.lang.clone().unwrap_or_else(language::saved)),
+    }
+    // the desktop window as the player left it (launcher.rs: full screen and its size), at a real start only
+    #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
+    if o.png_out.is_none() && o.time == 0.0 && o.screen.is_none() && o.replay.is_none() {
+        let (size, full) = launcher::saved_window();
+        if let Some((w, h)) = size.filter(|_| !o.size_given) {
+            (o.win_w, o.win_h) = (w as i32, h as i32);
+        }
+        o.fullscreen |= full;
     }
     let steam_ui = ["SteamDeck", "SteamGamepadUI"].iter().any(|k| std::env::var(k).is_ok_and(|v| !v.is_empty() && v != "0"));
     o.fullscreen |= steam_ui && cfg!(target_os = "linux");

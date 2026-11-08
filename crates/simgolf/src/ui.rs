@@ -321,6 +321,10 @@ pub enum Face {
     Arial,
     /// The info screens' pair (font objects 0x821020 and 0x821ee8): titles in Klepto 24, everything else in Manual SSi 14.
     Info,
+    /// The port's own bundled faces, the same with or without the player's SimGolf files (the launcher, launcher.rs):
+    /// Fredoka SemiBold for headings and Nunito ExtraBold for the rest (SIL Open Font License 1.1, fonts/).
+    Display,
+    Body,
 }
 
 /// One of the exe's font objects: a typeface at a size. The size is what the exe hands its graphics library (jgl.dll, font
@@ -385,11 +389,20 @@ pub const F_INFO16: Fnt = Fnt { face: Face::Manual, px: 16.0 };
 /// 0x821ee8: Manual SSi Bold 14, the info screens' body.
 pub const F_INFO14: Fnt = Fnt { face: Face::Manual, px: 14.0 };
 
-static FONTS: [std::sync::OnceLock<Font>; 3] = [std::sync::OnceLock::new(), std::sync::OnceLock::new(), std::sync::OnceLock::new()];
+/// The faces by `Face` (Info's slot stays empty: it is a pair of the others).
+static FONTS: [std::sync::OnceLock<Font>; 6] = [const { std::sync::OnceLock::new() }; 6];
 
 thread_local! {
     /// The face a screen asked for; None picks by size (Arial below 12 pixels, Manual SSi above).
     static FACE: std::cell::Cell<Option<Face>> = const { std::cell::Cell::new(None) };
+    /// Text drawn at the screen's own pixel size whatever the graphics (`set_crisp`).
+    static CRISP: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Draws the following text rasterised at the window's own pixel size, as Enhanced graphics' text is, in Classic too (the
+/// launcher, which is not the original's art: launcher.rs).
+pub fn set_crisp(on: bool) {
+    CRISP.with(|c| c.set(on));
 }
 
 /// Draws the following text in `f` (None: the default by size), as the exe selects a font object before its text.
@@ -430,6 +443,8 @@ pub struct Font {
     raw: Option<fontdue::Font>,
     /// Arial Bold (or its stand-in) for the added characters this face does not have.
     fallback: Option<fontdue::Font>,
+    /// The bundled faces (`load_bundled`): the pen goes by the glyphs' exact advances, not whole pixels as GDI's.
+    exact: bool,
 }
 
 /// Enhanced graphics' text: a face's glyphs rasterised at one pixel size (the size asked for times the screen's scale).
@@ -511,6 +526,20 @@ impl Font {
         FONTS[0].get().is_some()
     }
 
+    /// The bundled faces (`Face::Display`, `Face::Body`), made the first time they are asked for (the launcher's first
+    /// frame); nothing when they are made already.
+    pub fn load_bundled(g: &mut Gfx) {
+        let fallback = fontdue::Font::from_bytes(ARIAL_STANDIN, fontdue::FontSettings::default()).ok();
+        for (face, ttf) in [(Face::Display, sg_core::freeset::paint::DISPLAY_TTF), (Face::Body, sg_core::freeset::paint::TEXT_TTF)] {
+            if FONTS[face as usize].get().is_none() {
+                if let Some(mut f) = Self::load_inner(g, ttf.to_vec(), fallback.clone()) {
+                    f.exact = true;
+                    let _ = FONTS[face as usize].set(f);
+                }
+            }
+        }
+    }
+
     /// The face's font, or the first one loaded when it is missing.
     fn get(face: Face) -> Option<&'static Font> {
         FONTS[face as usize].get().or_else(|| FONTS.iter().find_map(|f| f.get()))
@@ -559,7 +588,7 @@ impl Font {
         let img = sg_core::assets::Rgba { w: ATLAS as u32, h: ATLAS as u32, px: atlas };
         let tex = g.texture_classic(&img);
         crate::fx::plain_texture(tex); // text is not pixel art: the effects' scaler leaves it alone
-        Some(Font { tex: Some(tex), glyphs, vm, raw: Some(font), fallback })
+        Some(Font { tex: Some(tex), glyphs, vm, raw: Some(font), fallback, exact: false })
     }
 
     /// Top of the exe's text to its baseline: tmAscent - tmInternalLeading, which is the em less tmDescent.
@@ -574,9 +603,13 @@ impl Font {
         a + d + e
     }
 
-    /// A glyph's advance at `px`: GDI steps the pen by whole pixels.
-    fn advance(gl: &Glyph, px: f32) -> f32 {
-        (gl.advance * px / BAKE_PX).round()
+    /// A glyph's advance at `px`: GDI steps the pen by whole pixels (the bundled faces: exactly).
+    fn advance(&self, gl: &Glyph, px: f32) -> f32 {
+        if self.exact {
+            gl.advance * px / BAKE_PX
+        } else {
+            (gl.advance * px / BAKE_PX).round()
+        }
     }
 
     fn glyph(&self, c: char) -> Option<&Glyph> {
@@ -629,7 +662,7 @@ impl Font {
     }
 
     pub fn width(&self, s: &str, size: f32) -> f32 {
-        s.chars().filter_map(|c| self.glyph(c)).map(|g| Self::advance(g, size)).sum::<f32>()
+        s.chars().filter_map(|c| self.glyph(c)).map(|g| self.advance(g, size)).sum::<f32>()
     }
 }
 
@@ -769,6 +802,21 @@ impl Screen {
             u: Uniforms::flat(&proj, &Mat4::identity()),
             shift: std::cell::Cell::new((0.0, 0.0)),
             wide: crate::enhanced::widescreen(),
+            draw: (draw_w, draw_h),
+        }
+    }
+
+    /// A drawing session over the whole drawable in units of `k` window pixels from its top left (the launcher's own
+    /// layout, launcher.rs), with no anchors.
+    pub fn with_unit(draw_w: f32, draw_h: f32, k: f32) -> Screen {
+        let k = k.max(1e-3);
+        let view = View { scale: k, ox: 0.0, oy: 0.0 };
+        let proj = Mat4::ortho(0.0, draw_w / k, draw_h / k, 0.0, -1.0, 1.0);
+        Screen {
+            view,
+            u: Uniforms::flat(&proj, &Mat4::identity()),
+            shift: std::cell::Cell::new((0.0, 0.0)),
+            wide: false,
             draw: (draw_w, draw_h),
         }
     }
@@ -997,7 +1045,7 @@ impl Screen {
     pub(crate) fn text_in(&self, g: &mut Gfx, face: Face, x: f32, y: f32, s: &str, size: f32, c: [f32; 4]) {
         log_text(s);
         let Some(f) = Font::get(face) else { return };
-        if crate::enhanced::native_text() && self.text_native(g, f, face, x, y, s, size, c) {
+        if (crate::enhanced::native_text() || CRISP.with(|c| c.get())) && self.text_native(g, f, face, x, y, s, size, c) {
             return;
         }
         let Some(tex) = f.tex else { return };
@@ -1022,7 +1070,7 @@ impl Screen {
                     false,
                 );
             }
-            pen += Font::advance(gl, size);
+            pen += f.advance(gl, size);
         }
     }
     /// Enhanced graphics' text: the glyphs rasterised at the screen's own pixel size and drawn texel for pixel, each on a
@@ -1073,7 +1121,7 @@ impl Screen {
                         false,
                     );
                 }
-                pen += Font::advance(gl, size);
+                pen += f.advance(gl, size);
             }
             true
         })

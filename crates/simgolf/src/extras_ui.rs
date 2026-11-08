@@ -474,7 +474,7 @@ pub enum Preset {
     Original,
     /// Every helper and look on, nothing that changes play.
     Helpers,
-    /// The helpers and looks with the light gameplay extras (`Extras::OPENSGOLF`).
+    /// The helpers and looks with OpenSGolf's own gameplay additions (`Extras::OPENSGOLF`).
     OpenSGolf,
     /// Anything else: the player's own mix.
     Custom,
@@ -1068,12 +1068,13 @@ mod tests {
         assert_eq!(Preset::of(&Extras::default(), &none), Original);
         assert_eq!(Preset::of(&Extras::LOOKS, &Settings::HELPERS), Helpers);
         assert_eq!(Preset::of(&Extras::OPENSGOLF, &Settings::HELPERS), OpenSGolf);
-        // the OpenSGolf preset: helpers, looks, more staff, animals, Tab turns, path styles; nothing else of gameplay
+        // the OpenSGolf preset: helpers, looks, more staff, animals, weather, tees, the second course; nothing else
         let o = Extras::OPENSGOLF;
-        assert!(o.more_staff && o.animals && o.rotate && o.path_style == 1);
-        assert!(!o.weather && !o.more_visitors && !o.hardcore && !o.lefties && !o.set_par && !o.cut_content);
-        assert!(o.calendar() == 0 && !o.freeze_moods && !o.unlock_all);
-        assert_eq!(Extras { more_staff: false, animals: false, ..o }, Extras::LOOKS);
+        assert!(o.more_staff && o.animals && o.rotate && o.path_style == 1 && o.weather && o.tees && o.second_course);
+        assert!(!o.more_visitors && !o.hardcore && !o.lefties && !o.set_par && !o.cut_content && !o.keep_land);
+        assert!(o.calendar() == 0 && !o.freeze_moods && !o.unlock_all && !o.no_weeds);
+        let fewer = Extras { more_staff: false, animals: false, weather: false, tees: false, second_course: false, ..o };
+        assert_eq!(fewer, Extras::LOOKS);
         // the kept ticks (pauses, update check, controls presets) do not count
         let kept = Settings {
             pause_background: true,
@@ -1090,7 +1091,7 @@ mod tests {
         // any path style is the path styles of the presets; a stopped calendar is one whatever speed is stored
         assert_eq!(Preset::of(&Extras { path_style: 4, ..Extras::OPENSGOLF }, &Settings::HELPERS), OpenSGolf);
         // one tick more or less is the player's own mix
-        assert_eq!(Preset::of(&Extras { weather: true, ..Extras::OPENSGOLF }, &Settings::HELPERS), Custom);
+        assert_eq!(Preset::of(&Extras { weather: false, ..Extras::OPENSGOLF }, &Settings::HELPERS), Custom);
         assert_eq!(Preset::of(&Extras::default(), &Settings { people: true, ..none }), Custom);
         assert_eq!(Preset::of(&Extras::LOOKS, &Settings { random_trees: false, ..Settings::HELPERS }), Custom);
         assert_eq!(Preset::of(&Extras { pause_calendar: true, season_speed: 2, ..Extras::default() }, &none), Custom);

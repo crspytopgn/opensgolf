@@ -14,6 +14,16 @@
 //! Neither shows in scripted runs (--png, --time, --screen: the stills and the tests stay as they were) nor over another
 //! box; both wait for the title menu to settle as the support box does (support.rs).
 //!
+//! The highlights are built in (`HIGHLIGHTS`) and also kept in `whatsnew.json` at the top of the repository: while
+//! *Check for updates when the game starts* is on, the game fetches that file from GitHub at start (nothing about the
+//! player is sent) and keeps a copy in the save folder (`whatsnew.json`), and a version it lists replaces the built-in
+//! one. So the box can be corrected without a release. Offline, or with that option off, the last copy or the built-in
+//! highlights stand. A Try it there can only name an option the game already has (`try_named`).
+//!
+//! When the launcher shows at start (launcher.rs) it takes the place of both: its How to play tab has the first box's
+//! choices and its News tab this version's highlights, and the box due is recorded as shown (`State::launcher_shown`). The
+//! boxes still show as before when the launcher does not.
+//!
 //! Test hooks: SG_WELCOME=1 and SG_WHATSNEW=1 show the box at the first title menu whatever settings.json says (for
 //! stills; nothing is written then).
 use crate::app::{App, Screen};
@@ -46,6 +56,14 @@ pub enum Try {
     RightDrop,
     /// Sandbox: no new dandelions on for the next games (sg_core::extras).
     NoWeeds,
+    /// Second course: 18 more holes on for the next games (sg_core::extras).
+    SecondCourse,
+    /// Multiple tees on for the next games (sg_core::extras).
+    Tees,
+    /// The Hole flyover extra on (extras.rs).
+    Flyover,
+    /// Home names only under the pointer on (extras.rs).
+    HomeHover,
 }
 
 /// One of a version's highlights: its line, the note under it, and what its Try it does (none: no option to try).
@@ -62,17 +80,119 @@ const fn hl(line: &'static str, note: &'static str, action: Option<Try>) -> High
 
 /// Each version's highlights, oldest first: a release adds its entry here (and its lines to lang/en.txt). A version is
 /// its minor version ("0.6"), the title's.
-pub const HIGHLIGHTS: &[(&str, &[Highlight])] = &[(
-    "0.6",
-    &[
-        hl("STR_WHATSNEW_SMOOTH", "STR_WHATSNEW_SMOOTH_NOTE", None),
-        hl("STR_WHATSNEW_HD", "STR_WHATSNEW_HD_NOTE", Some(Try::MakeHd)),
-        hl("STR_WHATSNEW_SWING", "STR_WHATSNEW_SWING_NOTE", Some(Try::MouseSwing)),
-        hl("STR_WHATSNEW_RIGHT", "STR_WHATSNEW_RIGHT_NOTE", Some(Try::RightDrop)),
-        hl("STR_WHATSNEW_WEEDS", "STR_WHATSNEW_WEEDS_NOTE", Some(Try::NoWeeds)),
-        hl("STR_WHATSNEW_MORE", "STR_WHATSNEW_MORE_NOTE", None),
-    ],
-)];
+pub const HIGHLIGHTS: &[(&str, &[Highlight])] = &[
+    (
+        "0.6",
+        &[
+            hl("STR_WHATSNEW_SMOOTH", "STR_WHATSNEW_SMOOTH_NOTE", None),
+            hl("STR_WHATSNEW_HD", "STR_WHATSNEW_HD_NOTE", Some(Try::MakeHd)),
+            hl("STR_WHATSNEW_SWING", "STR_WHATSNEW_SWING_NOTE", Some(Try::MouseSwing)),
+            hl("STR_WHATSNEW_RIGHT", "STR_WHATSNEW_RIGHT_NOTE", Some(Try::RightDrop)),
+            hl("STR_WHATSNEW_WEEDS", "STR_WHATSNEW_WEEDS_NOTE", Some(Try::NoWeeds)),
+            hl("STR_WHATSNEW_MORE", "STR_WHATSNEW_MORE_NOTE", None),
+        ],
+    ),
+    (
+        "0.7",
+        &[
+            hl("STR_WHATSNEW_SECOND", "STR_WHATSNEW_SECOND_NOTE", Some(Try::SecondCourse)),
+            hl("STR_WHATSNEW_TEES", "STR_WHATSNEW_TEES_NOTE", Some(Try::Tees)),
+            hl("STR_WHATSNEW_FLYOVER", "STR_WHATSNEW_FLYOVER_NOTE", Some(Try::Flyover)),
+            hl("STR_WHATSNEW_HOMEHOVER", "STR_WHATSNEW_HOMEHOVER_NOTE", Some(Try::HomeHover)),
+            hl("STR_WHATSNEW_DOUBLE", "STR_WHATSNEW_DOUBLE_NOTE", None),
+            hl("STR_WHATSNEW_MORE07", "STR_WHATSNEW_MORE07_NOTE", None),
+        ],
+    ),
+];
+
+/// The highlights file on GitHub (and its copy in the save folder), and the test hook that names another address.
+pub const REMOTE_URL: &str = "https://raw.githubusercontent.com/crspytopgn/opensgolf/main/whatsnew.json";
+pub const REMOTE_FILE: &str = "whatsnew.json";
+pub const REMOTE_URL_ENV: &str = "SG_WHATSNEW_URL";
+/// The most the file may be, and the most highlights and characters a version may have.
+const REMOTE_MAX: u64 = 64 * 1024;
+const REMOTE_LINES: usize = 8;
+const REMOTE_CHARS: usize = 160;
+
+/// The versions `whatsnew.json` gave (fetched this start, or the copy from before).
+static REMOTE: std::sync::Mutex<Vec<(&'static str, &'static [Highlight])>> = std::sync::Mutex::new(Vec::new());
+
+/// A Try it by its name in `whatsnew.json`; none for a name this version does not know.
+pub fn try_named(name: &str) -> Option<Try> {
+    Some(match name {
+        "make_hd" => Try::MakeHd,
+        "mouse_swing" => Try::MouseSwing,
+        "right_drop" => Try::RightDrop,
+        "no_weeds" => Try::NoWeeds,
+        "second_course" => Try::SecondCourse,
+        "tees" => Try::Tees,
+        "hole_flyover" => Try::Flyover,
+        "home_names_hover" => Try::HomeHover,
+        _ => return None,
+    })
+}
+
+/// `whatsnew.json`: `{"versions": {"0.7": [{"line": "...", "note": "...", "try": "tees"}, ...]}}`. A version that does
+/// not read, an empty one, or text that is too long is left out; nothing that does not read is an error.
+pub fn parse_remote(bytes: &[u8]) -> Vec<(&'static str, &'static [Highlight])> {
+    #[derive(serde::Deserialize)]
+    struct Line {
+        line: String,
+        #[serde(default)]
+        note: String,
+        #[serde(default, rename = "try")]
+        try_it: Option<String>,
+    }
+    #[derive(serde::Deserialize)]
+    struct File {
+        versions: std::collections::BTreeMap<String, Vec<Line>>,
+    }
+    let Ok(f) = serde_json::from_slice::<File>(bytes) else { return Vec::new() };
+    let leak = |t: String| -> &'static str { Box::leak(t.into_boxed_str()) };
+    let mut out = Vec::new();
+    for (v, lines) in f.versions {
+        let ok = |t: &str| t.chars().count() <= REMOTE_CHARS && !t.contains(['\n', '\t', '{', '}']);
+        if parse(&v).is_none() || lines.is_empty() || lines.len() > REMOTE_LINES {
+            continue;
+        }
+        if !lines.iter().all(|l| !l.line.trim().is_empty() && ok(&l.line) && ok(&l.note)) {
+            continue;
+        }
+        let h: Vec<Highlight> = lines
+            .into_iter()
+            .map(|l| Highlight {
+                // an option line starts with a space (popup_ui.rs)
+                line: leak(format!(" {}", l.line.trim())),
+                note: leak(l.note.trim().to_string()),
+                action: l.try_it.as_deref().and_then(try_named),
+            })
+            .collect();
+        out.push((leak(marker(&v)), &*Box::leak(h.into_boxed_slice())));
+    }
+    out
+}
+
+/// Every version's highlights, oldest first: the built-in ones, a version `whatsnew.json` lists replaced by its.
+pub fn highlights() -> Vec<(&'static str, &'static [Highlight])> {
+    let remote = REMOTE.lock().map(|r| r.clone()).unwrap_or_default();
+    let mut all: Vec<(&'static str, &'static [Highlight])> =
+        HIGHLIGHTS.iter().copied().filter(|(v, _)| !remote.iter().any(|(r, _)| r == v)).collect();
+    all.extend(remote);
+    all.sort_by_key(|(v, _)| parse(v));
+    all
+}
+
+/// Puts `bytes` (a `whatsnew.json`) in use; false when no version in it reads.
+fn use_remote(bytes: &[u8]) -> bool {
+    let r = parse_remote(bytes);
+    if r.is_empty() {
+        return false;
+    }
+    if let Ok(mut g) = REMOTE.lock() {
+        *g = r;
+    }
+    true
+}
 
 /// A version as numbers ("0.6" and "0.6.0" alike); none for a version that does not read.
 pub fn parse(v: &str) -> Option<(u32, u32, u32)> {
@@ -96,7 +216,7 @@ pub fn marker(v: &str) -> String {
 pub fn news(seen: Option<&str>, now: &str) -> Option<(&'static str, &'static [Highlight])> {
     let now = parse(&marker(now))?;
     let seen = seen.and_then(|s| parse(&marker(s))).unwrap_or((0, 0, 0));
-    HIGHLIGHTS.iter().rev().find(|(v, _)| parse(v).is_some_and(|v| v > seen && v <= now)).copied()
+    highlights().into_iter().rev().find(|(v, _)| parse(v).is_some_and(|v| v > seen && v <= now))
 }
 
 /// Which box is due for the settings.json `v` read at the very start (before anything writes it) at version `now`: a new
@@ -141,12 +261,18 @@ pub struct State {
     forced: bool,
     /// The screen of the last frame and when the title menu came up.
     last: Option<Screen>,
+    /// `whatsnew.json` being fetched, and whether a box has shown (after that a new copy waits for the next start).
+    fetch: Option<crate::net::Request>,
+    shown: bool,
     title_since: f64,
 }
 
 /// At start up (`scripted`: a still or test run, where nothing is due unless forced).
 pub fn init(scripted: bool) -> State {
     let now = env!("CARGO_PKG_VERSION");
+    if let Some(d) = sg_core::fsutil::read_file(crate::app::save_dir().join(REMOTE_FILE)) {
+        use_remote(&d);
+    }
     let flag = |k: &str| std::env::var_os(k).is_some_and(|v| !v.is_empty() && v != "0");
     let (fw, fn_) = (flag("SG_WELCOME"), flag("SG_WHATSNEW"));
     if fw || fn_ {
@@ -161,7 +287,53 @@ pub fn init(scripted: bool) -> State {
         // still a new player if the game is closed before the box shows
         save(WELCOME_KEY, serde_json::Value::Bool(false));
     }
-    State { welcome_due, news_due: news.is_some(), news, ..Default::default() }
+    // the newest highlights from GitHub, while the player lets the game check for updates at start
+    let url = std::env::var(REMOTE_URL_ENV).ok();
+    let fetch = (url.is_some() || crate::extras::update_check() && !crate::update::STORE_BUILD)
+        .then(|| crate::net::get(url.as_deref().unwrap_or(REMOTE_URL), REMOTE_MAX));
+    State { welcome_due, news_due: news.is_some(), news, fetch, ..Default::default() }
+}
+
+/// settings.json as it was when the game started (a new player has none): what the launcher decides on (launcher.rs).
+pub fn settings_at_start() -> serde_json::Value {
+    AT_START.with(|c| c.borrow().clone()).unwrap_or_else(settings_json)
+}
+
+impl State {
+    /// The launcher shows as the game starts (launcher.rs): it takes the place of the box due. A new player's "How would
+    /// you like to play?" is recorded as shown (the launcher has its choices), an update's What's new as seen (the
+    /// launcher opens on its News tab: true then); `write` false (a test hook) records nothing. Neither box comes up after.
+    pub fn launcher_shown(&mut self, write: bool) -> bool {
+        self.shown = true;
+        let news = std::mem::take(&mut self.news_due) && self.news.is_some();
+        let welcome = std::mem::take(&mut self.welcome_due);
+        if write && !self.forced && (welcome || news) {
+            if welcome {
+                save(WELCOME_KEY, serde_json::Value::Bool(true));
+            }
+            save(VERSION_KEY, marker(env!("CARGO_PKG_VERSION")).into());
+        }
+        news
+    }
+
+    /// Each frame until it is in: the fetched `whatsnew.json`, kept and put in use; before any box has shown, What's new
+    /// is decided again with it.
+    fn poll_remote(&mut self) {
+        let Some(reply) = self.fetch.as_mut().and_then(|r| r.poll()) else { return };
+        self.fetch = None;
+        match reply {
+            Ok(d) if use_remote(&d) => {
+                sg_core::fsutil::write_file(crate::app::save_dir().join(REMOTE_FILE), &d);
+                if !self.shown && !self.welcome_due && !self.forced {
+                    let v = AT_START.with(|c| c.borrow().clone()).unwrap_or_else(settings_json);
+                    self.news = decide(&v, env!("CARGO_PKG_VERSION")).1;
+                    self.news_due = self.news.is_some();
+                }
+            }
+            Ok(_) => crate::bugreport::warn("what's new: the fetched list does not read"),
+            Err(e) => println!("what's new: {e}"),
+        }
+    }
 }
 
 /// Writes `key` into settings.json, keeping its other keys.
@@ -249,6 +421,7 @@ impl App {
     pub fn welcome_frame(&mut self) {
         let now = self.screen;
         let w = &mut self.welcome;
+        w.poll_remote();
         if now == Screen::Menu && w.last != Some(Screen::Menu) {
             w.title_since = self.clock;
         }
@@ -262,6 +435,7 @@ impl App {
         let w = &mut self.welcome;
         let write = !w.forced;
         let seen = || marker(env!("CARGO_PKG_VERSION"));
+        w.shown = true;
         if std::mem::take(&mut w.welcome_due) {
             if write {
                 // a new player: this version's news are no news to them
@@ -314,6 +488,10 @@ impl App {
             Try::MouseSwing => crate::extras::mouse_swing(),
             Try::RightDrop => crate::extras::settings().right_drop,
             Try::NoWeeds => self.extras_next.no_weeds,
+            Try::SecondCourse => self.extras_next.second_course,
+            Try::Tees => self.extras_next.tees,
+            Try::Flyover => crate::extras::settings().hole_flyover,
+            Try::HomeHover => crate::extras::settings().home_labels_hover,
         }
     }
 
@@ -343,20 +521,25 @@ impl App {
                 self.hd_make_open();
                 false
             }
-            Some(Try::MouseSwing) | Some(Try::RightDrop) => {
+            Some(t @ (Try::MouseSwing | Try::RightDrop | Try::Flyover | Try::HomeHover)) => {
                 let mut ui = crate::extras::settings();
-                if x.action == Some(Try::MouseSwing) {
-                    ui.mouse_swing = true;
-                } else {
-                    ui.right_drop = true;
+                match t {
+                    Try::MouseSwing => ui.mouse_swing = true,
+                    Try::RightDrop => ui.right_drop = true,
+                    Try::Flyover => ui.hole_flyover = true,
+                    _ => ui.home_labels_hover = true,
                 }
                 crate::extras::set(ui);
                 crate::extras::save(&ui);
                 true
             }
-            Some(Try::NoWeeds) => {
+            Some(t @ (Try::NoWeeds | Try::SecondCourse | Try::Tees)) => {
                 let mut e = self.extras_next;
-                e.no_weeds = true;
+                match t {
+                    Try::NoWeeds => e.no_weeds = true,
+                    Try::SecondCourse => e.second_course = true,
+                    _ => e.tees = true,
+                }
                 self.extras_next = e;
                 crate::extras_ui::save_next(&e);
                 true
@@ -454,6 +637,48 @@ mod tests {
                 assert!(l[i + 1].starts_with('\t') && l[i + 1].len() > 1, "{}", l[i]);
             }
             assert_eq!(l.last().unwrap(), "\tYou can change this any time in Preferences > Game options.");
+        }
+    }
+
+    #[test]
+    fn the_repositorys_whatsnew_json_reads_and_lists_this_version() {
+        let r = parse_remote(include_bytes!("../../../whatsnew.json"));
+        assert_eq!(r.last().unwrap().0, marker(env!("CARGO_PKG_VERSION")));
+        for (_, h) in &r {
+            assert!(h.iter().all(|x| x.line.starts_with(' ') && !x.note.is_empty()));
+        }
+        // every Try it it names is one this version knows
+        let names: Vec<String> = serde_json::from_slice::<serde_json::Value>(include_bytes!("../../../whatsnew.json")).unwrap()["versions"]
+            .as_object()
+            .unwrap()
+            .values()
+            .flat_map(|v| v.as_array().unwrap().iter().filter_map(|l| l["try"].as_str().map(String::from)))
+            .collect();
+        assert!(names.iter().all(|n| try_named(n).is_some()), "{names:?}");
+    }
+
+    #[test]
+    fn a_fetched_list_that_does_not_read_is_left_out() {
+        assert!(parse_remote(b"not json").is_empty());
+        assert!(parse_remote(br#"{"versions": {"x.y": [{"line": "a", "note": "b"}]}}"#).is_empty());
+        assert!(parse_remote(br#"{"versions": {"0.9": []}}"#).is_empty());
+        let r = parse_remote(br#"{"versions": {"0.9": [{"line": "A", "note": "B", "try": "unknown"}, {"line": "C", "try": "tees"}]}}"#);
+        assert_eq!(r[0].0, "0.9");
+        assert_eq!((r[0].1[0].line, r[0].1[0].action), (" A", None));
+        assert_eq!(r[0].1[1].action, Some(Try::Tees));
+    }
+
+    #[test]
+    fn this_versions_highlights_are_listed() {
+        // a minor release adds its highlights (#: 0.7.0 to 0.7.2 still showed 0.6's)
+        assert_eq!(HIGHLIGHTS.last().unwrap().0, marker(env!("CARGO_PKG_VERSION")));
+        assert_eq!(news(Some("0.6"), "0.7.3").map(|n| n.0), Some("0.7"));
+        assert_eq!(news(None, "0.7.3").map(|n| n.0), Some("0.7"));
+        assert!(news(Some("0.7"), "0.7.3").is_none());
+        for (_, h) in HIGHLIGHTS {
+            for x in *h {
+                assert!(tr(x.line) != x.line && tr(x.note) != x.note, "{}", x.line);
+            }
         }
     }
 

@@ -79,7 +79,8 @@ OpenSGolf needs a set of graphics, sounds and text. There are two:
 
 - **The original SimGolf files.** If you own the game, point OpenSGolf at your SimGolf folder, the one containing `Data`,
   `Flics` and `Sounds` (on Windows usually `C:\Program Files\Maxis\SimGolf`), or at a .zip of it. In the browser,
-  choose *Choose game folder*; in the app, choose *Use my SimGolf files…* on the title screen. The app and the
+  choose *Choose game folder*; in the app, choose *Use my SimGolf files…* on the launcher that opens when the game starts
+  (or on the title screen). The app and the
   browser also take the SimGolf CD itself, or an image of it (.iso, or a Mac's .cdr), with nothing to install ([INSTALL.md](docs/INSTALL.md)). The files are read on your
   own device and never uploaded.
 
@@ -105,9 +106,10 @@ With its default settings OpenSGolf plays like the original, apart from these:
 - **Building tools:** a measuring tape in yards (the ' key) and, with a terrain brush, Shift+drag for a rectangle and
   Alt+click to fill a region, with the cost shown before you commit.
 
-Optional, and off by default. Start New Game has a one-click choice of preset: *Original*, *Original + helpers* (screens,
-helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a few light gameplay extras) or your own
-*Custom* mix; each option says whether it changes the looks, helps, or changes the gameplay:
+Optional, and off by default. Start New Game (and the launcher) has a one-click choice of preset: *Original*, *Original + helpers*
+(recommended: screens, helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus OpenSGolf's new
+gameplay: weather that matters, forward and middle tees, a second course, more staff and animals) or your own *Custom*
+mix; each option says whether it changes the looks, helps, or changes the gameplay:
 
 - **Enhanced graphics** for 4K and widescreen: sharp scaling, water (depth, waves with the wind, shorelines, rain rings,
   reeds, ducks, swans, jumping fish, frozen ponds), light, weather by each place's climate, seasons, late-winter snow,
@@ -153,6 +155,9 @@ helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a fe
   target, a drag moves it or looks round the hole, and the round Swing button takes the shot.
 - **Random trees** (interface extra): every tree planted takes a random size and species of its kind, and every scenic
   tree a random one of the seven.
+- **A launcher at start:** your game files (your SimGolf or the free graphics), how to play (the four presets), display and
+  sound, and what's new, on one screen in the look of the start page, before the title menu; untick *Show this at start*
+  to skip it (Preferences → More → *Launcher...* brings it back) ([docs/PLAYING.md](docs/PLAYING.md#the-launcher)).
 - **Updates from the title menu:** *Check for updates*, then *Update now* downloads the new version, checks its signature
   and installs it in place (Windows, macOS, Linux, Android); on Windows and with the Linux .tar.gz it downloads only the
   programs and the pack files that changed. A Preferences tick (Preferences → More) checks once at each start. Only GitHub is contacted, and

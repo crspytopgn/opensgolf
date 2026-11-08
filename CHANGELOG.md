@@ -33,6 +33,11 @@ Enhanced graphics and HD.
 
 **Fix releases**
 
+- **0.7.3:** a launcher before the title menu (game files, how to play, display and sound, news), shown at each start
+  unless unticked; What's new shows 0.7's highlights (it still showed 0.6's) and reads them from GitHub, as the web
+  page's Latest news now does; Start New Game goes straight to Choose Difficulty unless you have scenario packs of your
+  own; *Original + helpers* is the recommended preset, and the *OpenSGolf* preset adds weather that matters, forward
+  and middle tees and the second course.
 - **0.7.2:** racing wheels, pedals and flight sticks no longer move the pointer or scroll the course by themselves, and a
   controller's stick only counts once it has been at rest in its centre (#169); longer translations also fit the
   scorecard's labels, the SGA report, the routing map's box, the Membership Roster's legend and the golfers' comments

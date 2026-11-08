@@ -19,8 +19,8 @@ followed down up to two levels):
    (`~/.wine/drive_c/Program Files*/Maxis/SimGolf` or `EA GAMES/SimGolf`);
 5. `game` in the folder it was started from.
 
-With none found it plays on the free base set (opensgolf-free), and the first time the title screen says so next to its
-**Use my SimGolf files...** button (top left). That button, and the same line in Preferences > *Game files...*, asks whether the
+With none found it plays on the free base set (opensgolf-free), and the launcher's Game files tab (see *The launcher*)
+and, the first time, the title screen say so next to its **Use my SimGolf files...** button (top left). That button, and the same line in Preferences > *Game files...*, asks whether the
 files are a .zip, a CD image (.iso, .cdr), or a folder (installed, or the CD itself), then opens the system's own picker for it (Windows and macOS
 dialogs, the desktop's XDG portal on Linux, Android's file picker). A .zip is unpacked into `game` in the save folder, by the
 browser version's rules: the game folder is the one holding `Flics`, at any depth; `__MACOSX`, `._` files, videos and
@@ -59,7 +59,7 @@ copies leave them out), only the Sims' voices in `SimsFX`, or lacks more than a 
 when the game starts and the ticker on every start (sg_core::mixer `shortfall`; the console or log has a `sound:` line
 with the counts). The browser page also sums up what it found after loading the files, in large type on the start page
 (and again there on the next visit, as "Last time: ...") and over the game once (20 seconds, or until tapped when
-something is missing): "OpenSGolf 0.7.2. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
+something is missing): "OpenSGolf 0.7.3. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
 big). Art ✓, music: N, Sims' voices: N." The console's `files:` line adds the compression methods the zip used.
 Deflate64 (Windows' own zipper, for big files such as the sounds), BZip2, LZMA and PPMd (7-Zip's, Keka's and The
 Unarchiver's stronger settings), which iPad's Files app cannot unpack (it shows such folders empty), are read by the
@@ -77,6 +77,44 @@ start up (`SG_PICK_FOLDER=free` chooses the free graphics; with `--png` the stil
 
 A Windows release build is a windowed program (no console window); started from a console with options it writes its
 messages to that console. Screenshots (Shift+F6) go to the save folder as `opensgolf-shot.png`.
+
+## The launcher
+
+When OpenSGolf starts it first shows its **launcher** (the port's own screen, none of it in the original), in the look of
+the browser version's start page: the sky with the gold *OpenSGolf* heading, the green tabs and the glossy buttons. It is
+drawn by the game from shapes and its own free fonts, so it looks the same with or without your SimGolf files and shows
+none of the original's art. It fits any window, from a phone held sideways to a 4K screen, and works with the mouse, a
+finger (a tap is a click) and a controller (the stick moves the pointer, A clicks, Start plays). Four tabs:
+
+- **Game files**: what is in use and what was found (e.g. *Your SimGolf files: all art and 320 sounds*, or *Free
+  graphics* with *No SimGolf files were found on this device*), then two choices: **Use my SimGolf files...** (the same
+  picker as the title menu's button: a folder, a .zip, or the CD or its image; see *Your own SimGolf files*; a click on
+  the CD does the same) and **Use the free graphics**, the one in use marked. Each starts the game again on the files
+  chosen, as before. A choice the system does not offer is not shown (on Android the free graphics are not offered once
+  your files are in; in the browser the files are chosen on the page, and *Back to the page* returns to it).
+- **How to play**: the four choices of *How would you like to play?* (*The original game*, *Original + helpers*,
+  *OpenSGolf*, *Custom*; see below), the one in use marked. A choice is put in use exactly as Game options puts it;
+  *Custom* opens Game options when you have no mix of your own yet, and *Game options...* opens it at any time.
+- **Display & sound**: *Window* or *Full screen* and the window's size (on a computer: kept for the next start, as F11
+  and Alt+Enter now are too), *Classic*, *Enhanced* and *HD* graphics (HD only once you have made an HD pack; as
+  Preferences > Graphics, Enhanced and HD can be on together, Classic is both off), the text size, *Sound* on or off
+  (the original's own Sound tick) and the language (each translation the game finds). These are the same settings as in
+  Preferences, saved the same way.
+- **News & updates**: the version you have and its *What's new* highlights, **Check for updates** (where the title menu
+  has that button), **See everything that's new** (the changelog in your browser) and **Buy me a coffee** (see
+  *Supporting OpenSGolf*).
+
+**Play** (or Enter, Esc, or Android's back button) goes on to the title menu. **Show this at start** (settings.json's
+`launcher_at_start`, on until you untick it) decides whether it shows at the next start; a new player always gets it.
+The title menu's **Launcher...** button (top left, beside *Use my SimGolf files...*) and Preferences > More >
+**Launcher...** bring it back at any time (opened over a game, Play goes back to the game, and changing the game files
+asks first, as the Preferences line does). On a new player's first start it takes the place of the *How would you like
+to play?* box, and after an update it opens on its News tab in place of the *What's new* box; both are recorded as shown.
+
+It never shows in scripted runs (`--png`, `--time`, `--screen`), nor when the game starts on a saved game. Test hooks for
+stills: `--screen launcher` or `SG_LAUNCHER=1` show it (nothing is written), `SG_LAUNCHER_TAB=files|play|display|news`
+picks the tab, and `SG_LAUNCHER_FILES=mine:320` shows the game files as your own with 320 sounds
+(`BIN --game DIR --screen launcher --size 844x390 --png out.png`).
 
 ## The title menu
 
@@ -342,10 +380,11 @@ Everything OpenSGolf adds is optional, and every option belongs to one of three 
 Select Difficulty (the world map for Sandbox Mode) has a **Game** box next to Course size. A click steps through four **presets**:
 
 - **Original**: every OpenSGolf extra off and Classic graphics; the game exactly as it was. A new player starts here.
-- **Original + helpers**: every helper and every look on, nothing that changes how the game plays.
-- **OpenSGolf**: the helpers and looks, plus the light gameplay extras that do not change the game's balance: higher
-  staff limits, turning buildings and buyable animals (not weather, more visitors, hardcore, left-handed golfers, set par, the cut content,
-  the calendar or the sandbox switches, which you tick yourself).
+- **Original + helpers** (recommended): every helper and every look on, nothing that changes how the game plays.
+- **OpenSGolf**: the helpers and looks, plus OpenSGolf's own additions to play with: weather that matters, forward and
+  middle tees, a second course once your 18 holes are open, higher staff limits, turning buildings and buyable animals
+  (not more visitors, hardcore, left-handed golfers, set par, the cut content, the calendar or the sandbox switches,
+  which you tick yourself).
 - **Custom**: your own mix, as you ticked it in Preferences. Once you have a mix of your own, Custom brings it back after
   you tried a preset; until then the Game box skips it.
 
@@ -357,6 +396,10 @@ graphics on). The choice is saved and is what new games start with. The same cho
 (below), so you can change it later, also during a game.
 
 ### How would you like to play? and What's new
+
+The launcher (see *The launcher*) has both: its How to play tab the choices below, its News tab this version's
+highlights; when it shows at start it takes the place of these boxes. They still come up as described here when it does
+not.
 
 The first time the title menu shows for a new player (no settings saved yet), a box asks **How would you like to
 play?** with the four presets above, each with a line on what it means: *The original game*, *Original + helpers*,
@@ -397,7 +440,7 @@ golfers' thoughts**, **Advisor and first-time messages**, **Ambient animals** an
   files*), *Content packs...*, and *Language:* when a translation is installed.
 - **More...**: *Fix the original game's bugs* (on by default; docs/FIXES.md), *Check for updates when the game starts*
   (off by default), *Check for updates now* (where the title menu has its button), *Search options...*, *Report a
-  problem...* (see *Reporting a problem*), *Support OpenSGolf...* (see *Supporting OpenSGolf*; under it, a note of your own total time played, kept only on
+  problem...* (see *Reporting a problem*), *Launcher...* (see *The launcher*), *What's new...*, *Support OpenSGolf...* (see *Supporting OpenSGolf*; under it, a note of your own total time played, kept only on
   your device; the title menu shows it too, in the bottom left corner on the free graphics and at the top middle on the
   original's, once you have played a minute) and *Count my play time
   (anonymous)* (on by default; not in store builds; see *Play-time count*).
@@ -557,7 +600,7 @@ On the **Gameplay** page:
   his draw). Switching the extra off puts everyone back to right-handed; switching it on again brings the left-handers
   back.
 - **Weather that matters (rain, snow, heat, storms).** *(Noticeable)* The weather Enhanced graphics draws is played too (it changes the
-  balance a little, so it is not part of the *OpenSGolf* preset). Which days rain follows the property's climate
+  balance a little; the *OpenSGolf* preset turns it on). Which days rain follows the property's climate
   (often in Ireland, Scotland and Wales, rarely in the desert), the same days whenever the game is loaded, and a day lasts
   three game months (Enhanced graphics' day of light at its normal length; with the extra on its rain, snow and heat
   keep to these days whatever the *Day length*). Each morning the ticker says what the day brings ("Rain today", "Snow
@@ -944,7 +987,10 @@ compare pixel for pixel with the build before the extras).
   it as you set it: it goes online, which is yours to choose): the title menu's *Check for updates* (see *The title menu*), once in the background when the game
   starts. It says nothing unless a newer version is out; then a box offers **Update now**, **Skip this version** (that
   version is not offered at start again, a newer one is; kept in `settings.json` as `update_skip`) or **Not now**. Only
-  GitHub is contacted. The browser version has nothing to check.
+  GitHub is contacted. The browser version has nothing to check. With it on, the game also fetches the list of
+  what's new (`whatsnew.json` in the repository) at start, in the browser too, and keeps a copy in the save folder, so the
+  *What's new* box can be corrected without a new version; nothing about you is sent. Offline or with it off, the last
+  copy or the list built into the game is used.
 - **Zoom towards the pointer** (*Zoom towards the pointer* on the Controls page; off, set by the Change keys'
   *Original* and *Modern controls* presets and left alone by the extras presets: it changes how the original's zoom feels):
   the mouse wheel keeps the ground under the pointer where it is on the screen as it zooms, and a two-finger pinch the
