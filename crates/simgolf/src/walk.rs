@@ -1,21 +1,36 @@
 //! The walk camera: a hidden test view of the course from a golfer's eye height, with a perspective projection, reached only
 //! with the `--walk` command-line switch on the desktop (it is in no menu, setting or help text). F12 turns it on and off on
 //! the course screen, Esc turns it off; W A S D or the arrows walk (Shift faster), a drag with a mouse button held turns
-//! and looks up and down, and the eye follows the ground.
+//! and looks up and down, and the eye follows the ground. G follows the golfers on the course one after another (Shift+G
+//! back): the camera walks behind the one chosen and, when they hit, follows the ball's flight and roll, then goes back to
+//! them; a walk key or Esc leaves the following.
 //!
-//! The ground is the same terrain meshes the overhead view draws (App::batches, lit as the overhead camera lights them),
-//! seen through `Mat4::perspective` and `Mat4::look_at` with depth testing. The objects, golfers and trees are the overhead
-//! view's sprites, stood upright on their ground point as billboards facing the camera, in the view of the game's quarter
-//! turn nearest to the walk's heading. Nothing here runs without the switch, and nothing in the game's state changes:
-//! leaving puts the overhead camera back where it was.
+//! What it draws (each part in a module of its own):
+//!
+//! * the ground (walk_ground.rs): the course's tiles with the player's terrain art, mipmapped and anisotropically filtered,
+//!   under a detail layer made by the game itself (walk_gl.rs `detail_image`) that gives each kind of ground its grain up
+//!   close (grass blades, mown stripes, the green's close cut, rough clumps, sand, the desert's pebbles) while the art's
+//!   painted features fade out near the eye, where they would smear; the water with moving ripples, the sky's reflection
+//!   and the sun's glints; and the land beyond the property, out to the theme's hills or down into the sea;
+//! * the sky (walk_gl.rs `sky_fs`): the theme's colours, the sun and drifting clouds, and a haze of the same colours over
+//!   everything with distance;
+//! * what stands on the ground (walk_objects.rs): buildings as solids with their own sprites projected onto them, trees and
+//!   people as cards, flags, tee markers and balls as small solids, shadows on the ground.
+//!
+//! Nothing here runs without the switch, and nothing in the game's state changes: the walk only reads it, and leaving
+//! puts the overhead camera back where it was.
 //!
 //! With the switch on a scripted still (`--png`), the still is taken from the walk camera; `SG_WALK_AT=TX,TY,YAW[,PITCH]`
-//! (tiles and degrees) places it.
+//! (tiles and degrees) places it, `SG_WALK_FOLLOW=N` follows the golfer in slot N, `SG_WALK_BENCH=1` prints the frame
+//! times.
 use crate::app::{App, Screen};
-use crate::gfx::{Gfx, Mat4, Mode, Uniforms, Vert};
-use crate::ui::{rgba, Screen as Ui, F_ARIAL10};
+use crate::gfx::{Gfx, Mat4};
+use crate::ui::{rgba, Screen as Ui, F_ARIAL10, F_INFO14};
+use crate::walk_gl::{cat, mode, Pipe, SkyUniforms, WalkGpu, WalkUniforms};
+use crate::walk_ground::{is_water, Ground};
+use crate::walk_objects::{box_visible, frustum, Objects, Obstacle, Scene};
 use crate::Stage;
-use miniquad::{KeyCode, MouseButton};
+use miniquad::{KeyCode, MouseButton, TextureId};
 use sg_core::terrain::{Terrain, TILE_SIZE};
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -25,20 +40,29 @@ pub const METRE: f32 = TILE_SIZE / (25.0 * 0.9144);
 pub const EYE: f32 = 1.7 * METRE;
 /// Walking speed (metres a second), and how many times that with Shift.
 const SPEED: f32 = 5.0;
-const FAST: f32 = 5.0;
+const FAST: f32 = 4.0;
+/// How quickly the walk gets up to speed and stops (per second; higher is quicker).
+const ACCEL: f32 = 7.0;
+const BRAKE: f32 = 9.0;
 /// Degrees turned per drawable pixel of a drag (divided by the window's dpi scale).
 const LOOK: f32 = 0.25;
 /// The steepest look up or down, degrees.
-const MAX_PITCH: f32 = 85.0;
+const MAX_PITCH: f32 = 75.0;
 /// Vertical field of view, degrees.
 const FOV: f32 = 60.0;
 /// The near plane (world units).
-const NEAR: f32 = 0.25 * METRE;
-/// The sprites' size against the overhead view's: the art is drawn far larger than the ground it stands on (a golfer is
-/// most of a tile tall), so at eye height it is shrunk towards its real size.
-const SPRITE_SCALE: f32 = 0.3;
+const NEAR: f32 = 0.3 * METRE;
+/// The far plane: past the hills on the horizon.
+const FAR: f32 = 26000.0;
+/// How far a walker keeps from a wall or a trunk.
+const BODY: f32 = 0.4 * METRE;
+/// The head's bob while walking: its height and the length of a step.
+const BOB: f32 = 0.03 * METRE;
+const STEP: f32 = 0.75 * METRE;
 /// The key that turns the walk camera on and off (one the game leaves unused).
 pub const KEY: KeyCode = KeyCode::F12;
+/// The key that follows the golfers.
+pub const FOLLOW_KEY: KeyCode = KeyCode::G;
 
 static ENABLED: AtomicBool = AtomicBool::new(false);
 
@@ -81,7 +105,10 @@ impl Cam {
         [self.x, eye_height(t, self.x, self.z), self.z]
     }
     pub fn view(&self, t: &Terrain) -> Mat4 {
-        let e = self.eye(t);
+        self.view_from(self.eye(t))
+    }
+    /// The view from an eye placed elsewhere (eased up and down slopes, or following a golfer).
+    pub fn view_from(&self, e: [f32; 3]) -> Mat4 {
         let f = self.forward();
         Mat4::look_at(e, [e[0] + f[0], e[1] + f[1], e[2] + f[2]], [0.0, 1.0, 0.0])
     }
@@ -91,16 +118,61 @@ impl Cam {
     }
     /// Moves `ahead` and `right` world units along the ground, kept on the map.
     pub fn walk(&mut self, t: &Terrain, ahead: f32, right: f32) {
+        self.walk_among(t, &[], ahead, right);
+    }
+    /// Moves `ahead` and `right` world units along the ground, kept on the map and out of the water, the buildings and
+    /// the trees: blocked one way, it slides along what is in the way.
+    pub fn walk_among(&mut self, t: &Terrain, obstacles: &[Obstacle], ahead: f32, right: f32) {
         let ([fx, fz], [rx, rz]) = self.axes();
-        let (hw, hh) = (t.w as f32 * TILE_SIZE * 0.5, t.h as f32 * TILE_SIZE * 0.5);
-        self.x = (self.x + fx * ahead + rx * right).clamp(-hw + 1.0, hw - 1.0);
-        self.z = (self.z + fz * ahead + rz * right).clamp(-hh + 1.0, hh - 1.0);
+        let (dx, dz) = (fx * ahead + rx * right, fz * ahead + rz * right);
+        (self.x, self.z) = step(t, obstacles, (self.x, self.z), (dx, dz));
     }
     /// Turns by a drag of (dx, dy) degrees.
     pub fn look(&mut self, dx: f32, dy: f32) {
         self.yaw = (self.yaw + dx).rem_euclid(360.0);
         self.pitch = (self.pitch - dy).clamp(-MAX_PITCH, MAX_PITCH);
     }
+}
+
+/// Whether a walker can stand at a point: on the map, not in the water (a bridge's path carries them over it), not in a
+/// building or a tree.
+pub fn free_at(t: &Terrain, obstacles: &[Obstacle], x: f32, z: f32) -> bool {
+    let (hw, hh) = (t.w as f32 * TILE_SIZE * 0.5, t.h as f32 * TILE_SIZE * 0.5);
+    if x.abs() > hw - 1.0 || z.abs() > hh - 1.0 {
+        return false;
+    }
+    let (tx, ty) = (((x + hw) / TILE_SIZE).floor() as i32, ((z + hh) / TILE_SIZE).floor() as i32);
+    if is_water(t, tx, ty) && t.path_at(tx, ty) == 0 {
+        return false;
+    }
+    obstacles.iter().all(|o| match *o {
+        Obstacle::Box { cx, cz, hx, hz } => (x - cx).abs() >= hx + BODY || (z - cz).abs() >= hz + BODY,
+        Obstacle::Circle { x: ox, z: oz, r } => (x - ox).powi(2) + (z - oz).powi(2) >= (r + BODY).powi(2),
+    })
+}
+
+/// A step from `from` by `d`, blocked by what is not `free_at`: the whole step, else only its part along X or along Z
+/// (sliding along a wall or a shore), else none. A walker who somehow stands where they cannot (placed there) may step
+/// anywhere, so they can always walk out.
+pub fn step(t: &Terrain, obstacles: &[Obstacle], from: (f32, f32), d: (f32, f32)) -> (f32, f32) {
+    let (hw, hh) = (t.w as f32 * TILE_SIZE * 0.5, t.h as f32 * TILE_SIZE * 0.5);
+    let clamp = |p: (f32, f32)| (p.0.clamp(-hw + 1.0, hw - 1.0), p.1.clamp(-hh + 1.0, hh - 1.0));
+    let to = clamp((from.0 + d.0, from.1 + d.1));
+    if !free_at(t, obstacles, from.0, from.1) {
+        return to;
+    }
+    // a long step is taken in short ones, so it cannot jump over a thin thing
+    let n = ((d.0.abs().max(d.1.abs())) / (BODY * 0.5)).ceil().max(1.0) as usize;
+    let (sx, sz) = (d.0 / n as f32, d.1 / n as f32);
+    let mut p = from;
+    for _ in 0..n {
+        let tries = [(p.0 + sx, p.1 + sz), (p.0 + sx, p.1), (p.0, p.1 + sz)];
+        match tries.into_iter().map(clamp).find(|q| *q != p && free_at(t, obstacles, q.0, q.1)) {
+            Some(q) => p = q,
+            None => break,
+        }
+    }
+    p
 }
 
 /// The eye's height at a ground point: the terrain's there plus `EYE`.
@@ -140,6 +212,70 @@ pub fn start(app: &App) -> Cam {
     Cam { x: 0.0, z: 0.0, yaw: (45.0 + app.rot).rem_euclid(360.0), pitch: 0.0 }
 }
 
+/// A theme's sky and haze.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Look {
+    pub zenith: [f32; 3],
+    pub haze: [f32; 3],
+    pub cloud: [f32; 3],
+    /// How much of the sky the clouds cover (0..1).
+    pub cover: f32,
+    /// The haze's density per world unit.
+    pub density: f32,
+}
+
+/// The sky of a theme (app::THEMES: 0 Parkland, 1 Links, 2 Desert, 3 Tropical): a soft blue over green country, a paler
+/// cloudier northern sky by the sea, a deep clear blue over warm dusty haze, a bright sky with the tropics' tall clouds.
+pub fn look(theme: usize) -> Look {
+    match theme {
+        1 => Look { zenith: [0.40, 0.53, 0.70], haze: [0.78, 0.82, 0.85], cloud: [0.95, 0.96, 0.97], cover: 0.60, density: 2.15e-4 },
+        2 => Look { zenith: [0.20, 0.44, 0.82], haze: [0.91, 0.83, 0.71], cloud: [1.0, 0.98, 0.95], cover: 0.18, density: 1.45e-4 },
+        3 => Look { zenith: [0.14, 0.47, 0.86], haze: [0.75, 0.87, 0.93], cloud: [1.0, 1.0, 1.0], cover: 0.40, density: 1.75e-4 },
+        _ => Look { zenith: [0.29, 0.49, 0.83], haze: [0.74, 0.82, 0.90], cloud: [1.0, 1.0, 1.0], cover: 0.42, density: 1.7e-4 },
+    }
+}
+
+/// Where the haze hides everything (its density's 99.5 %).
+pub fn haze_end(density: f32) -> f32 {
+    5.3f32.powf(1.0 / 1.5) / density
+}
+
+/// The sun's direction in the world: the overhead view's light (fixed in its eye space, sg_core::terrain) seen from its
+/// first quarter turn, so the walk's shading and the art's shadows (drawn for that view) agree.
+pub fn sun_direction() -> [f32; 3] {
+    let m = Mat4::rotate(crate::walk_objects::art_pitch() as f64, 1.0, 0.0, 0.0).mul(&Mat4::rotate(45.0, 0.0, 1.0, 0.0)).0;
+    let l = sg_core::terrain::light_direction();
+    let v = [0, 1, 2].map(|c| m[c * 4] * l[0] + m[c * 4 + 1] * l[1] + m[c * 4 + 2] * l[2]);
+    let n = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+    v.map(|q| q / n)
+}
+
+/// Following a golfer (G).
+#[derive(Clone, Copy, Debug)]
+struct Follow {
+    /// The golfer's slot.
+    slot: usize,
+    /// Watching the ball since this many seconds, or the golfer (None).
+    ball: Option<f32>,
+    /// How long the ball has lain still.
+    still: f32,
+    /// The camera's eased place and the point it looks at.
+    pos: [f32; 3],
+    at: [f32; 3],
+    /// The ball's last place and its eased direction of travel (level).
+    last_ball: Option<[f32; 3]>,
+    dir: [f32; 2],
+}
+
+/// The frame times kept for SG_WALK_BENCH.
+#[derive(Default)]
+struct Bench {
+    on: bool,
+    frames: Vec<f32>,
+    cpu: Vec<f32>,
+    last: Option<std::time::Instant>,
+}
+
 /// The walk camera's state in the main loop.
 #[derive(Default)]
 pub struct Walking {
@@ -155,6 +291,22 @@ pub struct Walking {
     last: f64,
     /// A scripted still's walk has begun.
     still_begun: bool,
+    /// The walk's speed (world units a second, along X and Z), the eye's eased height and the head's bob.
+    vel: [f32; 2],
+    eye_y: Option<f32>,
+    bob: f32,
+    bob_amp: f32,
+    follow: Option<Follow>,
+    gpu: Option<WalkGpu>,
+    gpu_failed: bool,
+    ground: Option<Ground>,
+    objs: Objects,
+    /// The terrain textures given anisotropic filtering, given back their plain filtering when the walk ends.
+    aniso: Vec<TextureId>,
+    /// The seconds the walk has been shown (the water's and the clouds' clock), and the last frame's step.
+    time: f32,
+    dt: f32,
+    bench: Bench,
 }
 
 fn held_index(k: KeyCode) -> Option<usize> {
@@ -165,6 +317,37 @@ fn held_index(k: KeyCode) -> Option<usize> {
         KeyCode::D | KeyCode::Right => Some(3),
         _ => None,
     }
+}
+
+/// The golfers on the course, by slot.
+fn on_course(app: &App) -> Vec<usize> {
+    (0..app.club.g.len().min(sg_core::golfer::SLOTS))
+        .filter(|&i| {
+            let g = &app.club.g[i];
+            g.hole > 0 && g.hole < 19 && g.x != 0
+        })
+        .collect()
+}
+
+/// The next golfer on the course after `from` (or before it, `back`), round the list.
+fn next_golfer(list: &[usize], from: Option<usize>, back: bool) -> Option<usize> {
+    if list.is_empty() {
+        return None;
+    }
+    let Some(f) = from else { return Some(list[0]) };
+    let pos = list.iter().position(|&s| s == f);
+    let i = match (pos, back) {
+        (Some(p), false) => (p + 1) % list.len(),
+        (Some(p), true) => (p + list.len() - 1) % list.len(),
+        (None, false) => list.iter().position(|&s| s > f).unwrap_or(0),
+        (None, true) => list.iter().rposition(|&s| s < f).unwrap_or(list.len() - 1),
+    };
+    Some(list[i])
+}
+
+/// Eases `v` towards `to` at `rate` per second over `dt`.
+fn ease(v: f32, to: f32, rate: f32, dt: f32) -> f32 {
+    v + (to - v) * (1.0 - (-rate * dt).exp())
 }
 
 impl Stage {
@@ -180,12 +363,51 @@ impl Stage {
         self.walk.held = [false; 4];
         self.walk.looking = false;
         self.walk.last = self.app.clock;
+        self.walk.vel = [0.0; 2];
+        self.walk.eye_y = None;
+        self.walk.follow = None;
+        self.walk.bench.on = std::env::var_os("SG_WALK_BENCH").is_some();
+        if let Some(slot) = std::env::var("SG_WALK_FOLLOW").ok().and_then(|v| v.trim().parse::<usize>().ok()) {
+            self.walk_follow_start(Some(slot));
+        }
     }
 
     fn walk_end(&mut self) {
         self.walk.cam = None;
+        self.walk.follow = None;
         let a = &mut self.app;
         (a.cam_x, a.cam_z, a.zoom, a.rot) = self.walk.saved;
+        // the overhead view's textures as they were; the walk's own are kept for the next walk
+        for t in std::mem::take(&mut self.walk.aniso) {
+            crate::walk_gl::set_anisotropy(&mut self.g, t, 1.0);
+        }
+        if let Some(gr) = self.walk.ground.take() {
+            gr.free(&mut self.g);
+        }
+        self.walk.objs.free(&mut self.g);
+        self.walk.objs = Objects::default();
+    }
+
+    /// Follows golfer `slot`, or the first on the course.
+    fn walk_follow_start(&mut self, slot: Option<usize>) {
+        let list = on_course(&self.app);
+        let slot = match slot {
+            Some(s) if list.contains(&s) => Some(s),
+            _ => next_golfer(&list, slot, false),
+        };
+        let Some(slot) = slot else { return };
+        let Some(c) = self.walk.cam else { return };
+        let e = [c.x, self.walk.eye_y.unwrap_or_else(|| eye_height(&self.app.terrain, c.x, c.z)), c.z];
+        let f = c.forward();
+        self.walk.follow = Some(Follow {
+            slot,
+            ball: None,
+            still: 0.0,
+            pos: e,
+            at: [e[0] + f[0] * 50.0, e[1] + f[1] * 50.0, e[2] + f[2] * 50.0],
+            last_ball: None,
+            dir: [0.0, -1.0],
+        });
     }
 
     /// A key went down: true when the walk camera took it.
@@ -194,10 +416,28 @@ impl Stage {
             return false;
         }
         if self.walk_shown() {
-            if k == KEY || k == KeyCode::Escape {
+            if k == KEY {
                 self.walk_end();
+            } else if k == KeyCode::Escape {
+                if self.walk.follow.take().is_none() {
+                    self.walk_end();
+                }
+            } else if k == FOLLOW_KEY {
+                let list = on_course(&self.app);
+                let from = self.walk.follow.map(|f| f.slot);
+                if let Some(s) = next_golfer(&list, from, self.shift) {
+                    if self.walk.follow.is_some() {
+                        if let Some(f) = self.walk.follow.as_mut() {
+                            (f.slot, f.ball, f.last_ball, f.still) = (s, None, None, 0.0);
+                        }
+                    } else {
+                        self.walk_follow_start(Some(s));
+                    }
+                }
             } else if let Some(i) = held_index(k) {
                 self.walk.held[i] = true;
+                // walking takes the camera back from the golfer it followed, where it is
+                self.walk.follow = None;
             }
             return true;
         }
@@ -229,7 +469,7 @@ impl Stage {
         if !self.walk_shown() {
             return false;
         }
-        if self.walk.looking {
+        if self.walk.looking && self.walk.follow.is_none() {
             let k = LOOK / self.app.dpi.max(1.0);
             if let Some(c) = self.walk.cam.as_mut() {
                 c.look(dx * k, dy * k);
@@ -238,7 +478,7 @@ impl Stage {
         true
     }
 
-    /// Once a frame: the walk's steps, and a scripted still's start in the walk camera.
+    /// Once a frame: the walk's steps, the eye's easing and the following, and a scripted still's start in the walk camera.
     pub(crate) fn walk_update(&mut self, t: f64) {
         if enabled() && self.png_out.is_some() && !self.walk.still_begun && walk_screen(&self.app) {
             self.walk.still_begun = true;
@@ -249,18 +489,194 @@ impl Stage {
         if !self.walk_shown() {
             return;
         }
+        self.walk.time += dt;
+        self.walk.dt = dt;
+        if self.walk.bench.on {
+            let now = std::time::Instant::now();
+            if let Some(l) = self.walk.bench.last {
+                self.walk.bench.frames.push(now.duration_since(l).as_secs_f32() * 1000.0);
+            }
+            self.walk.bench.last = Some(now);
+        }
+        if self.walk.follow.is_some() {
+            self.walk_follow_tick(dt);
+            return;
+        }
+        let Some(mut c) = self.walk.cam else { return };
         let h = self.walk.held;
         let ahead = (h[0] as i32 - h[1] as i32) as f32;
         let right = (h[3] as i32 - h[2] as i32) as f32;
-        if ahead == 0.0 && right == 0.0 {
-            return;
+        let len = (ahead * ahead + right * right).sqrt().max(1.0);
+        let speed = SPEED * METRE * if self.shift { FAST } else { 1.0 };
+        let ([fx, fz], [rx, rz]) = c.axes();
+        let want = [(fx * ahead + rx * right) / len * speed, (fz * ahead + rz * right) / len * speed];
+        let rate = if ahead == 0.0 && right == 0.0 { BRAKE } else { ACCEL };
+        let v = &mut self.walk.vel;
+        v[0] = ease(v[0], want[0], rate, dt);
+        v[1] = ease(v[1], want[1], rate, dt);
+        if v[0].abs() + v[1].abs() < 0.02 {
+            *v = [0.0; 2];
         }
-        let len = (ahead * ahead + right * right).sqrt();
-        let step = SPEED * METRE * if self.shift { FAST } else { 1.0 } * dt / len;
         let terrain = &self.app.terrain;
-        if let Some(c) = self.walk.cam.as_mut() {
-            c.walk(terrain, ahead * step, right * step);
+        let before = (c.x, c.z);
+        (c.x, c.z) = step(terrain, &self.walk.objs.obstacles, (c.x, c.z), (v[0] * dt, v[1] * dt));
+        // what blocked the walk stops its speed that way
+        let moved = ((c.x - before.0) / dt.max(1e-4), (c.z - before.1) / dt.max(1e-4));
+        if dt > 0.0 {
+            if moved.0.abs() < v[0].abs() * 0.5 {
+                v[0] = moved.0;
+            }
+            if moved.1.abs() < v[1].abs() * 0.5 {
+                v[1] = moved.1;
+            }
         }
+        // the head's bob, with the pace
+        let pace = (v[0] * v[0] + v[1] * v[1]).sqrt();
+        self.walk.bob += pace * dt / STEP * std::f32::consts::PI;
+        self.walk.bob_amp = ease(self.walk.bob_amp, (pace / (SPEED * METRE)).min(1.0), 6.0, dt);
+        let target = eye_height(terrain, c.x, c.z) + self.walk.bob.sin().abs() * BOB * self.walk.bob_amp;
+        self.walk.eye_y = Some(match self.walk.eye_y {
+            Some(y) if (y - target).abs() < 3.0 * METRE => ease(y, target, 14.0, dt),
+            _ => target,
+        });
+        self.walk.cam = Some(c);
+    }
+
+    /// The camera behind the golfer followed, or after their ball.
+    fn walk_follow_tick(&mut self, dt: f32) {
+        use sg_core::golfer::flag;
+        let Some(mut f) = self.walk.follow else { return };
+        let app = &self.app;
+        let list = on_course(app);
+        if !list.contains(&f.slot) {
+            // the golfer left the course: the next one
+            match next_golfer(&list, Some(f.slot), false) {
+                Some(s) => (f.slot, f.ball, f.last_ball) = (s, None, None),
+                None => {
+                    self.walk.follow = None;
+                    return;
+                }
+            }
+        }
+        let gl = &app.club.g[f.slot];
+        let (gx, gz) = app.units_to_world(gl.x, gl.y);
+        let ground = app.terrain.height_at(gx, gz);
+        let pin = app.club.holes.get(gl.hole as usize).filter(|h| h.par > 0).map(|h| app.terrain.tile_centre(h.pin.0, h.pin.1));
+        let ball = app.walk_ball(f.slot);
+        let moving = gl.flags & flag::BALL_MOVING != 0 && ball.is_some();
+        if let (Some(b), Some(lb)) = (ball, f.last_ball) {
+            let (dx, dz) = (b[0] - lb[0], b[2] - lb[2]);
+            let l = (dx * dx + dz * dz).sqrt();
+            if l > 0.05 {
+                f.dir = [ease(f.dir[0], dx / l, 3.0, dt), ease(f.dir[1], dz / l, 3.0, dt)];
+                f.still = 0.0;
+            } else {
+                f.still += dt;
+            }
+        }
+        f.last_ball = ball;
+        match f.ball {
+            None if moving => {
+                f.ball = Some(0.0);
+                f.still = 0.0;
+                // the ball sets off the way the golfer faces their target
+                if let Some((px, pz)) = pin {
+                    let (dx, dz) = (px - gx, pz - gz);
+                    let l = (dx * dx + dz * dz).sqrt().max(1e-3);
+                    f.dir = [dx / l, dz / l];
+                }
+            }
+            Some(t) if !moving && f.still > 1.2 || t > 14.0 => f.ball = None,
+            Some(t) => f.ball = Some(t + dt),
+            None => {}
+        }
+        let (want_pos, want_at, rate) = match (f.ball, ball) {
+            (Some(_), Some(b)) => {
+                let d = f.dir;
+                let l = (d[0] * d[0] + d[1] * d[1]).sqrt().max(1e-3);
+                let (dx, dz) = (d[0] / l, d[1] / l);
+                let back = 9.0 * METRE;
+                let p = [b[0] - dx * back, b[1].max(app.terrain.height_at(b[0], b[2])) + 2.5 * METRE, b[2] - dz * back];
+                (p, b, 4.0)
+            }
+            _ => {
+                // behind the golfer and a little to the side, looking past them down the hole
+                let (dx, dz) = match pin {
+                    Some((px, pz)) => {
+                        let (dx, dz) = (px - gx, pz - gz);
+                        let l = (dx * dx + dz * dz).sqrt();
+                        if l > 1.0 {
+                            (dx / l, dz / l)
+                        } else {
+                            (f.dir[0], f.dir[1])
+                        }
+                    }
+                    None => (f.dir[0], f.dir[1]),
+                };
+                let back = 5.5 * METRE;
+                let side = 1.6 * METRE;
+                let p = [gx - dx * back - dz * side, ground + EYE, gz - dz * back + dx * side];
+                let at = [gx + dx * 40.0 * METRE, ground + 0.6 * EYE, gz + dz * 40.0 * METRE];
+                (p, at, 2.5)
+            }
+        };
+        let teleport = ((f.pos[0] - want_pos[0]).powi(2) + (f.pos[2] - want_pos[2]).powi(2)).sqrt() > 120.0 * METRE;
+        for k in 0..3 {
+            if teleport {
+                f.pos[k] = want_pos[k];
+                f.at[k] = want_at[k];
+            } else {
+                f.pos[k] = ease(f.pos[k], want_pos[k], rate, dt);
+                f.at[k] = ease(f.at[k], want_at[k], rate * 1.6, dt);
+            }
+        }
+        // never under the ground
+        f.pos[1] = f.pos[1].max(app.terrain.height_at(f.pos[0], f.pos[2]) + 0.6 * METRE);
+        let (dx, dy, dz) = (f.at[0] - f.pos[0], f.at[1] - f.pos[1], f.at[2] - f.pos[2]);
+        let level = (dx * dx + dz * dz).sqrt().max(1e-3);
+        let cam = Cam {
+            x: f.pos[0],
+            z: f.pos[2],
+            yaw: heading((f.pos[0], f.pos[2]), (f.at[0], f.at[2])),
+            pitch: dy.atan2(level).to_degrees().clamp(-MAX_PITCH, MAX_PITCH),
+        };
+        self.walk.cam = Some(cam);
+        self.walk.eye_y = Some(f.pos[1]);
+        self.walk.follow = Some(f);
+    }
+}
+
+/// Draws the walk camera's view (main.rs's frame).
+pub(crate) fn draw(app: &mut App, g: &mut Gfx, walk: &mut Walking) {
+    let t0 = std::time::Instant::now();
+    app.render_walk(g, walk);
+    if walk.bench.on {
+        walk.bench.cpu.push(t0.elapsed().as_secs_f32() * 1000.0);
+        if walk.bench.cpu.len() % 120 == 0 {
+            walk.bench_report();
+        }
+    }
+}
+
+impl Walking {
+    fn bench_report(&self) {
+        let stats = |v: &[f32]| {
+            let mut s: Vec<f32> = v.iter().copied().skip(10).collect();
+            if s.is_empty() {
+                return (0.0, 0.0, 0.0);
+            }
+            s.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            let mean = s.iter().sum::<f32>() / s.len() as f32;
+            (mean, s[s.len() / 2], s[(s.len() * 95 / 100).min(s.len() - 1)])
+        };
+        let (fm, fmed, f95) = stats(&self.bench.frames);
+        let (cm, cmed, c95) = stats(&self.bench.cpu);
+        println!(
+            "walk bench: {} frames; frame mean {fm:.2} ms, median {fmed:.2}, 95% {f95:.2}; walk drawing (CPU) mean {cm:.2} ms, median {cmed:.2}, 95% {c95:.2}; things drawn {}, left out {}",
+            self.bench.cpu.len(),
+            self.objs.drawn,
+            self.objs.culled
+        );
     }
 }
 
@@ -269,112 +685,211 @@ pub(crate) fn walk_screen(app: &App) -> bool {
     app.screen == Screen::Play && app.photo.is_none() && app.showcase.is_none() && app.editor.is_none() && app.notice.is_none()
 }
 
+/// The hole nearest a point: its number, par and the distance to its pin in yards.
+pub fn nearest_hole(app: &App, x: f32, z: f32) -> Option<(usize, i32, f32)> {
+    let t = &app.terrain;
+    let mut best: Option<(f32, usize)> = None;
+    for (n, h) in app.club.holes.iter().enumerate().skip(1).take(18) {
+        if h.par <= 0 || h.pin == (0, 0) {
+            continue;
+        }
+        let tee = if h.back != (0, 0) { h.back } else { h.fwd };
+        let (px, pz) = tile_centre(t, h.pin.0, h.pin.1);
+        let (tx, tz) = if tee != (0, 0) { tile_centre(t, tee.0, tee.1) } else { (px, pz) };
+        // the distance to the line from tee to pin
+        let (dx, dz) = (px - tx, pz - tz);
+        let l2 = (dx * dx + dz * dz).max(1e-6);
+        let k = (((x - tx) * dx + (z - tz) * dz) / l2).clamp(0.0, 1.0);
+        let d = ((x - tx - dx * k).powi(2) + (z - tz - dz * k).powi(2)).sqrt();
+        if best.is_none_or(|b| d < b.0) {
+            best = Some((d, n));
+        }
+    }
+    let (_, n) = best?;
+    let h = &app.club.holes[n];
+    let (px, pz) = tile_centre(t, h.pin.0, h.pin.1);
+    let yards = ((px - x).powi(2) + (pz - z).powi(2)).sqrt() / TILE_SIZE * 25.0;
+    Some((n, h.par, yards))
+}
+
+/// The compass's points, in degrees of heading.
+const POINTS: [(&str, f32); 8] =
+    [("N", 0.0), ("NE", 45.0), ("E", 90.0), ("SE", 135.0), ("S", 180.0), ("SW", 225.0), ("W", 270.0), ("NW", 315.0)];
+
 impl App {
-    /// Draws the course from the walk camera, and the line of help.
-    pub(crate) fn render_walk(&mut self, g: &mut Gfx, cam: &Cam) {
+    /// Draws the course from the walk camera, and the walk's line of help.
+    pub(crate) fn render_walk(&mut self, g: &mut Gfx, wk: &mut Walking) {
+        let Some(cam) = wk.cam else { return };
+        if wk.gpu.is_none() && !wk.gpu_failed {
+            wk.gpu = WalkGpu::new(g);
+            wk.gpu_failed = wk.gpu.is_none();
+        }
+        let key = crate::walk_ground::ground_key(self);
+        if wk.ground.as_ref().is_none_or(|gr| gr.key != key) {
+            if let Some(old) = wk.ground.take() {
+                old.free(g);
+            }
+            let gr = self.walk_ground(g);
+            // the terrain art filtered anisotropically while it is seen from the ground (Enhanced graphics' own filtering
+            // already does)
+            if !crate::enhanced::terrain_filter() {
+                for c in &gr.chunks {
+                    for p in &c.parts {
+                        if !wk.aniso.contains(&p.tex) {
+                            crate::walk_gl::set_anisotropy(g, p.tex, 8.0);
+                            wk.aniso.push(p.tex);
+                        }
+                    }
+                }
+            }
+            wk.ground = Some(gr);
+        }
+        let Some(gpu) = wk.gpu.as_mut() else { return };
+        let Some(ground) = wk.ground.as_ref() else { return };
         let aspect = self.draw_w / self.draw_h.max(1.0);
-        let far = (self.terrain.w.max(self.terrain.h) as f32 * TILE_SIZE * 1.5).max(8000.0);
-        let proj = Mat4::perspective(FOV, aspect, NEAR, far);
-        let view = cam.view(&self.terrain);
-        self.walk_sky(g, &proj, cam);
-        // the ground lit as the overhead camera at the nearest quarter turn lights it: the light is fixed in its eye space, so
-        // the normals go through that camera's turn (the uniform `mv` is used for nothing else)
-        let pitch = crate::app::pitch_for(self.draw_w, self.draw_h);
-        let overhead = Mat4::rotate(pitch, 1.0, 0.0, 0.0).mul(&Mat4::rotate((45.0 + cam.quarter() as f32 * 90.0) as f64, 0.0, 1.0, 0.0));
-        let mut lit = Uniforms::flat(&proj, &view);
-        lit.mv = overhead.0;
-        lit.lit = 1.0;
-        lit.light_amb = self.light.ambient.map(|v| v * crate::render::BRIGHTNESS);
-        lit.light_dif = self.light.diffuse.map(|v| v * crate::render::BRIGHTNESS);
-        lit.light_spec = self.light.specular;
-        lit.light_dir = sg_core::terrain::light_direction();
-        let mut overlay = lit;
-        overlay.alpha_ref = 0.04;
-        for b in self.batches.iter().chain(&self.wall_batches) {
-            g.draw_mesh(Mode::Solid, &b.mesh, b.tex, &lit);
-        }
-        for b in self.path_batches.iter().chain(&self.mud_batches) {
-            g.draw_mesh(Mode::Overlay, &b.mesh, b.tex, &overlay);
-        }
-        let mut u = Uniforms::flat(&proj, &view);
-        u.alpha_ref = 0.04;
-        self.walk_sprites(g, &u, cam);
-        g.flush();
-        let s = Ui::new(self.draw_w, self.draw_h);
-        let t = "Walk camera: W A S D or arrows walk, Shift faster, drag to look, F12 or Esc back";
-        let w = F_ARIAL10.width(t) + 12.0;
-        s.fill(g, 6.0, 580.0, w, 14.0, rgba(0.0, 0.0, 0.0, 0.45));
-        s.put(g, F_ARIAL10, 12.0, 582.0, t, rgba(1.0, 1.0, 1.0, 0.85));
-        g.flush();
-    }
-
-    /// A sky behind the ground: pale at the horizon, deeper overhead.
-    fn walk_sky(&self, g: &mut Gfx, proj: &Mat4, cam: &Cam) {
-        // where the horizon is on the screen (y in -1..1): level ahead, seen through the camera's pitch
-        let k = proj.0[5];
-        let horizon = (-(cam.pitch.to_radians().tan()) * k).clamp(-4.0, 4.0);
-        let top = [0.36, 0.56, 0.86, 1.0];
-        let low = [0.78, 0.86, 0.94, 1.0];
-        let below = [0.62, 0.70, 0.62, 1.0];
-        let u = Uniforms::flat(&Mat4::identity(), &Mat4::identity());
-        let v = |x: f32, y: f32, c: [f32; 4]| Vert::new(x, y, 0.0, 0.5, 0.5).col(c);
-        let h = horizon;
-        g.quad(
-            Mode::Flat,
-            None,
-            &u,
-            [v(-1.0, 1.0f32.max(h + 1.0), top), v(1.0, 1.0f32.max(h + 1.0), top), v(1.0, h, low), v(-1.0, h, low)],
+        let proj = Mat4::perspective(FOV, aspect, NEAR, FAR);
+        let eye = [cam.x, wk.eye_y.unwrap_or_else(|| eye_height(&self.terrain, cam.x, cam.z)), cam.z];
+        let view = cam.view_from(eye);
+        let vp = proj.mul(&view);
+        let lk = look(self.theme);
+        let sun = sun_direction();
+        let far = haze_end(lk.density);
+        let f = cam.forward();
+        let (_, [rx, rz]) = cam.axes();
+        let r = [rx, 0.0, rz];
+        let up = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+        let ty = (FOV.to_radians() * 0.5).tan();
+        let tx = ty * aspect;
+        let time = wk.time;
+        let v4 = |a: [f32; 3], w: f32| [a[0], a[1], a[2], w];
+        gpu.draw_sky(
+            g,
+            &SkyUniforms {
+                cam_f: v4(f, 0.0),
+                cam_r: v4(r.map(|v| v * tx), 0.0),
+                cam_u: v4(up.map(|v| v * ty), 0.0),
+                eye: v4(eye, time),
+                sun: v4(sun, 0.0),
+                haze: v4(lk.haze, 0.0),
+                zenith: v4(lk.zenith, lk.cover),
+                cloud: v4(lk.cloud, 0.00012),
+            },
         );
-        g.quad(
-            Mode::Flat,
-            None,
-            &u,
-            [v(-1.0, h, below), v(1.0, h, below), v(1.0, (-1.0f32).min(h - 1.0), below), v(-1.0, (-1.0f32).min(h - 1.0), below)],
-        );
-        g.flush();
-    }
-
-    /// The props' sprites as upright billboards on their ground points, the farthest first, hidden behind the ground.
-    fn walk_sprites(&mut self, g: &mut Gfx, u: &Uniforms, cam: &Cam) {
-        if !self.show_props || self.props.is_empty() {
-            return;
+        let focal = self.draw_h * 0.5 / ty;
+        let b = crate::render::BRIGHTNESS;
+        let base = WalkUniforms {
+            mvp: vp.0,
+            pull: v4(eye, 0.0),
+            eye: v4(eye, time),
+            sun: v4(sun, mode::GROUND),
+            haze: v4(lk.haze, lk.density),
+            zenith: v4(lk.zenith, 0.5),
+            amb: v4(self.light.ambient.map(|v| v * b), 0.55),
+            dif: v4(self.light.diffuse.map(|v| v * b), 1.0),
+            info: [64.0, 0.0, focal, 0.0],
+        };
+        let planes = frustum(&vp);
+        let with_size = |u: WalkUniforms, size: f32| WalkUniforms { info: [size, u.info[1], u.info[2], u.info[3]], ..u };
+        if let Some(p) = &ground.skirt {
+            gpu.draw_mesh(g, Pipe::Solid, &p.mesh, p.tex, p.clean, &with_size(base, p.size));
         }
-        self.update_props();
-        let ([fx, fz], [rx, rz]) = cam.axes();
-        let quarter = cam.quarter();
-        let mut items: Vec<(f32, usize)> = Vec::new();
-        for (i, p) in self.props.iter().enumerate() {
-            if p.hidden || p.flat || p.body.is_none() {
+        let near_far = |lo: [f32; 3], hi: [f32; 3]| {
+            // the nearest point of the box to the eye
+            let d: f32 = (0..3).map(|k| (eye[k] - eye[k].clamp(lo[k], hi[k])).powi(2)).sum::<f32>().sqrt();
+            d < far
+        };
+        let mut chunks_drawn = 0;
+        for c in &ground.chunks {
+            if !box_visible(&planes, c.lo, c.hi) || !near_far(c.lo, c.hi) {
                 continue;
             }
-            let ahead = (p.x - cam.x) * fx + (p.z - cam.z) * fz;
-            if ahead > NEAR {
-                items.push((ahead, i));
+            chunks_drawn += 1;
+            for p in &c.parts {
+                gpu.draw_mesh(g, Pipe::Solid, &p.mesh, p.tex, p.clean, &with_size(base, p.size));
             }
         }
-        items.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-        for &(_, i) in &items {
-            let p = self.props[i].clone();
-            let Some(si) = p.body else { continue };
-            let view = self.prop_view(&p, si, quarter);
-            let sp = &self.sprites[si].s;
-            let (w, h, ax, ay) = (sp.w as f32, sp.h as f32, sp.anchor_x as f32, sp.anchor_y as f32);
-            let st = match p.outfit {
-                Some(o) => self.outfit_texture(g, si, view, p.frame, o).unwrap_or_else(|| self.sprite_texture(g, si, view, p.frame)),
-                None => self.sprite_texture(g, si, view, p.frame),
-            };
-            let s = sg_core::sprites::SPRITE_UNITS_PER_PIXEL * p.scale * SPRITE_SCALE;
-            let (l, r) = (-ax * s, (w - ax) * s);
-            let (t, b) = (ay * s, -(h - ay) * s);
-            let flip = if p.mirror { -1.0 } else { 1.0 };
-            let y = self.terrain.height_at(p.x, p.z) + p.lift * SPRITE_SCALE;
-            let c = |cx: f32, cy: f32, tu: f32, tv: f32| {
-                let cx = cx * flip;
-                let (tu, tv) = st.at(tu, tv);
-                Vert::new(p.x + rx * cx, y + cy, p.z + rz * cx, tu, tv)
-            };
-            g.quad(Mode::Overlay, Some(st.id), u, [c(l, t, 0.0, 0.0), c(r, t, 1.0, 0.0), c(r, b, 1.0, 1.0), c(l, b, 0.0, 1.0)]);
+        let art = |c: u8, r: f32| {
+            let mut u = base.with_mode(mode::ART);
+            u.info[1] = c as f32;
+            u.zenith[3] = r;
+            u
+        };
+        for bt in &self.wall_batches {
+            gpu.draw_mesh(g, Pipe::Solid, &bt.mesh, bt.tex, bt.tex, &art(cat::ROCK, 0.04));
         }
+        let water = base.with_mode(mode::WATER);
+        for c in &ground.water {
+            if !box_visible(&planes, c.lo, c.hi) || !near_far(c.lo, c.hi) {
+                continue;
+            }
+            for p in &c.parts {
+                gpu.draw_mesh(g, Pipe::Solid, &p.mesh, p.tex, p.clean, &with_size(water, p.size));
+            }
+        }
+        if let Some(p) = &ground.sea {
+            gpu.draw_mesh(g, Pipe::Solid, &p.mesh, p.tex, p.clean, &with_size(water, p.size));
+        }
+        let mut paths = art(cat::PATH, 0.02);
+        paths.pull[3] = 0.0008;
+        for bt in self.path_batches.iter().chain(&self.mud_batches) {
+            gpu.draw_mesh(g, Pipe::Blend, &bt.mesh, bt.tex, bt.tex, &paths);
+        }
+        let sc = Scene { eye, yaw: cam.yaw, right: [rx, rz], planes, u: base, far, time, quarter: cam.quarter() };
+        self.walk_props(g, gpu, &mut wk.objs, &sc, wk.dt);
+        gpu.submit(g);
+        let _ = chunks_drawn;
+        self.walk_hud(g, wk, &cam);
+    }
+
+    /// The walk's help line, its compass and the hole nearest.
+    fn walk_hud(&self, g: &mut Gfx, wk: &Walking, cam: &Cam) {
+        let s = Ui::new(self.draw_w, self.draw_h);
+        let (l, tp, rt, bt) = s.extent();
+        let white = rgba(1.0, 1.0, 1.0, 0.92);
+        let shade = rgba(0.0, 0.0, 0.0, 0.42);
+        // the compass: a strip of the headings round the one looked along
+        let (cx, cw) = ((l + rt) * 0.5, 260.0);
+        let y = tp + 8.0;
+        s.fill(g, cx - cw * 0.5, y, cw, 22.0, shade);
+        for k in 0..24 {
+            let hd = k as f32 * 15.0;
+            let d = ((hd - cam.yaw + 540.0).rem_euclid(360.0)) - 180.0;
+            if d.abs() > 62.0 {
+                continue;
+            }
+            let x = cx + d / 62.0 * (cw * 0.5 - 8.0);
+            match POINTS.iter().find(|p| p.1 == hd) {
+                Some((name, _)) => {
+                    let c = if *name == "N" { rgba(1.0, 0.55, 0.45, 1.0) } else { white };
+                    s.put_centered(g, F_ARIAL10, x, y + 6.0, name, c);
+                }
+                None => s.line(g, x, y + 8.0, x, y + 14.0, 1.0, rgba(1.0, 1.0, 1.0, 0.6)),
+            }
+        }
+        s.line(g, cx, y + 18.0, cx, y + 22.0, 2.0, rgba(1.0, 0.85, 0.3, 1.0));
+        // the hole nearest, or the golfer followed
+        let line = match wk.follow {
+            Some(f) => {
+                let list = on_course(self);
+                let n = list.iter().position(|&x| x == f.slot).map(|p| p + 1).unwrap_or(0);
+                let gl = &self.club.g[f.slot];
+                let hole = self.club.holes.get(gl.hole as usize).map(|h| h.par).unwrap_or(0);
+                let what = if f.ball.is_some() { "watching the ball" } else { "walking with them" };
+                format!("Following golfer {n} of {}: hole {}, par {hole}, stroke {} - {what}", list.len(), gl.hole, gl.strokes + 1)
+            }
+            None => match nearest_hole(self, cam.x, cam.z) {
+                Some((n, par, yards)) => format!("Hole {n}   Par {par}   {:.0} yards to the pin", yards),
+                None => "No holes yet".to_string(),
+            },
+        };
+        let w = F_INFO14.width(&line) + 16.0;
+        s.fill(g, l + 8.0, tp + 8.0, w, 22.0, shade);
+        s.put(g, F_INFO14, l + 16.0, tp + 11.0, &line, white);
+        let help = "Walk camera: W A S D or arrows walk, Shift run, drag to look, G follow a golfer (Shift+G back), F12 or Esc back";
+        let w = F_ARIAL10.width(help) + 12.0;
+        s.fill(g, l + 6.0, bt - 20.0, w, 14.0, shade);
+        s.put(g, F_ARIAL10, l + 12.0, bt - 18.0, help, rgba(1.0, 1.0, 1.0, 0.85));
+        g.flush();
     }
 }
 
@@ -388,6 +903,14 @@ mod tests {
         t.tile_corner.clear();
         // one corner raised four levels in the middle of the map
         t.corner[4 * 9 + 4] = 4;
+        t
+    }
+
+    fn flat_grass() -> Terrain {
+        let mut t = hill();
+        t.corner.iter_mut().for_each(|c| *c = 0);
+        t.ty.iter_mut().for_each(|v| *v = 4);
+        t.path_kind = vec![0; t.ty.len()];
         t
     }
 
@@ -463,5 +986,89 @@ mod tests {
         c.look(20.0, -200.0);
         assert!((c.yaw - 10.0).abs() < 1e-4);
         assert_eq!(c.pitch, MAX_PITCH);
+        c.look(0.0, 400.0);
+        assert_eq!(c.pitch, -MAX_PITCH);
+    }
+
+    #[test]
+    fn walls_and_trunks_stop_the_walk_and_it_slides_along_them() {
+        let t = flat_grass();
+        let wall = [Obstacle::Box { cx: 0.0, cz: 0.0, hx: 50.0, hz: 50.0 }];
+        // walking straight at the wall from the south stops at its face, a body's width off
+        let p = step(&t, &wall, (0.0, 150.0), (0.0, -200.0));
+        assert!((p.1 - (50.0 + BODY)).abs() < BODY * 0.6, "{p:?}");
+        assert!(p.0.abs() < 1e-3);
+        // walking at it slantwise slides along it
+        let p = step(&t, &wall, (0.0, 60.0), (40.0, -40.0));
+        assert!((p.0 - 40.0).abs() < 1e-3 && p.1 >= 50.0 + BODY, "{p:?}");
+        // a trunk
+        let tree = [Obstacle::Circle { x: 0.0, z: 0.0, r: 3.0 }];
+        let p = step(&t, &tree, (0.0, 30.0), (0.0, -60.0));
+        assert!(p.1 >= 3.0 + BODY - 1e-3 && p.1 < 3.0 + BODY + BODY, "{p:?}");
+        // placed inside, a walker can walk out
+        let p = step(&t, &wall, (0.0, 0.0), (0.0, 10.0));
+        assert!((p.1 - 10.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn water_stops_the_walk_but_a_bridge_does_not() {
+        let mut t = flat_grass();
+        // a column of water at x = 4
+        for y in 0..t.h {
+            let i = t.tile_index(4, y);
+            t.ty[i] = 17;
+        }
+        let (wx, _) = tile_centre(&t, 4, 2);
+        let (sx, sz) = tile_centre(&t, 2, 2);
+        let p = step(&t, &[], (sx, sz), (300.0, 0.0));
+        assert!(p.0 < wx - TILE_SIZE * 0.5 + 1e-3, "{p:?}");
+        // a path over the water (a bridge) carries the walk across
+        let i = t.tile_index(4, 2);
+        t.path_kind[i] = 1;
+        let p = step(&t, &[], (sx, sz), (300.0, 0.0));
+        assert!((p.0 - (sx + 300.0)).abs() < 1e-3, "{p:?}");
+    }
+
+    #[test]
+    fn following_cycles_round_the_golfers() {
+        let list = [2, 5, 9];
+        assert_eq!(next_golfer(&list, None, false), Some(2));
+        assert_eq!(next_golfer(&list, Some(2), false), Some(5));
+        assert_eq!(next_golfer(&list, Some(9), false), Some(2));
+        assert_eq!(next_golfer(&list, Some(2), true), Some(9));
+        // a golfer who left: the next one on
+        assert_eq!(next_golfer(&list, Some(6), false), Some(9));
+        assert_eq!(next_golfer(&list, Some(6), true), Some(5));
+        assert_eq!(next_golfer(&[], Some(1), false), None);
+    }
+
+    #[test]
+    fn the_haze_ends_where_it_is_thick() {
+        for theme in 0..4 {
+            let lk = look(theme);
+            let d = haze_end(lk.density);
+            let f = 1.0 - (-(d * lk.density).powf(1.5)).exp();
+            assert!((f - 0.995).abs() < 1e-3);
+            // the hills beyond the property show through it, faintly
+            assert!(d > 12000.0 && d < FAR);
+        }
+    }
+
+    #[test]
+    fn the_sun_is_up() {
+        let s = sun_direction();
+        assert!(s[1] > 0.2 && s[1] < 0.95, "{s:?}");
+        assert!(((s[0] * s[0] + s[1] * s[1] + s[2] * s[2]).sqrt() - 1.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn easing_gets_there() {
+        let mut v = 0.0;
+        for _ in 0..120 {
+            v = ease(v, 10.0, ACCEL, 1.0 / 60.0);
+        }
+        assert!((v - 10.0).abs() < 0.01);
+        // half a second gets most of the way, a frame only a little
+        assert!(ease(0.0, 10.0, ACCEL, 1.0 / 60.0) < 1.5);
     }
 }

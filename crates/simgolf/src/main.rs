@@ -117,6 +117,9 @@ mod undo;
 mod update;
 mod views;
 mod walk;
+mod walk_gl;
+mod walk_ground;
+mod walk_objects;
 mod welcome;
 mod wild_ui;
 mod world_ui;
@@ -2871,9 +2874,9 @@ impl Stage {
             app.draw_menu(&mut self.g);
             ui::set_face(None);
             app.draw_scenarios(&mut self.g);
-        } else if let Some(cam) = self.walk.cam.filter(|_| walk::walk_screen(app)) {
+        } else if self.walk.cam.is_some() && walk::walk_screen(app) {
             // the walk camera, a hidden test view (walk.rs): the course alone and a line of help
-            app.render_walk(&mut self.g, &cam);
+            walk::draw(app, &mut self.g, &mut self.walk);
         } else if app.photo.is_some() {
             // Enhanced graphics' photo mode: the course alone (photo.rs)
             self.draw_photo(target);
