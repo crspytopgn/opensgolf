@@ -106,9 +106,10 @@ With its default settings OpenSGolf plays like the original, apart from these:
 - **Building tools:** a measuring tape in yards (the ' key) and, with a terrain brush, Shift+drag for a rectangle and
   Alt+click to fill a region, with the cost shown before you commit.
 
-Optional, and off by default. Start New Game has a one-click choice of preset: *Original*, *Original + helpers* (screens,
-helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus a few light gameplay extras) or your own
-*Custom* mix; each option says whether it changes the looks, helps, or changes the gameplay:
+Optional, and off by default. Start New Game (and the launcher) has a one-click choice of preset: *Original*, *Original + helpers*
+(recommended: screens, helpers and looks that leave play unchanged), *OpenSGolf* (the helpers plus OpenSGolf's new
+gameplay: weather that matters, forward and middle tees, a second course, more staff and animals) or your own *Custom*
+mix; each option says whether it changes the looks, helps, or changes the gameplay:
 
 - **Enhanced graphics** for 4K and widescreen: sharp scaling, water (depth, waves with the wind, shorelines, rain rings,
   reeds, ducks, swans, jumping fish, frozen ponds), light, weather by each place's climate, seasons, late-winter snow,

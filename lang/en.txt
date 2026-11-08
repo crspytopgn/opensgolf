@@ -39,9 +39,9 @@ STR_COURSE_SIZE_LARGE                   :Large
 STR_COURSE_SIZE_HUGE                    :Huge
 STR_COURSE_SIZE_GIANT                   :Giant
 STR_STYLE_GAME                          :Game: {PRESET}
-STR_STYLE_ORIGINAL_DETAIL               :Exactly as it was. Click to change.
-STR_STYLE_HELPERS_DETAIL                :Same play, with helpers and looks.
-STR_STYLE_OPENSGOLF_DETAIL              :Helpers plus light gameplay extras.
+STR_STYLE_ORIGINAL_DETAIL               :Exactly as it was in 2002. Click to change.
+STR_STYLE_HELPERS_DETAIL                :Recommended: same play, with handy extras.
+STR_STYLE_OPENSGOLF_DETAIL              :Helpers plus weather, tees, a second course.
 STR_STYLE_CUSTOM_DETAIL                 :Your own mix from Preferences.
 
 ########################################################################################################################

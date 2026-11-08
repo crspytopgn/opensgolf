@@ -380,7 +380,7 @@ Everything OpenSGolf adds is optional, and every option belongs to one of three 
 Select Difficulty (the world map for Sandbox Mode) has a **Game** box next to Course size. A click steps through four **presets**:
 
 - **Original**: every OpenSGolf extra off and Classic graphics; the game exactly as it was. A new player starts here.
-- **Original + helpers**: every helper and every look on, nothing that changes how the game plays.
+- **Original + helpers** (recommended): every helper and every look on, nothing that changes how the game plays.
 - **OpenSGolf**: the helpers and looks, plus OpenSGolf's own additions to play with: weather that matters, forward and
   middle tees, a second course once your 18 holes are open, higher staff limits, turning buildings and buyable animals
   (not more visitors, hardcore, left-handed golfers, set par, the cut content, the calendar or the sandbox switches,
