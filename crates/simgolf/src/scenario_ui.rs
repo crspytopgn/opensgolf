@@ -97,12 +97,19 @@ fn facts(app: &App) -> Facts {
     }
 }
 
+/// The example scenario that comes with the game (packs/example-scenario-desert-challenge): not a reason to ask.
+pub fn is_bundled_example(id: &str) -> bool {
+    id.starts_with("example-")
+}
+
 impl App {
     // ---- the Start New Game screen ---------------------------------------------------------------------------------------
 
-    /// True when scenario packs are installed: Start New Game then offers them.
+    /// True when scenario packs other than the example that comes with the game are installed: Start New Game then
+    /// offers them. With only the example, Start New Game goes straight to Choose Difficulty as in the original (the
+    /// example still opens in the course editor's Load scenario and starts with `--scenario`).
     pub fn has_scenarios(&self) -> bool {
-        self.content.found.packs.iter().any(|p| p.manifest.kind == Kind::Scenario)
+        self.content.found.packs.iter().any(|p| p.manifest.kind == Kind::Scenario && !is_bundled_example(&p.manifest.id))
     }
 
     pub fn open_scenarios(&mut self) {
@@ -688,4 +695,14 @@ fn scenario_summary(sc: &Scenario) -> String {
         None => String::new(),
     };
     trf("STR_SCENARIOS_SUMMARY", &[("PLACE", &place), ("DIFFICULTY", &diff), ("MONEY", &money), ("GOALS", &sc.goals.len())])
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn only_the_bundled_example_does_not_make_start_new_game_ask() {
+        let m = sg_core::packs::Manifest::parse(include_str!("../../../packs/example-scenario-desert-challenge/pack.toml")).unwrap();
+        assert!(super::is_bundled_example(&m.id));
+        assert!(!super::is_bundled_example("my-desert-challenge"));
+    }
 }

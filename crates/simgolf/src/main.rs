@@ -2458,7 +2458,8 @@ impl Stage {
         if app.screen == Screen::Menu {
             match hit {
                 0 => app.open_files(files_ui::ListKind::Load, false),
-                // with scenario packs installed, Start New Game first asks: a free game or a scenario (the port's own)
+                // with scenario packs of the player's own installed, Start New Game first asks: a free game or a scenario (the
+                // port's own); with only the bundled example it goes straight on as in the original
                 1 if app.has_scenarios() => app.open_scenarios(),
                 2 => {
                     // Sandbox Mode goes straight to the world map at Moderate with a new Top 10 id (the exe keeps the one drawn on
