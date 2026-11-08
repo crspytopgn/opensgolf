@@ -3544,7 +3544,7 @@ STR_HOLESTATS_FLY_OVER                  :Fly over
 
 # The launcher (the port's own, launcher.rs; docs/PLAYING.md "The launcher"): the screen before the title menu. Its tabs,
 # buttons and notes are fitted to their room by the game (a little smaller, then cut), so a longer translation still fits.
-STR_LAUNCHER_KICKER                     :Sid Meier's SimGolf, remastered
+STR_LAUNCHER_KICKER                     :The classic golf course builder, rebuilt
 STR_LAUNCHER_TAB_FILES                  :Game files
 STR_LAUNCHER_TAB_PLAY                   :How to play
 STR_LAUNCHER_TAB_DISPLAY                :Display & sound
