@@ -1120,6 +1120,8 @@ mod tests {
             ("blur", g::POST_VS, g::blur_fs()),
             ("composite", g::POST_VS, g::composite_fs()),
             ("photo composite", g::POST_VS, crate::photo::COMPOSITE_FS.to_string()),
+            ("walk camera", crate::walk_gl::WALK_VS, crate::walk_gl::walk_fs()),
+            ("walk camera sky", crate::walk_gl::SKY_VS, crate::walk_gl::sky_fs()),
         ];
         let mut bad = Vec::new();
         for (name, vs, fs) in &pairs {
