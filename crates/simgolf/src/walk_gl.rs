@@ -126,10 +126,12 @@ vec3 lit(vec3 c, vec3 n) {
 // colours and the edges between kinds of ground, without the small painted things) and the detail layer draws the grain
 vec4 art(vec2 t, float dist, float keep, float even, vec3 avg) {
     vec4 c = texture2D(tex, t);
+    float near = 1.0 - smoothstep(12.0 * M, 90.0 * M, dist);
+    // (far off the art alone: the near ground's work is left out)
+    if (near <= 0.0) return c;
     // and its large darker and lighter zones evened out towards the average colour of its kind of ground (the same for
     // every tile of the kind, so no tile's edge shows)
     vec4 soft = mix(texture2D(clean, t), vec4(avg, 1.0), even);
-    float near = 1.0 - smoothstep(12.0 * M, 90.0 * M, dist);
     return mix(c, mix(soft, c, keep), near);
 }
 
@@ -137,10 +139,12 @@ vec4 art(vec2 t, float dist, float keep, float even, vec3 avg) {
 float grain(float k, float dist) {
     vec2 w = wpos.xz;
     float near = 1.0 - smoothstep(25.0 * M, 160.0 * M, dist);
-    vec4 f = texture2D(detail, w / (2.3 * M));
-    vec4 m = texture2D(detail, w / (11.0 * M));
     vec4 big = texture2D(noise, w / (220.0 * M));
     float g = (big.r - 0.5) * 0.12;
+    // (far off only the broad variation: the fine detail has faded out)
+    if (near <= 0.0 && (k < 0.5 || k > 2.5)) return 1.0 + g;
+    vec4 f = texture2D(detail, w / (2.3 * M));
+    vec4 m = texture2D(detail, w / (11.0 * M));
     if (k < 0.5) {
         // grass
         g += ((f.r - 0.5) * 0.22 + (m.g - 0.5) * 0.14) * near;
@@ -285,7 +289,7 @@ uniform vec4 cam_r;
 uniform vec4 cam_u;
 varying highp vec3 dir;
 void main() {
-    gl_Position = vec4(in_pos.xy, 0.999, 1.0);
+    gl_Position = vec4(in_pos.xy, 0.99999, 1.0);
     dir = cam_f.xyz + in_pos.x * cam_r.xyz + in_pos.y * cam_u.xyz;
 }
 "#;
@@ -381,7 +385,7 @@ pub struct SkyUniforms {
 pub enum Pipe {
     /// Depth tested and written, opaque (ground, walls, cut out sprites and shapes).
     Solid,
-    /// Depth tested, not written, blended (soft edges, decals, shadows).
+    /// Depth tested, blended (decals, shadows, trails).
     Blend,
 }
 
@@ -407,6 +411,8 @@ pub struct WalkGpu {
     cap: usize,
     verts: Vec<Vert>,
     draws: Vec<Draw>,
+    /// The blended draws, after the sky (`submit_late`).
+    late: Vec<Draw>,
 }
 
 fn uniforms_walk() -> Vec<UniformDesc> {
@@ -478,9 +484,12 @@ impl WalkGpu {
                 },
             )
         };
+        // (miniquad tests depth only in a pipeline that writes it: the blended draws write it too, harmlessly, as they lie
+        // on the ground or are thin, and so are hidden behind what stands in front of them)
         let solid = pipe(shader, Comparison::LessOrEqual, true, None);
-        let blend = pipe(shader, Comparison::LessOrEqual, false, blend);
-        let sky = pipe(sky_shader, Comparison::Always, false, None);
+        let blend = pipe(shader, Comparison::LessOrEqual, true, blend);
+        // the sky is drawn after the solid ground and things, only where nothing stands (its depth is the far end's)
+        let sky = pipe(sky_shader, Comparison::LessOrEqual, true, None);
         let detail = repeat_texture(g, &detail_image(256, 7));
         let noise = repeat_texture(g, &noise_image(256, 11));
         let quad = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)];
@@ -489,7 +498,7 @@ impl WalkGpu {
         let vb = g.ctx.new_buffer(BufferType::VertexBuffer, BufferUsage::Stream, BufferSource::empty::<Vert>(cap));
         let ib =
             g.ctx.new_buffer(BufferType::IndexBuffer, BufferUsage::Immutable, BufferSource::slice(&(0..cap as u32).collect::<Vec<_>>()));
-        Some(WalkGpu { solid, blend, sky, detail, noise, sky_mesh, vb, ib, cap, verts: Vec::new(), draws: Vec::new() })
+        Some(WalkGpu { solid, blend, sky, detail, noise, sky_mesh, vb, ib, cap, verts: Vec::new(), draws: Vec::new(), late: Vec::new() })
     }
 
     fn pipeline(&self, p: Pipe) -> Pipeline {
@@ -508,14 +517,18 @@ impl WalkGpu {
         g.draw_mesh_with(&self.pipeline(p), mesh, &[tex, self.detail, self.noise, clean], UniformsSource::table(u));
     }
 
-    /// Triangles for the frame's stream, drawn in order by `submit` (one upload for the frame).
+    /// Triangles for the frame's stream, drawn in order by `submit` (one upload for the frame); blended ones wait for
+    /// `submit_late`, after the sky.
     pub fn tris(&mut self, p: Pipe, tex: TextureId, u: &WalkUniforms, v: &[Vert]) {
         if v.is_empty() {
             return;
         }
-        let same = self.draws.last().is_some_and(|d| {
+        let list = if p == Pipe::Blend { &mut self.late } else { &mut self.draws };
+        let start = self.verts.len() as i32;
+        let same = list.last().is_some_and(|d| {
             d.pipe == p
                 && d.tex == tex
+                && d.start + d.count == start
                 && d.u.mvp == u.mvp
                 && d.u.sun == u.sun
                 && d.u.zenith == u.zenith
@@ -523,20 +536,21 @@ impl WalkGpu {
                 && d.u.info == u.info
         });
         if same {
-            if let Some(d) = self.draws.last_mut() {
+            if let Some(d) = list.last_mut() {
                 d.count += v.len() as i32;
             }
         } else {
-            self.draws.push(Draw { pipe: p, tex, u: *u, start: self.verts.len() as i32, count: v.len() as i32 });
+            list.push(Draw { pipe: p, tex, u: *u, start, count: v.len() as i32 });
         }
         self.verts.extend_from_slice(v);
     }
 
-    /// Draws the stream.
+    /// Draws the stream's solid draws (and uploads all of its vertices).
     pub fn submit(&mut self, g: &mut Gfx) {
         g.flush();
-        if self.draws.is_empty() {
-            self.verts.clear();
+        if self.verts.is_empty() {
+            self.draws.clear();
+            self.late.clear();
             return;
         }
         if self.verts.len() > self.cap {
@@ -550,12 +564,20 @@ impl WalkGpu {
             self.ib = g.ctx.new_buffer(BufferType::IndexBuffer, BufferUsage::Immutable, BufferSource::slice(&idx));
         }
         g.ctx.buffer_update(self.vb, BufferSource::slice(&self.verts));
-        for d in self.draws.drain(..) {
-            let p = match d.pipe {
-                Pipe::Solid => self.solid,
-                Pipe::Blend => self.blend,
-            };
-            g.ctx.apply_pipeline(&p);
+        let draws = std::mem::take(&mut self.draws);
+        self.run(g, &draws);
+    }
+
+    /// Draws the stream's blended draws (after `submit` and the sky).
+    pub fn submit_late(&mut self, g: &mut Gfx) {
+        let late = std::mem::take(&mut self.late);
+        self.run(g, &late);
+        self.verts.clear();
+    }
+
+    fn run(&self, g: &mut Gfx, draws: &[Draw]) {
+        for d in draws {
+            g.ctx.apply_pipeline(&self.pipeline(d.pipe));
             g.ctx.apply_bindings(&Bindings {
                 vertex_buffers: vec![self.vb],
                 index_buffer: self.ib,
@@ -564,7 +586,6 @@ impl WalkGpu {
             g.ctx.apply_uniforms(UniformsSource::table(&d.u));
             g.ctx.draw(d.start, d.count, 1);
         }
-        self.verts.clear();
     }
 }
 

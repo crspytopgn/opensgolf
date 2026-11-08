@@ -272,6 +272,8 @@ struct Bench {
     on: bool,
     frames: Vec<f32>,
     cpu: Vec<f32>,
+    /// The time spent working out what stands on the ground and its triangles (CPU only, before anything is drawn).
+    build: Vec<f32>,
     last: Option<std::time::Instant>,
 }
 
@@ -717,8 +719,9 @@ impl Walking {
         };
         let (fm, fmed, f95) = stats(&self.bench.frames);
         let (cm, cmed, c95) = stats(&self.bench.cpu);
+        let (bm, _, b95) = stats(&self.bench.build);
         println!(
-            "walk bench: {} frames; frame mean {fm:.2} ms, median {fmed:.2}, 95% {f95:.2}; walk drawing (CPU) mean {cm:.2} ms, median {cmed:.2}, 95% {c95:.2}; things drawn {}, left out {}",
+            "walk bench: {} frames; frame mean {fm:.2} ms, median {fmed:.2}, 95% {f95:.2}; walk drawing with its GL calls mean {cm:.2} ms, median {cmed:.2}, 95% {c95:.2}; of which the objects' geometry (CPU) mean {bm:.2} ms, 95% {b95:.2}; things drawn {}, left out {}",
             self.bench.cpu.len(),
             self.objs.drawn,
             self.objs.culled
@@ -808,19 +811,6 @@ impl App {
         let tx = ty * aspect;
         let time = wk.time;
         let v4 = |a: [f32; 3], w: f32| [a[0], a[1], a[2], w];
-        gpu.draw_sky(
-            g,
-            &SkyUniforms {
-                cam_f: v4(f, 0.0),
-                cam_r: v4(r.map(|v| v * tx), 0.0),
-                cam_u: v4(up.map(|v| v * ty), 0.0),
-                eye: v4(eye, time),
-                sun: v4(sun, 0.0),
-                haze: v4(lk.haze, 0.0),
-                zenith: v4(lk.zenith, lk.cover),
-                cloud: v4(lk.cloud, 0.00012),
-            },
-        );
         let focal = self.draw_h * 0.5 / ty;
         let b = crate::render::BRIGHTNESS;
         let base = WalkUniforms {
@@ -874,16 +864,35 @@ impl App {
         if let Some(p) = &ground.sea {
             gpu.draw_mesh(g, Pipe::Solid, &p.mesh, p.tex, p.clean, &with_size(water, p.size));
         }
+        self.walk_far_trees(g, &mut wk.objs, ground);
+        self.walk_draw_far_trees(g, gpu, &wk.objs, &base);
+        let sc = Scene { eye, yaw: cam.yaw, right: [rx, rz], planes, u: base, far, time, quarter: cam.quarter() };
+        let t0 = std::time::Instant::now();
+        self.walk_props(g, gpu, &mut wk.objs, &sc, wk.dt);
+        if wk.bench.on {
+            wk.bench.build.push(t0.elapsed().as_secs_f32() * 1000.0);
+        }
+        gpu.submit(g);
+        gpu.draw_sky(
+            g,
+            &SkyUniforms {
+                cam_f: v4(f, 0.0),
+                cam_r: v4(r.map(|v| v * tx), 0.0),
+                cam_u: v4(up.map(|v| v * ty), 0.0),
+                eye: v4(eye, time),
+                sun: v4(sun, 0.0),
+                haze: v4(lk.haze, 0.0),
+                zenith: v4(lk.zenith, lk.cover),
+                cloud: v4(lk.cloud, 0.00012),
+            },
+        );
+        // what is blended over the ground, the things and the sky: the paths, the shadows, the balls' trails
         let mut paths = art(cat::PATH, 0.02);
         paths.pull[3] = 0.0008;
         for bt in self.path_batches.iter().chain(&self.mud_batches) {
             gpu.draw_mesh(g, Pipe::Blend, &bt.mesh, bt.tex, bt.tex, &paths);
         }
-        self.walk_far_trees(g, &mut wk.objs, ground);
-        self.walk_draw_far_trees(g, gpu, &wk.objs, &base);
-        let sc = Scene { eye, yaw: cam.yaw, right: [rx, rz], planes, u: base, far, time, quarter: cam.quarter() };
-        self.walk_props(g, gpu, &mut wk.objs, &sc, wk.dt);
-        gpu.submit(g);
+        gpu.submit_late(g);
         self.walk_hud(g, wk, &cam);
     }
 
