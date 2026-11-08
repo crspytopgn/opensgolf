@@ -168,9 +168,9 @@ impl Extras {
         tees: false,
     };
 
-    /// The extras of the "OpenSGolf" preset: the looks, and the light gameplay extras that add to the game without changing
-    /// its balance much (higher staff limits, buyable animals). Not Hardcore, not the experimental cut content, not More
-    /// visitors or Weather that matters (they change the club's takings), not Set par, Left-handed golfers or the sandbox
+    /// The extras of the "OpenSGolf" preset, the game with OpenSGolf's own additions: the looks, higher staff limits,
+    /// buyable animals, weather that matters, forward and middle tees and the second course. Not Hardcore, not the
+    /// experimental cut content, not More visitors, Set par, Left-handed golfers, Keep the land offer or the sandbox
     /// switches.
     pub const OPENSGOLF: Extras = Extras {
         rotate: true,
@@ -184,18 +184,17 @@ impl Extras {
         freeze_moods: false,
         unlock_all: false,
         lefties: false,
-        // it changes the balance: not part of the preset
-        weather: false,
+        weather: true,
         // purely cosmetic and nothing changes until the player picks a style or places a lamp
         path_style: 1,
         more_visitors: false,
         no_weeds: false,
         // it changes when land can be bought: not part of the preset
         keep_land: false,
-        // a big change to the course and the golfers' rounds: not part of the preset
-        second_course: false,
-        // golfers play shorter holes from the tees the player adds: not part of the preset
-        tees: false,
+        // nothing changes until the first 18 holes are open and the player builds on
+        second_course: true,
+        // nothing changes until the player places a forward or middle tee
+        tees: true,
     };
 
     /// Everything off (the original game).
@@ -963,12 +962,12 @@ mod path_tests {
     }
 
     #[test]
-    fn second_course_has_its_own_bit_and_is_in_no_preset() {
+    fn second_course_has_its_own_bit_and_is_only_in_the_opensgolf_preset() {
         let e = Extras { second_course: true, ..Default::default() };
         assert_eq!(e.bits(), 1 << 19);
         assert_eq!(Extras::from_bits(e.bits()), e);
         assert_eq!(e.option(SECOND_COURSE), 1);
-        const { assert!(!Extras::OPENSGOLF.second_course && !Extras::LOOKS.second_course, "in no preset") };
+        const { assert!(Extras::OPENSGOLF.second_course && !Extras::LOOKS.second_course, "only in OpenSGolf") };
     }
 
     #[test]
@@ -1443,7 +1442,7 @@ mod tee_tests {
         assert_eq!(e.bits(), 1 << 20);
         assert_eq!(Extras::from_bits(e.bits()), e);
         assert_eq!(e.option(TEES), 1);
-        const { assert!(!Extras::OPENSGOLF.tees && !Extras::LOOKS.tees, "in no preset") };
+        const { assert!(Extras::OPENSGOLF.tees && !Extras::LOOKS.tees, "only in OpenSGolf") };
         // other extras' saves do not gain the tick while it is off
         let other = serde_json::to_string(&Extras { weather: true, ..Default::default() }).unwrap();
         assert!(!other.contains("tees"));

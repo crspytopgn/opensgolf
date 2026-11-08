@@ -3314,7 +3314,7 @@ STR_PRESET_CUSTOM                       :Custom
 STR_EXTRAS_PRESET                       : Preset: {VALUE}
 STR_PRESET_DESC_ORIGINAL                :Every OpenSGolf extra off: the game exactly as it was. Click for the next preset; your pauses and controls stay as you set them.
 STR_PRESET_DESC_HELPERS                 :Recommended. Every helper and look on (People, reports, autosave, hole flyover, path styles, turning buildings...) and nothing that changes how the game plays.
-STR_PRESET_DESC_OPENSGOLF               :Everything in Original + helpers, plus a little more to play with: higher staff limits and animals to buy for your course. Golfers and prices stay as in 2002.
+STR_PRESET_DESC_OPENSGOLF               :Everything in Original + helpers, plus OpenSGolf's new gameplay: weather that matters, forward and middle tees, a second course once your 18 holes are open, higher staff limits and animals to buy.
 STR_PRESET_DESC_CUSTOM                  :Your own mix of ticks. A click steps through the presets; Custom brings your own mix back.
 STR_EXTRAS_TAG_EXPERIMENTAL             :Experimental
 STR_EXTRAS_CALENDAR                     : Calendar: {VALUE}
@@ -3448,7 +3448,7 @@ STR_WELCOME_ORIGINAL_NOTE               :Exactly as it was in 2002, with every O
 STR_WELCOME_HELPERS                     : Original + helpers (recommended)
 STR_WELCOME_HELPERS_NOTE                :Plays exactly like 2002, with handy extras: who's on the course, more reports, autosave and hole flyovers.
 STR_WELCOME_OPENSGOLF                   : OpenSGolf
-STR_WELCOME_OPENSGOLF_NOTE              :Original + helpers, plus more staff to hire and animals to buy. Golfers and prices stay as in 2002.
+STR_WELCOME_OPENSGOLF_NOTE              :Original + helpers, plus our new gameplay: weather that matters, forward and middle tees, a second course, more staff and animals.
 STR_WELCOME_CUSTOM                      : Custom
 STR_WELCOME_CUSTOM_NOTE                 :Your own mix: opens Game options to tick each extra yourself.
 STR_WELCOME_CHANGE                      :You can change this any time in Preferences > Game options.

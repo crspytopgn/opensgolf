@@ -381,9 +381,10 @@ Select Difficulty (the world map for Sandbox Mode) has a **Game** box next to Co
 
 - **Original**: every OpenSGolf extra off and Classic graphics; the game exactly as it was. A new player starts here.
 - **Original + helpers**: every helper and every look on, nothing that changes how the game plays.
-- **OpenSGolf**: the helpers and looks, plus the light gameplay extras that do not change the game's balance: higher
-  staff limits, turning buildings and buyable animals (not weather, more visitors, hardcore, left-handed golfers, set par, the cut content,
-  the calendar or the sandbox switches, which you tick yourself).
+- **OpenSGolf**: the helpers and looks, plus OpenSGolf's own additions to play with: weather that matters, forward and
+  middle tees, a second course once your 18 holes are open, higher staff limits, turning buildings and buyable animals
+  (not more visitors, hardcore, left-handed golfers, set par, the cut content, the calendar or the sandbox switches,
+  which you tick yourself).
 - **Custom**: your own mix, as you ticked it in Preferences. Once you have a mix of your own, Custom brings it back after
   you tried a preset; until then the Game box skips it.
 
@@ -599,7 +600,7 @@ On the **Gameplay** page:
   his draw). Switching the extra off puts everyone back to right-handed; switching it on again brings the left-handers
   back.
 - **Weather that matters (rain, snow, heat, storms).** *(Noticeable)* The weather Enhanced graphics draws is played too (it changes the
-  balance a little, so it is not part of the *OpenSGolf* preset). Which days rain follows the property's climate
+  balance a little; the *OpenSGolf* preset turns it on). Which days rain follows the property's climate
   (often in Ireland, Scotland and Wales, rarely in the desert), the same days whenever the game is loaded, and a day lasts
   three game months (Enhanced graphics' day of light at its normal length; with the extra on its rain, snow and heat
   keep to these days whatever the *Day length*). Each morning the ticker says what the day brings ("Rain today", "Snow
