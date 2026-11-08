@@ -1,0 +1,34 @@
+{
+  "versions": {
+    "0.7": [
+      {
+        "line": "A second course",
+        "note": "Once your 18 holes are open, build 18 more on the same land (new games).",
+        "try": "second_course"
+      },
+      {
+        "line": "Forward and middle tees",
+        "note": "Tab with the Tees tool places them; golfers pick theirs by skill (new games).",
+        "try": "tees"
+      },
+      {
+        "line": "Hole flyover",
+        "note": "Hole Stats gets a Fly over button: click a hole's flag to open it.",
+        "try": "hole_flyover"
+      },
+      {
+        "line": "Home names under the pointer",
+        "note": "A celebrity's name shows over a home site only while you point at it.",
+        "try": "home_names_hover"
+      },
+      {
+        "line": "Double-click a save to load it",
+        "note": "Or double-tap it on a touch screen."
+      },
+      {
+        "line": "And more",
+        "note": "Longer translations fit, replays in problem reports, controller fixes."
+      }
+    ]
+  }
+}

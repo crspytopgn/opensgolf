@@ -944,7 +944,10 @@ compare pixel for pixel with the build before the extras).
   it as you set it: it goes online, which is yours to choose): the title menu's *Check for updates* (see *The title menu*), once in the background when the game
   starts. It says nothing unless a newer version is out; then a box offers **Update now**, **Skip this version** (that
   version is not offered at start again, a newer one is; kept in `settings.json` as `update_skip`) or **Not now**. Only
-  GitHub is contacted. The browser version has nothing to check.
+  GitHub is contacted. The browser version has nothing to check. With it on, the game also fetches the list of
+  what's new (`whatsnew.json` in the repository) at start, in the browser too, and keeps a copy in the save folder, so the
+  *What's new* box can be corrected without a new version; nothing about you is sent. Offline or with it off, the last
+  copy or the list built into the game is used.
 - **Zoom towards the pointer** (*Zoom towards the pointer* on the Controls page; off, set by the Change keys'
   *Original* and *Modern controls* presets and left alone by the extras presets: it changes how the original's zoom feels):
   the mouse wheel keeps the ground under the pointer where it is on the screen as it zooms, and a two-finger pinch the

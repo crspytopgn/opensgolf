@@ -2067,7 +2067,7 @@ impl Stage {
             // changelog in the browser
             Line::WhatsNew => {
                 self.app.prefs_stack.clear();
-                self.app.welcome.news = crate::welcome::HIGHLIGHTS.last().copied();
+                self.app.welcome.news = crate::welcome::highlights().last().copied();
                 self.app.hover = -1;
                 self.app.open_popup(popup_ui::PopupKind::WhatsNew);
             }
