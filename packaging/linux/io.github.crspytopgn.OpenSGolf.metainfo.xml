@@ -107,6 +107,13 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.7.3" date="2026-11-08">
+      <description>
+        <p>A launcher before the title menu for game files, presets, display, sound and news.</p>
+        <p>What's new shows this version's highlights again.</p>
+        <p>Start New Game goes straight to Choose Difficulty, as in the original.</p>
+      </description>
+    </release>
     <release version="0.7.2" date="2026-11-08">
       <description>
         <p>Racing wheels and pedals no longer move the pointer or scroll the course.</p>
