@@ -242,10 +242,11 @@ impl App {
         self.open_popup(crate::popup_ui::PopupKind::Support);
     }
 
-    /// Another box or message is up (a popup, a notice, the rename or save prompt, a photo), or the interface art is missing:
-    /// no box of the port's own comes up over it (this one, the welcome boxes).
+    /// Another box or message is up (a popup, a notice, the rename or save prompt, a photo, the launcher), or the interface
+    /// art is missing: no box of the port's own comes up over it (this one, the welcome boxes).
     pub fn other_box_up(&self) -> bool {
         self.popup.is_some()
+            || self.launcher.is_some()
             || self.notice.is_some()
             || self.rename.is_some()
             || self.title.save_name.is_some()

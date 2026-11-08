@@ -12,7 +12,7 @@ use sg_core::lang::{tr, trf};
 use sg_core::sprites::SPRITE_UNITS_PER_PIXEL;
 use sg_core::terrain::{DEPTH_RANGE, TILE_SIZE};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Rect {
     pub x: f32,
     pub y: f32,
@@ -897,6 +897,8 @@ impl App {
         }
         // the port's own: "Use my SimGolf files..." (gamefiles.rs)
         self.draw_files_button(g, &s);
+        // and "Launcher..." beside it (launcher.rs)
+        self.draw_launcher_button(g, &s);
         // and "Check for updates" (update.rs)
         self.draw_update_button(g, &s);
         // and "Course editor..." (editor.rs)
