@@ -107,6 +107,12 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.7.2" date="2026-11-08">
+      <description>
+        <p>Racing wheels and pedals no longer move the pointer or scroll the course.</p>
+        <p>Longer translated text also fits the scorecard, SGA report, routing map, roster and comments.</p>
+      </description>
+    </release>
     <release version="0.7.1" date="2026-11-07">
       <description>
         <p>Longer translated text also fits the info boxes, golfer card, world map, shot panel and report legends.</p>

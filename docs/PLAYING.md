@@ -59,7 +59,7 @@ copies leave them out), only the Sims' voices in `SimsFX`, or lacks more than a 
 when the game starts and the ticker on every start (sg_core::mixer `shortfall`; the console or log has a `sound:` line
 with the counts). The browser page also sums up what it found after loading the files, in large type on the start page
 (and again there on the next visit, as "Last time: ...") and over the game once (20 seconds, or until tapped when
-something is missing): "OpenSGolf 0.7.1. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
+something is missing): "OpenSGolf 0.7.2. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
 big). Art ✓, music: N, Sims' voices: N." The console's `files:` line adds the compression methods the zip used.
 Deflate64 (Windows' own zipper, for big files such as the sounds), BZip2, LZMA and PPMd (7-Zip's, Keka's and The
 Unarchiver's stronger settings), which iPad's Files app cannot unpack (it shows such folders empty), are read by the
@@ -1316,6 +1316,9 @@ in the browser and in the Android app):
 | Left stick click | open a hole (h) |
 | Right stick click | the last message again (?) |
 
+Racing wheels, pedals and flight sticks are left alone, so one plugged in for other games does not move the pointer or
+scroll the course. A stick only takes effect once it has been at rest in its centre since the controller was connected.
+
 **Steam Deck:** download the Linux AppImage (`opensgolf-linux-x86_64.AppImage`) in Desktop Mode, make it executable
 (Properties, Permissions, "Is executable"), then in Steam use *Games, Add a Non-Steam Game to My Library* and pick it.
 In Game Mode the game starts full screen and the Deck's controls work as above (pick the *Gamepad* controller layout if
@@ -1551,7 +1554,8 @@ screen's width) is drawn a little smaller, down to three quarters of its size; w
 buttons and tabs) it then goes onto two lines; and only as a last resort it is cut with an ellipsis (…), so it never runs
 over what is next to it. The same goes for the building info box over the Build Course panel, the home-site details
 box and labels, the golfer card's lines and bar names, the skill pills, the world map's cards and legend, the aim's lines
-and skill lines on the shot panel, the foot of Comments by Hole and the Course Report's legend; docs/TRANSLATING.md lists
+and skill lines on the shot panel, the foot of Comments by Hole, the Course Report's legend, the round's scorecard, the SGA
+report, the Routing Map's box, the Player Comments report and the Membership Roster's legend; docs/TRANSLATING.md lists
 how each one fits. Text that fits is drawn exactly as before. Test hook: `SG_TEXTFIT=1` prints each text that had to be
 fitted (docs/TRANSLATING.md).
 

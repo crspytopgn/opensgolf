@@ -33,6 +33,10 @@ Enhanced graphics and HD.
 
 **Fix releases**
 
+- **0.7.2:** racing wheels, pedals and flight sticks no longer move the pointer or scroll the course by themselves, and a
+  controller's stick only counts once it has been at rest in its centre (#169); longer translations also fit the
+  scorecard's labels, the SGA report, the routing map's box, the Membership Roster's legend and the golfers' comments
+  (#164).
 - **0.7.1:** longer translations also fit the building info box, the home-site details, the golfer card, the pro's
   skills, the world map's cards and legend, the shot panel, the foot of Comments by Hole and the Course Report's legend,
   instead of running out of them (#164).

@@ -6,7 +6,7 @@ use crate::app::*;
 use crate::gfx::Gfx;
 use crate::panels_ui::COUNTERS;
 use crate::screens_ui::top;
-use crate::ui::{load_pcx_alpha, rgb, rgba, wrap_text, Image, Screen as Ui};
+use crate::ui::{load_pcx_alpha, rgb, rgba, text_width, wrap_text, Image, Screen as Ui};
 use sg_core::course::{idx, n as map_n};
 use sg_core::land;
 use sg_core::lang::{tr, trf};
@@ -81,6 +81,17 @@ fn pixel_line(s: &Ui, g: &mut Gfx, x0: i32, y0: i32, x1: i32, y1: i32, c: [f32; 
         }
     }
 }
+
+/// The Player Comments report's rooms (issue #164): a comment's from x 182 to 482, short of the hole's number centred on
+/// 504 (the room bigger text already grew in); the headings' pills: "Comments" from 182 to 460, the hole's 60 and the
+/// frequency's 86 pixels centred on their columns.
+const COMMENT_ROOM: f32 = 300.0;
+const COMMENTS_HEAD_ROOMS: [f32; 3] = [278.0, 60.0, 86.0];
+
+/// The routing tab's box (issue #164): its title's pill (x 328 to 472) and the room of its lines of help (x 293 to 507
+/// less its edges); "Right click to swap holes." is the widest English line.
+const ROUTE_PILL_ROOM: f32 = 140.0;
+const ROUTE_HELP_ROOM: f32 = 204.0;
 
 const SHORTCUTS: [(&str, &str); 16] = [
     ("F1", "STR_SHORTCUT_STATUS_REPORT"),
@@ -178,9 +189,10 @@ impl App {
         // headings with their tops at 96, "Comments" left at 182, the hole and frequency centred on 504 and 598
         use crate::ui::{F_INFO14, F_INFO_TITLE};
         s.put_centered_fit(g, F_INFO_TITLE, 389.0, 61.0, crate::ui::TITLE_ROOM, tr("STR_COMMENTS_TITLE"), black());
-        s.put(g, F_INFO14, 182.0, 96.0, tr("STR_COMMENTS_COMMENTS"), black());
-        s.put_centered(g, F_INFO14, 504.0, 96.0, tr("STR_COMMENTS_HOLE"), black());
-        s.put_centered(g, F_INFO14, 598.0, 96.0, tr("STR_COMMENTS_FREQUENCY"), black());
+        // a heading wider than its pill (a translation, issue #164): a little smaller or cut (ui.rs fit_line)
+        s.put_fit(g, F_INFO14, 182.0, 96.0, COMMENTS_HEAD_ROOMS[0], tr("STR_COMMENTS_COMMENTS"), black());
+        s.put_centered_fit(g, F_INFO14, 504.0, 96.0, COMMENTS_HEAD_ROOMS[1], tr("STR_COMMENTS_HOLE"), black());
+        s.put_centered_fit(g, F_INFO14, 598.0, 96.0, COMMENTS_HEAD_ROOMS[2], tr("STR_COMMENTS_FREQUENCY"), black());
         let rows = self.comment_rows();
         let y0 = 124.0;
         // with bigger text (textsize.rs; the port's own) the rows grow with their words, as far as the report still ends on
@@ -202,7 +214,10 @@ impl App {
             };
             // 0x4546b0: the row piece's top is the header piece's height (102) plus 22 and the text's top that plus 24, so the
             // words sit 2 below the piece; the exe draws nothing in place of the rows when none was recorded
-            s.put(g, crate::textsize::fit(F_INFO14, k, &line.text, 300.0), 182.0, y + ty, &line.text, c);
+            // a comment wider than its column (mostly a translation, issue #164) is drawn a little smaller or cut, on its
+            // row's line, so it never runs under the hole's number (ui.rs fit_line)
+            let cf = crate::textsize::fit(F_INFO14, k, &line.text, COMMENT_ROOM);
+            s.put_fit(g, cf, 182.0, y + ty, COMMENT_ROOM, &line.text, c);
             s.put_centered(g, f, 504.0, y + ty, &format!("{hole}"), c);
             s.put_centered(g, f, 598.0, y + ty, &format!("{freq}%"), c);
         }
@@ -621,6 +636,32 @@ impl App {
         }
     }
 
+    /// The routing tab's two lines of help in the box under its title (x 293 to 507, down to 185), centred on 400 with
+    /// their tops at 108 and 126 in Manual SSi 14 (bigger text as far as the box holds it). When one is too wide for the
+    /// box (a translation, the port's own, issue #164), each is drawn a little smaller (to 75%), else on two lines, else
+    /// cut (ui.rs fit_lines), the lines 18 apart from 108: at most four, all in the box.
+    fn draw_route_help(&self, g: &mut Gfx, s: &Ui, fx: impl Fn(&str, f32) -> f32) {
+        let ink = c15(0);
+        let help = [tr("STR_ROUTING_LEFT_CLICK"), tr("STR_ROUTING_RIGHT_CLICK")];
+        let sizes = help.map(|t| fx(t, ROUTE_HELP_ROOM));
+        if help.iter().zip(sizes).all(|(t, px)| text_width(t, px) <= ROUTE_HELP_ROOM) {
+            for ((t, px), y) in help.iter().zip(sizes).zip([108.0, 126.0]) {
+                s.text_centered(g, 400.0, top(y, 14.0), t, px, ink);
+            }
+            return;
+        }
+        let f = crate::ui::fnt_for(14.0);
+        let lines = help.iter().flat_map(|t| match crate::ui::fit_lines(f, t, ROUTE_HELP_ROOM, 2) {
+            None => vec![(f, t.to_string())],
+            Some(fitted) => fitted.lines.into_iter().map(|l| (fitted.font, l)).collect(),
+        });
+        for (k, (lf, l)) in lines.enumerate() {
+            // a smaller font keeps its line's middle where the full size's would be
+            let y = top(108.0 + 18.0 * k as f32 + ((f.px - lf.px) / 2.0).floor(), lf.px);
+            s.text_in(g, lf.face, 400.0 - (lf.width(&l) / 2.0).floor(), y, &l, lf.px, ink);
+        }
+    }
+
     pub fn draw_routing(&mut self, g: &mut Gfx) {
         let s = Ui::new(self.draw_w, self.draw_h);
         self.view = s.view;
@@ -647,18 +688,14 @@ impl App {
         let fx = |t: &str, w: f32| crate::textsize::fit_px(14.0, 1.15, t, w);
         match tab {
             0 => {
+                // the box's title in its pill and the two lines of help in the box: bigger text grows only as far as they
+                // hold it, and a translation too wide for them is drawn a little smaller, the help wrapped onto the box's
+                // free rows, or cut (issue #164)
                 {
                     let t = tr("STR_ROUTING_COURSE_ROUTING");
-                    s.text_centered(g, 400.0, row(85.0), t, fx(t, 520.0), ink);
+                    s.text_centered_fit(g, 400.0, row(85.0), ROUTE_PILL_ROOM, t, fx(t, ROUTE_PILL_ROOM), ink);
                 }
-                {
-                    let t = tr("STR_ROUTING_LEFT_CLICK");
-                    s.text_centered(g, 400.0, row(108.0), t, fx(t, 520.0), ink);
-                }
-                {
-                    let t = tr("STR_ROUTING_RIGHT_CLICK");
-                    s.text_centered(g, 400.0, row(126.0), t, fx(t, 520.0), ink);
-                }
+                self.draw_route_help(g, &s, fx);
                 for (x, t) in [
                     (71.0, tr("STR_ROUTING_HOLE")),
                     (132.0, tr("STR_ROUTING_PAR")),
