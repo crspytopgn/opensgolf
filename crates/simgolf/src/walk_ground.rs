@@ -238,7 +238,7 @@ fn art_texture(g: &mut Gfx, img: &Rgba, repeat: bool) -> TextureId {
 /// repeating picture), else clamps.
 pub fn clean_image(img: &Rgba, wrap: bool) -> Rgba {
     let mut src = img.clone();
-    while src.w > 64 && src.h > 64 && src.w % 2 == 0 && src.h % 2 == 0 {
+    while src.w > 64 && src.h > 64 && src.w.is_multiple_of(2) && src.h.is_multiple_of(2) {
         let (w, h) = (src.w as usize / 2, src.h as usize / 2);
         let mut d = Rgba::new(w as u32, h as u32);
         for y in 0..h {
@@ -413,7 +413,7 @@ impl App {
                             } else {
                                 let path = self.catalog.pick(t.tex_type, t.set, t.variation).cloned();
                                 let tex = path.as_ref().and_then(|p| self.texture_for(g, p)).unwrap_or(white);
-                                if !known.contains_key(&tex) {
+                                if let std::collections::hash_map::Entry::Vacant(slot) = known.entry(tex) {
                                     let size = g.ctx.texture_size(tex).0 as f32;
                                     let clean = match path.as_deref().and_then(load_art) {
                                         Some(img) => {
@@ -426,9 +426,12 @@ impl App {
                                         }
                                         None => tex,
                                     };
-                                    known.insert(tex, (clean, size));
+                                    slot.insert((clean, size));
                                 }
-                                (tex, category(t.tex_type, theme))
+                                // a water tile's dry texels (its shore) are the land round it, the water itself is found
+                                // texel by texel (walk_gl.rs `shore_wet`)
+                                let c = if self.terrain.type_at(x, y) == 17 { skirt_cat } else { category(t.tex_type, theme) };
+                                (tex, c)
                             };
                             if let Some(a) = averages.get(&tex) {
                                 let e = &mut cat_sum[c as usize & 15];

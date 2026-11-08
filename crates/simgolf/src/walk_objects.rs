@@ -37,8 +37,11 @@ const PERSON: f32 = 1.8 * M;
 const TREE_SCALE: f32 = 0.42;
 /// Other small things' size against the art's (animals, weeds and the like).
 const SMALL_SCALE: f32 = 0.4;
-/// The least fit for a building on more than one tile.
-const MIN_FIT_BUILDING: f32 = 0.6;
+/// The least fit for which a building keeps a roof (`raise_roof`).
+const RAISE_FIT: f32 = 0.78;
+/// The least fit for a building on more than one tile: a looser one (towers, cupolas, wings standing out of any box) would
+/// wear them smeared across its walls, and its card is drawn instead.
+const MIN_FIT_BUILDING: f32 = 0.78;
 /// A small object's size against the art's, when no solid fits it (a ball washer, benches).
 const SMALL_OBJECT: f32 = 0.5;
 /// The least fit (intersection over union) for which an object's solid is used rather than its card.
@@ -78,11 +81,11 @@ fn dot(a: [f32; 3], b: [f32; 3]) -> f32 {
 impl Iso {
     /// Where a point (relative to a sprite's ground point) lands on the sprite: pixel x, y, for `s` world units a pixel and
     /// the sprite's anchor.
-    pub fn to_px(&self, d: [f32; 3], s: f32, ax: f32, ay: f32) -> (f32, f32) {
+    pub fn to_px(self, d: [f32; 3], s: f32, ax: f32, ay: f32) -> (f32, f32) {
         (ax + dot(d, self.r) / s, ay - dot(d, self.u) / s)
     }
     /// The ground point (relative, y = 0) a sprite pixel lands on: the projection undone on the ground's plane.
-    pub fn ground_of(&self, px: f32, py: f32, s: f32, ax: f32, ay: f32) -> (f32, f32) {
+    pub fn ground_of(self, px: f32, py: f32, s: f32, ax: f32, ay: f32) -> (f32, f32) {
         let (cx, cy) = ((px - ax) * s, (ay - py) * s);
         let (a, b, c, d) = (self.r[0], self.r[2], self.u[0], self.u[2]);
         let det = a * d - b * c;
@@ -497,14 +500,19 @@ pub fn raise_roof(fit: Fit, views: &[(&Mask, Iso)], s: f32, ax: f32, ay: f32) ->
     best
 }
 
-/// The quarter turn of the overhead camera that best sees a face with this outward normal.
-pub fn best_quarter(n: [f32; 3]) -> i32 {
-    (0..4)
-        .max_by(|&a, &b| {
-            let (fa, fb) = (iso(a).f, iso(b).f);
-            (-dot(n, fa)).partial_cmp(&-dot(n, fb)).unwrap_or(std::cmp::Ordering::Equal).then(b.cmp(&a))
-        })
-        .unwrap_or(0)
+/// The quarter turn whose art paints a face with this outward normal, for an eye looking along heading `yaw` (walk.rs Cam):
+/// of the overhead camera's quarter turns that see the face, the one whose heading (45 + 90 q) is nearest the eye's, so
+/// the side looked at carries the art drawn from that side, and from an overhead camera's own angle every face it sees
+/// carries its own picture (the solid then looks exactly as the sprite does); a face none sees, the one that faces it best.
+pub fn face_quarter(n: [f32; 3], yaw: f32) -> i32 {
+    let sees = |q: i32| -dot(n, iso(q).f);
+    let off = |q: i32| ((45.0 + 90.0 * q as f32 - yaw + 540.0).rem_euclid(360.0) - 180.0).abs();
+    let seen: Vec<i32> = (0..4).filter(|&q| sees(q) > 0.02).collect();
+    if seen.is_empty() {
+        (0..4).max_by(|&a, &b| sees(a).partial_cmp(&sees(b)).unwrap_or(std::cmp::Ordering::Equal).then(b.cmp(&a))).unwrap_or(0)
+    } else {
+        seen.into_iter().min_by(|&a, &b| off(a).partial_cmp(&off(b)).unwrap_or(std::cmp::Ordering::Equal).then(a.cmp(&b))).unwrap_or(0)
+    }
 }
 
 // ---- the camera's view of the frame -----------------------------------------------------------------------------------------
@@ -775,7 +783,7 @@ impl App {
             })
             .collect();
         best.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-        let top = &best[..best.len().min(12).max(1).min(best.len())];
+        let top = &best[..best.len().min(12)];
         let vivid = if top.is_empty() {
             [0.8, 0.1, 0.1]
         } else {
@@ -803,8 +811,12 @@ impl App {
         // a small thing only when the solid fits it well
         let big = half.is_some_and(|h| h > TILE_SIZE * 0.75);
         let fit = fit_proxy(&views, s, ax, ay, half).filter(|f| f.iou >= if big { MIN_FIT_BUILDING } else { MIN_FIT }).map(|f| {
-            if half.is_some() {
+            if half.is_some() && f.iou >= RAISE_FIT {
                 raise_roof(f, &views, s, ax, ay)
+            } else if f.iou < RAISE_FIT {
+                // a loose fit: towers, cupolas and the like stand out of the solid's outline, and a roof would wear them
+                // smeared across its slopes; a flat top leaves them on the unseen top and the walls clean
+                Fit { roof: 0.0, kind: 0, ..f }
             } else {
                 f
             }
@@ -852,14 +864,32 @@ impl App {
     /// Lays a sprite frame on the ground by the overhead projection: the ground under it in a grid that follows the terrain.
     #[allow(clippy::too_many_arguments)]
     fn walk_decal(&self, o: &mut Objects, si: usize, i: usize, x: f32, z: f32, s: f32, col: [f32; 4], out: &mut Vec<Vert>) {
+        self.walk_decal_rows(o, si, i, (x, z), s, None, col, out, 0);
+    }
+
+    /// `walk_decal` of the frame's rows from `from` down only (its quarter turn `q`'s projection).
+    #[allow(clippy::too_many_arguments)]
+    fn walk_decal_rows(
+        &self,
+        o: &mut Objects,
+        si: usize,
+        i: usize,
+        (x, z): (f32, f32),
+        s: f32,
+        from: Option<f32>,
+        col: [f32; 4],
+        out: &mut Vec<Vert>,
+        q: i32,
+    ) {
         let info = self.walk_frame_info(o, si, i);
         let sp = &self.sprites[si].s;
         let (w, h, ax, ay) = (sp.w as f32, sp.h as f32, sp.anchor_x as f32, sp.anchor_y as f32);
         let (l, t, r, b) = (info.bbox.0 as f32 - 1.0, info.bbox.1 as f32 - 1.0, info.bbox.2 as f32 + 1.0, info.bbox.3 as f32 + 1.0);
+        let t = from.map(|f| f.max(t)).unwrap_or(t);
         if r <= l || b <= t {
             return;
         }
-        let iso = iso(0);
+        let iso = iso(q);
         let corner = |px: f32, py: f32| iso.ground_of(px, py, s, ax, ay);
         let (p00, p10, p01) = (corner(l, t), corner(r, t), corner(l, b));
         let len = |a: (f32, f32), b: (f32, f32)| ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt();
@@ -1034,6 +1064,8 @@ impl App {
                 let layer = proxies.iter().find(|((px, pz), _)| (px - x).abs() < 0.5 && (pz - z).abs() < 0.5).map(|f| f.1);
                 let fit = match layer {
                     Some(f) => Some(f),
+                    // (test hook: SG_WALK_CARDS draws every object as its card)
+                    None if std::env::var_os("SG_WALK_CARDS").is_some() => None,
                     None => self.walk_fit(o, si, frames, p.scale, half),
                 };
                 let radius = (w.max(h)) * s;
@@ -1064,7 +1096,7 @@ impl App {
                         }
                         let list = if layer.is_some() { &mut over } else { &mut cut };
                         for (poly, n) in f.faces() {
-                            let q = best_quarter(n);
+                            let q = face_quarter(n, sc.yaw);
                             let i = self.sprites[si].s.frame_index(self.prop_view(&p, si, q), p.frame);
                             let t = self.walk_tex(g, o, si, i);
                             let iq = iso(q);
@@ -1082,14 +1114,31 @@ impl App {
                         }
                     }
                     None => {
-                        // no solid fits: the picture as the overhead view draws it, leaning back at the art's angle
-                        // (a building's tiles keep its size; a small thing, drawn large like the trees, is shrunk with them)
+                        // no solid fits: a small thing's picture as the overhead view draws it, leaning back at the art's
+                        // angle, shrunk like the trees (they are all drawn large); a building's at its size
                         let k = if small { s * SMALL_OBJECT } else { s };
                         let iq = iso(sc.quarter);
                         let i = self.sprites[si].s.frame_index(self.prop_view(&p, si, sc.quarter), p.frame);
                         let t = self.walk_tex(g, o, si, i);
-                        let rect = (-ax * k, (w - ax) * k, ay * k, -(h - ay) * k);
-                        card(cut.get(t), anchor, iq.r, iq.u, rect, false, 0.0, white);
+                        if small {
+                            let rect = (-ax * k, (w - ax) * k, ay * k, -(h - ay) * k);
+                            card(cut.get(t), anchor, iq.r, iq.u, rect, false, 0.0, white);
+                        } else {
+                            // a building: bent at its ground point, its picture above leaning back at the art's angle and
+                            // below (its front, its deck, the planting before it) laid on the ground, so from the overhead
+                            // camera it is the sprite itself and nothing of it sinks into the ground
+                            let c = |cx: f32, cy: f32, tu: f32, tv: f32| {
+                                let p = |a: usize| anchor[a] + iq.r[a] * cx + iq.u[a] * cy;
+                                Vert::new(p(0), p(1), p(2), tu, tv)
+                            };
+                            let (l, r, top, v1) = (-ax * k, (w - ax) * k, ay * k, ay / h);
+                            let q = [c(l, top, 0.0, 0.0), c(r, top, 1.0, 0.0), c(r, 0.0, 1.0, v1), c(l, 0.0, 0.0, v1)];
+                            cut.get(t).extend([q[0], q[1], q[2], q[0], q[2], q[3]]);
+                            let mut v = Vec::new();
+                            self.walk_decal_rows(o, si, i, (x, z), k, Some(ay), white, &mut v, sc.quarter);
+                            // (over the art's own shadow, which lies under it)
+                            front.get(t).extend(v);
+                        }
                         if dist < near_obstacle {
                             let r = half.map(|h| h * 0.7).unwrap_or(((w * 0.25) * s).min(3.0 * M));
                             o.obstacles.push(Obstacle::Circle { x, z, r });
@@ -1110,7 +1159,8 @@ impl App {
                 let i = self.sprites[si].s.frame_index(self.prop_view(&p, si, sc.quarter), p.frame);
                 let t = self.walk_tex(g, o, si, i);
                 let ph = place_hash(x, z);
-                let sway = ((sc.time * (0.9 + ph * 0.5) + ph * 6.28).sin() * 0.12 + (sc.time * 2.3 + ph * 3.0).sin() * 0.04) * M;
+                let sway =
+                    ((sc.time * (0.9 + ph * 0.5) + ph * std::f32::consts::TAU).sin() * 0.12 + (sc.time * 2.3 + ph * 3.0).sin() * 0.04) * M;
                 let rect = (-ax * k, (w - ax) * k, ay * k * v, -(h - ay) * k * v);
                 card(cut.get(t), anchor, right, up, rect, false, sway, white);
                 if level != Detail::Far {
@@ -1369,7 +1419,7 @@ impl App {
                     let h2 = place_hash(i as f32 * 3.07 + 11.0, j as f32 * 0.91 - 5.0);
                     let (x, z) = ((i as f32 + h1 - 0.5) * step, (j as f32 + h2 - 0.5) * step);
                     let d = (x.abs() - hx).max(z.abs() - hz);
-                    if d < 4.0 * M || d > FAR_TREES {
+                    if !(4.0 * M..=FAR_TREES).contains(&d) {
                         continue;
                     }
                     // clumps of wood, thinning out with distance
@@ -1530,16 +1580,25 @@ mod tests {
     }
 
     #[test]
-    fn each_wall_takes_the_quarter_that_sees_it() {
+    fn each_face_takes_a_quarter_that_sees_it_nearest_the_eye() {
         // the camera at quarter 0 looks along heading 45 (towards +x, -z): it sees the south (+z) and west (-x) walls
         let f0 = iso(0).f;
         assert!(f0[0] > 0.0 && f0[2] < 0.0 && f0[1] < 0.0);
-        for n in [[0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0, 0.0]] {
-            let q = best_quarter(n);
-            assert!(-dot(n, iso(q).f) > 0.5, "{n:?} {q}");
+        for yaw in [0.0f32, 45.0, 100.0, 200.0, 300.0] {
+            for n in [[0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.3, 0.9, 0.0]] {
+                let q = face_quarter(n, yaw);
+                assert!(-dot(n, iso(q).f) > 0.0, "{n:?} {yaw} {q}");
+            }
         }
-        // a roof is seen by every quarter: the first wins
-        assert_eq!(best_quarter([0.0, 1.0, 0.0]), 0);
+        // seen from an overhead camera's own heading, every face that camera sees takes that camera's picture
+        for q in 0..4 {
+            let yaw = 45.0 + 90.0 * q as f32;
+            for n in [[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0, 0.0]] {
+                if -dot(n, iso(q).f) > 0.02 {
+                    assert_eq!(face_quarter(n, yaw), q, "{n:?} quarter {q}");
+                }
+            }
+        }
     }
 
     #[test]

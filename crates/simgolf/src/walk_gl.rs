@@ -215,6 +215,14 @@ float wetness(vec3 c) {
     return (1.0 - smoothstep(0.2, 0.45, length(c - water.rgb))) * smoothstep(-0.02, 0.07, c.b - c.r);
 }
 
+// the water's edge: the wetness of the art a little blurred, its threshold wobbled by noise along the ground, so the art's
+// shores (drawn along the tiles' edges) wander and fade softly instead of running straight
+float shore_wet(vec2 t) {
+    float w = wetness(texture2D(tex, t, 1.5).rgb);
+    float n = texture2D(noise, wpos.xz / (9.0 * M)).g + texture2D(noise, wpos.xz / (3.0 * M)).a * 0.5 - 0.75;
+    return smoothstep(0.25, 0.75, w + n * 0.55);
+}
+
 void main() {
     vec3 d = wpos - eye.xyz;
     float dist = length(d);
@@ -227,12 +235,14 @@ void main() {
         float k = floor((color.a - 0.5 * shore) * 32.0 + 0.5);
         // fairways and greens keep more of their art (their mowing); a tee's raised bevel and everything else is evened
         bool cut = k > 0.5 && k < 2.5;
-        vec4 c = art(uv, dist, cut ? 0.45 : 0.1, cut ? 0.15 : 0.5, color.rgb);
+        // (a tee's picture has a dark rim round its raised box, which round the eye standing on it would be a dark ring)
+        bool tee = k > 5.5 && k < 6.5;
+        vec4 c = art(uv, dist, cut ? 0.45 : 0.1, tee ? 0.85 : cut ? 0.15 : 0.5, color.rgb);
         vec3 g = lit(c.rgb * grain(k, dist), nrm);
         if (shore > 0.5) {
             // the water drawn into these tiles' art, wherever it is
             vec4 a = art(uv, dist, 0.0, 0.0, vec3(0.0));
-            float w = wetness(texture2D(tex, uv).rgb);
+            float w = shore_wet(uv);
             if (w > 0.0) g = mix(g, water_at(a.rgb, v), w);
         }
         o = vec4(g, 1.0);

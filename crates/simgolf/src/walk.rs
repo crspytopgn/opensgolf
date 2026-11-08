@@ -21,8 +21,11 @@
 //! puts the overhead camera back where it was.
 //!
 //! With the switch on a scripted still (`--png`), the still is taken from the walk camera; `SG_WALK_AT=TX,TY,YAW[,PITCH]`
-//! (tiles and degrees) places it, `SG_WALK_FOLLOW=N` follows the golfer in slot N, `SG_WALK_BENCH=1` prints the frame
-//! times.
+//! (tiles and degrees) places it, `SG_WALK_FOLLOW=N` follows the golfer in slot N (`next`: whoever hits next) and
+//! `SG_WALK_SHOT=S` waits for their ball to have flown S seconds, `SG_WALK_BENCH=1` prints the frame times (with
+//! `SG_FX_BENCH`), `SG_WALK_ISO=Q` draws the scene through the overhead camera of quarter turn Q (there each building's
+//! solid must look exactly as its sprite does), `SG_WALK_CARDS=1` draws every object as its card, and `SG_WALK_DUMP=1`
+//! prints the fitted solids (`SG_WALK_DUMP_DIR` writes the frames fitted).
 use crate::app::{App, Screen};
 use crate::gfx::{Gfx, Mat4};
 use crate::ui::{rgba, Screen as Ui, F_ARIAL10, F_INFO14};
@@ -700,7 +703,7 @@ pub(crate) fn draw(app: &mut App, g: &mut Gfx, walk: &mut Walking) {
     app.render_walk(g, walk);
     if walk.bench.on {
         walk.bench.cpu.push(t0.elapsed().as_secs_f32() * 1000.0);
-        if walk.bench.cpu.len() % 120 == 0 {
+        if walk.bench.cpu.len().is_multiple_of(120) {
             walk.bench_report();
         }
     }
@@ -799,8 +802,26 @@ impl App {
         let proj = Mat4::perspective(FOV, aspect, NEAR, FAR);
         let eye = [cam.x, wk.eye_y.unwrap_or_else(|| eye_height(&self.terrain, cam.x, cam.z)), cam.z];
         let view = cam.view_from(eye);
-        let vp = proj.mul(&view);
-        let lk = look(self.theme);
+        let mut vp = proj.mul(&view);
+        let mut eye = eye;
+        let mut lk = look(self.theme);
+        // test hook: SG_WALK_ISO=Q draws the walk camera's scene through the overhead camera of quarter turn Q (orthographic,
+        // one art pixel to a screen pixel, times SG_WALK_ISO_ZOOM), centred on the walk's place: there each object's solid,
+        // with its sprite projected onto it, must look as the sprite itself does
+        let iso_q = std::env::var("SG_WALK_ISO").ok().and_then(|v| v.parse::<i32>().ok());
+        if let Some(q) = iso_q {
+            let zoom = std::env::var("SG_WALK_ISO_ZOOM").ok().and_then(|v| v.parse::<f32>().ok()).unwrap_or(1.0);
+            let upp = sg_core::sprites::SPRITE_UNITS_PER_PIXEL / zoom;
+            let (hw, hh) = (self.draw_w * upp * 0.5, self.draw_h * upp * 0.5);
+            let gy = self.terrain.height_at(cam.x, cam.z);
+            let m = Mat4::rotate(crate::walk_objects::art_pitch() as f64, 1.0, 0.0, 0.0)
+                .mul(&Mat4::rotate((45.0 + 90.0 * q as f32) as f64, 0.0, 1.0, 0.0))
+                .mul(&Mat4::translate(-cam.x, -gy, -cam.z));
+            vp = Mat4::ortho(-hw, hw, -hh, hh, -12000.0, 12000.0).mul(&m);
+            let fwd = crate::walk_objects::iso(q).f;
+            eye = [cam.x - fwd[0] * 6000.0, gy - fwd[1] * 6000.0, cam.z - fwd[2] * 6000.0];
+            lk.density = 1e-9;
+        }
         let sun = sun_direction();
         let far = haze_end(lk.density);
         let f = cam.forward();
@@ -866,26 +887,32 @@ impl App {
         }
         self.walk_far_trees(g, &mut wk.objs, ground);
         self.walk_draw_far_trees(g, gpu, &wk.objs, &base);
-        let sc = Scene { eye, yaw: cam.yaw, right: [rx, rz], planes, u: base, far, time, quarter: cam.quarter() };
+        let (right, quarter) = match iso_q {
+            Some(q) => ([crate::walk_objects::iso(q).r[0], crate::walk_objects::iso(q).r[2]], q.rem_euclid(4)),
+            None => ([rx, rz], cam.quarter()),
+        };
+        let sc = Scene { eye, yaw: cam.yaw, right, planes, u: base, far, time, quarter };
         let t0 = std::time::Instant::now();
         self.walk_props(g, gpu, &mut wk.objs, &sc, wk.dt);
         if wk.bench.on {
             wk.bench.build.push(t0.elapsed().as_secs_f32() * 1000.0);
         }
         gpu.submit(g);
-        gpu.draw_sky(
-            g,
-            &SkyUniforms {
-                cam_f: v4(f, 0.0),
-                cam_r: v4(r.map(|v| v * tx), 0.0),
-                cam_u: v4(up.map(|v| v * ty), 0.0),
-                eye: v4(eye, time),
-                sun: v4(sun, 0.0),
-                haze: v4(lk.haze, 0.0),
-                zenith: v4(lk.zenith, lk.cover),
-                cloud: v4(lk.cloud, 0.00012),
-            },
-        );
+        if iso_q.is_none() {
+            gpu.draw_sky(
+                g,
+                &SkyUniforms {
+                    cam_f: v4(f, 0.0),
+                    cam_r: v4(r.map(|v| v * tx), 0.0),
+                    cam_u: v4(up.map(|v| v * ty), 0.0),
+                    eye: v4(eye, time),
+                    sun: v4(sun, 0.0),
+                    haze: v4(lk.haze, 0.0),
+                    zenith: v4(lk.zenith, lk.cover),
+                    cloud: v4(lk.cloud, 0.00012),
+                },
+            );
+        }
         // what is blended over the ground, the things and the sky: the paths, the shadows, the balls' trails
         let mut paths = art(cat::PATH, 0.02);
         paths.pull[3] = 0.0008;
