@@ -1619,8 +1619,37 @@ function sgResetGraphics() {
     sgStatus("The graphics settings were put back to their defaults (Classic, no frame rate cap). Your saved games are kept.");
 }
 
+// The Latest news box: the newest entries of whatsnew.json (the same list as the game's What's new box), from GitHub so a
+// change there shows without publishing the page again, else the copy published with the page; without either the
+// page's own entries stay.
+const SG_NEWS_URL = "https://raw.githubusercontent.com/crspytopgn/opensgolf/main/whatsnew.json";
+function sgNewsHtml(news, now) {
+    const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+    return news.slice(0, 2).map((n, k) => {
+        const fresh = k === 0 && n.iso && now - Date.parse(n.iso) < 21 * 864e5;
+        const more = k === 0 ? ' <a href="https://github.com/crspytopgn/opensgolf/blob/main/CHANGELOG.md" target="_blank" rel="noopener">What\'s new</a>' : "";
+        return "<dt>" + esc(n.date) + (fresh ? ' <span class="new">NEW!</span>' : "") + "</dt><dd><b>" + esc(n.title) + "</b> " + esc(n.text) + more + "</dd>";
+    }).join("");
+}
+async function sgNews() {
+    const box = document.getElementById("news");
+    if (!box) return;
+    for (const url of [SG_NEWS_URL, "whatsnew.json"]) {
+        try {
+            const r = await fetch(url, { cache: "no-cache" });
+            if (!r.ok) continue;
+            const j = await r.json();
+            if (Array.isArray(j.news) && j.news.length && j.news.every(n => n && n.date && n.title && n.text)) {
+                box.innerHTML = sgNewsHtml(j.news, Date.now());
+                return;
+            }
+        } catch (e) {}
+    }
+}
+
 async function sgInit() {
     sgSaveCount();
+    sgNews();
     const ver = document.getElementById("version");
     if (ver) ver.textContent = "OpenSGolf " + sgVersion();
     // what the last files picked held (said again until other files are picked)

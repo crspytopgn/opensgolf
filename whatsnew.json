@@ -1,4 +1,24 @@
 {
+  "news": [
+    {
+      "date": "7 November 2026",
+      "iso": "2026-11-07",
+      "title": "OpenSGolf 0.7 released",
+      "text": "An optional second course of 18 more holes on the same land, forward and middle tees picked by each golfer's skill, a flyover of any hole from Hole Stats, double-click to load a save, and longer translations that fit their boxes."
+    },
+    {
+      "date": "28 October 2026",
+      "iso": "2026-10-28",
+      "title": "OpenSGolf 0.6",
+      "text": "Smoother play with no more short freezes, faster Enhanced graphics in the browser, HD graphics made from your own SimGolf files (beta), new cartoon faces for the free graphics, and the interface at the screen's edges on wide screens."
+    },
+    {
+      "date": "20 October 2026",
+      "iso": "2026-10-20",
+      "title": "OpenSGolf 0.5",
+      "text": "Bring your original SimGolf saves across, read landing-map heat maps, pick a bigger text size, and watch windows glow at night and sprinklers at dawn."
+    }
+  ],
   "versions": {
     "0.7": [
       {
