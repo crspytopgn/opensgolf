@@ -15,8 +15,6 @@ pub mod mode {
     pub const GROUND: f32 = 0.0;
     /// A sprite's texels, cut out where transparent; lit by the normal when it has one.
     pub const CUTOUT: f32 = 1.0;
-    /// The soft edge of a cut out sprite: only the part the cut out pass left, blended.
-    pub const SOFT: f32 = 2.0;
     /// The water: the art's colour under moving ripples, the sky's reflection and the sun's glints.
     pub const WATER: f32 = 3.0;
     /// The vertex colour, lit by the normal.
@@ -30,7 +28,8 @@ pub mod mode {
     pub const ART: f32 = 7.0;
 }
 
-/// The ground's categories, for its detail layer (vertex colour red = category / 16).
+/// The ground's categories, for its detail layer (vertex colour alpha = category / 32, plus a half on and beside water;
+/// the colour itself is the category's average colour, which the near ground is evened towards).
 pub mod cat {
     pub const GRASS: u8 = 0;
     pub const FAIRWAY: u8 = 1;
@@ -45,9 +44,15 @@ pub mod cat {
     pub const WATER: u8 = 10;
 }
 
-/// The vertex colour that carries a ground category.
+/// The vertex colour that carries a ground category (its colour filled in by the ground's builder).
 pub fn cat_colour(c: u8) -> [f32; 4] {
-    [c as f32 / 16.0, 0.0, 0.0, 1.0]
+    [0.5, 0.5, 0.5, c as f32 / 32.0]
+}
+
+/// The category back from a vertex colour's alpha, and whether it is on or beside water.
+pub fn cat_of(a: f32) -> (u8, bool) {
+    let shore = a >= 0.5;
+    (((a - if shore { 0.5 } else { 0.0 }) * 32.0).round() as u8, shore)
 }
 
 const FRAG_HEAD: &str = "#version 100
@@ -99,6 +104,7 @@ uniform vec4 zenith;
 uniform vec4 amb;
 uniform vec4 dif;
 uniform vec4 info;
+uniform vec4 water;
 const float M = 4.3745;
 
 vec3 fogged(vec3 c, float dist, vec3 v) {
@@ -118,9 +124,11 @@ vec3 lit(vec3 c, vec3 n) {
 // the art's colour, its painted features faded out near the eye: there each texel covers many pixels and a painted bush or
 // stone smears into a blotch, so the near ground takes the art's de-featured copy (walk_ground.rs clean_image: its
 // colours and the edges between kinds of ground, without the small painted things) and the detail layer draws the grain
-vec4 art(vec2 t, float dist, float keep) {
+vec4 art(vec2 t, float dist, float keep, float even, vec3 avg) {
     vec4 c = texture2D(tex, t);
-    vec4 soft = texture2D(clean, t);
+    // and its large darker and lighter zones evened out towards the average colour of its kind of ground (the same for
+    // every tile of the kind, so no tile's edge shows)
+    vec4 soft = mix(texture2D(clean, t), vec4(avg, 1.0), even);
     float near = 1.0 - smoothstep(12.0 * M, 90.0 * M, dist);
     return mix(c, mix(soft, c, keep), near);
 }
@@ -185,6 +193,24 @@ vec2 ripple(vec2 p, float t) {
                 texture2D(noise, a + vec2(0.0, e)).b - a0 + texture2D(noise, b + vec2(0.0, e)).a - b0);
 }
 
+// water: the art's colour `c` under moving ripples, the sky's reflection and the sun's glints
+vec3 water_at(vec3 c, vec3 v) {
+    vec2 sl = ripple(wpos.xz / M, eye.w) * 7.0;
+    vec3 n = normalize(vec3(sl.x, 1.0, sl.y));
+    vec3 r = reflect(v, n);
+    float fres = 0.03 + 0.97 * pow(1.0 - max(dot(n, -v), 0.0), 5.0);
+    vec3 sky = mix(haze.rgb, zenith.rgb, clamp(r.y * 2.0, 0.0, 1.0));
+    float glint = pow(max(dot(r, sun.xyz), 0.0), 180.0) * 2.5;
+    vec3 body = lit(c, vec3(0.0, 1.0, 0.0)) * 0.9;
+    return mix(body, sky, clamp(fres * 0.9 + 0.08, 0.0, 1.0)) + glint * vec3(1.0, 0.95, 0.85);
+}
+
+// how much a texel of the art is water: near the open water's colour, or the lighter shallows painted at a shore, and
+// bluer than it is red (grass and sand are not)
+float wetness(vec3 c) {
+    return (1.0 - smoothstep(0.2, 0.45, length(c - water.rgb))) * smoothstep(-0.02, 0.07, c.b - c.r);
+}
+
 void main() {
     vec3 d = wpos - eye.xyz;
     float dist = length(d);
@@ -192,10 +218,20 @@ void main() {
     float m = sun.w;
     vec4 o;
     if (m < 0.5) {
-        float k = floor(color.r * 16.0 + 0.5);
-        float keep = (k > 0.5 && k < 2.5) ? 0.45 : 0.1;
-        vec4 c = art(uv, dist, keep);
-        o = vec4(lit(c.rgb * grain(k, dist), nrm), 1.0);
+        // the category in the vertex's alpha (/ 32), and half added on and beside water
+        float shore = step(0.5, color.a);
+        float k = floor((color.a - 0.5 * shore) * 32.0 + 0.5);
+        // fairways and greens keep more of their art (their mowing); a tee's raised bevel and everything else is evened
+        bool cut = k > 0.5 && k < 2.5;
+        vec4 c = art(uv, dist, cut ? 0.45 : 0.1, cut ? 0.15 : 0.5, color.rgb);
+        vec3 g = lit(c.rgb * grain(k, dist), nrm);
+        if (shore > 0.5) {
+            // the water drawn into these tiles' art, wherever it is
+            vec4 a = art(uv, dist, 0.0, 0.0, vec3(0.0));
+            float w = wetness(texture2D(tex, uv).rgb);
+            if (w > 0.0) g = mix(g, water_at(a.rgb, v), w);
+        }
+        o = vec4(g, 1.0);
     } else if (m < 1.5) {
         vec4 c = unpremul(texture2D(tex, uv));
         if (c.a < zenith.w) discard;
@@ -205,23 +241,10 @@ void main() {
             l = 0.78 + 0.30 * max(dot(n, sun.xyz), 0.0) + 0.06 * n.y;
         }
         o = vec4(c.rgb * color.rgb * l * dif.w, 1.0);
-    } else if (m < 2.5) {
-        vec4 c = unpremul(texture2D(tex, uv));
-        if (c.a >= zenith.w || c.a < 0.04) discard;
-        o = vec4(c.rgb * color.rgb * dif.w, c.a * color.a);
     } else if (m < 3.5) {
-        // the art's water, flattened near the eye like the ground's, under the sky's reflection
-        vec4 c = art(uv, dist, 0.0);
-        float wet = clamp((c.b - max(c.r, c.g)) * 5.0 + 0.2, 0.0, 1.0) * color.g;
-        vec2 sl = ripple(wpos.xz / M, eye.w) * 7.0;
-        vec3 n = normalize(vec3(sl.x, 1.0, sl.y));
-        vec3 r = reflect(v, n);
-        float fres = 0.03 + 0.97 * pow(1.0 - max(dot(n, -v), 0.0), 5.0);
-        vec3 sky = mix(haze.rgb, zenith.rgb, clamp(r.y * 2.0, 0.0, 1.0));
-        float glint = pow(max(dot(r, sun.xyz), 0.0), 180.0) * 2.5;
-        vec3 body = lit(c.rgb, vec3(0.0, 1.0, 0.0)) * (1.0 - 0.18 * color.b);
-        vec3 w = mix(body, sky, clamp(fres * 0.9 + 0.08, 0.0, 1.0)) + glint * vec3(1.0, 0.95, 0.85);
-        o = vec4(mix(lit(c.rgb, vec3(0.0, 1.0, 0.0)), w, wet), 1.0);
+        // the sea beyond the edge
+        vec4 c = art(uv, dist, 0.0, 0.0, vec3(0.0));
+        o = vec4(water_at(c.rgb, v), 1.0);
     } else if (m < 4.5) {
         float l = 1.0;
         if (dot(nrm, nrm) > 0.25) {
@@ -325,6 +348,8 @@ pub struct WalkUniforms {
     pub dif: [f32; 4],
     /// The texture's size in texels (x), an ART draw's category (y), the screen's focal length in pixels (z).
     pub info: [f32; 4],
+    /// The open water's colour (rgb; the ground's shader finds the water drawn into the art by it).
+    pub water: [f32; 4],
 }
 
 impl WalkUniforms {
@@ -382,8 +407,6 @@ pub struct WalkGpu {
     cap: usize,
     verts: Vec<Vert>,
     draws: Vec<Draw>,
-    /// Whether the GPU has anisotropic filtering (and how much is used).
-    pub aniso: f32,
 }
 
 fn uniforms_walk() -> Vec<UniformDesc> {
@@ -397,6 +420,7 @@ fn uniforms_walk() -> Vec<UniformDesc> {
         UniformDesc::new("amb", UniformType::Float4),
         UniformDesc::new("dif", UniformType::Float4),
         UniformDesc::new("info", UniformType::Float4),
+        UniformDesc::new("water", UniformType::Float4),
     ]
 }
 
@@ -465,8 +489,7 @@ impl WalkGpu {
         let vb = g.ctx.new_buffer(BufferType::VertexBuffer, BufferUsage::Stream, BufferSource::empty::<Vert>(cap));
         let ib =
             g.ctx.new_buffer(BufferType::IndexBuffer, BufferUsage::Immutable, BufferSource::slice(&(0..cap as u32).collect::<Vec<_>>()));
-        let aniso = max_anisotropy(g);
-        Some(WalkGpu { solid, blend, sky, detail, noise, sky_mesh, vb, ib, cap, verts: Vec::new(), draws: Vec::new(), aniso })
+        Some(WalkGpu { solid, blend, sky, detail, noise, sky_mesh, vb, ib, cap, verts: Vec::new(), draws: Vec::new() })
     }
 
     fn pipeline(&self, p: Pipe) -> Pipeline {
@@ -593,8 +616,20 @@ pub fn sprite_texture(g: &mut Gfx, img: &Rgba) -> TextureId {
     id
 }
 
-/// The most anisotropic filtering the GPU offers (1 when none or not asked: the browser's and phones' builds).
+/// The most anisotropic filtering the GPU offers (1 when none or not asked: the browser's and phones' builds), asked once.
 fn max_anisotropy(_g: &mut Gfx) -> f32 {
+    thread_local! {
+        static MAX: std::cell::Cell<f32> = const { std::cell::Cell::new(-1.0) };
+    }
+    if let Some(m) = MAX.with(|m| Some(m.get()).filter(|v| *v >= 0.0)) {
+        return m;
+    }
+    let m = ask_anisotropy();
+    MAX.with(|c| c.set(m));
+    m
+}
+
+fn ask_anisotropy() -> f32 {
     #[cfg(not(any(target_arch = "wasm32", target_os = "android", target_os = "ios")))]
     {
         const MAX_MAX_ANISOTROPY: u32 = 0x84FF;
@@ -820,10 +855,12 @@ mod tests {
     #[test]
     fn categories_survive_the_vertex_colour() {
         for c in 0..=cat::WATER {
-            let r = cat_colour(c)[0];
-            // through an 8 bit varying at worst
-            let q = (r * 255.0).round() / 255.0;
-            assert_eq!((q * 16.0 + 0.5).floor() as u8, c);
+            for shore in [0.0, 0.5] {
+                let r = cat_colour(c)[3] + shore;
+                // through an 8 bit varying at worst
+                let q = (r * 255.0).round() / 255.0;
+                assert_eq!(cat_of(q), (c, shore > 0.0));
+            }
         }
     }
 }

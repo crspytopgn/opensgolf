@@ -101,9 +101,11 @@ impl Cam {
         [fx * cp, sp, fz * cp]
     }
     /// The eye, at its height over the ground here.
+    #[cfg(test)]
     pub fn eye(&self, t: &Terrain) -> [f32; 3] {
         [self.x, eye_height(t, self.x, self.z), self.z]
     }
+    #[cfg(test)]
     pub fn view(&self, t: &Terrain) -> Mat4 {
         self.view_from(self.eye(t))
     }
@@ -116,16 +118,13 @@ impl Cam {
     pub fn quarter(&self) -> i32 {
         (((self.yaw - 45.0) / 90.0).round() as i32).rem_euclid(4)
     }
-    /// Moves `ahead` and `right` world units along the ground, kept on the map.
+    /// Moves `ahead` and `right` world units along the ground, kept on the map and out of the water (walk_update steps
+    /// among the buildings and trees too, with `step`).
+    #[cfg(test)]
     pub fn walk(&mut self, t: &Terrain, ahead: f32, right: f32) {
-        self.walk_among(t, &[], ahead, right);
-    }
-    /// Moves `ahead` and `right` world units along the ground, kept on the map and out of the water, the buildings and
-    /// the trees: blocked one way, it slides along what is in the way.
-    pub fn walk_among(&mut self, t: &Terrain, obstacles: &[Obstacle], ahead: f32, right: f32) {
         let ([fx, fz], [rx, rz]) = self.axes();
         let (dx, dz) = (fx * ahead + rx * right, fz * ahead + rz * right);
-        (self.x, self.z) = step(t, obstacles, (self.x, self.z), (dx, dz));
+        (self.x, self.z) = step(t, &[], (self.x, self.z), (dx, dz));
     }
     /// Turns by a drag of (dx, dy) degrees.
     pub fn look(&mut self, dx: f32, dy: f32) {
@@ -834,6 +833,7 @@ impl App {
             amb: v4(self.light.ambient.map(|v| v * b), 0.55),
             dif: v4(self.light.diffuse.map(|v| v * b), 1.0),
             info: [64.0, 0.0, focal, 0.0],
+            water: v4(ground.water_colour, 0.0),
         };
         let planes = frustum(&vp);
         let with_size = |u: WalkUniforms, size: f32| WalkUniforms { info: [size, u.info[1], u.info[2], u.info[3]], ..u };
@@ -845,12 +845,10 @@ impl App {
             let d: f32 = (0..3).map(|k| (eye[k] - eye[k].clamp(lo[k], hi[k])).powi(2)).sum::<f32>().sqrt();
             d < far
         };
-        let mut chunks_drawn = 0;
         for c in &ground.chunks {
             if !box_visible(&planes, c.lo, c.hi) || !near_far(c.lo, c.hi) {
                 continue;
             }
-            chunks_drawn += 1;
             for p in &c.parts {
                 gpu.draw_mesh(g, Pipe::Solid, &p.mesh, p.tex, p.clean, &with_size(base, p.size));
             }
@@ -886,7 +884,6 @@ impl App {
         let sc = Scene { eye, yaw: cam.yaw, right: [rx, rz], planes, u: base, far, time, quarter: cam.quarter() };
         self.walk_props(g, gpu, &mut wk.objs, &sc, wk.dt);
         gpu.submit(g);
-        let _ = chunks_drawn;
         self.walk_hud(g, wk, &cam);
     }
 
@@ -1120,5 +1117,41 @@ mod tests {
         assert!((v - 10.0).abs() < 0.01);
         // half a second gets most of the way, a frame only a little
         assert!(ease(0.0, 10.0, ACCEL, 1.0 / 60.0) < 1.5);
+    }
+}
+
+#[cfg(test)]
+mod cull_tests {
+    use super::*;
+    use crate::walk_objects::{box_visible, frustum};
+
+    /// The chunks the culling keeps are exactly those with a point on the screen (sampled), for a camera looking down.
+    #[test]
+    fn culling_keeps_every_chunk_on_the_screen() {
+        let cam = Cam { x: 1450.0, z: 1650.0, yaw: 350.0, pitch: -9.0 };
+        let eye = [cam.x, 22.4, cam.z];
+        let vp = Mat4::perspective(FOV, 1280.0 / 720.0, NEAR, FAR).mul(&cam.view_from(eye));
+        let planes = frustum(&vp);
+        for cz in 0..5 {
+            for cx in 0..5 {
+                let lo = [-2500.0 + cx as f32 * 1200.0, 0.0, -2500.0 + cz as f32 * 1200.0];
+                let hi = [(lo[0] + 1200.0).min(2500.0), 45.0, (lo[2] + 1200.0).min(2500.0)];
+                let mut seen = false;
+                for i in 0..=40 {
+                    for j in 0..=40 {
+                        for y in [lo[1], hi[1]] {
+                            let p = [lo[0] + (hi[0] - lo[0]) * i as f32 / 40.0, y, lo[2] + (hi[2] - lo[2]) * j as f32 / 40.0];
+                            let c = vp.apply(p);
+                            if c[3] > 0.0 && c[0].abs() <= c[3] && c[1].abs() <= c[3] && c[2].abs() <= c[3] {
+                                seen = true;
+                            }
+                        }
+                    }
+                }
+                if seen {
+                    assert!(box_visible(&planes, lo, hi), "chunk {lo:?} {hi:?} is on the screen but culled");
+                }
+            }
+        }
     }
 }

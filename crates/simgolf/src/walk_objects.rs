@@ -37,10 +37,12 @@ const PERSON: f32 = 1.8 * M;
 const TREE_SCALE: f32 = 0.42;
 /// Other small things' size against the art's (animals, weeds and the like).
 const SMALL_SCALE: f32 = 0.4;
+/// The least fit for a building on more than one tile.
+const MIN_FIT_BUILDING: f32 = 0.6;
 /// A small object's size against the art's, when no solid fits it (a ball washer, benches).
 const SMALL_OBJECT: f32 = 0.5;
 /// The least fit (intersection over union) for which an object's solid is used rather than its card.
-const MIN_FIT: f32 = 0.66;
+const MIN_FIT: f32 = 0.76;
 
 /// Something that stops a walk (walk.rs `Cam::step`): a building's footprint or a tree's trunk.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -463,7 +465,7 @@ pub fn pitch_cap(kind: u8, bx: f32, bz: f32) -> f32 {
 }
 
 /// A building's roof, raised: of the hipped and gabled roofs that stay inside every view's outline (the fit losing at most
-/// half a percent), the highest, at most a 40 degree pitch. The outline cannot show a roof the art's angle hides, and the
+/// half a percent), the highest, at most a 30 degree pitch. The outline cannot show a roof the art's angle hides, and the
 /// art paints its roof in that place: on slopes it shows from the ground, where on a flat top it would be lost.
 pub fn raise_roof(fit: Fit, views: &[(&Mask, Iso)], s: f32, ax: f32, ay: f32) -> Fit {
     if fit.kind != 0 || views.is_empty() {
@@ -472,7 +474,7 @@ pub fn raise_roof(fit: Fit, views: &[(&Mask, Iso)], s: f32, ax: f32, ay: f32) ->
     let score_all = |f: &Fit| views.iter().map(|(m, iso)| score(f, m, iso, s, ax, ay)).sum::<f32>() / views.len() as f32;
     let base = score_all(&fit);
     let (bx, bz) = fit.building();
-    let cap = bx.min(bz) * 0.84;
+    let cap = bx.min(bz) * 0.58;
     let mut best = fit;
     for kind in [4u8, 1, 2] {
         // the gable runs along the longer side
@@ -537,12 +539,11 @@ pub fn box_visible(planes: &[[f32; 4]; 6], lo: [f32; 3], hi: [f32; 3]) -> bool {
     })
 }
 
-/// How much of a thing is drawn at a distance: everything near, people and the soft edges and shadows only nearer than
-/// their limits, nothing past the haze.
+/// How much of a thing is drawn at a distance: everything near; far off its picture without the shadows under it (people
+/// have a shorter limit of their own); nothing past the haze.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Detail {
     Full,
-    NoSoft,
     Far,
     None,
 }
@@ -553,8 +554,6 @@ pub fn detail_at(dist: f32, far: f32) -> Detail {
         Detail::None
     } else if dist > far.min(400.0 * M) {
         Detail::Far
-    } else if dist > 120.0 * M {
-        Detail::NoSoft
     } else {
         Detail::Full
     }
@@ -800,7 +799,10 @@ impl App {
         let views: Vec<(&Mask, Iso)> = masks.iter().enumerate().map(|(q, m)| (m, iso(q as i32))).collect();
         let s = SPRITE_UNITS_PER_PIXEL * scale;
         let (ax, ay) = (sp.anchor_x as f32, sp.anchor_y as f32);
-        let fit = fit_proxy(&views, s, ax, ay, half).filter(|f| f.iou >= MIN_FIT).map(|f| {
+        // a building on more than one tile always stands as a solid (its card would lean back across the ground it covers);
+        // a small thing only when the solid fits it well
+        let big = half.is_some_and(|h| h > TILE_SIZE * 0.75);
+        let fit = fit_proxy(&views, s, ax, ay, half).filter(|f| f.iou >= if big { MIN_FIT_BUILDING } else { MIN_FIT }).map(|f| {
             if half.is_some() {
                 raise_roof(f, &views, s, ax, ay)
             } else {
@@ -963,6 +965,9 @@ impl App {
         let right = [sc.right[0], 0.0, sc.right[1]];
         let cos_p = art_pitch().to_radians().cos();
         let (mut cut, mut over, mut decals) = (Lists::default(), Lists::default(), Lists::default());
+        // people and small things stand where a tree or a building's picture may stand too (an animal at a cactus): they
+        // are drawn a little towards the eye, in front, as the overhead view draws them over it
+        let mut front = Lists::default();
         let (mut blobs, mut solids) = (Vec::new(), Vec::new());
         let mut proxies: Vec<((f32, f32), Fit)> = Vec::new();
         let mut eased: HashMap<u32, (f32, f32)> = HashMap::new();
@@ -1040,11 +1045,13 @@ impl App {
                     continue;
                 }
                 o.drawn += 1;
+                // (a small thing with no solid is drawn shrunk, with its shadow)
+                let small = fit.is_none() && !half.is_some_and(|hf| hf > TILE_SIZE * 0.75);
                 if let (Some(sh), true) = (p.shadow, layer.is_none()) {
                     let i = self.sprites[sh].s.frame_index(self.prop_view(&p, sh, 0), p.frame);
                     let t = self.walk_tex(g, o, sh, i);
                     let mut v = Vec::new();
-                    self.walk_decal(o, sh, i, x, z, s, white, &mut v);
+                    self.walk_decal(o, sh, i, x, z, if small { s * SMALL_OBJECT } else { s }, white, &mut v);
                     decals.get(t).extend(v);
                 }
                 match fit {
@@ -1077,7 +1084,7 @@ impl App {
                     None => {
                         // no solid fits: the picture as the overhead view draws it, leaning back at the art's angle
                         // (a building's tiles keep its size; a small thing, drawn large like the trees, is shrunk with them)
-                        let k = if half.is_some_and(|hf| hf > TILE_SIZE * 0.75) { s } else { s * SMALL_OBJECT };
+                        let k = if small { s * SMALL_OBJECT } else { s };
                         let iq = iso(sc.quarter);
                         let i = self.sprites[si].s.frame_index(self.prop_view(&p, si, sc.quarter), p.frame);
                         let t = self.walk_tex(g, o, si, i);
@@ -1146,7 +1153,7 @@ impl App {
                 };
                 let flip = p.mirror && views < 8;
                 let rect = (-ax * sh, (w - ax) * sh, ay * sv, -(h - ay) * sv);
-                card(cut.get(t), [x, ground + lift, z], right, up, rect, flip, 0.0, white);
+                card(front.get(t), [x, ground + lift, z], right, up, rect, flip, 0.0, white);
                 blob(self, x, z, 0.5 * M, 0.38, &mut blobs);
                 continue;
             }
@@ -1162,7 +1169,7 @@ impl App {
             let t = self.walk_tex(g, o, si, i);
             let a = [x, ground + p.lift * SMALL_SCALE, z];
             let rect = (-ax * k, (w - ax) * k, ay * k, -(h - ay) * k);
-            card(cut.get(t), a, iq.r, iq.u, rect, p.mirror, 0.0, white);
+            card(front.get(t), a, iq.r, iq.u, rect, p.mirror, 0.0, white);
         }
         o.eased = eased;
         let mut trails = Vec::new();
@@ -1175,6 +1182,9 @@ impl App {
         uc.zenith[3] = 0.5;
         cut.draw(gpu, Pipe::Solid, &uc);
         over.draw(gpu, Pipe::Solid, &uc);
+        let mut uf = uc;
+        uf.pull[3] = 0.004;
+        front.draw(gpu, Pipe::Solid, &uf);
         gpu.tris(Pipe::Solid, g.white, &sc.u.with_mode(mode::FLAT), &solids);
         gpu.tris(Pipe::Blend, g.white, &sc.u.with_mode(mode::FLAT), &trails);
     }
@@ -1567,7 +1577,7 @@ mod tests {
     fn detail_falls_off_with_distance() {
         let far = 2000.0 * M;
         assert_eq!(detail_at(10.0 * M, far), Detail::Full);
-        assert_eq!(detail_at(200.0 * M, far), Detail::NoSoft);
+        assert_eq!(detail_at(200.0 * M, far), Detail::Full);
         assert_eq!(detail_at(800.0 * M, far), Detail::Far);
         assert_eq!(detail_at(2500.0 * M, far), Detail::None);
     }

@@ -143,6 +143,8 @@ pub struct Ground {
     own: Vec<TextureId>,
     /// The land beyond the edge.
     pub beyond: Beyond,
+    /// The open water's colour (the deep water's picture's average).
+    pub water_colour: [f32; 3],
 }
 
 impl Ground {
@@ -198,24 +200,6 @@ pub fn category(tex_type: i32, theme: usize) -> u8 {
 /// Whether a tile is water (the course's type 17).
 pub fn is_water(t: &Terrain, x: i32, y: i32) -> bool {
     t.inside(x, y) && t.type_at(x, y) == 17
-}
-
-/// How deep the water is at a world point, 0 at the shore to 1 a tile out: the share of water tiles round it.
-fn water_depth(t: &Terrain, x: f32, z: f32) -> f32 {
-    let (ox, oz) = (t.w as f32 * TILE_SIZE * 0.5, t.h as f32 * TILE_SIZE * 0.5);
-    let mut n = 0;
-    let mut wet = 0;
-    for dz in [-60.0, -20.0, 20.0, 60.0] {
-        for dx in [-60.0, -20.0, 20.0, 60.0] {
-            let (tx, ty) = (((x + dx + ox) / TILE_SIZE).floor() as i32, ((z + dz + oz) / TILE_SIZE).floor() as i32);
-            n += 1;
-            // beyond the map's edge counts as the water it meets
-            if !t.inside(tx, ty) || is_water(t, tx, ty) {
-                wet += 1;
-            }
-        }
-    }
-    wet as f32 / n as f32
 }
 
 /// A terrain picture from the player's own files (or the free set's).
@@ -379,18 +363,29 @@ impl App {
         let (w, h) = (self.terrain.w, self.terrain.h);
         let mut own: Vec<TextureId> = Vec::new();
         // a catalog picture as a repeating texture and its de-featured copy (the skirt's ground, the sea)
+        let mut skirt_avg = None;
+        let mut water_avg = None;
         let mut repeat = |g: &mut Gfx, app: &App, ty: i32| -> Option<(TextureId, TextureId, f32)> {
             let img = load_art(app.catalog.pick(ty, 0, 0)?)?;
             let (t, c) = (art_texture(g, &img, true), art_texture(g, &clean_image(&img, true), true));
             own.extend([t, c]);
+            if ty == sg_core::terrain::TT_ROUGH as i32 {
+                skirt_avg = crate::walk_gl::average_colour(&img);
+            } else {
+                water_avg = crate::walk_gl::average_colour(&img);
+            }
             Some((t, c, img.w as f32))
         };
         let skirt_tex = repeat(g, self, sg_core::terrain::TT_ROUGH as i32);
         let sea_tex =
             repeat(g, self, sg_core::terrain::TT_WATER_DEEP as i32).or_else(|| repeat(g, self, sg_core::terrain::TT_WATER_SHALLOW as i32));
         let skirt_cat = if theme == 2 { cat::DESERT } else { cat::ROUGH };
-        // each terrain texture's size and de-featured copy, by its texture
+        // each terrain texture's size and de-featured copy, by its texture, and its average colour
         let mut known: HashMap<TextureId, (TextureId, f32)> = HashMap::new();
+        let mut averages: HashMap<TextureId, [f32; 3]> = HashMap::new();
+        // each category's colour, summed over its triangles' pictures (the near ground's evening, walk_gl.rs `art`)
+        let mut cat_sum = [[0.0f32; 4]; 16];
+        let mut pending = Vec::new();
         let mut chunks = Vec::new();
         let mut water = Vec::new();
         let mut tris = Vec::new();
@@ -399,7 +394,7 @@ impl App {
         for cy in (0..h).step_by(CHUNK as usize) {
             for cx in (0..w).step_by(CHUNK as usize) {
                 let mut land: HashMap<TextureId, Vec<Vert>> = HashMap::new();
-                let mut wet: HashMap<TextureId, Vec<Vert>> = HashMap::new();
+                let wet: HashMap<TextureId, Vec<Vert>> = HashMap::new();
                 let (mut lo, mut hi) = ([f32::MAX; 3], [f32::MIN; 3]);
                 for y in cy..(cy + CHUNK).min(h) {
                     for x in cx..(cx + CHUNK).min(w) {
@@ -407,7 +402,9 @@ impl App {
                         build_tile_triangles(&self.terrain, x, y, &mut tris);
                         let out = self.terrain.type_at(x, y) == 20;
                         for t in &tris {
-                            let water_tri = !out && category(t.tex_type, theme) == cat::WATER;
+                            // water and the tiles beside it are drawn with the water the art paints into them (the
+                            // ground's shader tells its texels apart by colour)
+                            let shore = !out && (-1..=1).any(|dy| (-1..=1).any(|dx| is_water(&self.terrain, x + dx, y + dy)));
                             let (tex, c) = if out {
                                 // land outside the property: the skirt's ground, continuing under the edge
                                 let tex = skirt_tex.map(|s| s.0).unwrap_or(white);
@@ -422,6 +419,9 @@ impl App {
                                         Some(img) => {
                                             let c = art_texture(g, &clean_image(&img, false), false);
                                             own.push(c);
+                                            if let Some(a) = crate::walk_gl::average_colour(&img) {
+                                                averages.insert(tex, a);
+                                            }
                                             c
                                         }
                                         None => tex,
@@ -430,6 +430,10 @@ impl App {
                                 }
                                 (tex, category(t.tex_type, theme))
                             };
+                            if let Some(a) = averages.get(&tex) {
+                                let e = &mut cat_sum[c as usize & 15];
+                                (e[0], e[1], e[2], e[3]) = (e[0] + a[0], e[1] + a[1], e[2] + a[2], e[3] + 1.0);
+                            }
                             for v in &t.v {
                                 for (k, p) in [v.x, v.y, v.z].into_iter().enumerate() {
                                     lo[k] = lo[k].min(p);
@@ -441,18 +445,31 @@ impl App {
                                 }
                                 vv.normal = [v.nx, v.ny, v.nz];
                                 vv.color = cat_colour(c);
-                                if water_tri {
-                                    sea_level = sea_level.min(v.y);
-                                    let d = water_depth(&self.terrain, v.x, v.z);
-                                    vv.color = [cat::WATER as f32 / 16.0, 1.0, d, 1.0];
-                                    wet.entry(tex).or_default().push(vv);
-                                } else {
-                                    land.entry(tex).or_default().push(vv);
+                                if shore {
+                                    vv.color[3] += 0.5;
                                 }
+                                if self.terrain.type_at(x, y) == 17 {
+                                    sea_level = sea_level.min(v.y);
+                                }
+                                land.entry(tex).or_default().push(vv);
                             }
                         }
                     }
                 }
+                pending.push((lo, hi, land, wet));
+            }
+        }
+        // the land's vertices take their category's colour
+        let cat_avg: Vec<[f32; 3]> =
+            cat_sum.iter().map(|e| if e[3] > 0.0 { [e[0] / e[3], e[1] / e[3], e[2] / e[3]] } else { [0.5; 3] }).collect();
+        // and the water's, the open water's colour (the deep water's picture), its depth in alpha
+        let wa = water_avg.unwrap_or(cat_avg[cat::WATER as usize]);
+        for (lo, hi, mut land, wet) in pending {
+            for v in land.values_mut().flatten() {
+                let c = crate::walk_gl::cat_of(v.color[3]).0 as usize & 15;
+                v.color = [cat_avg[c][0], cat_avg[c][1], cat_avg[c][2], v.color[3]];
+            }
+            {
                 let lo2 = lo;
                 let mut parts = |m: HashMap<TextureId, Vec<Vert>>, out: &mut Vec<Chunk>| {
                     let parts: Vec<Part> = m
@@ -474,12 +491,14 @@ impl App {
             sea_level = 0.0;
         }
         let beyond = Beyond::new(&self.terrain, theme, sea_level);
-        let (skirt, sea) = walk_skirt(g, &beyond, skirt_tex, sea_tex, sea_level, skirt_cat);
-        Ground { key, chunks, water, skirt, sea, own, beyond }
+        let skirt_colour = if cat_sum[skirt_cat as usize][3] > 0.0 { cat_avg[skirt_cat as usize] } else { skirt_avg.unwrap_or([0.5; 3]) };
+        let (skirt, sea) = walk_skirt(g, &beyond, skirt_tex, sea_tex, sea_level, skirt_cat, skirt_colour, wa);
+        Ground { key, chunks, water, skirt, sea, own, beyond, water_colour: wa }
     }
 }
 
 /// The land beyond the map's edge (and the sea, where the course's edge is water).
+#[allow(clippy::too_many_arguments)]
 fn walk_skirt(
     g: &mut Gfx,
     beyond: &Beyond,
@@ -487,6 +506,8 @@ fn walk_skirt(
     sea_tex: Option<(TextureId, TextureId, f32)>,
     sea_level: f32,
     skirt_cat: u8,
+    skirt_colour: [f32; 3],
+    water_colour: [f32; 3],
 ) -> (Option<Part>, Option<Part>) {
     let n = beyond.n();
     let wet = &beyond.wet;
@@ -513,7 +534,7 @@ fn walk_skirt(
         let p = at(r, i);
         let mut v = Vert::new(p[0], p[1], p[2], p[0] / TILE_SIZE, p[2] / TILE_SIZE);
         v.normal = normal(r, i);
-        v.color = cat_colour(c);
+        v.color = [skirt_colour[0], skirt_colour[1], skirt_colour[2], cat_colour(c)[3]];
         v
     };
     let mut land = Vec::new();
@@ -527,7 +548,7 @@ fn walk_skirt(
                 let s = |rr: usize, ii: usize| {
                     let p = at(rr, ii);
                     let mut v = Vert::new(p[0], sea_level, p[2], p[0] / TILE_SIZE, p[2] / TILE_SIZE);
-                    v.color = [cat::WATER as f32 / 16.0, 1.0, 1.0, 1.0];
+                    v.color = [water_colour[0], water_colour[1], water_colour[2], 1.0];
                     v
                 };
                 let q = [s(r, i), s(r, i + 1), s(r + 1, i + 1), s(r + 1, i)];
