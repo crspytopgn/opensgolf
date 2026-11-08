@@ -410,6 +410,15 @@ const CARD_BAR_ROOM: f32 = 86.0;
 /// 56 pixels into the 191 pixel pill, to where its round end starts. "High Backspin Shot" is 126 pixels wide.
 pub(crate) const SKILL_PILL_ROOM: f32 = 133.0;
 
+/// The rooms of the words of the Membership Roster's legend (the port's own, issue #164), centred on their x: a pill on the
+/// art (90 pixels, 45 either side of the word's middle) and a little more, clear of the entry's mark (from 67 to 51 left of
+/// the middle) and of the next one's. The member levels' words have more room between their marks ("Silver Member" is 98
+/// pixels wide in the free set's face); Photo Opp and Happy Ending sit between the camera and the heart, and the heart and
+/// the window's frame by the OK tick.
+const ROSTER_LEGEND_ROOMS: [f32; 6] = [100.0, 100.0, 100.0, 100.0, 94.0, 94.0];
+/// The legend's pills' height (from y 530, the words' tops at 536 in their middle), for words on two lines.
+const ROSTER_PILL_H: f32 = 26.0;
+
 fn black() -> [f32; 4] {
     rgb(0.05, 0.05, 0.1)
 }
@@ -1731,15 +1740,28 @@ impl App {
                 s.text_centered(g, 320.0, row(y), text, 14.0, ink);
             }
         }
-        for (x, t) in [
+        for (k, (x, t)) in [
             (82.0, tr("STR_MEMBER_MEMBER")),
             (208.0, tr("STR_MEMBER_SILVER")),
             (326.0, tr("STR_MEMBER_GOLD")),
             (450.0, tr("STR_MEMBER_RESIGNED")),
             (573.0, tr("STR_ROSTER_PHOTO_OPP")),
             (693.0, tr("STR_ROSTER_HAPPY_ENDING")),
-        ] {
-            s.text_centered(g, x, row(536.0), t, 14.0, ink);
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            // words wider than their pill (a translation, issue #164): a little smaller, else on two lines in the pill (26
+            // pixels high round the words' middle), else cut, clear of the marks beside them (ui.rs fit_in)
+            let w = ROSTER_LEGEND_ROOMS[k];
+            match crate::ui::fit_in(crate::ui::fnt_for(14.0), t, (x - w / 2.0, 530.0, w, ROSTER_PILL_H)) {
+                None => s.text_centered(g, x, row(536.0), t, 14.0, ink),
+                Some((f, lines)) => {
+                    for (l, cx, ty) in lines {
+                        s.put_centered(g, f, cx, ty, &l, ink);
+                    }
+                }
+            }
         }
         // the OK tick and, under the pointer, the arrow's lit piece
         self.ok_tick(g, &s, 732.0, 548.0, false);

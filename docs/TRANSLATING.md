@@ -68,7 +68,18 @@ The boxes and places this covers:
   their two columns (and the box the aim's lines get when the Player panel is not open);
 * Comments by Hole: the two lines at its foot keep left of the OK tick;
 * the Course Report's legend (Top 100, Top 18, scenic hole): words too wide to sit centred beside their mark start
-  after the mark and may run on to the next one.
+  after the mark and may run on to the next one;
+* the round's scorecard (on the Player panel during your pro's round, and the live scorecard under the golfer card):
+  the two lines on the round keep left of the "Hole" and "Par" labels; a label too wide for its place ends at the first
+  hole's cell and starts as far left as the line beside it allows; "Total" keeps to its column's cell;
+* the SGA report: the Selection Criteria line and "Grade:" in their pills, each criterion's name and value in its pill,
+  and the ideals inside the frame;
+* the Routing Map: the box's title in its pill, and the two lines of help in the box (each a little smaller, else on
+  two lines);
+* the Player Comments report: the three headings in their pills, and each comment in its column (a little smaller, else
+  cut, so the rows stay in line and never run under the hole's number);
+* the Membership Roster's legend (member levels, Photo Opp, Happy Ending): each word in its pill between the marks, on
+  two lines in the pill if it does not fit on one.
 
 ## Parameters
 

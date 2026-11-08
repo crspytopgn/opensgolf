@@ -1551,7 +1551,8 @@ screen's width) is drawn a little smaller, down to three quarters of its size; w
 buttons and tabs) it then goes onto two lines; and only as a last resort it is cut with an ellipsis (…), so it never runs
 over what is next to it. The same goes for the building info box over the Build Course panel, the home-site details
 box and labels, the golfer card's lines and bar names, the skill pills, the world map's cards and legend, the aim's lines
-and skill lines on the shot panel, the foot of Comments by Hole and the Course Report's legend; docs/TRANSLATING.md lists
+and skill lines on the shot panel, the foot of Comments by Hole, the Course Report's legend, the round's scorecard, the SGA
+report, the Routing Map's box, the Player Comments report and the Membership Roster's legend; docs/TRANSLATING.md lists
 how each one fits. Text that fits is drawn exactly as before. Test hook: `SG_TEXTFIT=1` prints each text that had to be
 fitted (docs/TRANSLATING.md).
 
