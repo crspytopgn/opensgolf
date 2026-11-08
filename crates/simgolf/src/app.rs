@@ -731,6 +731,11 @@ pub struct App {
     pub support: crate::support::State,
     /// The welcome boxes (welcome.rs).
     pub welcome: crate::welcome::State,
+    /// The launcher, while it is up (the port's own screen before the title menu, launcher.rs).
+    pub launcher: Option<crate::launcher::State>,
+    /// The game folder held the original's files when the game started, before any pack was put over it (gamefiles.rs
+    /// `files_report`).
+    pub game_files_found: bool,
     /// The play-time count (playcount.rs; the port's own, kept in settings.json, never in saves).
     pub playcount: crate::playcount::State,
     /// The Change keys screen, the hidden interface and the save's content packs question (controls_ui.rs).
@@ -1060,6 +1065,8 @@ impl App {
             comfort: Default::default(),
             support: Default::default(),
             welcome: Default::default(),
+            launcher: None,
+            game_files_found: false,
             playcount: Default::default(),
             ctl: Default::default(),
             scen: Default::default(),

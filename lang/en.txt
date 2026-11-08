@@ -3483,7 +3483,7 @@ STR_WHATSNEW_OK                         : OK
 STR_WHATSNEW_TRY                        :Try it
 STR_WHATSNEW_ON                         :On
 STR_MENU_PREFS_WHATSNEW                 : What's new...
-STR_PREFS_DESC_WHATSNEW                 :Shows what's new in this version, with Try it for its new options; See everything that's new opens the full list (the changelog) in your browser.
+STR_PREFS_DESC_WHATSNEW                 :What's new in this version, with Try it for its new options and a link to the full changelog.
 STR_PLAYCOUNT_NOTICE                    :OpenSGolf counts anonymous play time (no personal data). Turn it off in Preferences > More.
 STR_MENU_PREFS_PLAYCOUNT                : Count my play time (anonymous)
 STR_PREFS_DESC_PLAYCOUNT                :One count per 15 minutes played and one at start: only system and version, no names or saves. Offline counts are sent later.
@@ -3541,3 +3541,61 @@ STR_EXTRAS_DESC_HOME_LABELS_HOVER       :A celebrity's name shows over a home si
 STR_EXTRAS_HOLE_FLYOVER                 : Hole flyover: fly down a hole from its Hole Stats
 STR_EXTRAS_DESC_HOLE_FLYOVER            :Hole Stats gets a Fly over button: the camera flies from the tee down the hole to the green, then back. A key or a click ends it.
 STR_HOLESTATS_FLY_OVER                  :Fly over
+
+# The launcher (the port's own, launcher.rs; docs/PLAYING.md "The launcher"): the screen before the title menu. Its tabs,
+# buttons and notes are fitted to their room by the game (a little smaller, then cut), so a longer translation still fits.
+STR_LAUNCHER_KICKER                     :Sid Meier's SimGolf, remastered
+STR_LAUNCHER_TAB_FILES                  :Game files
+STR_LAUNCHER_TAB_PLAY                   :How to play
+STR_LAUNCHER_TAB_DISPLAY                :Display & sound
+STR_LAUNCHER_TAB_NEWS                   :News & updates
+STR_LAUNCHER_PLAY                       :Play
+STR_LAUNCHER_SHOW_AT_START              :Show this at start
+STR_LAUNCHER_BRING_BACK                 :Preferences > More > Launcher... and the title menu bring it back.
+STR_LAUNCHER_NEWS_PILL                  :What's new
+STR_LAUNCHER_COFFEE                     :Buy me a coffee
+STR_LAUNCHER_TITLE_BUTTON               :Launcher...
+# Game files: what is in use ({N} sounds of the player's own play; {DIR} a folder) and the two choices
+STR_LAUNCHER_FILES_MINE                 :Your SimGolf files: all art and {N} sounds
+STR_LAUNCHER_FILES_MINE_QUIET           :Your SimGolf files: all art (the free sounds play)
+STR_LAUNCHER_FILES_FREE                 :Free graphics: OpenSGolf's own art and sounds
+STR_LAUNCHER_FILES_FREE_CHOSEN          :Free graphics: OpenSGolf's own art and sounds (your choice)
+STR_LAUNCHER_FILES_NONE_FOUND           :No SimGolf files were found on this device.
+STR_LAUNCHER_FILES_FOUND                :Your SimGolf files were found in {DIR}.
+STR_LAUNCHER_FILES_FROM                 :From {DIR}
+STR_LAUNCHER_FILES_FROM_PAGE            :Your SimGolf files are chosen on the page before the game starts.
+STR_LAUNCHER_MINE_TITLE                 :Play with your SimGolf
+STR_LAUNCHER_MINE_NOTE                  :The original art, sound and music, made new. Choose the folder SimGolf is installed in, a .zip of it, or the SimGolf CD or its .iso: the game starts again on them.
+STR_LAUNCHER_MINE_NOTE_WEB              :The original art, sound and music, made new. In the browser your files are chosen on the page: go back to it to choose them.
+STR_LAUNCHER_MINE_BUTTON                :Use my SimGolf files...
+STR_LAUNCHER_FREE_TITLE                 :Play with the free graphics
+STR_LAUNCHER_FREE_NOTE                  :OpenSGolf's own art, sounds and text, made by the game itself. Nothing to find or install.
+STR_LAUNCHER_FREE_BUTTON                :Use the free graphics
+STR_LAUNCHER_BACK_TO_PAGE               :Back to the page
+STR_LAUNCHER_IN_USE                     :In use
+STR_LAUNCHER_NOT_HERE                   :Not offered on this device.
+# How to play (the choices are STR_WELCOME_*)
+STR_LAUNCHER_GAME_OPTIONS               :Game options...
+# Display & sound
+STR_LAUNCHER_DISPLAY                    :Display
+STR_LAUNCHER_WINDOW                     :Window
+STR_LAUNCHER_FULLSCREEN                 :Full screen
+STR_LAUNCHER_WINDOW_SIZE                :Window size
+STR_LAUNCHER_TEXT_SIZE                  :Text size
+STR_LAUNCHER_GRAPHICS                   :Graphics
+STR_LAUNCHER_CLASSIC                    :Classic
+STR_LAUNCHER_ENHANCED                   :Enhanced
+STR_LAUNCHER_HD                         :HD
+STR_LAUNCHER_SOUND                      :Sound
+STR_LAUNCHER_ON                         :On
+STR_LAUNCHER_OFF                        :Off
+STR_LAUNCHER_LANGUAGE                   :Language
+STR_LAUNCHER_DISPLAY_NOTE               :The same settings as in Preferences: Graphics there has Enhanced graphics' own settings, and F11 switches full screen at any time.
+# News & updates
+STR_LAUNCHER_UPDATE                     :Check for updates
+STR_LAUNCHER_CHANGELOG                  :See everything that's new
+STR_LAUNCHER_COFFEE_BUTTON              :Buy me a coffee
+STR_MENU_PREFS_LAUNCHER                 : Launcher...
+STR_PREFS_DESC_LAUNCHER                 :Shows the launcher again: your game files, how to play, display and sound, and what's new.
+STR_LAUNCHER_TIP_TITLE                  :Want the original sounds and music?
+STR_LAUNCHER_TIP                        :Use the SimGolf CD or its .iso, or a full installed copy: some downloaded copies leave the sounds out.

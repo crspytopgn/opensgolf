@@ -2,8 +2,8 @@
 //! original's four ticks first, exactly as the original has them, then a divider and one line per group of the port's own
 //! options: Game options... (the OpenSGolf extras box), Graphics... (HD, Enhanced, pixel-perfect and the Enhanced graphics
 //! settings), Controls and keys... (keys_ui.rs), Text size (stepped at once), Game files... (your SimGolf files or the
-//! free graphics, Content packs, Language) and More... (the bug fixes, the update checks, Search, Report a problem, Support
-//! OpenSGolf, the play-time count). Each port line shows a one-line description at the box's foot when pointed at (on a touch screen when
+//! free graphics, Content packs, Language) and More... (the bug fixes, the update checks, Search, Report a problem, the
+//! launcher, What's new, Support OpenSGolf, the play-time count). Each port line shows a one-line description at the box's foot when pointed at (on a touch screen when
 //! tapped: a line that opens something opens on the second tap). The settings are the same ones, kept in the same places of settings.json, as before.
 
 use crate::popup_ui::PopupKind;
@@ -48,6 +48,8 @@ pub enum Line {
     Support,
     /// What's new... (the port's own, welcome.rs): the changelog in the browser
     WhatsNew,
+    /// Launcher... (the port's own, launcher.rs): the screen shown before the title menu
+    Launcher,
     /// Count my play time (anonymous) (the port's own, playcount.rs; not in store builds)
     PlayCount,
 }
@@ -102,7 +104,7 @@ pub fn items(kind: PopupKind, c: &Ctx) -> Vec<Line> {
         PopupKind::PrefsMore => [FixBugs, UpdateCheck]
             .into_iter()
             .chain(c.update_now.then_some(UpdateNow))
-            .chain([Search, Report, WhatsNew, Support])
+            .chain([Search, Report, Launcher, WhatsNew, Support])
             .chain(c.play_count.then_some(PlayCount))
             .collect(),
         _ => Vec::new(),
@@ -161,6 +163,7 @@ pub fn label(l: Line, c: &Ctx, text: u32) -> String {
         Report => "STR_MENU_PREFS_REPORT",
         Support => "STR_MENU_PREFS_SUPPORT",
         WhatsNew => "STR_MENU_PREFS_WHATSNEW",
+        Launcher => "STR_MENU_PREFS_LAUNCHER",
         PlayCount => "STR_MENU_PREFS_PLAYCOUNT",
     };
     tr(key).to_string()
@@ -231,6 +234,7 @@ pub fn desc_key(l: Line, c: &Ctx) -> Option<&'static str> {
         Report => "STR_PREFS_DESC_REPORT",
         Support => "STR_PREFS_DESC_SUPPORT",
         WhatsNew => "STR_PREFS_DESC_WHATSNEW",
+        Launcher => "STR_PREFS_DESC_LAUNCHER",
         PlayCount => "STR_PREFS_DESC_PLAYCOUNT",
     })
 }
@@ -261,7 +265,7 @@ pub fn place_key(l: Line) -> &'static str {
     match l {
         Hd | MakeHd | RemoveHd | Enhanced | PixelPerfect | EnhancedSettings => "STR_SEARCH_PLACE_GRAPHICS",
         Files | Content | Language => "STR_SEARCH_PLACE_FILES",
-        FixBugs | UpdateCheck | UpdateNow | Search | Report | WhatsNew | Support | PlayCount => "STR_SEARCH_PLACE_MORE",
+        FixBugs | UpdateCheck | UpdateNow | Search | Report | Launcher | WhatsNew | Support | PlayCount => "STR_SEARCH_PLACE_MORE",
         _ => "STR_SEARCH_PLACE_PREFS",
     }
 }
@@ -362,8 +366,11 @@ mod tests {
         // no files line in a browser, the language only with a translation, the update check now only where it can ask
         assert_eq!(items(PopupKind::PrefsFiles, &none), [Content]);
         assert_eq!(items(PopupKind::PrefsFiles, &ALL), [Files, Content, Language]);
-        assert_eq!(items(PopupKind::PrefsMore, &none), [FixBugs, UpdateCheck, Search, Report, WhatsNew, Support]);
-        assert_eq!(items(PopupKind::PrefsMore, &ALL), [FixBugs, UpdateCheck, UpdateNow, Search, Report, WhatsNew, Support, PlayCount]);
+        assert_eq!(items(PopupKind::PrefsMore, &none), [FixBugs, UpdateCheck, Search, Report, Launcher, WhatsNew, Support]);
+        assert_eq!(
+            items(PopupKind::PrefsMore, &ALL),
+            [FixBugs, UpdateCheck, UpdateNow, Search, Report, Launcher, WhatsNew, Support, PlayCount]
+        );
         for kind in [PopupKind::PrefsGraphics, PopupKind::PrefsFiles, PopupKind::PrefsMore] {
             for l in items(kind, &ALL) {
                 assert!(desc_key(l, &ALL).is_some(), "{l:?}");
@@ -373,7 +380,7 @@ mod tests {
         // the note under the bug fixes is no option
         let l = lines(PopupKind::PrefsMore, &ALL, 100);
         assert!(l[2].starts_with(NOTE));
-        assert_eq!(l.iter().filter(|s| s.starts_with(' ')).count(), 8);
+        assert_eq!(l.iter().filter(|s| s.starts_with(' ')).count(), 9);
         // and the time played under Support OpenSGolf is a note too
         let support = l.iter().position(|s| s == &label(Support, &ALL, 100)).unwrap();
         assert_eq!(l[support + 1], format!("{NOTE}Your time played: 0 minutes."));

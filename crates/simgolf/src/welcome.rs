@@ -20,6 +20,10 @@
 //! one. So the box can be corrected without a release. Offline, or with that option off, the last copy or the built-in
 //! highlights stand. A Try it there can only name an option the game already has (`try_named`).
 //!
+//! When the launcher shows at start (launcher.rs) it takes the place of both: its How to play tab has the first box's
+//! choices and its News tab this version's highlights, and the box due is recorded as shown (`State::launcher_shown`). The
+//! boxes still show as before when the launcher does not.
+//!
 //! Test hooks: SG_WELCOME=1 and SG_WHATSNEW=1 show the box at the first title menu whatever settings.json says (for
 //! stills; nothing is written then).
 use crate::app::{App, Screen};
@@ -290,7 +294,28 @@ pub fn init(scripted: bool) -> State {
     State { welcome_due, news_due: news.is_some(), news, fetch, ..Default::default() }
 }
 
+/// settings.json as it was when the game started (a new player has none): what the launcher decides on (launcher.rs).
+pub fn settings_at_start() -> serde_json::Value {
+    AT_START.with(|c| c.borrow().clone()).unwrap_or_else(settings_json)
+}
+
 impl State {
+    /// The launcher shows as the game starts (launcher.rs): it takes the place of the box due. A new player's "How would
+    /// you like to play?" is recorded as shown (the launcher has its choices), an update's What's new as seen (the
+    /// launcher opens on its News tab: true then); `write` false (a test hook) records nothing. Neither box comes up after.
+    pub fn launcher_shown(&mut self, write: bool) -> bool {
+        self.shown = true;
+        let news = std::mem::take(&mut self.news_due) && self.news.is_some();
+        let welcome = std::mem::take(&mut self.welcome_due);
+        if write && !self.forced && (welcome || news) {
+            if welcome {
+                save(WELCOME_KEY, serde_json::Value::Bool(true));
+            }
+            save(VERSION_KEY, marker(env!("CARGO_PKG_VERSION")).into());
+        }
+        news
+    }
+
     /// Each frame until it is in: the fetched `whatsnew.json`, kept and put in use; before any box has shown, What's new
     /// is decided again with it.
     fn poll_remote(&mut self) {
