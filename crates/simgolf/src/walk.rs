@@ -367,8 +367,8 @@ impl Stage {
         self.walk.eye_y = None;
         self.walk.follow = None;
         self.walk.bench.on = std::env::var_os("SG_WALK_BENCH").is_some();
-        if let Some(slot) = std::env::var("SG_WALK_FOLLOW").ok().and_then(|v| v.trim().parse::<usize>().ok()) {
-            self.walk_follow_start(Some(slot));
+        if let Ok(v) = std::env::var("SG_WALK_FOLLOW") {
+            self.walk_follow_start(v.trim().parse::<usize>().ok());
         }
     }
 
@@ -500,6 +500,7 @@ impl Stage {
         }
         if self.walk.follow.is_some() {
             self.walk_follow_tick(dt);
+            self.walk_shot_hold();
             return;
         }
         let Some(mut c) = self.walk.cam else { return };
@@ -542,6 +543,28 @@ impl Stage {
         self.walk.cam = Some(c);
     }
 
+    /// Test hook: with `SG_WALK_SHOT=S` a scripted still of a golfer followed waits (up to three minutes), the game
+    /// playing on as it would on the screen, until their ball has been in the air or rolling for S seconds.
+    fn walk_shot_hold(&mut self) {
+        let Some(wait) = std::env::var("SG_WALK_SHOT").ok().and_then(|v| v.parse::<f32>().ok()) else { return };
+        if self.png_out.is_none() || self.walk.time > 180.0 {
+            return;
+        }
+        // (the first second's frames are still catching up with the still's --time; and only a shot whose ball is seen
+        // to take off counts)
+        let app = &self.app;
+        if let Some(f) = self.walk.follow.as_mut() {
+            let airborne = app.walk_ball(f.slot).is_some_and(|b| b[1] > app.terrain.height_at(b[0], b[2]) + 1.0 * METRE);
+            if self.walk.time < 1.0 || f.ball.is_some_and(|t| t < 0.15 && !airborne) {
+                f.ball = None;
+            }
+        }
+        if self.walk.follow.is_some_and(|f| f.ball.is_none_or(|t| t < wait)) {
+            self.frames = 0;
+            self.app.time += self.walk.dt as f64;
+        }
+    }
+
     /// The camera behind the golfer followed, or after their ball.
     fn walk_follow_tick(&mut self, dt: f32) {
         use sg_core::golfer::flag;
@@ -558,12 +581,28 @@ impl Stage {
                 }
             }
         }
+        // test hook: SG_WALK_FOLLOW=next follows whoever hits next
+        if f.ball.is_none() && std::env::var("SG_WALK_FOLLOW").is_ok_and(|v| v == "next") {
+            let flying = |s: usize| {
+                app.club.g[s].flags & flag::BALL_MOVING != 0
+                    && app.walk_ball(s).is_some_and(|b| b[1] > app.terrain.height_at(b[0], b[2]) + 2.0 * METRE)
+            };
+            if let Some(&s) = list.iter().find(|&&s| flying(s)) {
+                if s != f.slot {
+                    (f.slot, f.last_ball) = (s, None);
+                }
+            }
+        }
         let gl = &app.club.g[f.slot];
         let (gx, gz) = app.units_to_world(gl.x, gl.y);
         let ground = app.terrain.height_at(gx, gz);
         let pin = app.club.holes.get(gl.hole as usize).filter(|h| h.par > 0).map(|h| app.terrain.tile_centre(h.pin.0, h.pin.1));
         let ball = app.walk_ball(f.slot);
         let moving = gl.flags & flag::BALL_MOVING != 0 && ball.is_some();
+        if ball.is_none() {
+            // holed, or picked up
+            f.still += dt;
+        }
         if let (Some(b), Some(lb)) = (ball, f.last_ball) {
             let (dx, dz) = (b[0] - lb[0], b[2] - lb[2]);
             let l = (dx * dx + dz * dz).sqrt();
@@ -620,7 +659,9 @@ impl Stage {
                 (p, at, 2.5)
             }
         };
-        let teleport = ((f.pos[0] - want_pos[0]).powi(2) + (f.pos[2] - want_pos[2]).powi(2)).sqrt() > 120.0 * METRE;
+        // a scripted still (its time run through at once) is taken from where the camera is going
+        let still = self.png_out.is_some() && std::env::var_os("SG_WALK_SHOT").is_none();
+        let teleport = still || ((f.pos[0] - want_pos[0]).powi(2) + (f.pos[2] - want_pos[2]).powi(2)).sqrt() > 120.0 * METRE;
         for k in 0..3 {
             if teleport {
                 f.pos[k] = want_pos[k];
@@ -640,6 +681,12 @@ impl Stage {
             yaw: heading((f.pos[0], f.pos[2]), (f.at[0], f.at[2])),
             pitch: dy.atan2(level).to_degrees().clamp(-MAX_PITCH, MAX_PITCH),
         };
+        if std::env::var_os("SG_WALK_DUMP").is_some() {
+            println!(
+                "walk follow: t {:.2} slot {} golfer {:.0},{:.0} hole {} flags {:x} ball {:?} moving {moving} phase {:?} cam {:.0},{:.0} at {:.0},{:.0}",
+                self.walk.time, f.slot, gx, gz, gl.hole, gl.flags, ball, f.ball, f.pos[0], f.pos[2], f.at[0], f.at[2]
+            );
+        }
         self.walk.cam = Some(cam);
         self.walk.eye_y = Some(f.pos[1]);
         self.walk.follow = Some(f);
@@ -834,6 +881,8 @@ impl App {
         for bt in self.path_batches.iter().chain(&self.mud_batches) {
             gpu.draw_mesh(g, Pipe::Blend, &bt.mesh, bt.tex, bt.tex, &paths);
         }
+        self.walk_far_trees(g, &mut wk.objs, ground);
+        self.walk_draw_far_trees(g, gpu, &wk.objs, &base);
         let sc = Scene { eye, yaw: cam.yaw, right: [rx, rz], planes, u: base, far, time, quarter: cam.quarter() };
         self.walk_props(g, gpu, &mut wk.objs, &sc, wk.dt);
         gpu.submit(g);
@@ -848,7 +897,8 @@ impl App {
         let white = rgba(1.0, 1.0, 1.0, 0.92);
         let shade = rgba(0.0, 0.0, 0.0, 0.42);
         // the compass: a strip of the headings round the one looked along
-        let (cx, cw) = ((l + rt) * 0.5, 260.0);
+        let cw = 260.0;
+        let cx = rt - 8.0 - cw * 0.5;
         let y = tp + 8.0;
         s.fill(g, cx - cw * 0.5, y, cw, 22.0, shade);
         for k in 0..24 {

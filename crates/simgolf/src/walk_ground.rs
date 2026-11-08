@@ -31,6 +31,105 @@ pub struct Part {
     pub size: f32,
 }
 
+/// The land beyond the map's edge: the edge's heights and wetness all round it (a point every half tile), from which the
+/// skirt is built and its height anywhere worked out again (the trees out there stand on it).
+pub struct Beyond {
+    hx: f32,
+    hz: f32,
+    edge_h: Vec<f32>,
+    wet: Vec<f32>,
+    mean_h: f32,
+    sea_level: f32,
+    theme: usize,
+}
+
+impl Beyond {
+    fn new(t: &Terrain, theme: usize, sea_level: f32) -> Beyond {
+        let (hx, hz) = (t.w as f32 * TILE_SIZE * 0.5, t.h as f32 * TILE_SIZE * 0.5);
+        let n = (4 * (t.w + t.h)) as usize;
+        let edge: Vec<(f32, f32)> = (0..n).map(|i| on_rect(hx, hz, i as f32 / n as f32)).collect();
+        let inside = |x: f32, z: f32| (x.clamp(-hx + 0.01, hx - 0.01), z.clamp(-hz + 0.01, hz - 0.01));
+        let tile_of = |x: f32, z: f32| (((x + hx) / TILE_SIZE).floor() as i32, ((z + hz) / TILE_SIZE).floor() as i32);
+        // whether the edge meets water there, smoothed along it
+        let raw_wet: Vec<f32> = edge
+            .iter()
+            .map(|&(x, z)| {
+                let (x, z) = inside(x, z);
+                let (tx, ty) = tile_of(x, z);
+                is_water(t, tx, ty) as i32 as f32
+            })
+            .collect();
+        let wet: Vec<f32> = (0..n).map(|i| (0..9).map(|k| raw_wet[(i + n + k - 4) % n]).sum::<f32>() / 9.0).collect();
+        let edge_h: Vec<f32> = edge.iter().map(|&(x, z)| t.height_at(inside(x, z).0, inside(x, z).1)).collect();
+        let mean_h = edge_h.iter().sum::<f32>() / n.max(1) as f32;
+        Beyond { hx, hz, edge_h, wet, mean_h, sea_level, theme }
+    }
+
+    fn n(&self) -> usize {
+        self.edge_h.len()
+    }
+
+    /// The point `d` out from the edge's point `i`: the land sinks into the sea where the edge is water; elsewhere it eases
+    /// to the edge's mean height, then rises into hills far off.
+    fn point(&self, i: usize, d: f32) -> [f32; 3] {
+        let n = self.n();
+        let i = i % n;
+        let (x, z) = on_rect(self.hx + d, self.hz + d, i as f32 / n as f32);
+        let fade = |a: f32, b: f32| ((d - a) / (b - a)).clamp(0.0, 1.0);
+        let s = |v: f32| v * v * (3.0 - 2.0 * v);
+        let land = self.edge_h[i]
+            + (self.mean_h - self.edge_h[i]) * s(fade(0.0, 1500.0))
+            + hill_height(self.theme, x, z) * s(fade(1200.0, 6000.0));
+        let sea = self.sea_level - 25.0 * s(fade(0.0, 60.0));
+        let k = self.wet[i];
+        let y = if d == 0.0 { self.edge_h[i] } else { land * (1.0 - k) + sea * k };
+        [x, y, z]
+    }
+
+    /// The skirt's height at a point beyond the edge, as its mesh has it (between its rings and points), and how wet the
+    /// edge is there; None inside the map or past the last ring.
+    pub fn at(&self, x: f32, z: f32) -> Option<(f32, f32)> {
+        let d = (x.abs() - self.hx).max(z.abs() - self.hz);
+        if d <= 0.0 {
+            return None;
+        }
+        let r = RINGS.iter().rposition(|&rd| rd <= d)?;
+        if r + 1 >= RINGS.len() {
+            return None;
+        }
+        let v = (d - RINGS[r]) / (RINGS[r + 1] - RINGS[r]);
+        let n = self.n();
+        let f = rect_param(self.hx + d, self.hz + d, x, z) * n as f32;
+        let i = f.floor() as usize % n;
+        let u = f - f.floor();
+        // the quad's two triangles, split as the mesh splits them (q0 q1 q2, q0 q2 q3)
+        let (q0, q1, q2, q3) = (
+            self.point(i, RINGS[r])[1],
+            self.point(i + 1, RINGS[r])[1],
+            self.point(i + 1, RINGS[r + 1])[1],
+            self.point(i, RINGS[r + 1])[1],
+        );
+        let y = if u >= v { q0 + u * (q1 - q0) + v * (q2 - q1) } else { q0 + v * (q3 - q0) + u * (q2 - q3) };
+        Some((y, self.wet[i].max(self.wet[(i + 1) % n])))
+    }
+}
+
+/// Where a point on the edge of a `hx` x `hz` rectangle is round it (0..1), as `on_rect` counts.
+pub fn rect_param(hx: f32, hz: f32, x: f32, z: f32) -> f32 {
+    let per = 4.0 * (hx + hz);
+    // the side the point is nearest
+    let d = if (z + hz).abs() <= (x - hx).abs().min((z - hz).abs()).min((x + hx).abs()) {
+        x + hx
+    } else if (x - hx).abs() <= (z - hz).abs().min((x + hx).abs()) {
+        2.0 * hx + (z + hz)
+    } else if (z - hz).abs() <= (x + hx).abs() {
+        2.0 * hx + 2.0 * hz + (hx - x)
+    } else {
+        4.0 * hx + 2.0 * hz + (hz - z)
+    };
+    (d / per).rem_euclid(1.0)
+}
+
 pub struct Ground {
     /// What the ground was built from (`ground_key`).
     pub key: u64,
@@ -42,8 +141,8 @@ pub struct Ground {
     pub sea: Option<Part>,
     /// The textures made for the walk (the skirt's, the de-featured copies), freed with it.
     own: Vec<TextureId>,
-    /// The water's height (the sea level of the map).
-    pub sea_level: f32,
+    /// The land beyond the edge.
+    pub beyond: Beyond,
 }
 
 impl Ground {
@@ -203,7 +302,7 @@ pub fn clean_image(img: &Rgba, wrap: bool) -> Rgba {
 const CLEAN: i32 = 4;
 
 /// Smooth noise over the plane (not repeating), 0..1.
-fn noise2(x: f32, y: f32, seed: u32) -> f32 {
+pub fn noise2(x: f32, y: f32, seed: u32) -> f32 {
     let h = |a: i32, b: i32| {
         let mut h = (a as u32).wrapping_mul(0x8da6_b343) ^ (b as u32).wrapping_mul(0xd816_3841) ^ seed.wrapping_mul(0xcb1a_b31f);
         h ^= h >> 13;
@@ -224,10 +323,10 @@ fn noise2(x: f32, y: f32, seed: u32) -> f32 {
 /// steep ridges in the Desert, high peaks in the Tropics.
 pub fn hill_height(theme: usize, x: f32, z: f32) -> f32 {
     let (scale, height, sharp) = match theme {
-        1 => (2600.0, 260.0, 1.0),
+        1 => (2600.0, 420.0, 1.0),
         2 => (3800.0, 1100.0, 2.2),
         3 => (3200.0, 1300.0, 1.8),
-        _ => (3000.0, 600.0, 1.0),
+        _ => (3000.0, 950.0, 1.0),
     };
     let mut v = 0.0;
     let mut amp = 1.0;
@@ -374,104 +473,75 @@ impl App {
         if sea_level == f32::MAX {
             sea_level = 0.0;
         }
-        let (skirt, sea) = self.walk_skirt(g, skirt_tex, sea_tex, sea_level, skirt_cat);
-        Ground { key, chunks, water, skirt, sea, own, sea_level }
+        let beyond = Beyond::new(&self.terrain, theme, sea_level);
+        let (skirt, sea) = walk_skirt(g, &beyond, skirt_tex, sea_tex, sea_level, skirt_cat);
+        Ground { key, chunks, water, skirt, sea, own, beyond }
     }
+}
 
-    /// The land beyond the map's edge (and the sea, where the course's edge is water).
-    #[allow(clippy::type_complexity)]
-    fn walk_skirt(
-        &self,
-        g: &mut Gfx,
-        skirt_tex: Option<(TextureId, TextureId, f32)>,
-        sea_tex: Option<(TextureId, TextureId, f32)>,
-        sea_level: f32,
-        skirt_cat: u8,
-    ) -> (Option<Part>, Option<Part>) {
-        let t = &self.terrain;
-        let (hx, hz) = (t.w as f32 * TILE_SIZE * 0.5, t.h as f32 * TILE_SIZE * 0.5);
-        // a point every half tile round the edge
-        let n = (4 * (t.w + t.h)) as usize;
-        let edge: Vec<(f32, f32)> = (0..n).map(|i| on_rect(hx, hz, i as f32 / n as f32)).collect();
-        let inside = |x: f32, z: f32| (x.clamp(-hx + 0.01, hx - 0.01), z.clamp(-hz + 0.01, hz - 0.01));
-        let tile_of = |x: f32, z: f32| (((x + hx) / TILE_SIZE).floor() as i32, ((z + hz) / TILE_SIZE).floor() as i32);
-        // the edge's height and whether it meets water there, smoothed along the edge
-        let raw_wet: Vec<f32> = edge
-            .iter()
-            .map(|&(x, z)| {
-                let (x, z) = inside(x, z);
-                let (tx, ty) = tile_of(x, z);
-                is_water(t, tx, ty) as i32 as f32
-            })
-            .collect();
-        let wet: Vec<f32> = (0..n).map(|i| (0..9).map(|k| raw_wet[(i + n + k - 4) % n]).sum::<f32>() / 9.0).collect();
-        let edge_h: Vec<f32> = edge.iter().map(|&(x, z)| t.height_at(inside(x, z).0, inside(x, z).1)).collect();
-        let mean_h = edge_h.iter().sum::<f32>() / n.max(1) as f32;
-        let theme = self.theme;
-        let point = |i: usize, d: f32| -> [f32; 3] {
-            let (x, z) = on_rect(hx + d, hz + d, i as f32 / n as f32);
-            let fade = |a: f32, b: f32| ((d - a) / (b - a)).clamp(0.0, 1.0);
-            let s = |v: f32| v * v * (3.0 - 2.0 * v);
-            // the land sinks into the sea where the edge is water; elsewhere it eases to the edge's mean height, then rises
-            // into hills far off
-            let land = edge_h[i] + (mean_h - edge_h[i]) * s(fade(0.0, 1500.0)) + hill_height(theme, x, z) * s(fade(1200.0, 6000.0));
-            let sea = sea_level - 25.0 * s(fade(0.0, 60.0));
-            let k = wet[i];
-            let y = if d == 0.0 { edge_h[i] } else { land * (1.0 - k) + sea * k };
-            [x, y, z]
-        };
-        let rings = RINGS.len();
-        let pts: Vec<[f32; 3]> = (0..rings).flat_map(|r| (0..n).map(move |i| (r, i))).map(|(r, i)| point(i, RINGS[r])).collect();
-        let at = |r: usize, i: usize| pts[r * n + i % n];
-        // normals from the neighbours along and across the rings
-        let normal = |r: usize, i: usize| -> [f32; 3] {
-            let a = at(r, i + 1);
-            let b = at(r, i + n - 1);
-            let c = at((r + 1).min(rings - 1), i);
-            let d = at(r.saturating_sub(1), i);
-            let u = [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-            let v = [c[0] - d[0], c[1] - d[1], c[2] - d[2]];
-            let mut nn = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
-            if nn[1] < 0.0 {
-                nn = nn.map(|q| -q);
-            }
-            let l = (nn[0] * nn[0] + nn[1] * nn[1] + nn[2] * nn[2]).sqrt().max(1e-6);
-            nn.map(|q| q / l)
-        };
-        let vert = |r: usize, i: usize, c: u8| {
-            let p = at(r, i);
-            let mut v = Vert::new(p[0], p[1], p[2], p[0] / TILE_SIZE, p[2] / TILE_SIZE);
-            v.normal = normal(r, i);
-            v.color = cat_colour(c);
-            v
-        };
-        let mut land = Vec::new();
-        let mut sea = Vec::new();
-        for r in 0..rings - 1 {
-            for i in 0..n {
-                let quad = [vert(r, i, skirt_cat), vert(r, i + 1, skirt_cat), vert(r + 1, i + 1, skirt_cat), vert(r + 1, i, skirt_cat)];
-                land.extend_from_slice(&[quad[0], quad[1], quad[2], quad[0], quad[2], quad[3]]);
-                if wet[i] > 0.0 || wet[(i + 1) % n] > 0.0 {
-                    // the sea's surface over this strip, a little past the land's edge
-                    let s = |rr: usize, ii: usize| {
-                        let p = at(rr, ii);
-                        let mut v = Vert::new(p[0], sea_level, p[2], p[0] / TILE_SIZE, p[2] / TILE_SIZE);
-                        v.color = [cat::WATER as f32 / 16.0, 1.0, 1.0, 1.0];
-                        v
-                    };
-                    let q = [s(r, i), s(r, i + 1), s(r + 1, i + 1), s(r + 1, i)];
-                    sea.extend_from_slice(&[q[0], q[1], q[2], q[0], q[2], q[3]]);
-                }
+/// The land beyond the map's edge (and the sea, where the course's edge is water).
+fn walk_skirt(
+    g: &mut Gfx,
+    beyond: &Beyond,
+    skirt_tex: Option<(TextureId, TextureId, f32)>,
+    sea_tex: Option<(TextureId, TextureId, f32)>,
+    sea_level: f32,
+    skirt_cat: u8,
+) -> (Option<Part>, Option<Part>) {
+    let n = beyond.n();
+    let wet = &beyond.wet;
+    let point = |i: usize, d: f32| beyond.point(i, d);
+    let rings = RINGS.len();
+    let pts: Vec<[f32; 3]> = (0..rings).flat_map(|r| (0..n).map(move |i| (r, i))).map(|(r, i)| point(i, RINGS[r])).collect();
+    let at = |r: usize, i: usize| pts[r * n + i % n];
+    // normals from the neighbours along and across the rings
+    let normal = |r: usize, i: usize| -> [f32; 3] {
+        let a = at(r, i + 1);
+        let b = at(r, i + n - 1);
+        let c = at((r + 1).min(rings - 1), i);
+        let d = at(r.saturating_sub(1), i);
+        let u = [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+        let v = [c[0] - d[0], c[1] - d[1], c[2] - d[2]];
+        let mut nn = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+        if nn[1] < 0.0 {
+            nn = nn.map(|q| -q);
+        }
+        let l = (nn[0] * nn[0] + nn[1] * nn[1] + nn[2] * nn[2]).sqrt().max(1e-6);
+        nn.map(|q| q / l)
+    };
+    let vert = |r: usize, i: usize, c: u8| {
+        let p = at(r, i);
+        let mut v = Vert::new(p[0], p[1], p[2], p[0] / TILE_SIZE, p[2] / TILE_SIZE);
+        v.normal = normal(r, i);
+        v.color = cat_colour(c);
+        v
+    };
+    let mut land = Vec::new();
+    let mut sea = Vec::new();
+    for r in 0..rings - 1 {
+        for i in 0..n {
+            let quad = [vert(r, i, skirt_cat), vert(r, i + 1, skirt_cat), vert(r + 1, i + 1, skirt_cat), vert(r + 1, i, skirt_cat)];
+            land.extend_from_slice(&[quad[0], quad[1], quad[2], quad[0], quad[2], quad[3]]);
+            if wet[i] > 0.0 || wet[(i + 1) % n] > 0.0 {
+                // the sea's surface over this strip, a little past the land's edge
+                let s = |rr: usize, ii: usize| {
+                    let p = at(rr, ii);
+                    let mut v = Vert::new(p[0], sea_level, p[2], p[0] / TILE_SIZE, p[2] / TILE_SIZE);
+                    v.color = [cat::WATER as f32 / 16.0, 1.0, 1.0, 1.0];
+                    v
+                };
+                let q = [s(r, i), s(r, i + 1), s(r + 1, i + 1), s(r + 1, i)];
+                sea.extend_from_slice(&[q[0], q[1], q[2], q[0], q[2], q[3]]);
             }
         }
-        let (white, one) = (g.white, (g.white, g.white, 1.0));
-        let (st, sc, ss) = skirt_tex.unwrap_or(one);
-        let skirt = Some(Part { tex: st, clean: sc, mesh: g.mesh(&land), size: ss });
-        let (wt, wc, ws) = sea_tex.unwrap_or(one);
-        let sea = (!sea.is_empty()).then(|| Part { tex: wt, clean: wc, mesh: g.mesh(&sea), size: ws });
-        let _ = white;
-        (skirt, sea)
     }
+    let (white, one) = (g.white, (g.white, g.white, 1.0));
+    let (st, sc, ss) = skirt_tex.unwrap_or(one);
+    let skirt = Some(Part { tex: st, clean: sc, mesh: g.mesh(&land), size: ss });
+    let (wt, wc, ws) = sea_tex.unwrap_or(one);
+    let sea = (!sea.is_empty()).then(|| Part { tex: wt, clean: wc, mesh: g.mesh(&sea), size: ws });
+    let _ = white;
+    (skirt, sea)
 }
 
 #[cfg(test)]
@@ -518,6 +588,17 @@ mod tests {
         // a big picture is boxed down to 64 texels first
         let big = Rgba::new(256, 256);
         assert_eq!(clean_image(&big, true).w, 64);
+    }
+
+    #[test]
+    fn a_point_s_place_round_the_rectangle_comes_back() {
+        for i in 0..200 {
+            let s = i as f32 / 200.0;
+            let (x, z) = on_rect(300.0, 200.0, s);
+            let back = rect_param(300.0, 200.0, x, z);
+            let d = (back - s).abs().min(1.0 - (back - s).abs());
+            assert!(d < 1e-4, "{s} -> {back}");
+        }
     }
 
     #[test]

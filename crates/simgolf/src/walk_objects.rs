@@ -40,7 +40,7 @@ const SMALL_SCALE: f32 = 0.4;
 /// A small object's size against the art's, when no solid fits it (a ball washer, benches).
 const SMALL_OBJECT: f32 = 0.5;
 /// The least fit (intersection over union) for which an object's solid is used rather than its card.
-const MIN_FIT: f32 = 0.72;
+const MIN_FIT: f32 = 0.66;
 
 /// Something that stops a walk (walk.rs `Cam::step`): a building's footprint or a tree's trunk.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -127,33 +127,52 @@ impl Mask {
     }
 }
 
-/// A solid for an object: a box `hx` x `hz` (half sizes) round (cx, cz) from the ground up to `wall`, under a roof
-/// `roof` higher: flat (0), ridged along X (1) or Z (2) with gable ends, pointed (3), or hipped (4: sloping on all four
-/// sides to a ridge along the longer side). `iou` is how well its outline matched the art's.
+/// A solid for an object: on a footprint `hx` x `hz` (half sizes) round (cx, cz), a platform `base` high (none at 0), on
+/// it a building `tier` times the footprint's size with its walls up to `wall` over the ground, under a roof `roof` higher:
+/// flat (0), ridged along X (1) or Z (2) with gable ends, pointed (3), or hipped (4: sloping on all four sides to a ridge
+/// along the longer side). The original art draws most buildings on a plinth, a deck or a terrace with the building on it.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Fit {
     pub cx: f32,
     pub cz: f32,
     pub hx: f32,
     pub hz: f32,
+    pub base: f32,
+    pub tier: f32,
     pub wall: f32,
     pub roof: f32,
     pub kind: u8,
     pub iou: f32,
 }
 
+impl Default for Fit {
+    fn default() -> Fit {
+        Fit { cx: 0.0, cz: 0.0, hx: 1.0, hz: 1.0, base: 0.0, tier: 1.0, wall: 1.0, roof: 0.0, kind: 0, iou: 0.0 }
+    }
+}
+
 impl Fit {
+    /// The building's half sizes (on the platform).
+    pub fn building(&self) -> (f32, f32) {
+        (self.hx * self.tier, self.hz * self.tier)
+    }
+
     /// The solid's corners and roof points (relative to the ground point).
     pub fn points(&self) -> Vec<[f32; 3]> {
-        let (cx, cz, hx, hz, w, top) = (self.cx, self.cz, self.hx, self.hz, self.wall, self.wall + self.roof);
-        let mut p = Vec::with_capacity(12);
+        let (cx, cz, w, top) = (self.cx, self.cz, self.wall, self.wall + self.roof);
+        let (bx, bz) = self.building();
+        let mut p = Vec::with_capacity(20);
         for (sx, sz) in [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)] {
-            p.push([cx + sx * hx, 0.0, cz + sz * hz]);
-            p.push([cx + sx * hx, w, cz + sz * hz]);
+            if self.base > 0.0 {
+                p.push([cx + sx * self.hx, 0.0, cz + sz * self.hz]);
+                p.push([cx + sx * self.hx, self.base, cz + sz * self.hz]);
+            }
+            p.push([cx + sx * bx, self.base, cz + sz * bz]);
+            p.push([cx + sx * bx, w, cz + sz * bz]);
         }
         match self.kind {
-            1 => p.extend([[cx - hx, top, cz], [cx + hx, top, cz]]),
-            2 => p.extend([[cx, top, cz - hz], [cx, top, cz + hz]]),
+            1 => p.extend([[cx - bx, top, cz], [cx + bx, top, cz]]),
+            2 => p.extend([[cx, top, cz - bz], [cx, top, cz + bz]]),
             3 => p.push([cx, top, cz]),
             4 => {
                 let (a, b) = self.hip_ridge();
@@ -164,30 +183,49 @@ impl Fit {
         p
     }
 
-    /// A hipped roof's ridge ends: along the longer side, short of the ends by the shorter side's half.
+    /// A hipped roof's ridge ends: along the building's longer side, short of the ends by the shorter side's half.
     fn hip_ridge(&self) -> ([f32; 3], [f32; 3]) {
         let top = self.wall + self.roof;
-        if self.hx >= self.hz {
-            let d = self.hx - self.hz;
+        let (bx, bz) = self.building();
+        if bx >= bz {
+            let d = bx - bz;
             ([self.cx - d, top, self.cz], [self.cx + d, top, self.cz])
         } else {
-            let d = self.hz - self.hx;
+            let d = bz - bx;
             ([self.cx, top, self.cz - d], [self.cx, top, self.cz + d])
         }
+    }
+
+    /// The four walls of a box from `b` up to `w`, half sizes `hx`, `hz` round (cx, cz): north (-z), east, south, west.
+    fn walls(cx: f32, cz: f32, hx: f32, hz: f32, b: f32, w: f32) -> [Vec<[f32; 3]>; 4] {
+        let (x0, x1, z0, z1) = (cx - hx, cx + hx, cz - hz, cz + hz);
+        [
+            vec![[x1, b, z0], [x0, b, z0], [x0, w, z0], [x1, w, z0]],
+            vec![[x1, b, z1], [x1, b, z0], [x1, w, z0], [x1, w, z1]],
+            vec![[x0, b, z1], [x1, b, z1], [x1, w, z1], [x0, w, z1]],
+            vec![[x0, b, z0], [x0, b, z1], [x0, w, z1], [x0, w, z0]],
+        ]
     }
 
     /// The solid's faces: each a convex polygon (counter clockwise seen from outside) and its outward normal. The walls
     /// reach a little below the ground, so a slope shows no gap under them.
     pub fn faces(&self) -> Vec<(Vec<[f32; 3]>, [f32; 3])> {
-        let (cx, cz, hx, hz, w, top) = (self.cx, self.cz, self.hx, self.hz, self.wall, self.wall + self.roof);
-        let b = -0.6 * M;
-        let (x0, x1, z0, z1) = (cx - hx, cx + hx, cz - hz, cz + hz);
+        let (cx, cz, w, top) = (self.cx, self.cz, self.wall, self.wall + self.roof);
+        let below = -0.6 * M;
+        let normals = [[0.0, 0.0, -1.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [-1.0, 0.0, 0.0]];
         let mut f: Vec<(Vec<[f32; 3]>, [f32; 3])> = Vec::new();
-        // walls: north (-z), east (+x), south (+z), west (-x); a ridge's ends carry its gable
-        let mut north = vec![[x1, b, z0], [x0, b, z0], [x0, w, z0], [x1, w, z0]];
-        let mut south = vec![[x0, b, z1], [x1, b, z1], [x1, w, z1], [x0, w, z1]];
-        let mut east = vec![[x1, b, z1], [x1, b, z0], [x1, w, z0], [x1, w, z1]];
-        let mut west = vec![[x0, b, z0], [x0, b, z1], [x0, w, z1], [x0, w, z0]];
+        if self.base > 0.0 {
+            for (wall, n) in Self::walls(cx, cz, self.hx, self.hz, below, self.base).into_iter().zip(normals) {
+                f.push((wall, n));
+            }
+            let (x0, x1, z0, z1) = (cx - self.hx, cx + self.hx, cz - self.hz, cz + self.hz);
+            f.push((vec![[x0, self.base, z1], [x1, self.base, z1], [x1, self.base, z0], [x0, self.base, z0]], [0.0, 1.0, 0.0]));
+        }
+        let (bx, bz) = self.building();
+        let (x0, x1, z0, z1) = (cx - bx, cx + bx, cz - bz, cz + bz);
+        let foot = if self.base > 0.0 { self.base - 0.05 * M } else { below };
+        let [mut north, mut east, mut south, mut west] = Self::walls(cx, cz, bx, bz, foot, w);
+        // a ridge's ends carry its gable
         match self.kind {
             1 => {
                 east.insert(3, [x1, top, cz]);
@@ -199,44 +237,44 @@ impl Fit {
             }
             _ => {}
         }
-        f.push((north, [0.0, 0.0, -1.0]));
-        f.push((east, [1.0, 0.0, 0.0]));
-        f.push((south, [0.0, 0.0, 1.0]));
-        f.push((west, [-1.0, 0.0, 0.0]));
+        for (wall, n) in [north, east, south, west].into_iter().zip(normals) {
+            f.push((wall, n));
+        }
         let norm = |v: [f32; 3]| {
             let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt().max(1e-6);
             [v[0] / l, v[1] / l, v[2] / l]
         };
+        let r = self.roof;
         match self.kind {
             1 => {
-                f.push((vec![[x0, w, z0], [x0, top, cz], [x1, top, cz], [x1, w, z0]], norm([0.0, hz, -self.roof])));
-                f.push((vec![[x1, w, z1], [x1, top, cz], [x0, top, cz], [x0, w, z1]], norm([0.0, hz, self.roof])));
+                f.push((vec![[x0, w, z0], [x0, top, cz], [x1, top, cz], [x1, w, z0]], norm([0.0, bz, -r])));
+                f.push((vec![[x1, w, z1], [x1, top, cz], [x0, top, cz], [x0, w, z1]], norm([0.0, bz, r])));
             }
             2 => {
-                f.push((vec![[x0, w, z1], [cx, top, z1], [cx, top, z0], [x0, w, z0]], norm([-self.roof, hx, 0.0])));
-                f.push((vec![[x1, w, z0], [cx, top, z0], [cx, top, z1], [x1, w, z1]], norm([self.roof, hx, 0.0])));
+                f.push((vec![[x0, w, z1], [cx, top, z1], [cx, top, z0], [x0, w, z0]], norm([-r, bx, 0.0])));
+                f.push((vec![[x1, w, z0], [cx, top, z0], [cx, top, z1], [x1, w, z1]], norm([r, bx, 0.0])));
             }
             3 => {
                 let a = [cx, top, cz];
-                f.push((vec![[x1, w, z0], [x0, w, z0], a], norm([0.0, hz, -self.roof])));
-                f.push((vec![[x1, w, z1], [x1, w, z0], a], norm([self.roof, hx, 0.0])));
-                f.push((vec![[x0, w, z1], [x1, w, z1], a], norm([0.0, hz, self.roof])));
-                f.push((vec![[x0, w, z0], [x0, w, z1], a], norm([-self.roof, hx, 0.0])));
+                f.push((vec![[x1, w, z0], [x0, w, z0], a], norm([0.0, bz, -r])));
+                f.push((vec![[x1, w, z1], [x1, w, z0], a], norm([r, bx, 0.0])));
+                f.push((vec![[x0, w, z1], [x1, w, z1], a], norm([0.0, bz, r])));
+                f.push((vec![[x0, w, z0], [x0, w, z1], a], norm([-r, bx, 0.0])));
             }
             4 => {
                 // the slopes all rise at the shorter side's pitch
                 let (a, b) = self.hip_ridge();
-                let m = hx.min(hz);
-                if hx >= hz {
-                    f.push((vec![[x1, w, z0], [x0, w, z0], a, b], norm([0.0, m, -self.roof])));
-                    f.push((vec![[x0, w, z1], [x1, w, z1], b, a], norm([0.0, m, self.roof])));
-                    f.push((vec![[x1, w, z1], [x1, w, z0], b], norm([self.roof, m, 0.0])));
-                    f.push((vec![[x0, w, z0], [x0, w, z1], a], norm([-self.roof, m, 0.0])));
+                let m = bx.min(bz);
+                if bx >= bz {
+                    f.push((vec![[x1, w, z0], [x0, w, z0], a, b], norm([0.0, m, -r])));
+                    f.push((vec![[x0, w, z1], [x1, w, z1], b, a], norm([0.0, m, r])));
+                    f.push((vec![[x1, w, z1], [x1, w, z0], b], norm([r, m, 0.0])));
+                    f.push((vec![[x0, w, z0], [x0, w, z1], a], norm([-r, m, 0.0])));
                 } else {
-                    f.push((vec![[x0, w, z0], [x0, w, z1], b, a], norm([-self.roof, m, 0.0])));
-                    f.push((vec![[x1, w, z1], [x1, w, z0], a, b], norm([self.roof, m, 0.0])));
-                    f.push((vec![[x1, w, z0], [x0, w, z0], a], norm([0.0, m, -self.roof])));
-                    f.push((vec![[x0, w, z1], [x1, w, z1], b], norm([0.0, m, self.roof])));
+                    f.push((vec![[x0, w, z0], [x0, w, z1], b, a], norm([-r, m, 0.0])));
+                    f.push((vec![[x1, w, z1], [x1, w, z0], a, b], norm([r, m, 0.0])));
+                    f.push((vec![[x1, w, z0], [x0, w, z0], a], norm([0.0, m, -r])));
+                    f.push((vec![[x0, w, z1], [x1, w, z1], b], norm([0.0, m, r])));
                 }
             }
             _ => f.push((vec![[x0, w, z1], [x1, w, z1], [x1, w, z0], [x0, w, z0]], [0.0, 1.0, 0.0])),
@@ -318,7 +356,7 @@ pub fn score(fit: &Fit, mask: &Mask, iso: &Iso, s: f32, ax: f32, ay: f32) -> f32
 /// The solid that best matches a sprite's outlines (one per view: its mask and the overhead camera that drew it; `s` world
 /// units a pixel, the sprite's anchor at the ground point), its footprint at most `half` either way from the ground point
 /// when the object's size is known (a building's tiles). Fitting every view at once keeps the art projected from each one
-/// in line with the solid's faces. A coarse search over its sizes and roofs, then a finer one round the best.
+/// in line with the solid's faces. A coarse search over its sizes, platforms and roofs, then a finer one round the best.
 pub fn fit_proxy(views: &[(&Mask, Iso)], s: f32, ax: f32, ay: f32, half: Option<f32>) -> Option<Fit> {
     if views.is_empty() || views.iter().any(|(m, _)| m.total < 30) {
         return None;
@@ -335,30 +373,43 @@ pub fn fit_proxy(views: &[(&Mask, Iso)], s: f32, ax: f32, ay: f32, half: Option<
     }
     let hmax = half.map(|h| h.min(wide * 1.2)).unwrap_or(wide).max(2.0);
     // a roof that stays inside the outline cannot be told from a flat top (the art is seen from well above), so of fits
-    // that match alike the lower roof wins
-    let score_all =
-        |f: &Fit| views.iter().map(|(m, iso)| score(f, m, iso, s, ax, ay)).sum::<f32>() / views.len() as f32 - 0.02 * f.roof / tall;
-    let mut best = Fit { cx: 0.0, cz: 0.0, hx: hmax * 0.5, hz: hmax * 0.5, wall: tall * 0.5, roof: 0.0, kind: 0, iou: 0.0 };
+    // that match alike the lower roof wins; and as a narrow tall building and a wide low one look alike from there, the
+    // wider lower one (the art's roof then lands on its roof, not up its walls)
+    let score_all = |f: &Fit| {
+        views.iter().map(|(m, iso)| score(f, m, iso, s, ax, ay)).sum::<f32>() / views.len() as f32
+            - 0.02 * f.roof / tall
+            - 0.025 * (f.wall - f.base) / tall
+            - 0.015 * (1.0 - f.tier)
+    };
+    let mut best = Fit { hx: hmax * 0.5, hz: hmax * 0.5, wall: tall * 0.5, ..Fit::default() };
     let try_fit = |f: Fit, best: &mut Fit| {
         let v = score_all(&f);
         if v > best.iou {
             *best = Fit { iou: v, ..f };
         }
     };
-    for i in 0..8 {
-        let hx = hmax * (0.3 + 0.1 * i as f32);
-        for j in 0..8 {
-            let hz = hmax * (0.3 + 0.1 * j as f32);
-            for k in 1..=12 {
-                let wall = tall * k as f32 / 12.0;
-                try_fit(Fit { cx: 0.0, cz: 0.0, hx, hz, wall, roof: 0.0, kind: 0, iou: 0.0 }, &mut best);
-                for kind in 1..=4u8 {
-                    for rr in 1..=5 {
-                        let roof = tall * rr as f32 * 0.14;
-                        if wall + roof > tall * 1.15 {
-                            break;
+    // (platform height as a share of the outline's height, the building's size on it)
+    const PLATFORMS: [(f32, f32); 8] =
+        [(0.0, 1.0), (0.05, 0.8), (0.05, 0.62), (0.1, 0.8), (0.1, 0.62), (0.1, 0.48), (0.18, 0.62), (0.18, 0.48)];
+    for i in 0..7 {
+        let hx = hmax * (0.35 + 0.1 * i as f32);
+        for j in 0..7 {
+            let hz = hmax * (0.35 + 0.1 * j as f32);
+            for (bf, tier) in PLATFORMS {
+                let base = tall * bf;
+                for k in 1..=10 {
+                    let wall = base + (tall - base) * k as f32 / 10.0;
+                    let f0 = Fit { hx, hz, base, tier, wall, ..Fit::default() };
+                    try_fit(f0, &mut best);
+                    for kind in 1..=4u8 {
+                        for rr in 1..=5 {
+                            let roof = tall * rr as f32 * 0.14;
+                            let (bx, bz) = f0.building();
+                            if wall + roof > tall * 1.15 || roof > pitch_cap(kind, bx, bz) {
+                                break;
+                            }
+                            try_fit(Fit { roof, kind, ..f0 }, &mut best);
                         }
-                        try_fit(Fit { cx: 0.0, cz: 0.0, hx, hz, wall, roof, kind, iou: 0.0 }, &mut best);
                     }
                 }
             }
@@ -378,13 +429,19 @@ pub fn fit_proxy(views: &[(&Mask, Iso)], s: f32, ax: f32, ay: f32, half: Option<
                 Fit { wall: b.wall * (1.0 - step), ..b },
                 Fit { roof: b.roof * (1.0 + step), ..b },
                 Fit { roof: b.roof * (1.0 - step), ..b },
+                Fit { base: b.base * (1.0 + step), ..b },
+                Fit { base: b.base * (1.0 - step), ..b },
+                Fit { tier: (b.tier * (1.0 + step)).min(1.0), ..b },
+                Fit { tier: b.tier * (1.0 - step), ..b },
                 Fit { cx: b.cx + hmax * step * 0.5, ..b },
                 Fit { cx: b.cx - hmax * step * 0.5, ..b },
                 Fit { cz: b.cz + hmax * step * 0.5, ..b },
                 Fit { cz: b.cz - hmax * step * 0.5, ..b },
             ];
             for f in tries {
-                if half.is_none_or(|h| f.cx.abs() + f.hx <= h * 1.05 && f.cz.abs() + f.hz <= h * 1.05) {
+                let (bx, bz) = f.building();
+                let ok = f.wall > f.base && f.roof <= pitch_cap(f.kind, bx, bz);
+                if ok && half.is_none_or(|h| f.cx.abs() + f.hx <= h * 1.05 && f.cz.abs() + f.hz <= h * 1.05) {
                     try_fit(f, &mut best);
                 }
             }
@@ -396,6 +453,15 @@ pub fn fit_proxy(views: &[(&Mask, Iso)], s: f32, ax: f32, ay: f32, half: Option<
     (iou > 0.0).then_some(Fit { iou, ..best })
 }
 
+/// The highest roof of a kind on a building: a 45 degree pitch up from the shorter side's half (an outline that seems to
+/// want a steeper one is a building on a platform, or tapering).
+pub fn pitch_cap(kind: u8, bx: f32, bz: f32) -> f32 {
+    match kind {
+        1..=4 => bx.min(bz),
+        _ => f32::MAX,
+    }
+}
+
 /// A building's roof, raised: of the hipped and gabled roofs that stay inside every view's outline (the fit losing at most
 /// half a percent), the highest, at most a 40 degree pitch. The outline cannot show a roof the art's angle hides, and the
 /// art paints its roof in that place: on slopes it shows from the ground, where on a flat top it would be lost.
@@ -405,11 +471,12 @@ pub fn raise_roof(fit: Fit, views: &[(&Mask, Iso)], s: f32, ax: f32, ay: f32) ->
     }
     let score_all = |f: &Fit| views.iter().map(|(m, iso)| score(f, m, iso, s, ax, ay)).sum::<f32>() / views.len() as f32;
     let base = score_all(&fit);
-    let cap = fit.hx.min(fit.hz) * 0.84;
+    let (bx, bz) = fit.building();
+    let cap = bx.min(bz) * 0.84;
     let mut best = fit;
     for kind in [4u8, 1, 2] {
         // the gable runs along the longer side
-        if (kind == 1 && fit.hx < fit.hz) || (kind == 2 && fit.hz < fit.hx) {
+        if (kind == 1 && bx < bz) || (kind == 2 && bz < bx) {
             continue;
         }
         let (mut lo, mut hi) = (0.0f32, cap);
@@ -525,6 +592,10 @@ pub struct Objects {
     person_scale: HashMap<usize, f32>,
     /// A moving prop's shown place (x, z) by its identity, eased between the simulation's ticks.
     eased: HashMap<u32, (f32, f32)>,
+    /// The trees beyond the property (built with the ground, `walk_far_trees`).
+    far: Option<(u64, Vec<(TextureId, crate::gfx::Mesh)>)>,
+    /// The balls in the air: their last places, by golfer, for their trails.
+    trails: HashMap<usize, Vec<[f32; 3]>>,
     /// Sprites the walk's start reported (SG_WALK_DUMP).
     dumped: bool,
     /// The things that stop a walk, from the last frame drawn.
@@ -536,6 +607,11 @@ pub struct Objects {
 
 impl Objects {
     pub fn free(&mut self, g: &mut Gfx) {
+        if let Some((_, parts)) = self.far.take() {
+            for (_, m) in parts {
+                g.delete_mesh(m);
+            }
+        }
         for t in self.tex.drain().map(|e| e.1).chain(self.people.drain().map(|e| e.1)) {
             g.ctx.delete_texture(t);
         }
@@ -624,6 +700,36 @@ fn pole_tris(a: [f32; 3], h: f32, r: f32, col: [f32; 4], out: &mut Vec<Vert>) {
     }
 }
 
+/// A ball's trail: a thin band through its last places turned to the eye, fading out behind it.
+fn ribbon(pts: &[[f32; 3]], eye: [f32; 3], out: &mut Vec<Vert>) {
+    if pts.len() < 2 {
+        return;
+    }
+    let n = pts.len();
+    let side = |k: usize| {
+        let (a, b) = (pts[k.saturating_sub(1)], pts[(k + 1).min(n - 1)]);
+        let d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+        let p = pts[k];
+        let v = [eye[0] - p[0], eye[1] - p[1], eye[2] - p[2]];
+        let c = [d[1] * v[2] - d[2] * v[1], d[2] * v[0] - d[0] * v[2], d[0] * v[1] - d[1] * v[0]];
+        let l = dot(c, c).sqrt().max(1e-6);
+        let w = (0.03 * M).max(dot(v, v).sqrt() * 0.0011);
+        c.map(|q| q / l * w)
+    };
+    for k in 0..n - 1 {
+        let (s0, s1) = (side(k), side(k + 1));
+        let (a0, a1) = (k as f32 / n as f32 * 0.7, (k + 1) as f32 / n as f32 * 0.7);
+        let v = |p: [f32; 3], s: [f32; 3], sign: f32, a: f32| {
+            let mut v = Vert::new(p[0] + s[0] * sign, p[1] + s[1] * sign, p[2] + s[2] * sign, 0.0, 0.0).col([1.0, 1.0, 1.0, a]);
+            v.normal = [0.0; 3];
+            v
+        };
+        let (p, q) = (pts[k], pts[k + 1]);
+        let (x0, x1, y0, y1) = (v(p, s0, -1.0, a0), v(p, s0, 1.0, a0), v(q, s1, -1.0, a1), v(q, s1, 1.0, a1));
+        out.extend([x0, y0, y1, x0, y1, x1]);
+    }
+}
+
 /// A soft round shadow on the ground at (x, z), `r` across.
 fn blob(app: &App, x: f32, z: f32, r: f32, alpha: f32, out: &mut Vec<Vert>) {
     let n = 2;
@@ -703,6 +809,12 @@ impl App {
         });
         if std::env::var_os("SG_WALK_DUMP").is_some() {
             println!("walk fit: sprite {si} frames {frames:?} ({}x{}) half {half:?}: {fit:?}", sp.w, sp.h);
+            // and the frames, for looking at what was fitted
+            if let Some(dir) = std::env::var_os("SG_WALK_DUMP_DIR") {
+                for (q, &i) in frames.iter().enumerate() {
+                    sg_core::png::write_png(std::path::Path::new(&dir).join(format!("sprite{si}-q{q}.png")), &sp.frame(i));
+                }
+            }
         }
         o.fits.insert(key, fit);
         fit
@@ -850,7 +962,7 @@ impl App {
         let up = [0.0, 1.0, 0.0];
         let right = [sc.right[0], 0.0, sc.right[1]];
         let cos_p = art_pitch().to_radians().cos();
-        let (mut cut, mut over, mut soft, mut decals) = (Lists::default(), Lists::default(), Lists::default(), Lists::default());
+        let (mut cut, mut over, mut decals) = (Lists::default(), Lists::default(), Lists::default());
         let (mut blobs, mut solids) = (Vec::new(), Vec::new());
         let mut proxies: Vec<((f32, f32), Fit)> = Vec::new();
         let mut eased: HashMap<u32, (f32, f32)> = HashMap::new();
@@ -971,9 +1083,6 @@ impl App {
                         let t = self.walk_tex(g, o, si, i);
                         let rect = (-ax * k, (w - ax) * k, ay * k, -(h - ay) * k);
                         card(cut.get(t), anchor, iq.r, iq.u, rect, false, 0.0, white);
-                        if level == Detail::Full {
-                            card(soft.get(t), anchor, iq.r, iq.u, rect, false, 0.0, white);
-                        }
                         if dist < near_obstacle {
                             let r = half.map(|h| h * 0.7).unwrap_or(((w * 0.25) * s).min(3.0 * M));
                             o.obstacles.push(Obstacle::Circle { x, z, r });
@@ -997,9 +1106,6 @@ impl App {
                 let sway = ((sc.time * (0.9 + ph * 0.5) + ph * 6.28).sin() * 0.12 + (sc.time * 2.3 + ph * 3.0).sin() * 0.04) * M;
                 let rect = (-ax * k, (w - ax) * k, ay * k * v, -(h - ay) * k * v);
                 card(cut.get(t), anchor, right, up, rect, false, sway, white);
-                if level == Detail::Full {
-                    card(soft.get(t), anchor, right, up, rect, false, sway, white);
-                }
                 if level != Detail::Far {
                     if let Some(sh) = p.shadow {
                         let i = self.sprites[sh].s.frame_index(self.prop_view(&p, sh, 0), p.frame);
@@ -1041,9 +1147,6 @@ impl App {
                 let flip = p.mirror && views < 8;
                 let rect = (-ax * sh, (w - ax) * sh, ay * sv, -(h - ay) * sv);
                 card(cut.get(t), [x, ground + lift, z], right, up, rect, flip, 0.0, white);
-                if level == Detail::Full {
-                    card(soft.get(t), [x, ground + lift, z], right, up, rect, flip, 0.0, white);
-                }
                 blob(self, x, z, 0.5 * M, 0.38, &mut blobs);
                 continue;
             }
@@ -1060,12 +1163,10 @@ impl App {
             let a = [x, ground + p.lift * SMALL_SCALE, z];
             let rect = (-ax * k, (w - ax) * k, ay * k, -(h - ay) * k);
             card(cut.get(t), a, iq.r, iq.u, rect, p.mirror, 0.0, white);
-            if level == Detail::Full {
-                card(soft.get(t), a, iq.r, iq.u, rect, p.mirror, 0.0, white);
-            }
         }
         o.eased = eased;
-        self.walk_balls(sc, &mut solids, &mut blobs);
+        let mut trails = Vec::new();
+        self.walk_balls(sc, &mut o.trails, &mut solids, &mut blobs, &mut trails);
         let mut u = sc.u;
         u.pull[3] = 0.0012;
         decals.draw(gpu, Pipe::Blend, &u.with_mode(mode::DECAL));
@@ -1075,7 +1176,7 @@ impl App {
         cut.draw(gpu, Pipe::Solid, &uc);
         over.draw(gpu, Pipe::Solid, &uc);
         gpu.tris(Pipe::Solid, g.white, &sc.u.with_mode(mode::FLAT), &solids);
-        soft.draw(gpu, Pipe::Blend, &sc.u.with_mode(mode::SOFT).with_ref(0.5));
+        gpu.tris(Pipe::Blend, g.white, &sc.u.with_mode(mode::FLAT), &trails);
     }
 
     /// A person's frame in an outfit's colours, as a texture of the walk camera's own (cached).
@@ -1180,9 +1281,34 @@ impl App {
         Some([bx, self.terrain.height_at(bx, bz) + gl.bz as f32 * sg_core::terrain::HEIGHT_STEP / 20.0, bz])
     }
 
-    fn walk_balls(&self, sc: &Scene, solids: &mut Vec<Vert>, blobs: &mut Vec<Vert>) {
+    fn walk_balls(
+        &self,
+        sc: &Scene,
+        trails: &mut HashMap<usize, Vec<[f32; 3]>>,
+        solids: &mut Vec<Vert>,
+        blobs: &mut Vec<Vert>,
+        bands: &mut Vec<Vert>,
+    ) {
         for i in 0..self.club.g.len().min(sg_core::golfer::SLOTS) {
-            let Some(b) = self.walk_ball(i) else { continue };
+            let Some(b) = self.walk_ball(i) else {
+                trails.remove(&i);
+                continue;
+            };
+            // a ball in the air leaves a short fading trail, so it can be seen against the sky
+            let flying =
+                self.club.g[i].flags & sg_core::golfer::flag::BALL_MOVING != 0 && b[1] > self.terrain.height_at(b[0], b[2]) + 0.5 * M;
+            let tr = trails.entry(i).or_default();
+            if flying {
+                if tr.last().is_none_or(|l| (l[0] - b[0]).abs() + (l[1] - b[1]).abs() + (l[2] - b[2]).abs() > 0.2 * M) {
+                    tr.push(b);
+                }
+                if tr.len() > 40 {
+                    tr.remove(0);
+                }
+            } else if !tr.is_empty() {
+                tr.remove(0);
+            }
+            ribbon(tr, sc.eye, bands);
             let d = ((b[0] - sc.eye[0]).powi(2) + (b[1] - sc.eye[1]).powi(2) + (b[2] - sc.eye[2]).powi(2)).sqrt();
             if d > 300.0 * M {
                 continue;
@@ -1193,6 +1319,100 @@ impl App {
             }
             ball_tris([b[0], b[1] + r, b[2]], r, [1.0, 1.0, 1.0, 1.0], solids);
             blob(self, b[0], b[2], r * 1.6, 0.4, blobs);
+        }
+    }
+}
+
+/// How far beyond the property's edge its trees go on.
+const FAR_TREES: f32 = 1300.0 * M;
+
+impl App {
+    /// The trees beyond the property: the course's own kinds of tree in clumps over the land out there (none on the sea),
+    /// thinning with distance, as two crossed cards each in one mesh per picture, made once with the ground.
+    pub(crate) fn walk_far_trees(&mut self, g: &mut Gfx, o: &mut Objects, ground: &crate::walk_ground::Ground) {
+        if o.far.as_ref().is_some_and(|f| f.0 == ground.key) {
+            return;
+        }
+        if let Some((_, parts)) = o.far.take() {
+            for (_, m) in parts {
+                g.delete_mesh(m);
+            }
+        }
+        self.update_props();
+        // each kind of tree in the frame the course shows it in (a young tree's frames are its growth)
+        let mut kinds: Vec<(usize, usize)> = self
+            .props
+            .iter()
+            .filter(|p| p.tree && !p.hidden && p.sprout.is_none())
+            .filter_map(|p| p.body.map(|si| (si, self.sprites[si].s.frame_index(self.prop_view(p, si, 0), p.frame))))
+            .collect();
+        kinds.sort_unstable();
+        kinds.dedup();
+        let mut by: HashMap<TextureId, Vec<Vert>> = HashMap::new();
+        if !kinds.is_empty() {
+            let (hx, hz) = (self.terrain.w as f32 * TILE_SIZE * 0.5, self.terrain.h as f32 * TILE_SIZE * 0.5);
+            let step = 14.0 * M;
+            let (nx, nz) = (((hx + FAR_TREES) / step) as i32, ((hz + FAR_TREES) / step) as i32);
+            for j in -nz..=nz {
+                for i in -nx..=nx {
+                    let h1 = place_hash(i as f32 * 1.37, j as f32 * 2.11);
+                    let h2 = place_hash(i as f32 * 3.07 + 11.0, j as f32 * 0.91 - 5.0);
+                    let (x, z) = ((i as f32 + h1 - 0.5) * step, (j as f32 + h2 - 0.5) * step);
+                    let d = (x.abs() - hx).max(z.abs() - hz);
+                    if d < 4.0 * M || d > FAR_TREES {
+                        continue;
+                    }
+                    // clumps of wood, thinning out with distance
+                    let clump = crate::walk_ground::noise2(x / (220.0 * M), z / (220.0 * M), 77);
+                    let keep = ((clump - 0.56) / 0.2).clamp(0.0, 1.0) * 0.75 * (1.0 - d / FAR_TREES).sqrt() + 0.01;
+                    if place_hash(x * 0.37, z * 0.53) > keep {
+                        continue;
+                    }
+                    let Some((y, wet)) = ground.beyond.at(x, z) else { continue };
+                    if wet > 0.02 {
+                        continue;
+                    }
+                    let (si, i0) = kinds[((h1 * 7919.0) as usize) % kinds.len()];
+                    let sp = &self.sprites[si].s;
+                    let (w, h, ax, ay) = (sp.w as f32, sp.h as f32, sp.anchor_x as f32, sp.anchor_y as f32);
+                    let t = self.walk_tex(g, o, si, i0);
+                    let k = SPRITE_UNITS_PER_PIXEL * TREE_SCALE * (0.8 + h2 * 0.5);
+                    let a = h1 * std::f32::consts::PI;
+                    let list = by.entry(t).or_default();
+                    for turn in [0.0, std::f32::consts::FRAC_PI_2] {
+                        let (sn, cs) = (a + turn).sin_cos();
+                        let mut v = Vec::new();
+                        card(
+                            &mut v,
+                            [x, y, z],
+                            [cs, 0.0, sn],
+                            [0.0, 1.0, 0.0],
+                            (-ax * k, (w - ax) * k, ay * k * 1.12, -(h - ay) * k * 1.12),
+                            false,
+                            0.0,
+                            [1.0; 4],
+                        );
+                        for vv in v.iter_mut() {
+                            vv.normal = [0.0; 3];
+                        }
+                        list.extend(v);
+                    }
+                }
+            }
+        }
+        if std::env::var_os("SG_WALK_DUMP").is_some() {
+            println!("walk far trees: {} kinds, {} trees", kinds.len(), by.values().map(|v| v.len() / 12).sum::<usize>());
+        }
+        let parts = by.into_iter().map(|(t, v)| (t, g.mesh(&v))).collect();
+        o.far = Some((ground.key, parts));
+    }
+
+    /// Draws the trees beyond the property.
+    pub(crate) fn walk_draw_far_trees(&self, g: &mut Gfx, gpu: &WalkGpu, o: &Objects, u: &WalkUniforms) {
+        let Some((_, parts)) = &o.far else { return };
+        let u = u.with_mode(mode::CUTOUT).with_ref(0.5);
+        for (t, m) in parts {
+            gpu.draw_mesh(g, Pipe::Solid, m, *t, *t, &u);
         }
     }
 }
@@ -1227,10 +1447,11 @@ mod tests {
         let iso = iso(0);
         let s = SPRITE_UNITS_PER_PIXEL;
         for truth in [
-            Fit { cx: 0.0, cz: 0.0, hx: 120.0, hz: 120.0, wall: 60.0, roof: 50.0, kind: 1, iou: 0.0 },
-            Fit { cx: 0.0, cz: 0.0, hx: 90.0, hz: 140.0, wall: 80.0, roof: 0.0, kind: 0, iou: 0.0 },
-            Fit { cx: 0.0, cz: 0.0, hx: 80.0, hz: 80.0, wall: 40.0, roof: 170.0, kind: 3, iou: 0.0 },
-            Fit { cx: 0.0, cz: 0.0, hx: 140.0, hz: 80.0, wall: 45.0, roof: 50.0, kind: 4, iou: 0.0 },
+            Fit { hx: 120.0, hz: 120.0, wall: 60.0, roof: 50.0, kind: 1, ..Fit::default() },
+            Fit { hx: 90.0, hz: 140.0, wall: 80.0, roof: 0.0, kind: 0, ..Fit::default() },
+            Fit { hx: 80.0, hz: 80.0, wall: 60.0, roof: 75.0, kind: 3, ..Fit::default() },
+            Fit { hx: 120.0, hz: 120.0, base: 20.0, tier: 0.62, wall: 80.0, roof: 0.0, kind: 0, ..Fit::default() },
+            Fit { hx: 140.0, hz: 80.0, wall: 45.0, roof: 50.0, kind: 4, ..Fit::default() },
         ] {
             let imgs: Vec<Rgba> = (0..4).map(|q| render(&truth, &super::iso(q), s, 200, 200, 100.0, 140.0)).collect();
             let masks: Vec<Mask> = imgs.iter().map(Mask::new).collect();
@@ -1240,7 +1461,10 @@ mod tests {
             assert!(f.iou > 0.9, "{truth:?} -> {f:?}");
             // where the roof stands out of the outline its height comes back within a tenth; a lower one cannot be seen,
             // and is raised again by `raise_roof` up to the outline
-            if truth.kind != 4 {
+            if truth.base > 0.0 {
+                // a flat-topped building on a platform: smaller and taller looks alike from above; the platform shows
+                assert!((f.base - truth.base).abs() < truth.base * 0.2 && f.tier < 0.8, "{truth:?} -> {f:?}");
+            } else if truth.kind != 3 && truth.kind != 4 {
                 assert!(((f.wall + f.roof) - (truth.wall + truth.roof)).abs() < (truth.wall + truth.roof) * 0.12, "{truth:?} -> {f:?}");
             } else {
                 let r = raise_roof(f, &views, s, 100.0, 140.0);
@@ -1252,7 +1476,7 @@ mod tests {
     #[test]
     fn every_view_is_fitted_at_once() {
         // a long building seen from all four quarter turns: one solid fits all four pictures
-        let truth = Fit { cx: 0.0, cz: 0.0, hx: 140.0, hz: 70.0, wall: 50.0, roof: 40.0, kind: 1, iou: 0.0 };
+        let truth = Fit { hx: 140.0, hz: 70.0, wall: 50.0, roof: 40.0, kind: 1, ..Fit::default() };
         let s = SPRITE_UNITS_PER_PIXEL;
         let imgs: Vec<Rgba> = (0..4).map(|q| render(&truth, &iso(q), s, 220, 200, 110.0, 140.0)).collect();
         let masks: Vec<Mask> = imgs.iter().map(Mask::new).collect();

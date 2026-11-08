@@ -169,6 +169,11 @@ float grain(float k, float dist) {
     return 1.0 + g;
 }
 
+// a sprite's texel with its colour divided by its alpha again (sprite textures are premultiplied)
+vec4 unpremul(vec4 c) {
+    return vec4(c.rgb / max(c.a, 0.004), c.a);
+}
+
 // the water's ripples: a slope from two layers of noise drifting apart
 vec2 ripple(vec2 p, float t) {
     vec2 a = p * 0.11 + vec2(t * 0.013, t * 0.009);
@@ -192,7 +197,7 @@ void main() {
         vec4 c = art(uv, dist, keep);
         o = vec4(lit(c.rgb * grain(k, dist), nrm), 1.0);
     } else if (m < 1.5) {
-        vec4 c = texture2D(tex, uv);
+        vec4 c = unpremul(texture2D(tex, uv));
         if (c.a < zenith.w) discard;
         float l = 1.0;
         if (dot(nrm, nrm) > 0.25) {
@@ -201,7 +206,7 @@ void main() {
         }
         o = vec4(c.rgb * color.rgb * l * dif.w, 1.0);
     } else if (m < 2.5) {
-        vec4 c = texture2D(tex, uv);
+        vec4 c = unpremul(texture2D(tex, uv));
         if (c.a >= zenith.w || c.a < 0.04) discard;
         o = vec4(c.rgb * color.rgb * dif.w, c.a * color.a);
     } else if (m < 3.5) {
@@ -225,7 +230,7 @@ void main() {
         }
         o = vec4(color.rgb * l, color.a);
     } else if (m < 5.5) {
-        vec4 c = texture2D(tex, uv) * color;
+        vec4 c = unpremul(texture2D(tex, uv)) * color;
         if (c.a < 0.01) discard;
         o = c;
     } else if (m < 6.5) {
@@ -561,9 +566,16 @@ fn repeat_texture(g: &mut Gfx, img: &Rgba) -> TextureId {
 }
 
 /// A sprite's frame as a texture of the walk camera's own: clamped, mipmapped (seen from far off it shrinks a lot), its
-/// transparent texels coloured from their neighbours so the filtering brings in no key colour.
+/// colours premultiplied by their alpha so the filtering and the mipmaps mix in nothing of the transparent texels' colour
+/// (the shader divides it out again: `unpremul`).
 pub fn sprite_texture(g: &mut Gfx, img: &Rgba) -> TextureId {
-    let img = bleed_alpha(img);
+    let mut img = bleed_alpha(img);
+    for p in img.px.chunks_exact_mut(4) {
+        let a = p[3] as u32;
+        for c in &mut p[..3] {
+            *c = ((*c as u32 * a + 127) / 255) as u8;
+        }
+    }
     let params = TextureParams {
         kind: TextureKind::Texture2D,
         width: img.w,
@@ -677,7 +689,7 @@ fn normalise(v: &mut [f32]) {
     }
 }
 
-/// The ground's detail layer, `size` square, repeating: red fine grass blades (streaky noise), green clumps (several
+/// The ground's detail layer, `size` square, repeating: red fine grass blades (fine noise and speckle), green clumps (several
 /// octaves), blue sand grains with soft ripples, alpha pebbles (scattered round stones, light on top and dark below).
 pub fn detail_image(size: usize, seed: u32) -> Rgba {
     let n = size * size;
@@ -687,7 +699,7 @@ pub fn detail_image(size: usize, seed: u32) -> Rgba {
             let (fx, fy) = (x as f32, y as f32);
             let i = y * size + x;
             // blades: fine noise stretched one way, and a finer speckle
-            r[i] = fbm(fx, fy * 0.25, 64, 2, size, seed) * 0.6 + hash(x as i32, y as i32, seed ^ 0x55) * 0.4;
+            r[i] = fbm(fx, fy, 64, 2, size, seed) * 0.5 + hash(x as i32, y as i32, seed ^ 0x55) * 0.5;
             gg[i] = fbm(fx, fy, 4, 5, size, seed ^ 0x77);
             let ripple = ((fx * std::f32::consts::TAU * 9.0 / size as f32) + fbm(fx, fy, 8, 2, size, seed ^ 0x99) * 6.0).sin();
             b[i] = hash(x as i32, y as i32, seed ^ 0x33) * 0.55 + fbm(fx, fy, 32, 2, size, seed ^ 0x11) * 0.25 + ripple * 0.10;
