@@ -87,6 +87,11 @@ an older one there is a copy the browser kept; reload the page.
   Android version.
   Building the APK yourself: `docker run --rm -v "$(pwd)":/root/src -w /root/src notfl3/cargo-apk tools/android_build.sh`
   (see the script; CI builds a debug APK on every push, artifact `opensgolf-android-debug`).
+* **Portable mode** (Windows, macOS, Linux): put an empty file named `portable.txt` beside `opensgolf.exe` (on a Mac
+  beside `OpenSGolf.app`, on Linux beside the AppImage or `opensgolf`), and put your SimGolf folder there too, named
+  `SimGolf` or `game`. The game then keeps its saves, settings, packs and crash reports in a `save` folder beside it and
+  writes nothing to `%APPDATA%`, `~/Library/Application Support` or `~/.local/share`, so the whole folder can go on a USB
+  stick. (`OPENSGOLF_SAVE_DIR` still wins over it.)
 * **If the game crashes** on Windows, macOS or Linux, it writes what went wrong to `crash.txt` in its save folder:
   `%APPDATA%\OpenSGolf` on Windows, `~/Library/Application Support/OpenSGolf` on a Mac (Finder: Go → Go to Folder…), and
   `~/.local/share/opensgolf` on Linux. Please attach it to a report on the issue tracker, with what you clicked just before.
