@@ -600,6 +600,15 @@ fn terrain_text(app: &App, theme: usize, name: &str) -> String {
     })
 }
 
+/// The language file's own description of a tile: its key with `_DESC` (TRANSLATING.md), when the file has one.
+fn desc_key(key: &'static str) -> Option<&'static str> {
+    thread_local! {
+        static KEYS: std::cell::RefCell<std::collections::HashMap<&'static str, &'static str>> = Default::default();
+    }
+    let d = KEYS.with(|m| *m.borrow_mut().entry(key).or_insert_with(|| Box::leak(format!("{key}_DESC").into_boxed_str())));
+    sg_core::lang::has(d).then_some(d)
+}
+
 /// The line after the one that reads "*" and `name` (without case), the description of that tile.
 fn text_entry(lines: &[String], name: &str) -> Option<String> {
     let key = format!("*{name}");
@@ -632,13 +641,18 @@ impl App {
         let name = tr(key);
         // footage of the original shows "Fairway 300", "Pot bunker 800": no money sign
         let title = format!("{} {}", capitalised(name), Economy::terrain_cost_units(id) * 100);
-        s.put_centered(g, F_MANUAL15, x - 12.0, 394.0, &title, rgb(0.0, 0.0, 0.0));
+        // a translated name wider than the widest English one (Tropical bush 1000) shrinks, then is cut (#164)
+        s.put_centered_fit(g, F_MANUAL15, x - 12.0, 394.0, 140.0, &title, rgb(0.0, 0.0, 0.0));
         let row = sg_core::data::get().rows.get(id as usize).copied().unwrap_or(sg_core::data::get().rows[4]);
         let k = ((4 - row.hazard as i32) * 2).clamp(1, 10);
         s.image_part(g, &self.hud.faces, x - 90.0, 391.0, 594.0 - 16.0 * (k - 1) as f32, 100.0, 16.0, 16.0);
         // 0x45b0d0: greedy lines of at most 16 * 8 pixels, the line height less 4 (at least 10) apart, while above y 584
-        // the theme's text file names the tiles in English
-        let text = terrain_text(self, theme, sg_core::lang::en(key));
+        // the theme's text file names the tiles in English; a language file may give its own description as the tile's
+        // key with _DESC (STR_TILE_FIRM_FAIRWAY_DESC), as the theme's file is in English only (#164)
+        let text = match desc_key(key) {
+            Some(d) => sg_core::lang::tr(d).to_string(),
+            None => terrain_text(self, theme, sg_core::lang::en(key)),
+        };
         let pitch = (F_ARIAL10.line() - 4.0).max(10.0);
         let mut y = 410.0;
         let mut line = String::new();
@@ -1824,6 +1838,18 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_english_terrain_title_fits_its_tab_as_before() {
+        // #164: the fitting only touches longer translations; every tile's English name and cost fits at full size
+        for theme in 0..4 {
+            for id in 0..32 {
+                let key = tile_key(id, theme);
+                let title = format!("{} {}", capitalised(sg_core::lang::en(key)), Economy::terrain_cost_units(id) * 100);
+                assert!(crate::ui::F_MANUAL15.width(&title) <= 140.0, "{title}");
+            }
+        }
+    }
 
     #[test]
     fn only_a_click_in_the_panel_band_re_applies_the_strip_design() {

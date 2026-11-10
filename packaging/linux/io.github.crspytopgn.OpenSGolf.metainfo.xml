@@ -107,6 +107,12 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.7.4" date="2026-11-10">
+      <description>
+        <p>The skill points card no longer gets stuck reopening when points are left over.</p>
+        <p>Longer translated names fit the Course Terrain tooltip, and its descriptions can be translated.</p>
+      </description>
+    </release>
     <release version="0.7.3" date="2026-11-08">
       <description>
         <p>A launcher before the title menu for game files, presets, display, sound and news.</p>
