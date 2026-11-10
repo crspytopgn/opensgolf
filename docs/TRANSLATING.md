@@ -80,7 +80,22 @@ The boxes and places this covers:
 * the Player Comments report: the three headings in their pills, and each comment in its column (a little smaller, else
   cut, so the rows stay in line and never run under the hole's number);
 * the Membership Roster's legend (member levels, Photo Opp, Happy Ending): each word in its pill between the marks, on
-  two lines in the pill if it does not fit on one.
+  two lines in the pill if it does not fit on one;
+* the Course Terrain tooltip's title (the tile's name and cost) on its tab.
+
+## Course Terrain descriptions
+
+The text under a Course Terrain tooltip's title comes from your SimGolf files, in English. To give your own, add the
+tile's name key with `_DESC` to your file, for example:
+
+```
+STR_TILE_FIRM_FAIRWAY_DESC              :Watered less often and cut shorter than the fairway...
+```
+
+The keys are the `STR_TILE_*` names in `lang/en.txt` (STR_TILE_TEES, STR_TILE_GREEN, STR_TILE_FAIRWAY,
+STR_TILE_FIRM_FAIRWAY, STR_TILE_ROUGH, STR_TILE_DEEP_ROUGH, STR_TILE_MOUND, STR_TILE_SAND_TRAP, STR_TILE_WASTE_BUNKER,
+STR_TILE_POT_BUNKER, STR_TILE_STREAM, STR_TILE_BRUSH, STR_TILE_ROCKS, STR_TILE_TREE, STR_TILE_PINE_TREE, STR_TILE_WATER
+and the themes' own tiles, such as STR_TILE_CACTUS or STR_TILE_GORSE). A tile without one keeps the English text.
 
 ## Parameters
 

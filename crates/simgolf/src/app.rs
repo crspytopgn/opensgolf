@@ -633,6 +633,8 @@ pub struct App {
     pub analysis_hole: i32,
     /// The pro's skill dialog while open, and the shot preview while he waits for the player's aim.
     pub skill_dialog: Option<crate::pro_ui::SkillDialog>,
+    /// The skill points left when the skill card last closed: it opens by itself again only when more are won (#172).
+    pub skills_kept: i32,
     pub aim: Option<sg_core::pro::AimPreview>,
     /// The pro was waiting for the player's aim at the last tick (a new shot drops an armed tool, pro_after_tick).
     pub was_aiming: bool,
@@ -1037,6 +1039,7 @@ impl App {
             analysis_shown: 0,
             analysis_hole: 0,
             skill_dialog: None,
+            skills_kept: 0,
             aim: None,
             was_aiming: false,
             touch_target: Default::default(),

@@ -33,6 +33,9 @@ Enhanced graphics and HD.
 
 **Fix releases**
 
+- **0.7.4:** the skill points card no longer comes back again and again when points are left that no skill can take
+  or that you chose to keep; it opens by itself only when new points are won (#172); a longer translated name fits the
+  Course Terrain tooltip, and a language file can give the tooltips' descriptions (#164).
 - **0.7.3:** a launcher before the title menu (game files, how to play, display and sound, news), shown at each start
   unless unticked; What's new shows 0.7's highlights (it still showed 0.6's) and reads them from GitHub, as the web
   page's Latest news now does; Start New Game goes straight to Choose Difficulty unless you have scenario packs of your
