@@ -1466,6 +1466,10 @@ impl App {
                                 self.xs.kept.staff_names.insert(i, n);
                             }
                         }
+                        crate::extras::RenameFor::Hole(h) => {
+                            // the hole's record is the club's: an action (replay.rs); empty gives the original's name back
+                            self.act(sg_core::action::Action::HoleName { hole: h, name: n });
+                        }
                         crate::extras::RenameFor::Bio(r) => {
                             // the person's record is the club's: an action (replay.rs)
                             let rec = r.max(0) as usize;
@@ -1506,7 +1510,11 @@ impl App {
 
     pub fn rename_char(&mut self, c: char) {
         // an employee's name as long as the course's, a bio as long as the person record keeps (500)
-        let most = if matches!(self.xs.rename_for, Some(crate::extras::RenameFor::Bio(_))) { 500 } else { 32 };
+        let most = match self.xs.rename_for {
+            Some(crate::extras::RenameFor::Bio(_)) => 500,
+            Some(crate::extras::RenameFor::Hole(_)) => 24,
+            _ => 32,
+        };
         if let Some(name) = self.rename.as_mut() {
             if !c.is_control() && name.chars().count() < most {
                 name.push(c);
@@ -1528,6 +1536,7 @@ impl App {
         let title = match self.xs.rename_for {
             Some(crate::extras::RenameFor::Employee(_)) => tr("STR_RENAME_EMPLOYEE"),
             Some(crate::extras::RenameFor::Bio(_)) => tr("STR_RENAME_BIO"),
+            Some(crate::extras::RenameFor::Hole(_)) => tr("STR_RENAME_HOLE"),
             None => tr("STR_RENAME_COURSE"),
         };
         if free {

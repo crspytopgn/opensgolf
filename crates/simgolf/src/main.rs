@@ -658,6 +658,13 @@ fn open_screen(app: &mut App, screen: Option<&str>) {
         Some("holestats") if app.ui_ok => {
             app.info.stats_hole = (1..19).find(|&h| app.club.holes[h].par != 0).unwrap_or(1);
             app.screen = Screen::HoleStats;
+            // test hook: SG_HOLE_NAME=TEXT names the hole and shows the prompt with TEXT in it (extras_ui.rs)
+            if let Ok(n) = std::env::var("SG_HOLE_NAME") {
+                let h = app.info.stats_hole;
+                app.club.holes[h].name = n.clone();
+                app.xs.rename_for = Some(extras::RenameFor::Hole(h));
+                app.rename = Some(n);
+            }
         }
         Some("sgaoffer") if app.ui_ok => {
             // the offer over the report, whatever the course scores
@@ -3033,7 +3040,7 @@ impl Stage {
                 }
                 app.draw_popup(&mut self.g);
             }
-            if !matches!(app.screen, Screen::People | Screen::Profile) {
+            if !matches!(app.screen, Screen::People | Screen::Profile | Screen::HoleStats) {
                 app.draw_rename(&mut self.g);
             }
             app.draw_save_dialog(&mut self.g);
@@ -3072,7 +3079,11 @@ impl Stage {
                 Screen::Keys => app.draw_keys(&mut self.g),
                 Screen::Goals => app.draw_goals(&mut self.g),
                 Screen::Editor => app.draw_editor_box(&mut self.g),
-                Screen::HoleStats => app.draw_hole_stats(&mut self.g),
+                // the hole's name prompt (extras_ui.rs) goes over Hole Stats
+                Screen::HoleStats => {
+                    app.draw_hole_stats(&mut self.g);
+                    app.draw_rename(&mut self.g);
+                }
                 Screen::BestScores => app.draw_best_scores(&mut self.g),
                 Screen::Top10 => app.draw_top10(&mut self.g),
                 Screen::Customise => app.draw_customise(&mut self.g),

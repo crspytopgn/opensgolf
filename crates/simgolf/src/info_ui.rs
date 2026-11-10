@@ -444,7 +444,7 @@ impl App {
         let ink = black();
         s.image_part(g, art, 0.0, 0.0, 0.0, 0.0, 800.0, 220.0);
         let mut title = trf("STR_HOLESTATS_TITLE", &[("HOLE", &self.report_hole_name(h, hole))]);
-        if hole.flags & 0x81 != 0 {
+        if hole.flags & 0x81 != 0 || !hole.name.is_empty() {
             title += &trf("STR_HOLESTATS_NUMBER", &[("HOLE", &h)]);
         }
         // fonts (0x453330): the title in 0x821020 (Klepto 24) centred at (385, 48), the rest in 0x821ee8 (Manual SSi 14)

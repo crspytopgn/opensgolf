@@ -1232,6 +1232,10 @@ changed every key does what it did before.
   in a caption, round and round until any key, click or tap ends it; the camera, the zoom and the tool in hand then come
   back as they were. The golfers play on. Classic and Enhanced graphics alike (with the smooth camera the zoom eases in);
   it needs an open hole. Test hook: `SG_SHOWCASE=T` starts it held T seconds in, for stills.
+* **Name your holes** (the port's own): a click on the title of an open hole's Hole Stats asks for a name of your own
+  (up to 24 letters; Enter keeps it, Esc leaves it as it was, an empty name gives the hole its own name back). The name
+  shows wherever the game names the hole (Hole Stats, the Course Report, the pro's shots) with the hole's number after
+  it, and is saved with the game. Test hook: `SG_HOLE_NAME=TEXT` with `--screen holestats`.
 * **Hole flyover** (an OpenSGolf extra on the Looks page, off by default; on in the *Original + helpers* and *OpenSGolf*
   presets): Hole Stats (a click on an open hole's flag, or the Course Report) gets a *Fly over* button. It shows that one
   hole from the air: the interface goes and the camera glides from where it is to the back tee, down the hole over the

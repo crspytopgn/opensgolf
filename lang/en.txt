@@ -2925,6 +2925,7 @@ STR_GPROFILE_NOTHING_SAID                :Nothing heard yet this game.
 STR_GPROFILE_HELP                        :L locate, C card, B edit bio, Up/Down scroll; Esc, Enter or a click outside the box goes back.
 STR_RENAME_EMPLOYEE                     :Rename the employee:
 STR_RENAME_BIO                          :The golfer's bio:
+STR_RENAME_HOLE                         :Name this hole (empty for its own name):
 # The path view
 STR_PATHVIEW_TITLE                      :Path view (Shift+V)
 STR_PATHVIEW_JOINED                     :Path joined to the clubhouse

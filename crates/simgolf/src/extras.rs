@@ -694,6 +694,8 @@ pub enum Follow {
 pub enum RenameFor {
     Employee(usize),
     Bio(i32),
+    /// A hole's own name (Hole Stats: a click on its title).
+    Hole(usize),
 }
 
 /// The extras' state in the game (`App::xs`).
