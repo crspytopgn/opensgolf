@@ -33,6 +33,9 @@ Enhanced graphics and HD.
 
 **Fix releases**
 
+- **0.7.5:** portable mode: an empty `portable.txt` beside the program keeps saves, settings and packs in a `save`
+  folder there, with your SimGolf folder beside it as `SimGolf` or `game`, so nothing is written to the user's data
+  folder (docs/INSTALL.md).
 - **0.7.4:** the skill points card no longer comes back again and again when points are left that no skill can take
   or that you chose to keep; it opens by itself only when new points are won (#172); a longer translated name fits the
   Course Terrain tooltip, and a language file can give the tooltips' descriptions (#164).

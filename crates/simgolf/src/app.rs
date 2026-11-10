@@ -305,6 +305,11 @@ pub fn save_dir() -> PathBuf {
         if let Some(d) = env("OPENSGOLF_SAVE_DIR").or_else(|| env("SIMGOLF_SAVE_DIR")) {
             return d;
         }
+        // portable mode: a file named portable.txt beside the program (or beside OpenSGolf.app) keeps everything in a
+        // "save" folder there, nothing in the user's data folder
+        if let Some(d) = portable_dir() {
+            return d;
+        }
         let (base, new, old) = if cfg!(target_os = "windows") {
             (env("APPDATA"), "OpenSGolf", "SimGolf")
         } else if cfg!(target_os = "macos") {
@@ -319,6 +324,30 @@ pub fn save_dir() -> PathBuf {
         }
         new
     }
+}
+
+/// Portable mode's folder: "save" beside the program, when a file named portable.txt is there (on a Mac, beside the
+/// program inside OpenSGolf.app or beside the app itself).
+#[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
+pub fn portable_dir() -> Option<PathBuf> {
+    let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
+    let mut dirs = vec![exe_dir.clone()];
+    if cfg!(target_os = "macos") {
+        // OpenSGolf.app/Contents/MacOS: the folder the app is in
+        if let Some(beside) = exe_dir.parent().and_then(|c| c.parent()).and_then(|a| a.parent()) {
+            dirs.push(beside.to_path_buf());
+        }
+    }
+    if let Some(a) = std::env::var_os("APPIMAGE").map(PathBuf::from).and_then(|a| a.parent().map(|p| p.to_path_buf())) {
+        dirs.push(a);
+    }
+    portable_in(&dirs)
+}
+
+/// The first of `dirs` with portable.txt in it, as its "save" folder.
+#[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
+pub fn portable_in(dirs: &[PathBuf]) -> Option<PathBuf> {
+    dirs.iter().find(|d| d.join("portable.txt").is_file()).map(|d| d.join("save"))
 }
 
 /// A whole game as saved: the land and terrain, the golfers and holes, the staff, the money and calendar, and the exe's random
@@ -5405,6 +5434,17 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn portable_txt_beside_the_program_keeps_everything_in_save_there() {
+        let d = std::env::temp_dir().join(format!("sg-portable-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        assert_eq!(portable_in(std::slice::from_ref(&d)), None);
+        std::fs::write(d.join("portable.txt"), b"").unwrap();
+        assert_eq!(portable_in(std::slice::from_ref(&d)), Some(d.join("save")));
+        let _ = std::fs::remove_dir_all(&d);
+    }
 
     /// A game on a flat fairway with hole 1's tee at 10,10 and its cup green at 10,30, planned but not opened.
     fn building_game() -> App {
