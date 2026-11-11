@@ -226,7 +226,7 @@ with the GPL.
 ## Supporting the project
 
 OpenSGolf is free and always will be, with no ads. It's made by one person with the help of paid AI tools, which cost
-about £90 a month, so if you enjoy it, a coffee helps pay for future updates:
+money every month, so if you enjoy it, a coffee helps pay for future updates:
 [buymeacoffee.com/crspytopgn](https://buymeacoffee.com/crspytopgn). You can also
 [sponsor it on GitHub](https://github.com/sponsors/crspytopgn). The launcher has a *Support future updates* button
 beside Play.
