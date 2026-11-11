@@ -22,6 +22,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+      # the compiled dependencies kept between runs (keyed by Cargo.lock and the toolchain): only what changed is rebuilt
+      - uses: Swatinem/rust-cache@v2
       - name: Linux packages
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev libudev-dev xvfb libgl1-mesa-dri fonts-dejavu-core
@@ -62,6 +64,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
       - name: Build the browser version
         run: ./web/build.sh
       - uses: actions/upload-artifact@v4
