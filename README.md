@@ -232,6 +232,8 @@ The game itself asks at most twice, gently, after an hour of play and again five
 (the play time is counted on your device; *Don't ask again* ends it; see
 [docs/PLAYING.md](docs/PLAYING.md#supporting-opensgolf)). Preferences > More has a *Support OpenSGolf* line.
 
+More from me: [OpenMCM2](https://github.com/crspytopgn/openmcm2) · [OpenLinks2003](https://github.com/crspytopgn/openlinks2003) · [Pitwall](https://github.com/crspytopgn/pitwall).
+
 **Privacy: the play-time count.** So I can see how much OpenSGolf is played, the GitHub release builds and the browser
 version send an anonymous count to the project's [GoatCounter](https://www.goatcounter.com): one at start
 (`start/<platform>/<version>`) and one per 15 minutes of play (`play-15min/<platform>`), nothing else (no ids, names,
