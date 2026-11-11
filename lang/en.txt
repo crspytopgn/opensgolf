@@ -3427,7 +3427,7 @@ STR_KEYS_REPORT_PROBLEM                 :Report a problem (the bug report form, 
 STR_SUPPORT_TITLE                       :Enjoying OpenSGolf?
 STR_SUPPORT_PLAYED_1                    :You've played for about an hour.
 STR_SUPPORT_PLAYED                      :You've played for about {HOURS} hours.
-STR_SUPPORT_BODY                        :Thanks for playing! OpenSGolf is free and always will be, with no ads. It's made by one person, and the tools cost about £90 a month. If it's given you some good hours, a coffee helps keep the updates coming. No pressure either way: enjoy your course!
+STR_SUPPORT_BODY                        :Thanks for playing! OpenSGolf is free and always will be, with no ads. It's made by one person with the help of paid AI tools, which cost about £90 a month. If it's given you some good hours, a coffee helps pay for future updates. No pressure either way: enjoy your course!
 STR_SUPPORT_YES                         : Support on Buy Me a Coffee
 STR_SUPPORT_LATER                       : Maybe later
 STR_SUPPORT_NEVER                       : Don't ask again
@@ -3440,7 +3440,7 @@ STR_TIME_HOUR                           :1 hour
 STR_TIME_HOURS                          :{N} hours
 STR_TIME_MINUTE                         :1 minute
 STR_TIME_MINUTES                        :{N} minutes
-STR_PREFS_DESC_SUPPORT                  :Opens OpenSGolf's Buy Me a Coffee page in your browser. The game stays free and complete either way.
+STR_PREFS_DESC_SUPPORT                  :Opens OpenSGolf's Buy Me a Coffee page in your browser. It's built with paid AI tools, so a coffee helps pay for future updates; the game stays free and complete either way.
 # The welcome boxes (the port's own, welcome.rs; docs/PLAYING.md "How would you like to play?"). The choices start with a
 # space (options); the notes under them are wrapped by the game. The four choices are the four presets (STR_PRESET_*).
 STR_WELCOME_TITLE                       :How would you like to play?
@@ -3591,11 +3591,17 @@ STR_LAUNCHER_SOUND                      :Sound
 STR_LAUNCHER_ON                         :On
 STR_LAUNCHER_OFF                        :Off
 STR_LAUNCHER_LANGUAGE                   :Language
+STR_LAUNCHER_SHORTCUT                   :Shortcut
+STR_LAUNCHER_SHORTCUT_MAKE              :Make a desktop shortcut
+STR_LAUNCHER_SHORTCUT_MADE              :Desktop shortcut made: {PATH}. It starts the game straight on the title menu, with these settings.
+STR_LAUNCHER_SHORTCUT_FAILED            :The desktop shortcut could not be made: {ERROR}
 STR_LAUNCHER_DISPLAY_NOTE               :The same settings as in Preferences: Graphics there has Enhanced graphics' own settings, and F11 switches full screen at any time.
 # News & updates
 STR_LAUNCHER_UPDATE                     :Check for updates
 STR_LAUNCHER_CHANGELOG                  :See everything that's new
 STR_LAUNCHER_COFFEE_BUTTON              :Buy me a coffee
+STR_LAUNCHER_SUPPORT_BUTTON             :Support future updates
+STR_LAUNCHER_SUPPORT_NOTE               :OpenSGolf is free and always will be. It's built with paid AI tools (about £90 a month), so a coffee helps pay for future updates.
 STR_MENU_PREFS_LAUNCHER                 : Launcher...
 STR_PREFS_DESC_LAUNCHER                 :Shows the launcher again: your game files, how to play, display and sound, and what's new.
 STR_LAUNCHER_TIP_TITLE                  :Want the original sounds and music?

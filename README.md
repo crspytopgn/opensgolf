@@ -225,9 +225,11 @@ with the GPL.
 
 ## Supporting the project
 
-OpenSGolf is free and always will be. If you enjoy it and feel like buying me a coffee, that's always nice:
+OpenSGolf is free and always will be, with no ads. It's made by one person with the help of paid AI tools, which cost
+about £90 a month, so if you enjoy it, a coffee helps pay for future updates:
 [buymeacoffee.com/crspytopgn](https://buymeacoffee.com/crspytopgn). You can also
-[sponsor it on GitHub](https://github.com/sponsors/crspytopgn).
+[sponsor it on GitHub](https://github.com/sponsors/crspytopgn). The launcher has a *Support future updates* button
+beside Play.
 The game itself asks at most twice, gently, after an hour of play and again five hours later if you said *Maybe later*
 (the play time is counted on your device; *Don't ask again* ends it; see
 [docs/PLAYING.md](docs/PLAYING.md#supporting-opensgolf)). Preferences > More has a *Support OpenSGolf* line.

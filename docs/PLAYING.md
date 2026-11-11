@@ -99,10 +99,14 @@ finger (a tap is a click) and a controller (the stick moves the pointer, A click
   and Alt+Enter now are too), *Classic*, *Enhanced* and *HD* graphics (HD only once you have made an HD pack; as
   Preferences > Graphics, Enhanced and HD can be on together, Classic is both off), the text size, *Sound* on or off
   (the original's own Sound tick) and the language (each translation the game finds). These are the same settings as in
-  Preferences, saved the same way.
+  Preferences, saved the same way. On a computer, **Make a desktop shortcut** puts a shortcut on the desktop that starts
+  this copy straight on the title menu, with these settings and without the launcher (Windows: a shortcut; Linux: a
+  desktop entry; Mac: an alias of the app, which starts as the app does). The same works from a command line with
+  `--play`.
 - **News & updates**: the version you have and its *What's new* highlights, **Check for updates** (where the title menu
   has that button), **See everything that's new** (the changelog in your browser) and **Buy me a coffee** (see
-  *Supporting OpenSGolf*).
+  *Supporting OpenSGolf*), with a line on why it helps: OpenSGolf is built with paid AI tools, so a coffee pays for
+  future updates. A **Support future updates** button sits beside Play on every tab, where there is room.
 
 **Play** (or Enter, Esc, or Android's back button) goes on to the title menu. **Show this at start** (settings.json's
 `launcher_at_start`, on until you untick it) decides whether it shows at the next start; a new player always gets it.

@@ -103,6 +103,7 @@ mod scorecard_ui;
 mod screens_ui;
 mod selfcheck;
 mod share;
+mod shortcut;
 mod showcase;
 mod staffview_ui;
 mod support;
@@ -156,6 +157,8 @@ struct Options {
     follow: bool,
     golfer: Option<String>,
     mute: bool,
+    /// --play: straight to the title menu this time, without the launcher (its desktop shortcut, shortcut.rs).
+    play: bool,
     sound_log: bool,
     sandbox: bool,
     /// --course-size N: the map edge in tiles of a new game (sg_core::mapsize; default the original's 50).
@@ -257,6 +260,7 @@ fn parse_args() -> Options {
         follow: false,
         golfer: None,
         mute: false,
+        play: false,
         sound_log: false,
         sandbox: false,
         course_size: sg_core::mapsize::ORIGINAL,
@@ -333,6 +337,7 @@ fn parse_args() -> Options {
             "--follow" => o.follow = true,
             "--golfer" => o.golfer = Some(next()),
             "--mute" => o.mute = true,
+            "--play" => o.play = true,
             "--perf" => perf::enable(5.0), // the performance log (perf.rs)
             "--sound-log" => o.sound_log = true,
             "--sandbox" => o.sandbox = true,
@@ -1739,7 +1744,10 @@ impl Stage {
         // never in scripted runs unless --screen launcher or SG_LAUNCHER asks
         let launcher_forced = o.screen.as_deref() == Some("launcher") || launcher::forced_by_env();
         let still = o.png_out.is_some() || o.time != 0.0 || o.screen.is_some();
-        if (app.screen == Screen::Menu || launcher_forced) && launcher::decide(&welcome::settings_at_start(), still, launcher_forced) {
+        if (app.screen == Screen::Menu || launcher_forced)
+            && (!o.play || launcher_forced)
+            && launcher::decide(&welcome::settings_at_start(), still, launcher_forced)
+        {
             app.open_launcher(true, launcher_forced);
         }
         // test hook: SG_PICK_FOLDER=DIR takes DIR as the folder picked in "Use my SimGolf files..." ("free": Use the free

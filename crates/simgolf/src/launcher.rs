@@ -124,6 +124,8 @@ pub enum Hit {
     Language(i32),
     Update,
     Changelog,
+    /// A desktop shortcut that starts the game without the launcher (shortcut.rs).
+    Shortcut,
 }
 
 /// The launcher's state (`App::launcher`).
@@ -1309,11 +1311,23 @@ fn footer(m: &Model, fr: &Frame, out: &mut Out) {
     }
     out.text_fit(bf, bx + bs + 10.0, mid(bf, by, bs), room, tick, INK_SOFT);
     out.hit(Rect::new(bx - 4.0, r.y + 4.0, bs + 14.0 + lw, r.h - 8.0), Hit::ShowAtStart);
+    // the support button beside Play, on every tab, where there is room
+    let mut end = pr.x;
+    let ch = (ph - 8.0).min(40.0);
+    let clabel = tr("STR_LAUNCHER_SUPPORT_BUTTON");
+    let cw = button_w(bf, clabel, 90.0, 300.0) + ch * 0.5 + 8.0;
+    let cx = pr.x - 14.0 - cw;
+    // unticked, the note on how to bring the launcher back comes first
+    let need = if m.at_start { 18.0 } else { 18.0 + 300.0 };
+    if cx > bx + bs + 10.0 + lw + need {
+        button(out, Skin::Coffee, Rect::new(cx, r.y + (r.h - ch) / 2.0, cw, ch), bf, clabel, Some(Hit::Coffee), true);
+        end = cx;
+    }
     // unticked: how to get it back, where there is room
     if !m.at_start {
         let nf = body(if fr.compact { 11.0 } else { 12.0 });
         let nx = bx + bs + 10.0 + lw + 18.0;
-        let room = pr.x - 16.0 - nx;
+        let room = end - 16.0 - nx;
         let note = tr("STR_LAUNCHER_BRING_BACK");
         if room > 120.0 {
             let n = crate::extras::wrap(nf, note, room).len().min(2);
@@ -1612,6 +1626,9 @@ fn display_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
         ]),
     ));
     rows.push(("STR_LAUNCHER_LANGUAGE", Ctl::Step(m.language.clone(), Hit::Language(-1), Hit::Language(1), m.languages > 1)));
+    if m.desktop {
+        rows.push(("STR_LAUNCHER_SHORTCUT", Ctl::Seg(vec![(tr("STR_LAUNCHER_SHORTCUT_MAKE").into(), Hit::Shortcut, false)])));
+    }
     let cols = if r.w >= 560.0 { 2 } else { 1 };
     let per = rows.len().div_ceil(cols);
     let gap_x = if compact { 10.0 } else { 14.0 };
@@ -1700,6 +1717,9 @@ fn news_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
     }
     btns.push((Skin::Sky, tr("STR_LAUNCHER_CHANGELOG"), Hit::Changelog, true));
     btns.push((Skin::Coffee, tr("STR_LAUNCHER_COFFEE_BUTTON"), Hit::Coffee, true));
+    // why a coffee helps, over the buttons
+    let sn = body(if compact { 11.5 } else { 13.0 });
+    let note_h = if compact { 18.0 } else { 24.0 };
     let gap = 10.0;
     let mut ws: Vec<f32> =
         btns.iter().map(|b| button_w(bf, b.1, 90.0, 320.0) + if b.0 == Skin::Coffee { bh * 0.5 + 8.0 } else { 0.0 }).collect();
@@ -1716,7 +1736,8 @@ fn news_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
     }
     // the highlights in the page's news box
     let top = r.y + head_h + if compact { 6.0 } else { 10.0 };
-    let br = Rect::new(r.x, top, r.w, by - (if compact { 8.0 } else { 12.0 }) - top);
+    out.text_fit(sn, r.x, by - note_h + 1.0, r.w, tr("STR_LAUNCHER_SUPPORT_NOTE"), INK);
+    let br = Rect::new(r.x, top, r.w, by - note_h - (if compact { 6.0 } else { 8.0 }) - top);
     out.skin(Skin::News, br, false);
     let n = m.highlights.len().max(1);
     let cols = if br.w >= 560.0 && n > 1 { 2 } else { 1 };
@@ -1911,6 +1932,14 @@ impl App {
             }
             Hit::Coffee => self.open_support_page(),
             Hit::Changelog => self.open_changelog(),
+            Hit::Shortcut =>
+            {
+                #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
+                match crate::shortcut::make() {
+                    Ok(p) => self.show_toast(&trf("STR_LAUNCHER_SHORTCUT_MADE", &[("PATH", &p.display())])),
+                    Err(e) => self.show_toast(&trf("STR_LAUNCHER_SHORTCUT_FAILED", &[("ERROR", &e)])),
+                }
+            }
             Hit::Update => self.check_for_updates(),
             Hit::TextSize(step) => {
                 let p = crate::textsize::pct();
@@ -2097,7 +2126,10 @@ mod tests {
         layout(&Model { tab: Tab::News, update: None, ..Model::sample() }, 800.0, 600.0, &mut out);
         assert!(!out.hits.iter().any(|(_, h)| *h == Hit::Update));
         assert!(out.hits.iter().any(|(_, h)| *h == Hit::Changelog));
-        assert!(out.hits.iter().filter(|(_, h)| *h == Hit::Coffee).count() == 2, "the masthead's link and the news tab's button");
+        assert!(
+            out.hits.iter().filter(|(_, h)| *h == Hit::Coffee).count() == 3,
+            "the masthead's link, the news tab's button and the support button by Play"
+        );
     }
 
     #[test]
