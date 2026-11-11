@@ -454,6 +454,9 @@ pub enum Action {
     /// The course renamed.
     #[serde(rename = "name")]
     Rename(String),
+    /// A hole given the player's own name (empty: the original's name again).
+    #[serde(rename = "hole_name")]
+    HoleName { hole: usize, name: String },
     /// The career over: the game goes on as a sandbox.
     #[serde(rename = "sandbox")]
     ContinueSandbox,

@@ -33,6 +33,9 @@ Enhanced graphics and HD.
 
 **Fix releases**
 
+- **0.7.6:** name your holes: a click on an open hole's Hole Stats title gives it a name of your own; the launcher can
+  make a desktop shortcut that starts straight on the title menu with its settings (`--play` does the same); a
+  *Support future updates* button beside the launcher's Play, and the web page's support box.
 - **0.7.5:** portable mode: an empty `portable.txt` beside the program keeps saves, settings and packs in a `save`
   folder there, with your SimGolf folder beside it as `SimGolf` or `game`, so nothing is written to the user's data
   folder (docs/INSTALL.md).

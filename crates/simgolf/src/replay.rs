@@ -455,6 +455,13 @@ impl App {
                 self.use_cheat(*k);
                 true
             }
+            Action::HoleName { hole, name } => match self.club.holes.get_mut(*hole) {
+                Some(h) if h.par != 0 => {
+                    h.name = name.clone();
+                    true
+                }
+                _ => false,
+            },
             Action::Rename(n) => {
                 self.club.course_name = n.clone();
                 self.course_name = n.clone();

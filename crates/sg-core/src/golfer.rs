@@ -196,6 +196,9 @@ impl Golfer {
 /// One hole record (0x208 bytes at 0x575ab0 + h*0x208).
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Hole {
+    /// The player's own name for the hole (the port's own; empty: the original's name). Not in the exe's record.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub name: String,
     /// +0x00 par (0: no hole), +0x01 tee facing (toward the planned tee shot), +0x02 heading from the forward tee to the pin
     pub par: i32,
     pub tee_facing: i32,

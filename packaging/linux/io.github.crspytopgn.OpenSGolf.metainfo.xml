@@ -107,6 +107,12 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.7.6" date="2026-11-11">
+      <description>
+        <p>Name your holes from their Hole Stats.</p>
+        <p>The launcher can make a desktop shortcut that starts straight on the title menu.</p>
+      </description>
+    </release>
     <release version="0.7.5" date="2026-11-10">
       <description>
         <p>Portable mode: a portable.txt file beside the game keeps saves and settings in a folder next to it.</p>

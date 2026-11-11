@@ -727,9 +727,22 @@ impl App {
 
     /// A click on Hole Stats: a par button asks to confirm the change (true), anything else is the original's close.
     pub fn hole_stats_click(&mut self, x: f32, y: f32) -> bool {
+        // the hole's name prompt takes keys only: a click leaves it and Hole Stats as they are
+        if self.rename.is_some() {
+            return true;
+        }
         if self.flyover_button().is_some_and(|r| r.has(x, y)) {
             let h = self.info.stats_hole.clamp(1, 18);
             return self.start_flyover(h);
+        }
+        // a click on the title names the hole (the port's own; the original's Hole Stats closes on any click there)
+        if (200.0..=570.0).contains(&x) && (30.0..=66.0).contains(&y) {
+            let h = self.info.stats_hole.clamp(1, 18);
+            if self.club.holes[h].par != 0 {
+                self.xs.rename_for = Some(crate::extras::RenameFor::Hole(h));
+                self.rename = Some(self.club.holes[h].name.clone());
+                return true;
+            }
         }
         let Some((p, _)) = self.par_buttons().into_iter().find(|(_, r)| r.has(x, y)) else { return false };
         self.ask_par(p);

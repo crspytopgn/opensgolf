@@ -59,7 +59,7 @@ copies leave them out), only the Sims' voices in `SimsFX`, or lacks more than a 
 when the game starts and the ticker on every start (sg_core::mixer `shortfall`; the console or log has a `sound:` line
 with the counts). The browser page also sums up what it found after loading the files, in large type on the start page
 (and again there on the next visit, as "Last time: ...") and over the game once (20 seconds, or until tapped when
-something is missing): "OpenSGolf 0.7.5. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
+something is missing): "OpenSGolf 0.7.6. Sounds: found N, used N, skipped N (why: the compression's name, damaged, too
 big). Art ✓, music: N, Sims' voices: N." The console's `files:` line adds the compression methods the zip used.
 Deflate64 (Windows' own zipper, for big files such as the sounds), BZip2, LZMA and PPMd (7-Zip's, Keka's and The
 Unarchiver's stronger settings), which iPad's Files app cannot unpack (it shows such folders empty), are read by the
@@ -99,10 +99,14 @@ finger (a tap is a click) and a controller (the stick moves the pointer, A click
   and Alt+Enter now are too), *Classic*, *Enhanced* and *HD* graphics (HD only once you have made an HD pack; as
   Preferences > Graphics, Enhanced and HD can be on together, Classic is both off), the text size, *Sound* on or off
   (the original's own Sound tick) and the language (each translation the game finds). These are the same settings as in
-  Preferences, saved the same way.
+  Preferences, saved the same way. On a computer, **Make a desktop shortcut** puts a shortcut on the desktop that starts
+  this copy straight on the title menu, with these settings and without the launcher (Windows: a shortcut; Linux: a
+  desktop entry; Mac: an alias of the app, which starts as the app does). The same works from a command line with
+  `--play`.
 - **News & updates**: the version you have and its *What's new* highlights, **Check for updates** (where the title menu
   has that button), **See everything that's new** (the changelog in your browser) and **Buy me a coffee** (see
-  *Supporting OpenSGolf*).
+  *Supporting OpenSGolf*), with a line on why it helps: OpenSGolf is built with paid AI tools, so a coffee pays for
+  future updates. A **Support future updates** button sits beside Play on every tab, where there is room.
 
 **Play** (or Enter, Esc, or Android's back button) goes on to the title menu. **Show this at start** (settings.json's
 `launcher_at_start`, on until you untick it) decides whether it shows at the next start; a new player always gets it.
@@ -1232,6 +1236,10 @@ changed every key does what it did before.
   in a caption, round and round until any key, click or tap ends it; the camera, the zoom and the tool in hand then come
   back as they were. The golfers play on. Classic and Enhanced graphics alike (with the smooth camera the zoom eases in);
   it needs an open hole. Test hook: `SG_SHOWCASE=T` starts it held T seconds in, for stills.
+* **Name your holes** (the port's own): a click on the title of an open hole's Hole Stats asks for a name of your own
+  (up to 24 letters; Enter keeps it, Esc leaves it as it was, an empty name gives the hole its own name back). The name
+  shows wherever the game names the hole (Hole Stats, the Course Report, the pro's shots) with the hole's number after
+  it, and is saved with the game. Test hook: `SG_HOLE_NAME=TEXT` with `--screen holestats`.
 * **Hole flyover** (an OpenSGolf extra on the Looks page, off by default; on in the *Original + helpers* and *OpenSGolf*
   presets): Hole Stats (a click on an open hole's flag, or the Course Report) gets a *Fly over* button. It shows that one
   hole from the air: the interface goes and the camera glides from where it is to the back tee, down the hole over the
