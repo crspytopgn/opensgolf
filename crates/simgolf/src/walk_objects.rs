@@ -598,7 +598,7 @@ pub struct Objects {
     info: HashMap<(usize, usize), FrameInfo>,
     person_scale: HashMap<usize, f32>,
     /// The buildings' models (walk_models.rs) by kind and theme, built once.
-    models: HashMap<(usize, usize), Option<Vec<Vert>>>,
+    models: HashMap<(usize, usize, usize), Option<Vec<Vert>>>,
     /// A moving prop's shown place (x, z) by its identity, eased between the simulation's ticks.
     eased: HashMap<u32, (f32, f32)>,
     /// The trees beyond the property (built with the ground, `walk_far_trees`).
@@ -848,8 +848,8 @@ impl App {
         k
     }
 
-    /// The land objects' kinds by their footprint's centre.
-    fn walk_kinds(&self) -> Vec<((f32, f32), usize)> {
+    /// The land objects' kinds, and a variant of their look (0..4, from their place), by their footprint's centre.
+    fn walk_kinds(&self) -> Vec<((f32, f32), (usize, usize))> {
         let Some(land) = &self.land else { return Vec::new() };
         land.objects
             .iter()
@@ -858,7 +858,7 @@ impl App {
                 let size = sg_core::data::buildings().get(o.kind as usize).map(|b| b.1).unwrap_or(1).max(1);
                 let (cx, cz) = self.terrain.tile_centre(o.a, o.b);
                 let off = (size - 1) as f32 * TILE_SIZE * 0.5;
-                ((cx + off, cz + off), o.kind as usize)
+                ((cx + off, cz + off), (o.kind as usize, (o.a * 7 + o.b * 13).rem_euclid(4) as usize))
             })
             .collect()
     }
@@ -1009,6 +1009,7 @@ impl App {
         let half_at = |x: f32, z: f32| foot.iter().find(|((fx, fz), _)| (fx - x).abs() < 1.0 && (fz - z).abs() < 1.0).map(|f| f.1);
         let kinds = self.walk_kinds();
         let kind_at = |x: f32, z: f32| kinds.iter().find(|((fx, fz), _)| (fx - x).abs() < 1.0 && (fz - z).abs() < 1.0).map(|f| f.1);
+        let mut modelled = std::collections::HashSet::new();
         let eye = sc.eye;
         let up = [0.0, 1.0, 0.0];
         let right = [sc.right[0], 0.0, sc.right[1]];
@@ -1078,16 +1079,28 @@ impl App {
             }
             let anchor = [x, ground + p.lift, z];
             if p.object {
-                // a building with a model of its own is drawn as that (walk_models.rs)
-                if let Some(kind) = kind_at(x, z) {
+                // a building with a model of its own is drawn as that (walk_models.rs), once: the other pictures at its
+                // place (its animations, its parts) are left out
+                // (test hook: SG_WALK_NO_MODELS draws the buildings as though none had a model)
+                if let Some((kind, variant)) = kind_at(x, z).filter(|_| std::env::var_os("SG_WALK_NO_MODELS").is_none()) {
                     let theme = self.theme;
-                    let model = o.models.entry((kind, theme)).or_insert_with(|| crate::walk_models::model(kind, theme));
-                    if let (Some(m), Some((hx, hz))) = (model.as_ref(), crate::walk_models::model_half(kind)) {
-                        let r = hx.max(hz) * 1.5;
-                        if dist < near_obstacle {
-                            let (bx, bz) = if p.facing.rem_euclid(2) == 1 { (hz, hx) } else { (hx, hz) };
-                            o.obstacles.push(Obstacle::Box { cx: x, cz: z, hx: bx, hz: bz });
+                    let model = o.models.entry((kind, theme, variant)).or_insert_with(|| crate::walk_models::model(kind, theme, variant));
+                    if let (Some(m), Some((cx, cz, hx, hz))) = (model.as_ref(), crate::walk_models::model_half(kind)) {
+                        if !modelled.insert(((x * 4.0) as i64, (z * 4.0) as i64)) {
+                            continue;
                         }
+                        let turn = |a: f32, b: f32| match p.facing.rem_euclid(4) {
+                            0 => (a, b),
+                            1 => (b, -a),
+                            2 => (-a, -b),
+                            _ => (-b, a),
+                        };
+                        if dist < near_obstacle {
+                            let (ox, oz) = turn(cx, cz);
+                            let (bx, bz) = if p.facing.rem_euclid(2) == 1 { (hz, hx) } else { (hx, hz) };
+                            o.obstacles.push(Obstacle::Box { cx: x + ox, cz: z + oz, hx: bx, hz: bz });
+                        }
+                        let r = half_at(x, z).unwrap_or(hx.max(hz)) * 1.5;
                         if !sphere_visible(&sc.planes, [x, ground, z], r) {
                             o.culled += 1;
                             continue;
@@ -1104,6 +1117,9 @@ impl App {
                     Some(f) => Some(f),
                     // (test hook: SG_WALK_CARDS draws every object as its card)
                     None if std::env::var_os("SG_WALK_CARDS").is_some() => None,
+                    // (a building of several tiles with no model of its own stands as its picture: a solid fitted to one
+                    // picture from above wears its roofs and garden smeared down its walls)
+                    None if half.is_some_and(|hf| hf > TILE_SIZE * 0.75) => None,
                     None => self.walk_fit(o, si, frames, p.scale, half),
                 };
                 let radius = (w.max(h)) * s;
@@ -1162,11 +1178,11 @@ impl App {
                             let rect = (-ax * k, (w - ax) * k, ay * k, -(h - ay) * k);
                             card(cut.get(t), anchor, iq.r, iq.u, rect, false, 0.0, white);
                         } else {
-                            // a building: bent at its ground point, its picture above leaning back at the art's angle and
-                            // below (its front, its deck, the planting before it) laid on the ground, so from the overhead
-                            // camera it is the sprite itself and nothing of it sinks into the ground
+                            // a building with no model: bent at its ground point, its picture above standing upright and
+                            // turned to the eye, and below (its front, its deck, the planting before it) laid on the
+                            // ground, so nothing of it sinks into the ground
                             let c = |cx: f32, cy: f32, tu: f32, tv: f32| {
-                                let p = |a: usize| anchor[a] + iq.r[a] * cx + iq.u[a] * cy;
+                                let p = |a: usize| anchor[a] + right[a] * cx + up[a] * cy;
                                 Vert::new(p(0), p(1), p(2), tu, tv)
                             };
                             let (l, r, top, v1) = (-ax * k, (w - ax) * k, ay * k, ay / h);

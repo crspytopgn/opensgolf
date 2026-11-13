@@ -307,11 +307,17 @@ impl Build {
             for (y0, y1) in [(y + h - 0.08, y + h + 0.04), (y + 0.15, y + 0.25)] {
                 let inset = |p: (f32, f32), d: f32| (p.0 + (cx - p.0) * d, p.1 + (cz - p.1) * d);
                 let (a2, b2) = (inset(a, 0.0), inset(b, 0.0));
-                let (a3, b3) = (inset(a, 0.006), inset(b, 0.006));
                 self.poly(&[[a2.0, y0, a2.1], [b2.0, y0, b2.1], [b2.0, y1, b2.1], [a2.0, y1, a2.1]], [cx, y0, cz], col);
-                self.poly(&[[a2.0, y1, a2.1], [b2.0, y1, b2.1], [b3.0, y1, b3.1], [a3.0, y1, a3.1]], [cx, y0, cz], col);
-                // balusters, close set, between
-                let _ = (a3, b3);
+                self.poly(
+                    &[
+                        [a2.0, y1, a2.1],
+                        [b2.0, y1, b2.1],
+                        [b2.0 + (cx - b2.0) * 0.006, y1, b2.1 + (cz - b2.1) * 0.006],
+                        [a2.0 + (cx - a2.0) * 0.006, y1, a2.1 + (cz - a2.1) * 0.006],
+                    ],
+                    [cx, y0, cz],
+                    col,
+                );
             }
             let m = (len / 0.45).floor() as usize;
             for k in 1..m {
@@ -326,10 +332,8 @@ impl Build {
     fn cypress(&mut self, x: f32, z: f32, h: f32, pal: &Palette) {
         self.cuboid([x - 0.15, 0.0, z - 0.15], [x + 0.15, 0.8, z + 0.15], pal.trunk);
         let base = ring(x, z, h * 0.17, 8, OCT);
-        let mid = ring(x, z, h * 0.15, 8, OCT);
         self.roof(&base, 0.6, h * 0.45, 0.0, pal.leaf_dark);
-        // (a second, upper cone over the first gives the cypress its taper)
-        let _ = mid;
+        // (a second, narrower cone over the first gives the cypress its taper)
         let upper = ring(x, z, h * 0.15, 8, 0.0);
         self.walls(&base, 0.6, h * 0.3, pal.leaf_dark);
         self.roof(&upper, h * 0.3, h, 0.0, pal.leaf_dark);
@@ -557,11 +561,622 @@ fn clubhouse(theme: usize) -> Build {
     b
 }
 
+/// A rectangular building's roof.
+#[derive(Clone, Copy, PartialEq)]
+enum Roof {
+    /// Sloping on all four sides to a ridge along the longer side.
+    Hip,
+    /// Sloping on the long sides to a ridge, with gable walls at its ends.
+    Gable,
+    /// Flat, behind a low parapet.
+    Flat,
+}
+
+/// A rectangle's corners: north-west, north-east, south-east, south-west (sides 0 north, 1 east, 2 south, 3 west).
+fn rect(x0: f32, z0: f32, x1: f32, z1: f32) -> Vec<(f32, f32)> {
+    vec![(x0, z0), (x1, z0), (x1, z1), (x0, z1)]
+}
+
+impl Build {
+    /// A sloping face from its foot (a to b) to its head (c to d), in courses shaded by turns.
+    fn slope(&mut self, a: [f32; 3], b: [f32; 3], c: [f32; 3], d: [f32; 3], inside: [f32; 3], col: Rgb) {
+        let rows = (((c[1] - a[1]).abs() / 0.9).round() as usize).clamp(1, 12);
+        let lerp = |p: [f32; 3], q: [f32; 3], t: f32| [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t];
+        for r in 0..rows {
+            let (t0, t1) = (r as f32 / rows as f32, (r + 1) as f32 / rows as f32);
+            let shade = scale(col, if r % 2 == 0 { 1.0 } else { 0.9 });
+            let (p0, p1, p2, p3) = (lerp(a, d, t0), lerp(b, c, t0), lerp(b, c, t1), lerp(a, d, t1));
+            if (p2[0] - p3[0]).abs() + (p2[2] - p3[2]).abs() < 1e-4 {
+                self.poly(&[p0, p1, p2], inside, shade);
+            } else {
+                self.poly(&[p0, p1, p2, p3], inside, shade);
+            }
+        }
+    }
+
+    /// A rectangle's roof from `y` up `h`, overhanging by `o`.
+    #[allow(clippy::too_many_arguments)]
+    fn rect_roof(&mut self, x0: f32, z0: f32, x1: f32, z1: f32, y: f32, h: f32, o: f32, kind: Roof, pal: &Palette) {
+        let (x0, z0, x1, z1) = (x0 - o, z0 - o, x1 + o, z1 + o);
+        let (cx, cz) = ((x0 + x1) * 0.5, (z0 + z1) * 0.5);
+        let inside = [cx, y - 3.0, cz];
+        let col = pal.roof;
+        if kind == Roof::Flat {
+            self.cap(&rect(x0, z0, x1, z1), y + 0.3, true, scale(col, 0.85));
+            let w = 0.25;
+            for (lo, hi) in [
+                ([x0, y, z0], [x1, y + 0.9, z0 + w]),
+                ([x0, y, z1 - w], [x1, y + 0.9, z1]),
+                ([x0, y, z0], [x0 + w, y + 0.9, z1]),
+                ([x1 - w, y, z0], [x1, y + 0.9, z1]),
+            ] {
+                self.cuboid(lo, hi, pal.trim);
+            }
+            return;
+        }
+        // the eaves' underside
+        self.cap(&rect(x0, z0, x1, z1), y, false, scale(pal.wall, 0.7));
+        let along_x = x1 - x0 >= z1 - z0;
+        let top = y + h;
+        if along_x {
+            let half = (z1 - z0) * 0.5;
+            let (r0, r1) = if kind == Roof::Hip { (x0 + half, x1 - half) } else { (x0, x1) };
+            let (r0, r1) = if r0 > r1 { (cx, cx) } else { (r0, r1) };
+            self.slope([x0, y, z1], [x1, y, z1], [r1, top, cz], [r0, top, cz], inside, col);
+            self.slope([x1, y, z0], [x0, y, z0], [r0, top, cz], [r1, top, cz], inside, col);
+            if kind == Roof::Hip {
+                self.slope([x1, y, z1], [x1, y, z0], [r1, top, cz], [r1, top, cz], inside, col);
+                self.slope([x0, y, z0], [x0, y, z1], [r0, top, cz], [r0, top, cz], inside, col);
+            } else {
+                self.poly(&[[x1 - o, y, z1 - o], [x1 - o, y, z0 + o], [x1 - o, top, cz]], inside, pal.wall);
+                self.poly(&[[x0 + o, y, z0 + o], [x0 + o, y, z1 - o], [x0 + o, top, cz]], inside, pal.wall);
+            }
+        } else {
+            let half = (x1 - x0) * 0.5;
+            let (r0, r1) = if kind == Roof::Hip { (z0 + half, z1 - half) } else { (z0, z1) };
+            let (r0, r1) = if r0 > r1 { (cz, cz) } else { (r0, r1) };
+            self.slope([x1, y, z1], [x1, y, z0], [cx, top, r0], [cx, top, r1], inside, col);
+            self.slope([x0, y, z0], [x0, y, z1], [cx, top, r1], [cx, top, r0], inside, col);
+            if kind == Roof::Hip {
+                self.slope([x0, y, z1], [x1, y, z1], [cx, top, r1], [cx, top, r1], inside, col);
+                self.slope([x1, y, z0], [x0, y, z0], [cx, top, r0], [cx, top, r0], inside, col);
+            } else {
+                self.poly(&[[x0 + o, y, z1 - o], [x1 - o, y, z1 - o], [cx, top, z1 - o]], inside, pal.wall);
+                self.poly(&[[x1 - o, y, z0 + o], [x0 + o, y, z0 + o], [cx, top, z0 + o]], inside, pal.wall);
+            }
+        }
+    }
+
+    /// A rectangular building: `storeys` of `sh` metres on a low foundation, clapboarded, a window every 3.5 m or so on
+    /// each side, a door in the middle of its front (south, +z) unless `door` is false, and its roof.
+    #[allow(clippy::too_many_arguments)]
+    fn block(&mut self, x0: f32, z0: f32, x1: f32, z1: f32, storeys: usize, sh: f32, roof: Roof, rh: f32, pal: &Palette, door: bool) {
+        let c = rect(x0, z0, x1, z1);
+        let floor = 0.5;
+        let wall = storeys as f32 * sh;
+        self.walls(&rect(x0 - 0.1, z0 - 0.1, x1 + 0.1, z1 + 0.1), -0.5, floor, pal.stone);
+        self.walls(&c, floor - 0.05, floor + wall, pal.wall);
+        let lens = [x1 - x0, z1 - z0, x1 - x0, z1 - z0];
+        let mut y = floor + 0.45;
+        while y < floor + wall - 0.5 {
+            for (i, &len) in lens.iter().enumerate() {
+                self.panel(&c, i, 0.5, len, y - 0.06, y, 0.015, scale(pal.wall, 0.86));
+            }
+            y += 0.45;
+        }
+        // corner boards and the band under the eaves
+        for &(x, z) in &c {
+            self.cuboid([x - 0.2, floor, z - 0.2], [x + 0.2, floor + wall, z + 0.2], pal.frame);
+        }
+        self.walls(&rect(x0 - 0.06, z0 - 0.06, x1 + 0.06, z1 + 0.06), floor + wall - 0.45, floor + wall, pal.trim);
+        for (i, &len) in lens.iter().enumerate() {
+            let n = ((len / 3.6).floor() as usize).max(1);
+            for s in 0..storeys {
+                let (wy0, wy1) = (floor + sh * s as f32 + sh * 0.3, floor + sh * s as f32 + sh * 0.8);
+                for k in 0..n {
+                    let along = (k as f32 + 0.5) / n as f32;
+                    if door && i == 2 && s == 0 && (along - 0.5).abs() * len < 1.8 {
+                        continue;
+                    }
+                    self.window(&c, i, along, 1.2_f32.min(len / n as f32 * 0.45), wy0, wy1, pal);
+                }
+            }
+        }
+        if door {
+            self.panel(&c, 2, 0.5, 2.3, floor, floor + 2.7, 0.04, pal.frame);
+            self.panel(&c, 2, 0.5, 2.0, floor, floor + 2.5, 0.07, pal.door);
+            self.panel(&c, 2, 0.5, 0.08, floor, floor + 2.5, 0.09, pal.frame);
+            self.cuboid([(x0 + x1) * 0.5 - 1.8, -0.3, z1], [(x0 + x1) * 0.5 + 1.8, floor, z1 + 1.2], pal.stone);
+        }
+        self.rect_roof(x0, z0, x1, z1, floor + wall, rh, 0.6, roof, pal);
+    }
+
+    /// A table under a striped umbrella, with chairs.
+    fn parasol(&mut self, x: f32, z: f32, pal: &Palette) {
+        self.prism(&ring(x, z, 0.5, 8, OCT), 0.0, 0.75, pal.frame);
+        for k in 0..4 {
+            let a = TAU * (k as f32 + 0.5) / 4.0;
+            let (cx, cz) = (x + a.cos() * 0.95, z + a.sin() * 0.95);
+            self.cuboid([cx - 0.22, 0.0, cz - 0.22], [cx + 0.22, 0.45, cz + 0.22], pal.trim);
+        }
+        self.cuboid([x - 0.04, 0.0, z - 0.04], [x + 0.04, 2.3, z + 0.04], pal.frame);
+        let r = ring(x, z, 1.4, 8, 0.0);
+        for i in 0..8 {
+            let (a, b) = (r[i], r[(i + 1) % 8]);
+            let col = if i % 2 == 0 { pal.awning } else { pal.frame };
+            self.poly(&[[a.0, 2.0, a.1], [b.0, 2.0, b.1], [x, 2.6, z]], [x, 1.0, z], col);
+            self.poly(&[[a.0, 2.0, a.1], [b.0, 2.0, b.1], [x, 2.6, z]], [x, 3.5, z], scale(col, 0.7));
+        }
+    }
+
+    /// A golf cart: a white body, a roof on four posts and dark wheels.
+    fn cart(&mut self, x: f32, z: f32, along_x: bool, pal: &Palette) {
+        let (hx, hz) = if along_x { (1.2, 0.6) } else { (0.6, 1.2) };
+        let body = [0.92, 0.92, 0.90];
+        self.cuboid([x - hx, 0.3, z - hz], [x + hx, 0.95, z + hz], body);
+        for (sx, sz) in [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)] {
+            let (px, pz) = (x + sx * (hx - 0.1), z + sz * (hz - 0.1));
+            self.cuboid([px - 0.04, 0.95, pz - 0.04], [px + 0.04, 1.9, pz + 0.04], [0.2, 0.2, 0.2]);
+            self.cuboid([px - 0.18, 0.0, pz - 0.18], [px + 0.18, 0.36, pz + 0.18], [0.1, 0.1, 0.1]);
+        }
+        self.cuboid([x - hx - 0.1, 1.9, z - hz - 0.1], [x + hx + 0.1, 2.0, z + hz + 0.1], pal.awning);
+    }
+
+    /// A broad leafy tree: a trunk under a cluster of balls.
+    fn tree(&mut self, x: f32, z: f32, h: f32, pal: &Palette) {
+        self.cuboid([x - 0.2, 0.0, z - 0.2], [x + 0.2, h * 0.45, z + 0.2], pal.trunk);
+        let r = h * 0.3;
+        self.ball([x, h - r, z], r, pal.leaf);
+        for k in 0..4 {
+            let a = TAU * (k as f32 / 4.0 + hash(x, z));
+            self.ball([x + a.cos() * r * 0.7, h - r * 1.35, z + a.sin() * r * 0.7], r * 0.75, scale(pal.leaf, 0.85 + 0.05 * k as f32));
+        }
+    }
+
+    /// Flat ground cover: a rectangle just above the ground.
+    fn pad(&mut self, x0: f32, z0: f32, x1: f32, z1: f32, y: f32, col: Rgb) {
+        self.cap(&rect(x0, z0, x1, z1), y, true, col);
+    }
+}
+
+/// A palette for a building of `wall` colour under a `roof` colour, in a theme.
+fn palette(theme: usize, wall: Rgb, roof: Rgb) -> Palette {
+    Palette { wall, roof, ..clubhouse_palette(theme) }
+}
+
+/// The snack bar: a small cottage with a serving hatch under an awning and tables under umbrellas. 2 tiles (46 m).
+fn snack_bar(theme: usize) -> Build {
+    let pal = palette(theme, [0.86, 0.80, 0.66], [0.36, 0.40, 0.44]);
+    let mut b = Build::default();
+    b.pad(-10.0, -8.0, 10.0, 11.0, 0.03, pal.stone);
+    b.block(-4.5, -5.0, 4.5, 2.0, 1, 3.4, Roof::Hip, 2.8, &pal, false);
+    let c = rect(-4.5, -5.0, 4.5, 2.0);
+    b.panel(&c, 2, 0.5, 4.5, 1.4, 2.8, 0.07, [0.12, 0.10, 0.08]);
+    b.cuboid([-2.5, 0.0, 2.0], [2.5, 1.3, 2.7], pal.trim);
+    b.awning(&c, 2, 6.0, 3.4, 1.8, 0.7, &pal);
+    for &(x, z) in &[(-6.0, 6.0), (0.0, 7.5), (6.0, 6.0), (-7.0, -1.0), (7.0, -1.0)] {
+        b.parasol(x, z, &pal);
+    }
+    b.shrub(-9.0, -7.0, 1.0, &pal, false);
+    b.shrub(9.0, -7.0, 1.0, &pal, true);
+    b.tree(8.5, -12.0, 7.0, &pal);
+    b
+}
+
+/// The pro shop: a single storey shop with a deep porch and shop windows, a sign and planting. 2 tiles (46 m).
+fn pro_shop(theme: usize) -> Build {
+    let pal = palette(theme, [0.80, 0.74, 0.62], [0.30, 0.34, 0.40]);
+    let mut b = Build::default();
+    b.pad(-12.0, -9.0, 12.0, 12.0, 0.03, pal.stone);
+    b.block(-9.0, -7.0, 9.0, 4.0, 1, 4.0, Roof::Hip, 3.6, &pal, true);
+    // the porch roof on posts across the front
+    let (py, z1) = (4.2, 7.0);
+    b.slope([-9.0, py - 0.6, z1], [9.0, py - 0.6, z1], [9.0, py, 4.0], [-9.0, py, 4.0], [0.0, 0.0, 0.0], pal.roof);
+    b.cuboid([-9.0, py - 1.0, z1 - 0.1], [9.0, py - 0.6, z1 + 0.1], pal.trim);
+    for k in 0..5 {
+        let x = -8.8 + k as f32 * 4.4;
+        b.cuboid([x - 0.15, 0.5, z1 - 0.3], [x + 0.15, py - 0.8, z1], pal.frame);
+    }
+    b.cuboid([-9.0, 0.0, 4.0], [9.0, 0.5, z1], pal.deck);
+    // a sign on two posts
+    b.cuboid([-2.5, 0.0, 10.0], [-2.3, 2.6, 10.2], pal.trunk);
+    b.cuboid([2.3, 0.0, 10.0], [2.5, 2.6, 10.2], pal.trunk);
+    b.cuboid([-2.8, 1.5, 9.95], [2.8, 2.6, 10.25], pal.trim);
+    for &(x, z) in &[(-11.0, 9.0), (11.0, 9.0), (-11.0, -8.0), (11.0, -8.0)] {
+        b.shrub(x, z, 1.2, &pal, x < 0.0);
+    }
+    b.bed(-6.0, 9.0, 5.0, 1.6, &pal);
+    b.bed(6.0, 9.0, 5.0, 1.6, &pal);
+    b.tree(-13.0, -12.0, 8.0, &pal);
+    b
+}
+
+/// The cart garage: a long, low shed with roller doors and carts parked before it. 2 tiles (46 m).
+fn cart_garage(theme: usize) -> Build {
+    let pal = palette(theme, [0.76, 0.74, 0.70], [0.32, 0.36, 0.38]);
+    let mut b = Build::default();
+    b.pad(-15.0, -8.0, 15.0, 12.0, 0.03, [0.40, 0.40, 0.40]);
+    b.block(-13.0, -6.0, 13.0, 3.0, 1, 4.2, Roof::Hip, 3.0, &pal, false);
+    let c = rect(-13.0, -6.0, 13.0, 3.0);
+    for k in 0..4 {
+        let along = (k as f32 + 0.5) / 4.0;
+        b.panel(&c, 2, along, 5.0, 0.5, 3.8, 0.05, pal.frame);
+        b.panel(&c, 2, along, 4.6, 0.5, 3.6, 0.08, [0.58, 0.58, 0.56]);
+        for r in 0..8 {
+            let y = 0.7 + r as f32 * 0.38;
+            b.panel(&c, 2, along, 4.6, y, y + 0.05, 0.1, [0.45, 0.45, 0.43]);
+        }
+    }
+    for k in 0..4 {
+        b.cart(-9.0 + k as f32 * 6.0, 7.0, false, &pal);
+    }
+    b.shrub(-14.5, -7.0, 1.1, &pal, false);
+    b.shrub(14.5, -7.0, 1.1, &pal, true);
+    b
+}
+
+/// The swim club: a pool in a paved surround, a changing house, loungers and umbrellas behind a low fence. 3 tiles (69 m).
+fn swim_club(theme: usize) -> Build {
+    let pal = palette(theme, [0.92, 0.90, 0.84], [0.62, 0.30, 0.22]);
+    let mut b = Build::default();
+    let paving = [0.82, 0.78, 0.70];
+    b.pad(-24.0, -20.0, 24.0, 20.0, 0.05, paving);
+    // the pool, its water a little below its coping
+    b.pad(-14.0, -6.0, 14.0, 8.0, 0.08, [0.14, 0.52, 0.72]);
+    b.walls(&rect(-14.4, -6.4, 14.4, 8.4), 0.0, 0.25, [0.95, 0.95, 0.93]);
+    b.walls(&rect(-14.0, -6.0, 14.0, 8.0), 0.0, 0.25, [0.95, 0.95, 0.93]);
+    for k in 1..6 {
+        let z = -6.0 + k as f32 * 14.0 / 6.0;
+        b.pad(-13.5, z - 0.08, 13.5, z + 0.08, 0.1, [0.80, 0.86, 0.92]);
+    }
+    // a diving board
+    b.cuboid([-15.5, 0.0, 0.5], [-14.5, 0.9, 1.5], paving);
+    b.cuboid([-14.5, 0.8, 0.7], [-11.5, 0.9, 1.3], pal.frame);
+    b.block(-10.0, -18.0, 10.0, -11.0, 1, 3.4, Roof::Gable, 2.6, &pal, true);
+    for k in 0..6 {
+        let x = -12.5 + k as f32 * 5.0;
+        b.cuboid([x - 0.4, 0.05, 11.0], [x + 0.4, 0.45, 13.0], pal.frame);
+        b.cuboid([x - 0.4, 0.45, 12.4], [x + 0.4, 0.95, 13.0], pal.frame);
+        if k % 2 == 0 {
+            b.parasol(x + 2.5, 15.5, &pal);
+        }
+    }
+    // a white fence round it
+    let fence = rect(-23.5, -19.5, 23.5, 19.5);
+    b.railing(&fence, 0.0, 2.5, Some(2), pal.frame);
+    for &(x, z) in &[(-26.0, -22.0), (26.0, -22.0), (-26.0, 22.0), (26.0, 22.0)] {
+        b.tree(x, z, 8.0, &pal);
+    }
+    b
+}
+
+/// The tennis court: a green hard court with its lines and net inside a tall wire fence, benches and a little pavilion. 3
+/// tiles (69 m).
+fn tennis_court(theme: usize) -> Build {
+    let pal = palette(theme, [0.88, 0.84, 0.72], [0.32, 0.36, 0.30]);
+    let mut b = Build::default();
+    b.pad(-20.0, -26.0, 20.0, 26.0, 0.04, [0.70, 0.44, 0.32]);
+    b.pad(-6.0, -12.0, 6.0, 12.0, 0.06, [0.22, 0.46, 0.34]);
+    let white = [0.95, 0.95, 0.93];
+    let line = |b: &mut Build, x0: f32, z0: f32, x1: f32, z1: f32| b.pad(x0, z0, x1, z1, 0.08, white);
+    let (hw, sw, hl, sl) = (5.49, 4.11, 11.89, 6.40);
+    for x in [-hw, -sw, sw, hw] {
+        line(&mut b, x - 0.04, -hl, x + 0.04, hl);
+    }
+    for z in [-hl, hl] {
+        line(&mut b, -hw, z - 0.04, hw, z + 0.04);
+    }
+    for z in [-sl, sl] {
+        line(&mut b, -sw, z - 0.04, sw, z + 0.04);
+    }
+    line(&mut b, -0.04, -sl, 0.04, sl);
+    // the net
+    for x in [-6.4, 6.4] {
+        b.cuboid([x - 0.05, 0.0, -0.05], [x + 0.05, 1.07, 0.05], [0.25, 0.25, 0.25]);
+    }
+    b.poly(&[[-6.4, 0.0, 0.0], [6.4, 0.0, 0.0], [6.4, 0.95, 0.0], [-6.4, 0.95, 0.0]], [0.0, 0.5, 1.0], [0.15, 0.15, 0.15]);
+    b.poly(&[[-6.4, 0.0, 0.0], [6.4, 0.0, 0.0], [6.4, 0.95, 0.0], [-6.4, 0.95, 0.0]], [0.0, 0.5, -1.0], [0.15, 0.15, 0.15]);
+    b.cuboid([-6.4, 0.9, -0.03], [6.4, 1.0, 0.03], white);
+    // the fence: posts and a dark mesh, thin enough to see the court through only from above, so kept low at the sides
+    let fence = rect(-9.0, -18.0, 9.0, 18.0);
+    let mesh = [0.18, 0.28, 0.22];
+    for i in 0..4 {
+        let (a, c) = (fence[i], fence[(i + 1) % 4]);
+        let len = ((c.0 - a.0).powi(2) + (c.1 - a.1).powi(2)).sqrt();
+        let n = (len / 3.0).ceil() as usize;
+        for k in 0..=n {
+            let t = k as f32 / n as f32;
+            let (x, z) = (a.0 + (c.0 - a.0) * t, a.1 + (c.1 - a.1) * t);
+            b.cuboid([x - 0.06, 0.0, z - 0.06], [x + 0.06, 3.0, z + 0.06], mesh);
+        }
+        // its wire: a top rail and thin strands, so the court shows through
+        let mut y = 0.25;
+        while y < 3.0 {
+            let t = if y > 2.8 { 0.08 } else { 0.025 };
+            b.poly(&[[a.0, y - t, a.1], [c.0, y - t, c.1], [c.0, y + t, c.1], [a.0, y + t, a.1]], [0.0, 1.0, 0.0], mesh);
+            b.poly(&[[a.0, y - t, a.1], [c.0, y - t, c.1], [c.0, y + t, c.1], [a.0, y + t, a.1]], [a.0 * 3.0, 1.0, a.1 * 3.0], mesh);
+            y += if y > 2.6 { 1.0 } else { 0.45 };
+        }
+        y = 2.95;
+        b.poly(&[[a.0, y - 0.08, a.1], [c.0, y - 0.08, c.1], [c.0, y + 0.06, c.1], [a.0, y + 0.06, a.1]], [0.0, 1.0, 0.0], mesh);
+    }
+    for z in [-6.0, 6.0] {
+        b.cuboid([-8.5, 0.0, z - 1.0], [-8.0, 0.45, z + 1.0], pal.deck);
+    }
+    b.block(12.0, -6.0, 18.0, 2.0, 1, 3.0, Roof::Hip, 2.2, &pal, false);
+    for &(x, z) in &[(-14.0, -22.0), (14.0, 20.0), (-14.0, 22.0), (15.0, -20.0)] {
+        b.tree(x, z, 8.5, &pal);
+    }
+    b
+}
+
+/// The resort hotel: a five storey block with an entrance canopy, a turning circle and trees. 4 tiles (91 m).
+fn resort_hotel(theme: usize) -> Build {
+    let pal = palette(theme, [0.84, 0.80, 0.70], [0.32, 0.36, 0.42]);
+    let mut b = Build::default();
+    b.pad(-30.0, -16.0, 30.0, 26.0, 0.03, pal.stone);
+    b.block(-26.0, -12.0, 26.0, 6.0, 5, 3.3, Roof::Hip, 5.0, &pal, true);
+    // two wings stepping forward at the ends
+    for x in [-26.0, 16.0] {
+        b.block(x, 6.0, x + 10.0, 12.0, 4, 3.3, Roof::Hip, 4.0, &pal, false);
+    }
+    // the entrance canopy
+    b.cuboid([-5.0, 3.6, 6.0], [5.0, 4.0, 11.0], pal.trim);
+    for x in [-4.6, 4.6] {
+        b.cuboid([x - 0.15, 0.0, 10.5], [x + 0.15, 3.6, 10.8], pal.frame);
+    }
+    // a turning circle with a fountain
+    b.prism(&ring(0.0, 19.0, 4.5, 16, 0.0), 0.0, 0.5, pal.stone);
+    b.pad(-3.8, 15.2, 3.8, 22.8, 0.0, pal.stone);
+    b.prism(&ring(0.0, 19.0, 3.8, 16, 0.0), 0.0, 0.55, [0.20, 0.50, 0.70]);
+    b.prism(&ring(0.0, 19.0, 0.4, 8, 0.0), 0.0, 2.2, pal.frame);
+    b.ball([0.0, 2.4, 19.0], 0.6, [0.80, 0.90, 0.95]);
+    for &(x, z) in &[(-30.0, 14.0), (30.0, 14.0), (-12.0, 22.0), (12.0, 22.0), (-30.0, -14.0), (30.0, -14.0)] {
+        b.tree(x, z, 10.0 + hash(x, z) * 3.0, &pal);
+    }
+    for k in 0..10 {
+        b.shrub(-24.0 + k as f32 * 5.3, 13.5, 0.9, &pal, k % 2 == 0);
+    }
+    b
+}
+
+/// The marina: a boathouse on piles, a jetty and a moored boat. 2 tiles (46 m); the water lies to the front.
+fn marina(theme: usize) -> Build {
+    let pal = palette(theme, [0.70, 0.56, 0.42], [0.30, 0.32, 0.34]);
+    let mut b = Build::default();
+    b.block(-8.0, -12.0, 4.0, -3.0, 1, 3.6, Roof::Gable, 3.4, &pal, true);
+    // the jetty: boards on posts
+    b.cuboid([-2.0, 0.3, -3.0], [2.0, 0.6, 18.0], pal.deck);
+    for k in 0..8 {
+        let z = -2.0 + k as f32 * 2.9;
+        for x in [-2.1, 2.1] {
+            b.cuboid([x - 0.15, -1.5, z - 0.15], [x + 0.15, 1.2, z + 0.15], pal.trunk);
+        }
+    }
+    // a boat beside it
+    let hull = [0.95, 0.95, 0.93];
+    let (bx, bz) = (5.0, 10.0);
+    b.cuboid([bx - 1.2, -0.3, bz - 3.0], [bx + 1.2, 0.6, bz + 2.5], hull);
+    b.poly(&[[bx - 1.2, 0.6, bz + 2.5], [bx + 1.2, 0.6, bz + 2.5], [bx, 0.6, bz + 4.2]], [bx, -1.0, bz], hull);
+    b.poly(&[[bx - 1.2, 0.6, bz + 2.5], [bx, 0.6, bz + 4.2], [bx, -0.3, bz + 3.6]], [bx + 1.0, 0.0, bz], scale(hull, 0.9));
+    b.poly(&[[bx + 1.2, 0.6, bz + 2.5], [bx, 0.6, bz + 4.2], [bx, -0.3, bz + 3.6]], [bx - 1.0, 0.0, bz], scale(hull, 0.9));
+    b.cuboid([bx - 0.8, 0.6, bz - 1.5], [bx + 0.8, 1.6, bz + 0.5], pal.trim);
+    b.cuboid([bx - 0.05, 1.6, bz - 0.6], [bx + 0.05, 7.5, bz - 0.4], pal.frame);
+    b.shrub(-10.0, -13.0, 1.1, &pal, false);
+    b.tree(8.0, -14.0, 7.5, &pal);
+    b
+}
+
+/// The airstrip: a paved runway with its markings, an arched hangar, a parked plane and a windsock. 6 tiles (137 m).
+fn airstrip(theme: usize) -> Build {
+    let pal = palette(theme, [0.70, 0.72, 0.74], [0.70, 0.72, 0.74]);
+    let mut b = Build::default();
+    let tar = [0.30, 0.30, 0.31];
+    b.pad(-62.0, 8.0, 62.0, 24.0, 0.04, tar);
+    let mut x = -55.0;
+    while x < 55.0 {
+        b.pad(x, 15.7, x + 5.0, 16.3, 0.06, [0.92, 0.92, 0.88]);
+        x += 9.0;
+    }
+    for e in [-60.0, 56.0] {
+        for k in 0..6 {
+            let z = 10.0 + k as f32 * 2.4;
+            b.pad(e, z, e + 4.0, z + 1.2, 0.06, [0.92, 0.92, 0.88]);
+        }
+    }
+    // an apron and the hangar: an arched roof over end walls
+    b.pad(-30.0, -24.0, 0.0, 8.0, 0.04, [0.45, 0.45, 0.45]);
+    let (hx0, hx1, hz0, hz1, r) = (-28.0, -2.0, -22.0, -6.0, 8.0);
+    let cz = (hz0 + hz1) * 0.5;
+    let n = 10;
+    let arc = |k: usize| {
+        let a = std::f32::consts::PI * k as f32 / n as f32;
+        (cz - r * a.cos(), r * a.sin())
+    };
+    for k in 0..n {
+        let ((z0, y0), (z1, y1)) = (arc(k), arc(k + 1));
+        let col = scale(pal.roof, if k % 2 == 0 { 1.0 } else { 0.93 });
+        b.poly(&[[hx0, y0, z0], [hx1, y0, z0], [hx1, y1, z1], [hx0, y1, z1]], [(hx0 + hx1) * 0.5, 0.0, cz], col);
+        for xe in [hx0, hx1] {
+            b.poly(&[[xe, 0.0, cz], [xe, y0, z0], [xe, y1, z1]], [(hx0 + hx1) * 0.5, 2.0, cz], scale(pal.wall, 0.9));
+        }
+    }
+    b.poly(
+        &[[hx1 + 0.05, 0.0, cz - 5.0], [hx1 + 0.05, 0.0, cz + 5.0], [hx1 + 0.05, 5.5, cz + 5.0], [hx1 + 0.05, 5.5, cz - 5.0]],
+        [hx0, 2.0, cz],
+        [0.25, 0.25, 0.27],
+    );
+    // a little plane on the apron
+    let (px, pz) = (-12.0, 2.0);
+    let red = pal.awning;
+    let white = pal.frame;
+    b.cuboid([px - 3.5, 0.8, pz - 0.5], [px + 3.0, 1.8, pz + 0.5], white);
+    b.cuboid([px + 1.0, 1.5, pz - 0.45], [px + 2.2, 2.2, pz + 0.45], [0.30, 0.40, 0.50]);
+    b.cuboid([px + 0.0, 1.8, pz - 4.5], [px + 1.6, 1.95, pz + 4.5], red);
+    b.cuboid([px - 3.4, 1.5, pz - 1.6], [px - 2.6, 1.6, pz + 1.6], red);
+    b.cuboid([px - 3.4, 1.6, pz - 0.06], [px - 2.6, 3.0, pz + 0.06], red);
+    b.cuboid([px + 3.0, 1.0, pz - 0.9], [px + 3.15, 1.6, pz + 0.9], [0.15, 0.15, 0.15]);
+    for (wx, wz) in [(1.0, -1.2), (1.0, 1.2), (-2.8, 0.0)] {
+        b.cuboid([px + wx - 0.25, 0.0, pz + wz - 0.12], [px + wx + 0.25, 0.5, pz + wz + 0.12], [0.1, 0.1, 0.1]);
+        b.cuboid([px + wx - 0.04, 0.4, pz + wz - 0.04], [px + wx + 0.04, 0.9, pz + wz + 0.04], [0.5, 0.5, 0.5]);
+    }
+    // the windsock
+    b.cuboid([20.0, 0.0, 2.0], [20.15, 6.0, 2.15], white);
+    b.roof(&ring(21.6, 2.1, 0.45, 8, 0.0), 5.4, 5.6, 0.0, [0.95, 0.5, 0.1]);
+    b.cuboid([20.1, 5.2, 1.7], [23.0, 5.9, 2.5], [0.95, 0.5, 0.1]);
+    b.tree(-40.0, -20.0, 9.0, &pal);
+    b.tree(30.0, -15.0, 9.0, &pal);
+    b
+}
+
+/// A house on a home site: two storeys under a gabled roof, with a chimney, a porch and a garden. Its colours vary
+/// by `variant` (0..4). 2 tiles (46 m).
+fn house(theme: usize, variant: usize) -> Build {
+    let walls = [[0.88, 0.84, 0.72], [0.74, 0.80, 0.84], [0.86, 0.72, 0.62], [0.80, 0.84, 0.70]];
+    let roofs = [[0.32, 0.34, 0.38], [0.56, 0.26, 0.20], [0.30, 0.30, 0.32], [0.42, 0.30, 0.24]];
+    let pal = palette(theme, walls[variant % 4], roofs[variant % 4]);
+    let mut b = Build::default();
+    let (w, d) = if variant.is_multiple_of(2) { (6.5, 5.0) } else { (5.5, 5.5) };
+    b.block(-w, -d, w, d, 2, 3.0, Roof::Gable, 4.0, &pal, true);
+    b.cuboid([w * 0.5, 4.0, -1.0], [w * 0.5 + 1.2, 12.6, 0.2], [0.55, 0.30, 0.24]);
+    // the porch
+    b.cuboid([-3.0, 0.0, d], [3.0, 0.5, d + 2.5], pal.deck);
+    b.slope([-3.2, 3.0, d + 2.6], [3.2, 3.0, d + 2.6], [3.2, 3.5, d], [-3.2, 3.5, d], [0.0, 0.0, 0.0], pal.roof);
+    for x in [-2.9, 2.9] {
+        b.cuboid([x - 0.12, 0.5, d + 2.2], [x + 0.12, 3.0, d + 2.45], pal.frame);
+    }
+    // a path, a fence along the front and some planting
+    b.pad(-1.0, d + 2.5, 1.0, 18.0, 0.04, pal.stone);
+    let fence = rect(-14.0, -12.0, 14.0, 17.0);
+    b.railing(&fence, 0.0, 2.2, Some(2), pal.frame);
+    b.tree(-10.0, -8.0, 8.0 + variant as f32, &pal);
+    b.shrub(-5.0, d + 1.5, 0.9, &pal, false);
+    b.shrub(5.0, d + 1.5, 0.9, &pal, true);
+    b.bed(-6.0, 12.0, 6.0, 1.5, &pal);
+    b
+}
+
+/// The driving range's hitting shed: a long, open fronted bay under a lean-to roof, its mats, and target greens with
+/// flags out in front. 5 tiles (114 m).
+fn driving_range(theme: usize) -> Build {
+    let pal = palette(theme, [0.80, 0.76, 0.66], [0.30, 0.36, 0.30]);
+    let mut b = Build::default();
+    let (x0, x1, z0, z1) = (-24.0, 24.0, -50.0, -42.0);
+    b.cuboid([x0, 0.0, z0], [x1, 0.4, z1], pal.stone);
+    b.cuboid([x0, 0.4, z0], [x1, 4.6, z0 + 0.4], pal.wall);
+    for x in [x0, x1] {
+        b.cuboid([x - 0.2, 0.4, z0], [x + 0.2, 4.0, z1], pal.wall);
+    }
+    b.slope(
+        [x0 - 0.5, 3.6, z1 + 0.8],
+        [x1 + 0.5, 3.6, z1 + 0.8],
+        [x1 + 0.5, 4.9, z0 - 0.5],
+        [x0 - 0.5, 4.9, z0 - 0.5],
+        [0.0, 0.0, z0 + 3.0],
+        pal.roof,
+    );
+    let bays = 10;
+    for k in 0..=bays {
+        let x = x0 + (x1 - x0) * k as f32 / bays as f32;
+        b.cuboid([x - 0.15, 0.4, z1 - 0.3], [x + 0.15, 3.7, z1], pal.trim);
+        if k < bays {
+            let m = x + (x1 - x0) / bays as f32 * 0.5;
+            b.cuboid([m - 0.8, 0.4, z1 - 2.5], [m + 0.8, 0.45, z1 - 0.8], [0.20, 0.45, 0.22]);
+        }
+    }
+    // targets: a green disc and a flag each
+    for (k, &(x, z, r)) in
+        [(-14.0, -20.0, 4.0), (10.0, -5.0, 5.0), (-6.0, 15.0, 6.0), (16.0, 32.0, 7.0), (-18.0, 42.0, 6.0)].iter().enumerate()
+    {
+        b.prism(&ring(x, z, r, 16, 0.0), 0.0, 0.08, [0.36, 0.62, 0.30]);
+        b.cuboid([x - 0.05, 0.0, z - 0.05], [x + 0.05, 2.6, z + 0.05], pal.frame);
+        let flag = if k % 2 == 0 { pal.awning } else { [0.95, 0.85, 0.20] };
+        b.poly(&[[x, 2.6, z], [x + 1.0, 2.35, z], [x, 2.1, z]], [x, 2.35, z - 1.0], flag);
+        b.poly(&[[x, 2.6, z], [x + 1.0, 2.35, z], [x, 2.1, z]], [x, 2.35, z + 1.0], flag);
+    }
+    b
+}
+
+/// The TV tower: a tapering lattice mast in red and white bands with a light at its top. 1 tile.
+fn tv_tower(theme: usize) -> Build {
+    let pal = clubhouse_palette(theme);
+    let mut b = Build::default();
+    let h = 34.0;
+    let half = |y: f32| 2.2 - 1.8 * (y / h);
+    let legs = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)];
+    let sections = 12;
+    for s in 0..sections {
+        let (y0, y1) = (h * s as f32 / sections as f32, h * (s + 1) as f32 / sections as f32);
+        let col = if s % 2 == 0 { [0.85, 0.18, 0.14] } else { [0.95, 0.95, 0.93] };
+        for i in 0..4 {
+            let (a, c) = (legs[i], legs[(i + 1) % 4]);
+            let p = |l: (f32, f32), y: f32| [l.0 * half(y), y, l.1 * half(y)];
+            let t = 0.09;
+            // legs
+            b.cuboid([a.0 * half(y0) - t, y0, a.1 * half(y0) - t], [a.0 * half(y1) + t, y1, a.1 * half(y1) + t], col);
+            // a brace across each face
+            let (p0, p1) = (p(a, y0), p(c, y1));
+            b.poly(&[p0, [p0[0], p0[1] + 0.12, p0[2]], [p1[0], p1[1] + 0.12, p1[2]], p1], [0.0, (y0 + y1) * 0.5, 0.0], col);
+            b.poly(&[p0, [p0[0], p0[1] + 0.12, p0[2]], [p1[0], p1[1] + 0.12, p1[2]], p1], [0.0, -(y0 + y1) * 0.5, 0.0], col);
+        }
+    }
+    b.cuboid([-0.5, h, -0.5], [0.5, h + 0.6, 0.5], [0.85, 0.18, 0.14]);
+    b.ball([0.0, h + 1.0, 0.0], 0.4, [1.0, 0.3, 0.2]);
+    b.cuboid([-3.0, 0.0, -3.0], [3.0, 0.3, 3.0], pal.stone);
+    b
+}
+
+/// The TV booth: a cabin with wide windows raised on legs, a ladder up to it. 1 tile.
+fn tv_booth(theme: usize) -> Build {
+    let pal = palette(theme, [0.85, 0.85, 0.82], [0.30, 0.32, 0.36]);
+    let mut b = Build::default();
+    let y = 4.5;
+    for (x, z) in [(-2.0, -1.5), (2.0, -1.5), (2.0, 1.5), (-2.0, 1.5)] {
+        b.cuboid([x - 0.12, 0.0, z - 0.12], [x + 0.12, y, z + 0.12], [0.35, 0.35, 0.36]);
+    }
+    b.cuboid([-2.4, y, -1.9], [2.4, y + 0.3, 1.9], pal.deck);
+    let c = rect(-2.2, -1.7, 2.2, 1.7);
+    b.walls(&c, y + 0.3, y + 2.8, pal.wall);
+    for i in 0..4 {
+        b.panel(&c, i, 0.5, if i % 2 == 0 { 3.8 } else { 2.8 }, y + 1.2, y + 2.5, 0.05, pal.glass);
+    }
+    b.rect_roof(-2.2, -1.7, 2.2, 1.7, y + 2.8, 0.2, 0.4, Roof::Flat, &pal);
+    b.cuboid([-0.05, y + 3.1, -0.05], [0.05, y + 5.0, 0.05], [0.6, 0.6, 0.6]);
+    b.prism(&ring(0.0, 0.0, 0.5, 8, 0.0), y + 4.0, y + 4.1, [0.85, 0.85, 0.85]);
+    // the ladder
+    for x in [-0.4, 0.4] {
+        b.cuboid([x - 0.04, 0.0, 1.9], [x + 0.04, y + 0.3, 2.0], [0.35, 0.35, 0.36]);
+    }
+    let mut r = 0.3;
+    while r < y {
+        b.cuboid([-0.4, r, 1.9], [0.4, r + 0.05, 2.0], [0.35, 0.35, 0.36]);
+        r += 0.35;
+    }
+    b
+}
+
 /// The model of an object kind (data.rs OBJECT_IDS) in a theme, if it has one: its triangles in world units about the
-/// footprint's centre, front to +z (facing 0).
-pub fn model(kind: usize, theme: usize) -> Option<Vec<Vert>> {
+/// footprint's centre, front to +z (facing 0). `variant` (0..4) picks among a kind's looks (the houses' colours).
+pub fn model(kind: usize, theme: usize, variant: usize) -> Option<Vec<Vert>> {
     let b = match sg_core::data::object_id(kind) {
         "clubhouse" => clubhouse(theme),
+        "pro-shop" => pro_shop(theme),
+        "cart-garage" => cart_garage(theme),
+        // (the themed kinds: app::THEMES 0 Parkland, 1 Links, 2 Desert, 3 Tropical; land.rs THEMED_NAMES)
+        "snack-bar" if theme == 1 => return None,
+        "swim-club" if theme == 0 => tennis_court(theme),
+        "swim-club" if theme == 3 => swim_club(theme),
+        "swim-club" => return None,
+        "marina" if theme == 1 || theme == 2 => return None,
+        "airstrip" if theme != 0 => return None,
+        "snack-bar" => snack_bar(theme),
+        "resort-hotel" => resort_hotel(theme),
+        "marina" => marina(theme),
+        "airstrip" => airstrip(theme),
+        "home-site" => house(theme, variant),
+        "driving-range" => driving_range(theme),
+        "tv-tower" => tv_tower(theme),
+        "tv-booth" => tv_booth(theme),
         _ => return None,
     };
     Some(
@@ -574,12 +1189,24 @@ pub fn model(kind: usize, theme: usize) -> Option<Vec<Vert>> {
     )
 }
 
-/// The model's half size (world units) for what stops a walk: the veranda.
-pub fn model_half(kind: usize) -> Option<(f32, f32)> {
-    match sg_core::data::object_id(kind) {
-        "clubhouse" => Some((31.0 * M, 30.0 * M)),
-        _ => None,
-    }
+/// What of a model stops a walk: its main building's half size and centre (world units, facing 0).
+pub fn model_half(kind: usize) -> Option<(f32, f32, f32, f32)> {
+    let (cx, cz, hx, hz) = match sg_core::data::object_id(kind) {
+        "clubhouse" => (0.0, -0.5, 31.0, 29.5),
+        "snack-bar" => (0.0, -1.5, 4.5, 3.5),
+        "pro-shop" => (0.0, -1.5, 9.0, 5.5),
+        "cart-garage" => (0.0, -1.5, 13.0, 4.5),
+        "swim-club" => (0.0, -14.5, 10.0, 3.5),
+        "resort-hotel" => (0.0, -3.0, 26.0, 9.0),
+        "marina" => (-2.0, -7.5, 6.0, 4.5),
+        "airstrip" => (-15.0, -14.0, 13.0, 8.0),
+        "home-site" => (0.0, 0.0, 6.5, 5.5),
+        "driving-range" => (0.0, -46.0, 24.0, 4.0),
+        "tv-tower" => (0.0, 0.0, 2.2, 2.2),
+        "tv-booth" => (0.0, 0.0, 2.4, 1.9),
+        _ => return None,
+    };
+    Some((cx * M, cz * M, hx * M, hz * M))
 }
 
 /// `v` turned `quarters` quarter turns about the vertical (counter clockwise from above, x towards -z) and moved to
@@ -607,18 +1234,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_clubhouse_has_a_model_in_every_theme_and_stands_in_its_footprint() {
-        let kind = (0..20).find(|&k| sg_core::data::object_id(k) == "clubhouse").unwrap();
-        for theme in 0..4 {
-            let v = model(kind, theme).unwrap();
-            assert!(v.len() > 1000 && v.len() % 3 == 0);
-            let half = 2.0 * sg_core::terrain::TILE_SIZE;
-            for p in &v {
-                assert!(p.pos[0].abs() < half && p.pos[2].abs() < half, "{:?}", p.pos);
-                assert!(p.pos[1] > -1.0 * M && p.pos[1] < 40.0 * M);
+    fn every_modelled_building_stands_in_its_footprint_in_every_theme() {
+        let mut modelled = 0;
+        for kind in 0..20 {
+            let tiles = sg_core::data::buildings()[kind].1.max(1) as f32;
+            let half = tiles * sg_core::terrain::TILE_SIZE * 0.5;
+            for theme in 0..4 {
+                for variant in 0..4 {
+                    let Some(v) = model(kind, theme, variant) else { continue };
+                    modelled += 1;
+                    assert!(v.len() >= 300 && v.len() % 3 == 0, "kind {kind}");
+                    assert!(model_half(kind).is_some(), "kind {kind}");
+                    for p in &v {
+                        assert!(p.pos[0].abs() <= half && p.pos[2].abs() <= half, "kind {kind} theme {theme}: {:?}", p.pos);
+                        assert!(p.pos[1] > -2.0 * M && p.pos[1] < 40.0 * M, "kind {kind}");
+                    }
+                }
             }
         }
-        assert!(model(0, 0).is_none());
+        assert!(modelled >= 12 * 4);
+        let clubhouse = (0..20).find(|&k| sg_core::data::object_id(k) == "clubhouse").unwrap();
+        assert!((0..4).all(|t| model(clubhouse, t, 0).is_some()));
+        assert!(model(0, 0, 0).is_none());
     }
 
     #[test]
