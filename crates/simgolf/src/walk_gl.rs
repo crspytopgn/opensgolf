@@ -272,12 +272,21 @@ void main() {
         vec4 c = art(uv, dist, 0.0, 0.0, vec3(0.0));
         o = vec4(water_at(c.rgb, v), 1.0);
     } else if (m < 4.5) {
-        float l = 1.0;
         if (dot(nrm, nrm) > 0.25) {
             vec3 n = normalize(nrm);
-            l = 0.62 + 0.45 * max(dot(n, sun.xyz), 0.0);
+            o = vec4(color.rgb * (0.62 + 0.45 * max(dot(n, sun.xyz), 0.0)), color.a);
+        } else {
+            // a drawn model (walk_toon.rs: its light already banded into its colour) set in the painted scene: tinted by the
+            // scene's light as the ground under it is, and given a little of the ground's painted grain, so it sits in the
+            // picture rather than on it
+            vec3 g = lit(vec3(1.0), vec3(0.0, 1.0, 0.0));
+            float top = max(g.r, max(g.g, g.b));
+            vec3 tint = mix(vec3(1.0), g / max(top, 0.05), 0.75) * mix(1.0, top, 0.35);
+            float near = 1.0 - smoothstep(6.0 * M, 60.0 * M, dist);
+            vec2 p = (wpos.xz + vec2(wpos.y, -wpos.y)) / (0.45 * M);
+            float gr = (texture2D(detail, p).r - 0.5) * 0.16 + (texture2D(detail, p * 0.31).g - 0.5) * 0.1;
+            o = vec4(color.rgb * tint * (1.0 + gr * near), color.a);
         }
-        o = vec4(color.rgb * l, color.a);
     } else if (m < 5.5) {
         vec4 c = unpremul(texture2D(tex, uv)) * color;
         if (c.a < 0.01) discard;

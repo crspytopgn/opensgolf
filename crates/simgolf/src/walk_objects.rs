@@ -596,8 +596,8 @@ struct FrameInfo {
     vivid: [f32; 3],
 }
 
-/// A golfer's head as their portrait shows it: the hair's colour, the skin's, and whether they have a beard.
-type Portrait = ([f32; 3], [f32; 3], bool);
+/// A golfer's head as their portrait shows it: the hair's colour, the skin's, their facial hair and its colour.
+type Portrait = ([f32; 3], [f32; 3], crate::walk_golfer::Beard, [f32; 3]);
 
 /// The objects' caches: textures of their frames, fitted solids, per-frame facts, and people's eased positions.
 #[derive(Default)]
@@ -1413,15 +1413,15 @@ impl App {
                         None
                     };
                     let mut look = look;
-                    if let Some((hair, skin, _)) = face {
+                    if let Some((hair, skin, ..)) = face {
                         if look.hands == look.skin {
                             look.hands = skin;
                         }
                         look.skin = skin;
                         look.hair = hair;
                     }
-                    let beard = face.is_some_and(|f| f.2);
-                    let who = crate::walk_golfer::Who { look, height, girth, kind, mood, beard };
+                    let (beard, whiskers) = face.map(|f| (f.2, f.3)).unwrap_or((crate::walk_golfer::Beard::None, look.hair));
+                    let who = crate::walk_golfer::Who { look, height, girth, kind, mood, beard, whiskers };
                     let v = crate::walk_golfer::figure(&who, act, t, sc.time + ph * 10.0, club);
                     // facing: along the heading, or side on to it at the ball (the target on a right-hander's left)
                     let (hs, hc) = p.heading.to_radians().sin_cos();
@@ -1453,7 +1453,7 @@ impl App {
                     };
                     let mut gv: Vec<Vert> = v.into_iter().map(place).collect();
                     if toon {
-                        crate::walk_toon::outline(&gv, crate::walk_toon::width(dist, 0.015 * M), &mut inks);
+                        crate::walk_toon::outline(&gv, crate::walk_toon::width(dist, 0.011 * M), &mut inks);
                         crate::walk_toon::cel(&mut gv, sun);
                     }
                     solids.extend(gv);
@@ -1541,7 +1541,7 @@ impl App {
     }
 
     /// A stock head's colours (0..18), read from the game's own portrait of it (the halo page the screens draw from,
-    /// `Art::halo_cell_in`): its hair, its skin, and whether it has a beard. None for a custom head or when the page is
+    /// `Art::halo_cell_in`): its hair, its skin, and its facial hair (by the stock head) and that hair's colour. None for a custom head or when the page is
     /// missing.
     fn walk_portrait(&self, o: &mut Objects, female: bool, head: u8) -> Option<Portrait> {
         if let Some(p) = o.portraits.get(&(female, head)) {
@@ -1609,10 +1609,13 @@ impl App {
             sk.sort_by(|a, b| lum(b).total_cmp(&lum(a)));
             sk.truncate(sk.len().div_ceil(2));
             let skin = mean(&sk).unwrap_or([0.85, 0.65, 0.5]);
-            // a beard: the chin is nearer the hair's colour than the skin's
-            let dist = |a: [f32; 3], b: [f32; 3]| (0..3).map(|k| (a[k] - b[k]).powi(2)).sum::<f32>();
-            let beard = !female && mean(&part((38, 62), (82, 94))).is_some_and(|c| dist(c, hair) < dist(c, skin) * 0.6);
-            Some((hair, skin, beard))
+            // the facial hair's colour: the darker half of the chin and lip, not the lips' red
+            let mut wh: Vec<[f32; 3]> = part((30, 70), (64, 96)).into_iter().filter(|c| c[0] < c[1] * 1.6).collect();
+            wh.sort_by(|a, b| lum(a).total_cmp(&lum(b)));
+            wh.truncate(wh.len().div_ceil(3));
+            let whiskers = mean(&wh).unwrap_or(hair);
+            let beard = if female { crate::walk_golfer::Beard::None } else { crate::walk_golfer::Beard::of_stock_head(head) };
+            Some((hair, skin, beard, whiskers))
         });
         o.portraits.insert((female, head), made);
         made

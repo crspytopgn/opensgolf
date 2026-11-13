@@ -43,6 +43,9 @@ fn yaw(a: V, t: f32) -> V {
     let (s, c) = t.sin_cos();
     [a[0] * c - a[2] * s, a[1], a[0] * s + a[2] * c]
 }
+fn mix(a: V, b: V, t: f32) -> V {
+    add(mul(a, 1.0 - t), mul(b, t))
+}
 fn smooth(t: f32) -> f32 {
     let t = t.clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
@@ -514,7 +517,7 @@ fn tube(out: &mut Vec<Vert>, a: V, b: V, ra: f32, rb: f32, col: [f32; 3], across
 
 /// A ball at `c`, its radii `r` along x, y and z.
 fn ball(out: &mut Vec<Vert>, c: V, r: V, col: [f32; 3]) {
-    let (seg, rings) = (10, 7);
+    let (seg, rings) = (14, 9);
     let col = [col[0], col[1], col[2], 1.0];
     let at = |i: usize, j: usize| {
         let (th, ph) = (TAU * i as f32 / seg as f32, PI * j as f32 / rings as f32);
@@ -536,7 +539,7 @@ fn ball(out: &mut Vec<Vert>, c: V, r: V, col: [f32; 3]) {
 /// head and what fits on it.
 #[allow(clippy::too_many_arguments)]
 fn shell(out: &mut Vec<Vert>, c: V, ax: [V; 3], r: V, ph0: f32, ph1: f32, th: (f32, f32), col: [f32; 3]) {
-    let (seg, rings) = (18, 10);
+    let (seg, rings) = (22, 12);
     let col = [col[0], col[1], col[2], 1.0];
     let at = |i: usize, j: usize| {
         let th = th.0 + (th.1 - th.0) * i as f32 / seg as f32;
@@ -597,6 +600,31 @@ fn club_length(club: i32) -> f32 {
     }
 }
 
+/// A golfer's facial hair.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Beard {
+    None,
+    Moustache,
+    Goatee,
+    /// A goatee and a moustache.
+    Both,
+    /// A short beard: a full one, its colour half the skin's.
+    Stubble,
+    Full,
+}
+
+impl Beard {
+    /// The facial hair of each of the game's stock men's heads (0..18), as their portraits show it.
+    pub fn of_stock_head(head: u8) -> Beard {
+        use Beard::*;
+        const HEADS: [Beard; 19] = [
+            Full, Full, Moustache, Goatee, None, Both, Stubble, Full, Goatee, None, Moustache, None, None, None, Goatee, Goatee, None,
+            None, Goatee,
+        ];
+        HEADS.get(head as usize).copied().unwrap_or(None)
+    }
+}
+
 /// Who a golfer is, for their figure: their colours, their build (from their body's pictures: `height` and `girth` about
 /// 1), what kind of golfer they are (`Golfer::kind`: 0x20 a pro, 0x40 the commissioner, 0x60 a CEO, 0x80 the heiress)
 /// and their mood (-10..10).
@@ -607,14 +635,15 @@ pub struct Who {
     pub girth: f32,
     pub kind: u8,
     pub mood: i32,
-    /// A beard, as the golfer's own portrait shows (in the hair's colour).
-    pub beard: bool,
+    /// The facial hair the golfer's own portrait shows, and its colour.
+    pub beard: Beard,
+    pub whiskers: [f32; 3],
 }
 
 impl Who {
     #[cfg(test)]
     pub fn plain(look: Look) -> Who {
-        Who { look, height: 1.0, girth: 1.0, kind: 0, mood: 0, beard: false }
+        Who { look, height: 1.0, girth: 1.0, kind: 0, mood: 0, beard: Beard::None, whiskers: [0.3, 0.2, 0.1] }
     }
 }
 
@@ -667,8 +696,8 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
         let foot = p.feet[k];
         let hint = add(yaw([0.0, 0.0, 1.0], -p.hip_turn * 0.5), [s * 0.1, 0.0, 0.0]);
         let (knee, ankle) = reach(hip, foot, 0.45, 0.43, hint);
-        tube(o, hip, knee, 0.12 * g, 0.095 * g.sqrt(), look.pants, hip_right, 0.9, 10);
-        tube(o, knee, ankle, 0.092 * g.sqrt(), 0.075, look.pants, hip_right, 0.9, 10);
+        tube(o, hip, knee, 0.12 * g, 0.095 * g.sqrt(), look.pants, hip_right, 0.9, 14);
+        tube(o, knee, ankle, 0.092 * g.sqrt(), 0.075, look.pants, hip_right, 0.9, 14);
         let toe = add(ankle, [s * 0.02, -0.04, 0.25]);
         let heel = add(ankle, [0.0, -0.04, -0.07]);
         tube(o, heel, toe, 0.08, 0.085, shoe, [0.0, 1.0, 0.0], 0.62, 10);
@@ -690,7 +719,7 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
         tube(o, a, b, 0.028, 0.045, tie, chest_right, 0.25, 6);
         ball(o, a, [0.03, 0.028, 0.02], tie);
     }
-    tube(o, shoulders, neck, 0.075, 0.07, look.skin, chest_right, 1.0, 10);
+    tube(o, shoulders, neck, 0.075, 0.07, look.skin, chest_right, 1.0, 14);
     if kind == 0x80 {
         // the heiress's pearls
         for i in 0..11 {
@@ -706,9 +735,9 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
         let hint = add(add([0.0, -1.0, 0.0], mul(chest_right, s * 0.6)), mul(chest_fwd, -0.3));
         let (elbow, wrist) = reach(shoulder, p.hands[k], 0.3, 0.28, hint);
         let sleeve = add(shoulder, mul(sub(elbow, shoulder), 0.5));
-        tube(o, shoulder, sleeve, 0.085, 0.08, look.shirt, chest_right, 1.0, 10);
-        tube(o, sleeve, elbow, 0.06, 0.056, look.skin, chest_right, 1.0, 10);
-        tube(o, elbow, wrist, 0.055, 0.048, look.skin, chest_right, 1.0, 10);
+        tube(o, shoulder, sleeve, 0.085, 0.08, look.shirt, chest_right, 1.0, 14);
+        tube(o, sleeve, elbow, 0.06, 0.056, look.skin, chest_right, 1.0, 14);
+        tube(o, elbow, wrist, 0.055, 0.048, look.skin, chest_right, 1.0, 14);
         ball(o, wrist, [0.075, 0.082, 0.075], look.hands);
     }
     // the club: grip, shaft and head
@@ -796,23 +825,47 @@ fn head(o: &mut Vec<Vert>, who: &Who, act: Act, neck: V, spine: V, face: V) {
         let brow = if look.female { look.hair } else { mul(look.hair, 0.6) };
         tube(o, on(sx * 0.025, 0.07 + lift + tilt, 0.004), on(sx * 0.08, 0.068 + lift - tilt, 0.002), 0.008, 0.007, brow, crown, 0.7, 6);
     }
-    // a beard round the jaw, in the hair's colour
-    if who.beard {
-        shell(o, add(c, mul(face, 0.012)), ax, [r[0] * 1.04, r[1] * 1.02, r[2] * 1.06], 2.05, PI, full, look.hair);
-        tube(o, on(-0.035, -0.052, 0.006), on(0.035, -0.052, 0.006), 0.011, 0.011, look.hair, crown, 0.6, 6);
+    // the facial hair, shaped to the head: a moustache under the nose, a goatee on the chin, a beard along the jaw
+    let whisk = if who.beard == Beard::Stubble { mix(who.whiskers, look.skin, 0.45) } else { who.whiskers };
+    let jaw = matches!(who.beard, Beard::Full | Beard::Stubble);
+    if jaw {
+        // from ear to ear round the front of the jaw and under the chin, the sideburns up to the ears
+        let k = if who.beard == Beard::Full { 1.07 } else { 1.025 };
+        shell(o, c, ax, [r[0] * k, r[1] * (k - 0.01), r[2] * k], 1.95, 2.75, (-0.15, PI + 0.15), whisk);
+        for sx in [-1.0f32, 1.0] {
+            let a = at(sx * r[0] * 0.93, 0.0, -0.01);
+            tube(o, a, at(sx * r[0] * 0.86, -0.075, 0.035), 0.022, 0.03, whisk, face, 0.6, 8);
+        }
     }
-    // the mouth: a smile, a line or a frown, a curve of beads
-    let mouth_out = if who.beard { 0.012 } else { 0.003 };
-    for i in 0..9 {
-        let u = i as f32 / 8.0 - 0.5;
+    if matches!(who.beard, Beard::Moustache | Beard::Both) || who.beard == Beard::Full {
+        // two rounded lobes, drooping a little at the ends
+        for sx in [-1.0f32, 1.0] {
+            shell(o, on(sx * 0.024, -0.054, 0.006), ax, [0.03, 0.014, 0.016], 0.0, PI, full, whisk);
+            shell(o, on(sx * 0.046, -0.062, 0.002), ax, [0.014, 0.014, 0.012], 0.0, PI, full, whisk);
+        }
+    }
+    if matches!(who.beard, Beard::Goatee | Beard::Both) {
+        shell(o, on(0.0, -0.118, 0.004), ax, [0.03, 0.026, 0.02], 0.0, PI, full, whisk);
+    }
+    // the mouth: a smile, a line or a frown, one smooth stroke, rounded at its ends
+    let mouth_out = if jaw { 0.012 } else { 0.003 };
+    let mouth = |u: f32| {
         let bend = mood.clamp(-1.0, 1.0) * 0.022 * (1.0 - u * u * 4.0);
-        ball(o, on(u * 0.075, -0.075 - bend, mouth_out), [0.009, 0.009, 0.009], [0.42, 0.1, 0.1]);
+        on(u * 0.08, -0.075 - bend, mouth_out)
+    };
+    let lip = [0.4, 0.1, 0.1];
+    for i in 0..8 {
+        let (u0, u1) = (i as f32 / 8.0 - 0.5, (i + 1) as f32 / 8.0 - 0.5);
+        tube(o, mouth(u0), mouth(u1), 0.0085, 0.0085, lip, face, 0.8, 8);
+    }
+    for u in [-0.5, 0.5] {
+        shell(o, mouth(u), ax, [0.0085; 3], 0.0, PI, full, lip);
     }
     if kind == 0x60 {
         // the CEO's cigar, in the corner of the mouth
         let a = on(0.03, -0.075, 0.0);
         let b = add(add(a, mul(face, 0.1)), add(mul(side, 0.03), mul(crown, -0.015)));
-        tube(o, a, b, 0.013, 0.013, [0.38, 0.22, 0.1], side, 1.0, 8);
+        tube(o, a, b, 0.013, 0.013, [0.38, 0.22, 0.1], side, 1.0, 12);
         ball(o, b, [0.014; 3], [1.0, 0.45, 0.1]);
     }
     // the hair, then the hat: fitted to the head, the brim above the brows
@@ -977,6 +1030,30 @@ mod dump {
             ("pro", Who { kind: 0x20, mood: 3, ..Who::plain(Look::plain(&o(false, 2, 0, 2, 0))) }, Act::Pump, 0.0),
             ("cross", Who { mood: -8, ..Who::plain(Look::plain(&o(false, 4, 3, 1, 2))) }, Act::Fail, 0.8),
             ("sad", Who { mood: -6, girth: 0.85, height: 1.1, ..Who::plain(Look::plain(&o(true, 3, 5, 3, 1))) }, Act::Sad, 0.5),
+            (
+                "full",
+                Who { beard: Beard::Full, whiskers: [0.55, 0.42, 0.2], mood: 3, ..Who::plain(Look::plain(&o(false, 5, 1, 0, 0))) },
+                Act::Stand,
+                0.0,
+            ),
+            (
+                "goatee",
+                Who { beard: Beard::Both, whiskers: [0.3, 0.18, 0.1], ..Who::plain(Look::plain(&o(false, 6, 2, 2, 1))) },
+                Act::Stand,
+                0.0,
+            ),
+            (
+                "tache",
+                Who { beard: Beard::Moustache, whiskers: [0.2, 0.12, 0.08], mood: -2, ..Who::plain(Look::plain(&o(false, 2, 3, 1, 4))) },
+                Act::Stand,
+                0.0,
+            ),
+            (
+                "stubble",
+                Who { beard: Beard::Stubble, whiskers: [0.25, 0.15, 0.1], ..Who::plain(Look::plain(&o(false, 1, 0, 0, 5))) },
+                Act::Stand,
+                0.0,
+            ),
         ];
         for (k, (name, who, act, t)) in cast.iter().enumerate() {
             let v = figure(who, *act, *t, 0.0, 4);
