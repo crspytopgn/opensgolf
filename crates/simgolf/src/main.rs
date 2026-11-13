@@ -3109,6 +3109,13 @@ impl Stage {
         } else if self.walk.cam.is_some() && walk::walk_screen(app) {
             // the walk camera, a hidden test view (walk.rs): the course alone and a line of help
             walk::draw(app, &mut self.g, &mut self.walk);
+            // a great shot's SimFoto over the walk as over the overhead view: the game waits for it to be seen and put
+            // away (screens_ui.rs great_shot_frame), and the walk goes on after
+            if app.great_shot.is_some() && app.ui_ok {
+                let s = ui::Screen::new(app.draw_w, app.draw_h);
+                app.draw_great_shot(&mut self.g, &s);
+                self.g.flush();
+            }
         } else if app.photo.is_some() {
             // Enhanced graphics' photo mode: the course alone (photo.rs)
             self.draw_photo(target);

@@ -1379,11 +1379,38 @@ impl App {
                 }
                 o.drawn += 1;
                 // a golfer near enough: a 3D body acting out their clip
-                if let (Some(gi), true) = (p.golfer, dist < GOLFER_BODY_NEAR && !flat_people) {
+                // (and the player's own pro walking the course between rounds: an employee wearing a golfer's clips)
+                let owner = p
+                    .employee
+                    .and_then(|ei| self.employees.get(ei))
+                    .filter(|e| e.job == sg_core::staff::job::OWNER)
+                    .map(|e| self.staff_clip_of(e).1);
+                if let (Some(gi), true) = (p.golfer.or(owner.map(|_| usize::MAX)), dist < GOLFER_BODY_NEAR && !flat_people) {
+                    // the player's pro, in a round or walking: drawn as the star he is
+                    let star = owner.is_some() || (self.club.gary >= 0 && gi == self.club.gary as usize);
                     let (id, frame) = self.club.drawn.get(gi).copied().unwrap_or((0, 0));
-                    let clip = crate::app::GOLFER_CLIPS.iter().rev().find(|(b, _)| *b <= id && id - *b <= 8).map(|c| c.1).unwrap_or("");
-                    let n = self.club.clip_frames.get(id as usize).copied().unwrap_or(1).max(1);
-                    let mut t = if n > 1 { frame as f32 / (n - 1) as f32 } else { 0.0 };
+                    let clip = match owner {
+                        Some(state) => ["NormalWalk", "Fidget", "Happy"][state.min(2)],
+                        None => crate::app::GOLFER_CLIPS.iter().rev().find(|(b, _)| *b <= id && id - *b <= 8).map(|c| c.1).unwrap_or(""),
+                    };
+                    let mut t = match owner {
+                        Some(_) => {
+                            let n = p.body.map(|b| self.sprites[b].s.frames_per_view).unwrap_or(1).max(1);
+                            if n > 1 {
+                                p.frame as f32 / (n - 1) as f32
+                            } else {
+                                0.0
+                            }
+                        }
+                        None => {
+                            let n = self.club.clip_frames.get(id as usize).copied().unwrap_or(1).max(1);
+                            if n > 1 {
+                                frame as f32 / (n - 1) as f32
+                            } else {
+                                0.0
+                            }
+                        }
+                    };
                     // (SG_WALK_POSE=CLIP:T puts every golfer in that clip's pose, T of the way through it, for stills)
                     let forced = std::env::var("SG_WALK_POSE").ok();
                     let clip = match forced.as_deref().and_then(|f| f.split_once(':')) {
@@ -1403,9 +1430,9 @@ impl App {
                     let ph = place_hash(gi as f32, 3.0);
                     let base_id = crate::app::GOLFER_CLIPS.iter().rev().find(|(b, _)| *b <= id && id - *b <= 8).map(|c| c.0).unwrap_or(id);
                     let (height, girth) = o.builds.as_ref().and_then(|b| b.get((id - base_id) as usize)).copied().unwrap_or((1.0, 1.0));
-                    let (kind, mood) = self.club.g.get(gi).map(|g| (g.kind, g.mood)).unwrap_or((0, 0));
-                    // the golfer's own head: the hair, skin and beard their portrait shows
-                    let roster = self.club.g.get(gi).map(|g| g.roster).unwrap_or(-1);
+                    let (kind, mood) = self.club.g.get(gi).map(|g| (g.kind, g.mood)).unwrap_or((0x20, 4));
+                    // the golfer's own head: the hair, skin and beard their portrait shows (the pro's: the roster's first)
+                    let roster = self.club.g.get(gi).map(|g| g.roster).unwrap_or(if owner.is_some() { 0 } else { -1 });
                     let face = if roster >= 0 && std::env::var_os("SG_WALK_NO_PORTRAITS").is_none() {
                         let person = self.club.roster.get(roster as usize).cloned().unwrap_or_default();
                         self.walk_portrait(o, person.female(), person.head_index(roster as usize))
@@ -1424,7 +1451,7 @@ impl App {
                     // as finely made as the golfer is big on the screen (sc.u.info[2]: the focal length in pixels)
                     let pixels = 1.5 * M * p.scale.max(0.1) * sc.u.info[2] / dist.max(1.0);
                     let detail = crate::walk_golfer::detail_for(pixels);
-                    let who = crate::walk_golfer::Who { look, height, girth, kind, mood, beard, whiskers, detail };
+                    let who = crate::walk_golfer::Who { look, height, girth, kind, mood, beard, whiskers, detail, star };
                     let v = crate::walk_golfer::figure(&who, act, t, sc.time + ph * 10.0, club);
                     // facing: along the heading, or side on to it at the ball (the target on a right-hander's left)
                     let (hs, hc) = p.heading.to_radians().sin_cos();
@@ -1723,8 +1750,10 @@ impl App {
         if gl.bx == 0 || gl.hole <= 0 || gl.hole >= 19 || gl.flags & flag::PENALTY != 0 {
             return None;
         }
-        let (bx, bz) = self.units_to_world(gl.bx, gl.by);
-        Some([bx, self.terrain.height_at(bx, bz) + gl.bz as f32 * sg_core::terrain::HEIGHT_STEP / 20.0, bz])
+        // eased between the simulation's ticks (enhanced.rs `shown_ball`), so a flight is smooth at any frame rate
+        let (ux, uy, uz) = self.shown_ball(i).unwrap_or((gl.bx as f32, gl.by as f32, gl.bz as f32));
+        let (bx, bz) = self.units_to_world_f(ux, uy);
+        Some([bx, self.terrain.height_at(bx, bz) + uz * sg_core::terrain::HEIGHT_STEP / 20.0, bz])
     }
 
     fn walk_balls(

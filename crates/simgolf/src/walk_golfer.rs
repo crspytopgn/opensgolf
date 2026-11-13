@@ -679,6 +679,9 @@ pub struct Who {
     /// The facial hair the golfer's own portrait shows, and its colour.
     pub beard: Beard,
     pub whiskers: [f32; 3],
+    /// The player's own pro: drawn as the star of the course (aviators on his visor, a gold star on his shirt, a white
+    /// glove, a confident grin), so he stands out from every other golfer.
+    pub star: bool,
     /// How finely the figure is divided: 1 for a golfer about 360 pixels tall on the screen (`detail_for`).
     pub detail: f32,
 }
@@ -686,7 +689,7 @@ pub struct Who {
 impl Who {
     #[cfg(test)]
     pub fn plain(look: Look) -> Who {
-        Who { look, height: 1.0, girth: 1.0, kind: 0, mood: 0, beard: Beard::None, whiskers: [0.3, 0.2, 0.1], detail: 1.0 }
+        Who { look, height: 1.0, girth: 1.0, kind: 0, mood: 0, beard: Beard::None, whiskers: [0.3, 0.2, 0.1], detail: 1.0, star: false }
     }
 }
 
@@ -718,7 +721,7 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
     let up = [0.0, 1.0, 0.0];
     let tall = if look.female { 0.94 } else { 1.0 } * who.height.clamp(0.85, 1.15);
     let g = who.girth.clamp(0.8, 1.35);
-    let kind = who.kind & 0xe0;
+    let kind = if who.star { 0x20 } else { who.kind & 0xe0 };
     let shoe = [0.93, 0.93, 0.9];
     let belt = [0.12, 0.1, 0.09];
 
@@ -764,6 +767,16 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
         ball(o, a, [0.03, 0.028, 0.02], tie);
     }
     tube(o, shoulders, neck, 0.075, 0.07, look.skin, chest_right, 1.0, 14);
+    if who.star {
+        // a big gold star on the pro's chest
+        let at = add(add(add(shoulders, mul(spine, -0.14)), mul(chest_fwd, 0.16 * g.sqrt())), mul(chest_right, -0.075));
+        for i in 0..5 {
+            let a = TAU * i as f32 / 5.0;
+            let tip = add(add(at, mul(chest_right, a.sin() * 0.075)), mul(spine, a.cos() * 0.075));
+            tube(o, at, tip, 0.03, 0.006, [0.98, 0.78, 0.18], chest_fwd, 0.35, 6);
+        }
+        ball(o, at, [0.03, 0.03, 0.012], [0.98, 0.78, 0.18]);
+    }
     if kind == 0x80 {
         // the heiress's pearls
         for i in 0..11 {
@@ -782,7 +795,9 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
         tube(o, shoulder, sleeve, 0.085, 0.08, look.shirt, chest_right, 1.0, 14);
         tube(o, sleeve, elbow, 0.06, 0.056, look.skin, chest_right, 1.0, 14);
         tube(o, elbow, wrist, 0.055, 0.048, look.skin, chest_right, 1.0, 14);
-        ball(o, wrist, [0.075, 0.082, 0.075], look.hands);
+        // the pro's white golf glove on his leading (left) hand
+        let hand = if who.star && k == 1 { [0.97, 0.97, 0.95] } else { look.hands };
+        ball(o, wrist, [0.075, 0.082, 0.075], hand);
     }
     // the club: grip, shaft and head
     if let Some((grip, shaft, l)) = p.club {
@@ -819,13 +834,14 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
 /// and the hat fitted to it. `neck` is the top of the neck, `spine` the way up the neck, `face` the way the face looks.
 fn head(o: &mut Vec<Vert>, who: &Who, act: Act, neck: V, spine: V, face: V) {
     let look = &who.look;
-    let kind = who.kind & 0xe0;
+    let kind = if who.star { 0x20 } else { who.kind & 0xe0 };
     let dark = [0.06, 0.05, 0.05];
     let white = [0.98, 0.98, 0.96];
     let mood = match act {
         Act::Happy | Act::Pump => 1.0,
         Act::Sad => -1.0,
         Act::Fail => -2.0,
+        _ if who.star => ((who.mood as f32 / 6.0) + 0.6).clamp(-1.0, 1.0),
         _ => (who.mood as f32 / 6.0).clamp(-1.0, 1.0),
     };
     // the head's frame: right, up (along the neck, a little back), forward
@@ -944,8 +960,19 @@ fn head(o: &mut Vec<Vert>, who: &Who, act: Act, neck: V, spine: V, face: V) {
             }
             let y = r[1] * rim;
             let band = r[0] * (1.0 - rim * rim).sqrt() * 1.08;
-            tube(o, at(0.0, y, 0.0), at(0.0, y + 0.03, 0.0), band, band, look.hat, face, 1.0, 18);
+            let band_col = if who.star { [0.95, 0.76, 0.25] } else { look.hat };
+            tube(o, at(0.0, y, 0.0), at(0.0, y + 0.03, 0.0), band, band, band_col, face, 1.0, 18);
             tube(o, on(0.0, y + 0.012, -0.02), add(on(0.0, y + 0.012, 0.0), mul(face, 0.12)), 0.12, 0.1, look.hat, side, 0.1, 12);
+            if who.star {
+                // aviators pushed up on the visor's band: two dark teardrop lenses in gold rims and the bridge between
+                let gold = [0.95, 0.76, 0.25];
+                for sx in [-1.0f32, 1.0] {
+                    let l = on(sx * 0.055, y + 0.045, 0.012);
+                    shell(o, l, ax, [0.04, 0.03, 0.012], 0.0, PI, full, gold);
+                    shell(o, add(l, mul(face, 0.006)), ax, [0.034, 0.025, 0.01], 0.0, PI, full, [0.1, 0.14, 0.2]);
+                }
+                tube(o, on(-0.02, y + 0.052, 0.018), on(0.02, y + 0.052, 0.018), 0.005, 0.005, gold, crown, 1.0, 6);
+            }
         }
         _ if look.female => {}
         _ => {
@@ -1100,6 +1127,7 @@ mod dump {
             ("pro", Who { kind: 0x20, mood: 3, ..Who::plain(Look::plain(&o(false, 2, 0, 2, 0))) }, Act::Pump, 0.0),
             ("cross", Who { mood: -8, ..Who::plain(Look::plain(&o(false, 4, 3, 1, 2))) }, Act::Fail, 0.8),
             ("sad", Who { mood: -6, girth: 0.85, height: 1.1, ..Who::plain(Look::plain(&o(true, 3, 5, 3, 1))) }, Act::Sad, 0.5),
+            ("star", Who { star: true, mood: 4, ..Who::plain(Look::plain(&o(false, 2, 0, 1, 0))) }, Act::Stand, 0.0),
             (
                 "full",
                 Who { beard: Beard::Full, whiskers: [0.55, 0.42, 0.2], mood: 3, ..Who::plain(Look::plain(&o(false, 5, 1, 0, 0))) },

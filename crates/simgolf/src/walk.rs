@@ -434,6 +434,10 @@ impl Stage {
         if !enabled() {
             return false;
         }
+        // a great shot's picture over the walk waits for any key, as over the overhead view (main.rs), and the walk goes on
+        if self.app.great_shot.is_some() {
+            return false;
+        }
         if self.walk_shown() {
             if is_key(k) {
                 self.walk_end();
@@ -478,6 +482,10 @@ impl Stage {
         if !self.walk_shown() {
             // the release of a button held when the walk ended is the walk's too
             return std::mem::take(&mut self.walk.looking) && !down;
+        }
+        // a click puts a great shot's picture away (main.rs), and the walk goes on
+        if down && self.app.great_shot.is_some() {
+            return false;
         }
         self.walk.looking = down;
         true
@@ -985,6 +993,16 @@ impl App {
         let w = F_INFO14.width(&line) + 16.0;
         s.fill(g, l + 8.0, tp + 8.0, w, 22.0, shade);
         s.put(g, F_INFO14, l + 16.0, tp + 11.0, &line, white);
+        if self.great_shot.is_some() {
+            // over a great shot's picture: how to carry on walking, plainly
+            let go = "Click or press any key to carry on walking   (F10 saves the picture)";
+            let w = F_INFO14.width(go) + 20.0;
+            let x = ((l + rt) - w) * 0.5;
+            s.fill(g, x, bt - 34.0, w, 24.0, rgba(0.0, 0.0, 0.0, 0.7));
+            s.put(g, F_INFO14, x + 10.0, bt - 30.0, go, white);
+            g.flush();
+            return;
+        }
         let help = "Walk camera: W A S D or arrows walk, Shift run, drag to look, G follow a golfer (Shift+G back), F12, ` or Esc back";
         let w = F_ARIAL10.width(help) + 12.0;
         s.fill(g, l + 6.0, bt - 20.0, w, 14.0, shade);

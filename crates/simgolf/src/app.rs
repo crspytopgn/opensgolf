@@ -4764,8 +4764,13 @@ fn slots_of(offer: &[Slot; 16]) -> [usize; 16] {
 
 impl App {
     pub fn units_to_world(&self, x: i32, y: i32) -> (f32, f32) {
+        self.units_to_world_f(x as f32, y as f32)
+    }
+
+    /// As `units_to_world`, for a place between whole units (an eased one).
+    pub fn units_to_world_f(&self, x: f32, y: f32) -> (f32, f32) {
         let k = TILE_SIZE / staff::UNIT as f32;
-        (x as f32 * k - self.terrain.w as f32 * TILE_SIZE * 0.5, y as f32 * k - self.terrain.h as f32 * TILE_SIZE * 0.5)
+        (x * k - self.terrain.w as f32 * TILE_SIZE * 0.5, y * k - self.terrain.h as f32 * TILE_SIZE * 0.5)
     }
 
     /// Clubhouse anchor tile (the exe's first object), from the generated land or the demo course's clubhouse.
