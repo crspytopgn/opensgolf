@@ -36,6 +36,7 @@ mod controls;
 mod controls_ui;
 mod cursor_ui;
 mod cust_ui;
+mod demolish;
 mod edges;
 mod editor;
 mod enhanced;
@@ -1254,6 +1255,30 @@ fn apply_edit_spec(app: &mut App, spec: &str) {
                     println!("ejected golfer {gi} (hole now {})", app.club.g[gi].hole);
                 }
             }
+            b'E' => {
+                // test hook: the eyesores on the club's land (the Eyesore demolition extra, demolish.rs); E:1 pulls the first
+                // one down through the confirmation box's Yes, E:2 opens the box
+                let found: Vec<(i32, i32, i32)> = app.land.as_ref().map_or_else(Vec::new, |l| {
+                    l.objects
+                        .iter()
+                        .filter(|o| o.kind == sg_core::land::K_LANDMARK && demolish::eyesore(o.sub) && l.in_play(o.a, o.b))
+                        .map(|o| (o.a, o.b, o.sub))
+                        .collect()
+                });
+                println!("eyesores {found:?}, cash {}", app.econ.cash);
+                if let (Some(&(a, b, _)), 2) = (found.first(), at(0)) {
+                    app.ask_demolish(a, b); // E:2 leaves the box open
+                }
+                if let (Some(&(a, b, _)), true) = (found.first(), at(0) == 1) {
+                    // (the edit spec runs inside an action, so undo_tile's right-click path is taken by hand here)
+                    if app.ask_demolish(a, b) && app.popup.as_ref().is_some_and(|p| p.kind == popup_ui::PopupKind::Demolish) {
+                        app.popup = None;
+                        app.confirm_demolish();
+                    }
+                    let left = app.eyesore_at(a, b).is_some();
+                    println!("demolish {a},{b}: still there {left}, cash {}", app.econ.cash);
+                }
+            }
             b'o' => {
                 let ok = app.open_hole();
                 println!("open hole: {ok}, next hole {}", app.club.next_hole);
@@ -1909,6 +1934,14 @@ impl Stage {
             PopupKind::QuickLoad => {
                 if k == 0 {
                     self.app.quick_load(&mut self.g);
+                }
+            }
+            // the Eyesore demolition extra's confirmation (demolish.rs)
+            PopupKind::Demolish => {
+                if k == 0 {
+                    self.app.confirm_demolish();
+                } else {
+                    self.app.demolish_at = None;
                 }
             }
             PopupKind::CareerOver => {

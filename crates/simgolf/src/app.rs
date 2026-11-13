@@ -907,6 +907,8 @@ pub struct App {
     pub extras_next: sg_core::extras::Extras,
     /// The Set par extra's change waiting for its confirmation box: hole and new par (extras_ui.rs).
     pub par_change: Option<(usize, i32)>,
+    /// The Eyesore demolition extra's question (demolish.rs): the tile and the eyesore's type.
+    pub demolish_at: Option<(i32, i32, i32)>,
     /// The words the Preferences' search box opens on (prefs_search.rs).
     pub pref_query: String,
     /// Undo for building and terrain (undo.rs).
@@ -1201,6 +1203,7 @@ impl App {
             design_hover: -1,
             extras_next: crate::extras_ui::saved(),
             par_change: None,
+            demolish_at: None,
             pref_query: String::new(),
             undo: Default::default(),
             bt: Default::default(),
@@ -4167,6 +4170,10 @@ impl App {
     pub fn undo_tile(&mut self, x: i32, y: i32) {
         // the interface's call is an action (replay.rs): logged, then applied by App::apply
         if self.rec.depth_zero() {
+            // an eyesore with the Eyesore demolition extra: asked first (demolish.rs)
+            if self.ask_demolish(x, y) {
+                return;
+            }
             self.act(Action::TakeBack { x, y });
             return;
         }

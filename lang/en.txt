@@ -1475,6 +1475,16 @@ STR_TOAST_COURSE_B                      :The hole tools now work on Course B, ho
 # Multiple tees (sg_core::extras): forward and middle tees, placed with the Tees tool after Tab
 STR_EXTRAS_TEES                         : Multiple tees: forward and middle tees
 STR_EXTRAS_DESC_TEES                    :Tab with the Tees tool places a forward or middle tee in front of a hole's tee. Weaker golfers play the shorter tees; par, length and tournaments stay as they were.
+STR_EXTRAS_DEMOLISH                     : Eyesore demolition: pull down water towers and oil pumps
+STR_EXTRAS_DESC_DEMOLISH                :A right click (a long press) on an eyesore on your land offers to pull it down for $10,000, booked to Build course.
+STR_DEMOLISH_1                          :Pull down this {WHAT} for {COST}?
+STR_DEMOLISH_2                          :Golfers will stop complaining about it, and the ground is yours to build on.
+STR_DEMOLISH_YES                        : Yes, pull it down
+STR_DEMOLISH_NO                         : No
+STR_DEMOLISH_DONE                       :The {WHAT} is gone.
+STR_DEMOLISH_WATER_TOWER                :water tower
+STR_DEMOLISH_RADIO_MAST                 :radio mast
+STR_DEMOLISH_OIL_PUMP                   :oil pump
 STR_TEE_BACK                            :back tee
 STR_TEE_MIDDLE                          :middle tee
 STR_TEE_FORWARD                         :forward tee

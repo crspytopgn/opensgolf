@@ -593,6 +593,12 @@ On the **Gameplay** page:
   before (a drive from the forward tee counts in the hole's driving figures). The tees are saved with the game; a game that
   never places one saves exactly as before, and switching the extra off sends every golfer back to the back tee (the tee
   tiles stay, and come back into play when it is switched on again).
+- **Eyesore demolition.** *(Light touch)* On harder properties the land comes with water towers, radio masts and oil
+  pumps that golfers dislike and the original never lets you remove. With this on, right-click one (on a touch screen,
+  long press it) and a box asks whether to pull it down for §10,000; Yes takes it away, frees its tiles for building and
+  painting, and books the cost to Build course. It works only on land the club owns, and only when the club can pay
+  (as with building, the price is not checked before the third hole is open). Switching the extra off leaves anything
+  already pulled down gone.
 - **Left-handed golfers.** *(Light touch)* About one golfer in ten who arrives from now on is left-handed (decided by the game's own
   random draws when the golfer is made, and kept with the saved game). A left-hander is drawn as the mirror image of a
   right-hander while addressing the ball, swinging and following through, still facing the shot's target; walking,
