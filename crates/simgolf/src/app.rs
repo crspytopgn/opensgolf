@@ -2936,6 +2936,8 @@ impl App {
                 golf::Event::HoleDone { g, .. } if self.club.g.get(g).is_some_and(|gg| gg.course_b) => {}
                 golf::Event::HoleDone { g, hole, strokes, mood, fee } => {
                     self.script_hole_done(g, hole, strokes);
+                    // the club records (records.rs)
+                    self.records_hole_done(g, hole, strokes);
                     if crate::extras::graphs() {
                         self.graphs_hole_done(hole, strokes, mood, fee);
                     }

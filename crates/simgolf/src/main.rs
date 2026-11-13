@@ -98,6 +98,7 @@ mod prefs_search;
 mod prefs_ui;
 mod pro_ui;
 mod profile_ui;
+mod records;
 mod render;
 mod replay;
 mod report_tabs;

@@ -525,6 +525,12 @@ impl App {
             s.text_centered(g, 400.0, y + 12.0, &format!("{pct}%   '{}'", line.text), 14.0, c);
             y += 16.0;
         }
+        // the club records' line (records.rs), with the comments by hole
+        if let Some(line) = self.records_line(h) {
+            s.image_part(g, art, 0.0, y, 0.0, 282.0, 800.0, 16.0);
+            s.text_centered(g, 400.0, y + 12.0, &line, 14.0, c15(0x0018));
+            y += 16.0;
+        }
         s.image_part(g, art, 0.0, y, 0.0, 347.0, 800.0, 55.0);
         self.ok_tick(g, &s, 574.0, y + 8.0, false);
         g.flush();

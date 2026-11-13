@@ -683,6 +683,9 @@ pub struct Kept {
     /// Each golfer's rounds here, by person record, newest last (profile_ui.rs), while the People extras are on.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub rounds: BTreeMap<i32, Vec<Round>>,
+    /// The club records (records.rs), once a hole is finished with the comments by hole on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub records: Option<crate::records::Records>,
 }
 
 /// A round a golfer played here: when it ended, the holes played, strokes, their par and what the golfer spent.
@@ -710,6 +713,7 @@ impl Kept {
             && self.years.is_none()
             && self.homes.is_empty()
             && self.rounds.is_empty()
+            && self.records.is_none()
     }
 
     pub fn push_message(&mut self, m: Message) {

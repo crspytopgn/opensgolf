@@ -2958,6 +2958,9 @@ STR_GPROFILE_ROUNDS_HEAD                 :{GOLFER}'s rounds here ({COUNT})
 STR_GPROFILE_NO_ROUNDS                   :No round finished here yet this game.
 STR_GPROFILE_ROUND                       :{STROKES} ({VS}) over {HOLES} holes, spent {SPENT}
 STR_GPROFILE_EVEN                        :even
+STR_RECORDS_ACE                          :Hole in one! {GOLFER} aces hole {HOLE}.
+STR_RECORDS_BEST                         :Hole record: {STROKES} by {GOLFER}, {DATE}
+STR_RECORDS_ACES                         :. Holes in one: {COUNT}, the last by {GOLFER}, {DATE}
 STR_GPROFILE_HELP                        :L locate, C card, B edit bio, R rounds, Up/Down scroll; Esc, Enter or a click outside the box goes back.
 STR_RENAME_EMPLOYEE                     :Rename the employee:
 STR_RENAME_BIO                          :The golfer's bio:
