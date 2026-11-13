@@ -777,6 +777,8 @@ pub struct State {
 
     /// The path view (Shift+V) and its marks, made again when the course changes.
     pub path_view: bool,
+    /// The course review's first item shown (review_ui.rs).
+    pub review_off: usize,
     /// The --screen test hook's extras screen, opened once the game has run (main.rs).
     pub test_open: Option<String>,
     /// The screen has been touched (touch.rs): no pointer to hover with, so no name tags.

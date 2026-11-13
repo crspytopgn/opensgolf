@@ -987,6 +987,10 @@ compare pixel for pixel with the build before the extras).
   With it on the club also keeps **club records**: each hole's best score with who made it and when, and every hole in
   one (the ticker announces it). Hole Stats shows the hole's record and its holes in one under the comments. They are
   Course A's and kept by hole number, with the save.
+- **Course review** (*Information, Course review*, with Comments by hole on): one page of what to look at next, from
+  what the other helpers already know: buildings off the paths, tees with no path near them, fairway, green and tee
+  tiles no groundskeeper reaches, holes golfers find dull (fun factor under 40%) and each hole's commonest complaint this
+  year. Each line has a green OK when all is well or a red ! when there is something to do. It only reads the game.
 - **History graphs** (**Shift+Y**, *Information, History graphs*, or the *Graphs* tab after the others on the tabbed
   reports): from the moment the extra is on, every game month is recorded for the club (rounds finished, holes played,
   revenue and costs as the F4 Financial Report's ledger books them, profit, cash at the month's end, golfer happiness

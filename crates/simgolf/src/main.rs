@@ -103,6 +103,7 @@ mod render;
 mod replay;
 mod report_tabs;
 mod reports_ui;
+mod review_ui;
 mod scenario_ui;
 mod scorecard_ui;
 mod screens_ui;
@@ -665,6 +666,7 @@ fn open_screen(app: &mut App, screen: Option<&str>) {
             }
         }
         Some("golfers") if app.ui_ok => app.panel = 4,
+        Some("review") if app.ui_ok => app.open_review(),
         Some("holestats") if app.ui_ok => {
             app.info.stats_hole = (1..19).find(|&h| app.club.holes[h].par != 0).unwrap_or(1);
             app.screen = Screen::HoleStats;
@@ -1908,6 +1910,7 @@ impl Stage {
             PopupKind::Info if line == tr("STR_MENU_INFO_PATH_VIEW") => self.app.toggle_path_view(),
             PopupKind::Info if line == tr("STR_MENU_INFO_LANDING_MAP") => self.app.toggle_landing_map(),
             PopupKind::Info if line == tr("STR_MENU_INFO_HEIGHT_VIEW") => self.app.toggle_height_view(),
+            PopupKind::Info if line == tr("STR_MENU_INFO_REVIEW") => self.app.open_review(),
             PopupKind::Info if line == tr("STR_MENU_INFO_HOLE_COMMENTS") => self.app.open_hole_comments(),
             PopupKind::Info if line == tr("STR_MENU_INFO_GRAPHS") => self.app.open_graphs(),
             PopupKind::Info => match k {
@@ -3169,6 +3172,7 @@ impl Stage {
                 Screen::History => app.draw_history(&mut self.g),
                 Screen::HoleComments => app.draw_hole_comments(&mut self.g),
                 Screen::Graphs => app.draw_graphs(&mut self.g),
+                Screen::Review => app.draw_review(&mut self.g),
                 Screen::Profile => {
                     app.draw_profile(&mut self.g);
                     app.draw_rename(&mut self.g);
@@ -3841,6 +3845,7 @@ impl EventHandler for Stage {
                 Screen::History => return self.app.history_wheel(y),
                 Screen::HoleComments => return self.app.hole_comments_wheel(y),
                 Screen::Graphs => return self.app.graphs_wheel(y),
+                Screen::Review => return self.app.review_wheel(y),
                 Screen::Profile => return self.app.profile_wheel(y),
                 _ => {}
             }
@@ -3975,6 +3980,9 @@ impl EventHandler for Stage {
             } else if self.app.screen == Screen::Graphs {
                 let (vx, vy) = self.app.view.to_virtual(x, y);
                 self.app.graphs_click(vx, vy, button == MouseButton::Right);
+            } else if self.app.screen == Screen::Review {
+                let (vx, vy) = self.app.view.to_virtual(x, y);
+                self.app.review_click(vx, vy, button == MouseButton::Right);
             } else if self.app.screen == Screen::Report {
                 let (vx, vy) = self.app.view.to_virtual(x, y);
                 self.app.report_click(vx, vy);
@@ -4406,6 +4414,8 @@ impl Stage {
                 app.hole_comments_key(k);
             } else if app.screen == Screen::Graphs {
                 app.graphs_key(k);
+            } else if app.screen == Screen::Review {
+                app.review_key(k);
             } else if app.screen == Screen::Report {
                 if k == KeyCode::Escape || k == KeyCode::F1 {
                     app.screen = Screen::Play;

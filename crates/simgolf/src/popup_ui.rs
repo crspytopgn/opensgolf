@@ -946,6 +946,7 @@ impl App {
                 (crate::extras::landing_map(), "STR_MENU_INFO_LANDING_MAP"),
                 (crate::extras::landing_map(), "STR_MENU_INFO_HEIGHT_VIEW"),
                 (crate::extras::hole_comments(), "STR_MENU_INFO_HOLE_COMMENTS"),
+                (crate::extras::hole_comments(), "STR_MENU_INFO_REVIEW"),
                 (crate::extras::graphs(), "STR_MENU_INFO_GRAPHS"),
             ] {
                 if on {

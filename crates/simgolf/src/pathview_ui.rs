@@ -38,7 +38,7 @@ impl App {
         self.show_toast(tr(if self.xs.path_view { "STR_PATHVIEW_ON" } else { "STR_PATHVIEW_OFF" }));
     }
 
-    fn path_marks(&self) -> Marks {
+    pub(crate) fn path_marks(&self) -> Marks {
         let t = &self.terrain;
         let joined: Vec<bool> = self
             .land

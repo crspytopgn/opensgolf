@@ -2882,6 +2882,7 @@ STR_MENU_INFO_HISTORY                   : Message history
 STR_MENU_INFO_PATH_VIEW                 : Path view on / off
 STR_MENU_INFO_LANDING_MAP               : Landing map on / off
 STR_MENU_INFO_HEIGHT_VIEW               : Height map on / off
+STR_MENU_INFO_REVIEW                    : Course review
 STR_MENU_INFO_HOLE_COMMENTS             : Comments by hole
 STR_MENU_INFO_GRAPHS                    : History graphs
 # The message history
@@ -2961,6 +2962,19 @@ STR_GPROFILE_EVEN                        :even
 STR_RECORDS_ACE                          :Hole in one! {GOLFER} aces hole {HOLE}.
 STR_RECORDS_BEST                         :Hole record: {STROKES} by {GOLFER}, {DATE}
 STR_RECORDS_ACES                         :. Holes in one: {COUNT}, the last by {GOLFER}, {DATE}
+STR_REVIEW_TITLE                         :COURSE REVIEW
+STR_REVIEW_NO_HOLES                      :The course has no holes open yet: paint a tee and a green, then open the hole.
+STR_REVIEW_BUILDINGS_OK                  :Every building is joined to the clubhouse by a path.
+STR_REVIEW_BUILDINGS_OFF                 :Off the paths, so closed: {LIST}. Lay a path from the clubhouse to each (Shift+V shows them).
+STR_REVIEW_TEES_OK                       :Every tee has a path within three tiles.
+STR_REVIEW_TEES_FAR                      :No path comes near the tee of hole {LIST}.
+STR_REVIEW_KEPT_OK                       :Your groundskeepers reach every fairway, green and tee.
+STR_REVIEW_KEPT_BARE                     :{COUNT} fairway, green and tee tiles are out of every groundskeeper's reach (Shift+A shows them).
+STR_REVIEW_FUN_OK                        :No hole is dull: every fun factor is 40% or more.
+STR_REVIEW_FUN_DULL                      :Golfers find these holes dull: {LIST}. Hole Stats shows what golfers say about each.
+STR_REVIEW_COMPLAINT                     :Hole {HOLE}: "{WHAT}" heard {COUNT} times this year.
+STR_REVIEW_NO_COMPLAINTS                 :No complaints heard on the course this year.
+STR_REVIEW_HELP                          :Up/Down scroll; Esc, Enter or a click outside the box goes back.
 STR_GPROFILE_HELP                        :L locate, C card, B edit bio, R rounds, Up/Down scroll; Esc, Enter or a click outside the box goes back.
 STR_RENAME_EMPLOYEE                     :Rename the employee:
 STR_RENAME_BIO                          :The golfer's bio:
