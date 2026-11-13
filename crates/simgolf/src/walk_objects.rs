@@ -38,6 +38,8 @@ const TREE_SCALE: f32 = 0.42;
 /// Trees nearer than this are drawn in the round (walk_trees.rs); further ones as upright pictures, which look the same
 /// from so far and cost far less.
 const TREE_SOLID_NEAR: f32 = 110.0 * M;
+/// People nearer than this are drawn in relief (walk_relief.rs); further ones as flat pictures.
+const PERSON_RELIEF_NEAR: f32 = 70.0 * M;
 /// Other small things' size against the art's (animals, weeds and the like).
 const SMALL_SCALE: f32 = 0.4;
 /// The least fit for which a building keeps a roof (`raise_roof`).
@@ -607,6 +609,8 @@ pub struct Objects {
     models: HashMap<(usize, usize, usize), Option<Vec<Vert>>>,
     /// The trees' solids (walk_trees.rs) by sprite and frame, in the picture's pixels, built once.
     trees: HashMap<(usize, usize), Option<Vec<Vert>>>,
+    /// People's frames raised in relief (walk_relief.rs) by sprite and frame, in the picture's pixels, built once.
+    reliefs: HashMap<(usize, usize), Option<Vec<Vert>>>,
     /// A moving prop's shown place (x, z) by its identity, eased between the simulation's ticks.
     eased: HashMap<u32, (f32, f32)>,
     /// The trees beyond the property (built with the ground, `walk_far_trees`).
@@ -1056,6 +1060,7 @@ impl App {
         let kind_at = |x: f32, z: f32| kinds.iter().find(|((fx, fz), _)| (fx - x).abs() < 1.0 && (fz - z).abs() < 1.0).map(|f| f.1);
         let mut modelled = std::collections::HashSet::new();
         let flat_trees = std::env::var_os("SG_WALK_FLAT_TREES").is_some();
+        let flat_people = std::env::var_os("SG_WALK_FLAT_PEOPLE").is_some();
         let eye = sc.eye;
         let up = [0.0, 1.0, 0.0];
         let right = [sc.right[0], 0.0, sc.right[1]];
@@ -1339,11 +1344,38 @@ impl App {
                 let i = self.sprites[si].s.frame_index(view, p.frame);
                 let t = match p.outfit {
                     Some(of) => self.walk_person_tex(g, o, si, i, of),
-                    None => self.walk_tex(g, o, si, i),
+                    None => self.walk_tex_smooth(g, o, si, i),
                 };
                 let flip = p.mirror && views < 8;
-                let rect = (-ax * sh, (w - ax) * sh, ay * sv, -(h - ay) * sv);
-                card(front.get(t), [x, ground + lift, z], right, up, rect, flip, 0.0, white);
+                let near = dist < PERSON_RELIEF_NEAR && !flat_people;
+                let body = near
+                    && o.reliefs
+                        .entry((si, i))
+                        .or_insert_with(|| crate::walk_relief::relief(&self.sprites[si].s.frame(i), ax, ay))
+                        .is_some();
+                if body {
+                    // in relief, turned to the eye as the picture is: across the picture along the eye's right, out of it
+                    // towards the eye
+                    let mut out = [-right[2], 0.0, right[0]];
+                    if out[0] * (eye[0] - x) + out[2] * (eye[2] - z) < 0.0 {
+                        out = out.map(|v| -v);
+                    }
+                    let f = if flip { -1.0 } else { 1.0 };
+                    let base = [x, ground + lift, z];
+                    let l = front.get(t);
+                    for q in o.reliefs[&(si, i)].iter().flatten() {
+                        let (px, py, pz) = (q.pos[0] * f * sh, q.pos[1] * sv, q.pos[2] * sh);
+                        let at = |a: usize| base[a] + right[a] * px + up[a] * py + out[a] * pz;
+                        let mut v = Vert::new(at(0), at(1), at(2), q.uv[0], q.uv[1]).col(q.color);
+                        // (tipped up, so a person is as bright as the picture overall, lit and shaded at the sides)
+                        let n = q.normal;
+                        v.normal = [right[0] * n[0] * f + out[0] * n[2], n[1] + 0.8, right[2] * n[0] * f + out[2] * n[2]];
+                        l.push(v);
+                    }
+                } else {
+                    let rect = (-ax * sh, (w - ax) * sh, ay * sv, -(h - ay) * sv);
+                    card(front.get(t), [x, ground + lift, z], right, up, rect, flip, 0.0, white);
+                }
                 blob(self, x, z, 0.5 * M, 0.38, &mut blobs);
                 continue;
             }
@@ -1387,7 +1419,7 @@ impl App {
         }
         let img = match self.swaps.compose(&of).and_then(|pal| sg_core::sprites::recolour(&self.sprites[si].s, i, &pal)) {
             Some(img) => img,
-            None => return self.walk_tex(g, o, si, i),
+            None => return self.walk_tex_smooth(g, o, si, i),
         };
         if o.people.len() > 4000 {
             let keys: Vec<_> = o.people.keys().copied().take(2000).collect();
@@ -1397,7 +1429,8 @@ impl App {
                 }
             }
         }
-        let t = sprite_texture(g, &img);
+        // smoothed like the trees' (xBRZ): a person seen a few paces off covers many pixels a texel
+        let t = if img.w * img.h <= 128 * 128 { sprite_texture(g, &sg_core::xbrz::scale(&img, 4)) } else { sprite_texture(g, &img) };
         o.people.insert((si, i, of), t);
         t
     }
