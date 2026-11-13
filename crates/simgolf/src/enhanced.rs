@@ -1237,7 +1237,8 @@ impl App {
     /// The simulation advanced: the positions at this tick become the newest of the two kept (smooth motion only). Called
     /// after `update_props` has pointed the props at the simulation.
     pub fn track_motion(&mut self) {
-        if !smooth_motion() {
+        // (the walk camera always eases the balls: seen from the ground a ball's flight stepping tick by tick judders)
+        if !smooth_motion() && self.ear.is_none() {
             self.enh.tracks.clear();
             self.enh.balls.clear();
             return;
@@ -1307,7 +1308,7 @@ impl App {
 
     /// Where golfer `i`'s ball is drawn, in the simulation's units (x, y, height).
     pub fn shown_ball(&self, i: usize) -> Option<(f32, f32, f32)> {
-        let t = self.enh.balls.get(i).copied().flatten().filter(|_| smooth_motion())?;
+        let t = self.enh.balls.get(i).copied().flatten().filter(|_| smooth_motion() || self.ear.is_some())?;
         let f = self.tick_fraction();
         let l = |k: usize| t.prev[k] + (t.cur[k] - t.prev[k]) * f;
         let _ = t.seen;

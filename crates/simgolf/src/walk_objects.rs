@@ -31,6 +31,17 @@ use std::collections::HashMap;
 
 /// World units per metre (walk.rs).
 const M: f32 = crate::walk::METRE;
+
+/// A fly-over or landmark drawn as a model of its own (walk_sky.rs).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Sky {
+    Blimp,
+    Balloon,
+    Pump,
+}
+/// How much bigger than the game's own scale a 3D golfer is drawn, so seen from eye height they stand as tall as the
+/// walker rather than looking like children (the sprites are drawn small against the course).
+const GOLFER: f32 = 1.04;
 /// A person's height.
 const PERSON: f32 = 1.8 * M;
 /// Trees' size against the overhead art's (whose trees are drawn far larger than the ground they stand on).
@@ -1111,6 +1122,28 @@ impl App {
         let mut eased: HashMap<u32, (f32, f32)> = HashMap::new();
         let white = [1.0; 4];
         let near_obstacle = 120.0 * M;
+        // the fly-overs and landmarks drawn as models of their own (walk_sky.rs), by their pictures
+        // (test hook: SG_WALK_NO_MODELS draws them as their cards too)
+        let sky: HashMap<usize, Sky> = if std::env::var_os("SG_WALK_NO_MODELS").is_some() {
+            HashMap::new()
+        } else {
+            self.sprite_index
+                .iter()
+                .filter_map(|(k, v)| {
+                    let name = k.split('|').next().unwrap_or("");
+                    let kind = if name.starts_with("Scenic/blimp") && !name.contains("Shadow") {
+                        Sky::Blimp
+                    } else if name.starts_with("Scenic/hotair") && !name.contains("Shadow") {
+                        Sky::Balloon
+                    } else if name.starts_with("Landmarks/Red Oil Pump") && !name.contains("Shadow") {
+                        Sky::Pump
+                    } else {
+                        return None;
+                    };
+                    v.map(|si| (si, kind))
+                })
+                .collect()
+        };
         for idx in 0..self.props.len() {
             let p = self.props[idx].clone();
             if p.hidden {
@@ -1147,6 +1180,47 @@ impl App {
                 continue;
             }
             let s = SPRITE_UNITS_PER_PIXEL * p.scale;
+            if let Some(&kind) = sky.get(&si) {
+                // sized by the picture: its width is the blimp's length or the pump's, its height the balloon's
+                let (model, size, foot) = match kind {
+                    Sky::Blimp => (crate::walk_sky::blimp(), 52.0, 0.0),
+                    Sky::Balloon => (crate::walk_sky::balloon(p.view.unwrap_or(0).rem_euclid(4) as usize), 22.0, 0.0),
+                    Sky::Pump => (crate::walk_sky::pump_jack(sc.time), 9.0, 0.0),
+                };
+                let span = match kind {
+                    Sky::Balloon => h * s * 0.85,
+                    _ => w * s * 0.8,
+                };
+                let k = span / size;
+                let at = [x, ground + p.lift + foot, z];
+                if !sphere_visible(&sc.planes, at, span) {
+                    o.culled += 1;
+                    continue;
+                }
+                o.drawn += 1;
+                let heading = match kind {
+                    Sky::Blimp => p.heading.to_radians(),
+                    // the pump stands as the picture's quarter turn has it, its head towards the camera's right
+                    Sky::Pump => p.facing as f32 * std::f32::consts::FRAC_PI_2 + std::f32::consts::FRAC_PI_4,
+                    Sky::Balloon => 0.0,
+                };
+                let mut mv: Vec<Vert> = crate::walk_sky::place(&model, heading, k, at).collect();
+                if toon {
+                    crate::walk_toon::outline(&mv, crate::walk_toon::width(dist, 0.04 * M), &mut inks);
+                    crate::walk_toon::soft(&mut mv, sun, eye);
+                }
+                solids.extend(mv);
+                let r = match kind {
+                    Sky::Blimp => 14.0,
+                    Sky::Balloon => 4.0,
+                    Sky::Pump => 5.5,
+                } * k;
+                blob(self, x, z, r, if kind == Sky::Pump { 0.4 } else { 0.25 }, &mut blobs);
+                if kind == Sky::Pump && dist < near_obstacle {
+                    o.obstacles.push(Obstacle::Box { cx: x, cz: z, hx: 3.0 * k, hz: 3.0 * k });
+                }
+                continue;
+            }
             if p.decor {
                 self.walk_marker(o, &p, si, x, z, dist, &mut solids, &mut blobs);
                 continue;
@@ -1379,11 +1453,38 @@ impl App {
                 }
                 o.drawn += 1;
                 // a golfer near enough: a 3D body acting out their clip
-                if let (Some(gi), true) = (p.golfer, dist < GOLFER_BODY_NEAR && !flat_people) {
+                // (and the player's own pro walking the course between rounds: an employee wearing a golfer's clips)
+                let owner = p
+                    .employee
+                    .and_then(|ei| self.employees.get(ei))
+                    .filter(|e| e.job == sg_core::staff::job::OWNER)
+                    .map(|e| self.staff_clip_of(e).1);
+                if let (Some(gi), true) = (p.golfer.or(owner.map(|_| usize::MAX)), dist < GOLFER_BODY_NEAR && !flat_people) {
+                    // the player's pro, in a round or walking: drawn as the star he is
+                    let star = owner.is_some() || (self.club.gary >= 0 && gi == self.club.gary as usize);
                     let (id, frame) = self.club.drawn.get(gi).copied().unwrap_or((0, 0));
-                    let clip = crate::app::GOLFER_CLIPS.iter().rev().find(|(b, _)| *b <= id && id - *b <= 8).map(|c| c.1).unwrap_or("");
-                    let n = self.club.clip_frames.get(id as usize).copied().unwrap_or(1).max(1);
-                    let mut t = if n > 1 { frame as f32 / (n - 1) as f32 } else { 0.0 };
+                    let clip = match owner {
+                        Some(state) => ["NormalWalk", "Fidget", "Happy"][state.min(2)],
+                        None => crate::app::GOLFER_CLIPS.iter().rev().find(|(b, _)| *b <= id && id - *b <= 8).map(|c| c.1).unwrap_or(""),
+                    };
+                    let mut t = match owner {
+                        Some(_) => {
+                            let n = p.body.map(|b| self.sprites[b].s.frames_per_view).unwrap_or(1).max(1);
+                            if n > 1 {
+                                p.frame as f32 / (n - 1) as f32
+                            } else {
+                                0.0
+                            }
+                        }
+                        None => {
+                            let n = self.club.clip_frames.get(id as usize).copied().unwrap_or(1).max(1);
+                            if n > 1 {
+                                frame as f32 / (n - 1) as f32
+                            } else {
+                                0.0
+                            }
+                        }
+                    };
                     // (SG_WALK_POSE=CLIP:T puts every golfer in that clip's pose, T of the way through it, for stills)
                     let forced = std::env::var("SG_WALK_POSE").ok();
                     let clip = match forced.as_deref().and_then(|f| f.split_once(':')) {
@@ -1403,9 +1504,9 @@ impl App {
                     let ph = place_hash(gi as f32, 3.0);
                     let base_id = crate::app::GOLFER_CLIPS.iter().rev().find(|(b, _)| *b <= id && id - *b <= 8).map(|c| c.0).unwrap_or(id);
                     let (height, girth) = o.builds.as_ref().and_then(|b| b.get((id - base_id) as usize)).copied().unwrap_or((1.0, 1.0));
-                    let (kind, mood) = self.club.g.get(gi).map(|g| (g.kind, g.mood)).unwrap_or((0, 0));
-                    // the golfer's own head: the hair, skin and beard their portrait shows
-                    let roster = self.club.g.get(gi).map(|g| g.roster).unwrap_or(-1);
+                    let (kind, mood) = self.club.g.get(gi).map(|g| (g.kind, g.mood)).unwrap_or((0x20, 4));
+                    // the golfer's own head: the hair, skin and beard their portrait shows (the pro's: the roster's first)
+                    let roster = self.club.g.get(gi).map(|g| g.roster).unwrap_or(if owner.is_some() { 0 } else { -1 });
                     let face = if roster >= 0 && std::env::var_os("SG_WALK_NO_PORTRAITS").is_none() {
                         let person = self.club.roster.get(roster as usize).cloned().unwrap_or_default();
                         self.walk_portrait(o, person.female(), person.head_index(roster as usize))
@@ -1422,9 +1523,9 @@ impl App {
                     }
                     let (beard, whiskers) = face.map(|f| (f.2, f.3)).unwrap_or((crate::walk_golfer::Beard::None, look.hair));
                     // as finely made as the golfer is big on the screen (sc.u.info[2]: the focal length in pixels)
-                    let pixels = 1.5 * M * p.scale.max(0.1) * sc.u.info[2] / dist.max(1.0);
+                    let pixels = 1.5 * GOLFER * M * p.scale.max(0.1) * sc.u.info[2] / dist.max(1.0);
                     let detail = crate::walk_golfer::detail_for(pixels);
-                    let who = crate::walk_golfer::Who { look, height, girth, kind, mood, beard, whiskers, detail };
+                    let who = crate::walk_golfer::Who { look, height, girth, kind, mood, beard, whiskers, detail, star };
                     let v = crate::walk_golfer::figure(&who, act, t, sc.time + ph * 10.0, club);
                     // facing: along the heading, or side on to it at the ball (the target on a right-hander's left)
                     let (hs, hc) = p.heading.to_radians().sin_cos();
@@ -1440,7 +1541,7 @@ impl App {
                     let rt = [-fwd[1], fwd[0]];
                     // a left-hander is the mirror image: the body built right-handed, its right and left swapped
                     let fl = if p.mirror && act.at_ball() { -1.0 } else { 1.0 };
-                    let k = M * p.scale.max(0.1);
+                    let k = GOLFER * M * p.scale.max(0.1);
                     // at the ball the golfer stands back from it (the game keeps the ball at the golfer's own place until it
                     // is struck), so the club meets it
                     let [sx, sz] = if act.at_ball() { crate::walk_golfer::ball_spot(act, club, of.female) } else { [0.0, 0.0] };
@@ -1457,7 +1558,7 @@ impl App {
                     let mut gv: Vec<Vert> = v.into_iter().map(place).collect();
                     if toon {
                         crate::walk_toon::outline(&gv, crate::walk_toon::width(dist, 0.011 * M), &mut inks);
-                        crate::walk_toon::cel(&mut gv, sun);
+                        crate::walk_toon::soft(&mut gv, sun, eye);
                     }
                     solids.extend(gv);
                     blob(self, x, z, 0.5 * M, 0.38, &mut blobs);
@@ -1723,8 +1824,10 @@ impl App {
         if gl.bx == 0 || gl.hole <= 0 || gl.hole >= 19 || gl.flags & flag::PENALTY != 0 {
             return None;
         }
-        let (bx, bz) = self.units_to_world(gl.bx, gl.by);
-        Some([bx, self.terrain.height_at(bx, bz) + gl.bz as f32 * sg_core::terrain::HEIGHT_STEP / 20.0, bz])
+        // eased between the simulation's ticks (enhanced.rs `shown_ball`), so a flight is smooth at any frame rate
+        let (ux, uy, uz) = self.shown_ball(i).unwrap_or((gl.bx as f32, gl.by as f32, gl.bz as f32));
+        let (bx, bz) = self.units_to_world_f(ux, uy);
+        Some([bx, self.terrain.height_at(bx, bz) + uz * sg_core::terrain::HEIGHT_STEP / 20.0, bz])
     }
 
     fn walk_balls(

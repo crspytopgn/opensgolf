@@ -186,6 +186,12 @@ float grain(float k, float dist) {
         float b2 = texture2D(detail, w.yx / (0.31 * M) + vec2(0.37, 0.11)).g;
         float amount = k > 2.5 && k < 3.5 ? 0.30 : (k > 0.5 && k < 2.5 ? 0.12 : 0.22);
         g += ((b1 - 0.5) * 0.6 + (b2 - 0.5) * 0.4) * amount * feet;
+        // single blades: thin streaks, longer than wide, lit at their tips and dark at their roots
+        vec2 bw = vec2(w.x * 0.8 + w.y * 0.6, w.y * 0.8 - w.x * 0.6);
+        float blade = texture2D(detail, vec2(bw.x / (0.06 * M), bw.y / (0.22 * M))).r;
+        float tip = texture2D(detail, vec2(bw.y / (0.05 * M), bw.x / (0.2 * M)) + vec2(0.5, 0.2)).g;
+        float near_feet = 1.0 - smoothstep(1.5 * M, 14.0 * M, dist);
+        g += ((blade - 0.5) * 1.1 + (tip - 0.5) * 0.6) * amount * near_feet;
     }
     return 1.0 + g;
 }
@@ -232,6 +238,49 @@ float shore_wet(vec2 t) {
     return smoothstep(0.25, 0.75, w + n * 0.55);
 }
 
+// a modelled golfer's cloth (walk_golfer.rs `Cloth`): its kind in the texture coordinate's 64s, the place on the part
+// in metres round it (x) and along it (y). The pattern fades out with distance before it would shimmer.
+vec3 cloth(vec3 c, float dist) {
+    float k = floor(uv.y / 64.0 + 0.001);
+    if (k < 0.5) return c;
+    vec2 q = vec2(uv.x, uv.y - k * 64.0);
+    float near = 1.0 - smoothstep(5.0 * M, 26.0 * M, dist);
+    if (near <= 0.0) return c;
+    float top = max(c.r, max(c.g, c.b));
+    vec3 r = c;
+    if (k < 1.5) {
+        // stripes along the part: a pale stripe and a thin dark pinstripe
+        float f = fract(q.x / 0.05);
+        float pale = smoothstep(0.0, 0.06, f) * (1.0 - smoothstep(0.3, 0.36, f));
+        float pin = smoothstep(0.62, 0.65, f) * (1.0 - smoothstep(0.69, 0.72, f));
+        r = mix(c, mix(c, vec3(top * 1.05), 0.7), pale * 0.75) * (1.0 - 0.3 * pin);
+    } else if (k < 2.5) {
+        // gingham: bands each way, darker where they cross, a pale ground between
+        vec2 f = smoothstep(0.45, 0.55, fract(q / 0.055)) * (1.0 - smoothstep(0.95, 1.0, fract(q / 0.055)));
+        float n = f.x + f.y;
+        r = mix(mix(c, vec3(top * 1.05), 0.65), c * 0.8, n * 0.5);
+    } else if (k < 3.5) {
+        // pique knit: a fine cellular texture
+        vec2 f = fract(q / 0.009) - 0.5;
+        r = c * (0.95 + 0.25 * (0.2 - dot(f, f)));
+    } else if (k < 4.5) {
+        // twill: fine diagonal ribs close up, soft creases and folds down the leg
+        float rib = sin((q.x + q.y) * 1400.0) * (1.0 - smoothstep(1.0 * M, 4.0 * M, dist));
+        float fold = texture2D(noise, vec2(q.x * 1.6, q.y * 0.35)).r;
+        r = c * (1.0 + 0.035 * rib) * (0.9 + 0.2 * smoothstep(0.25, 0.75, fold));
+    } else if (k < 5.5) {
+        // leather: a fine grain under a soft sheen
+        float g = texture2D(noise, q * 6.0).g;
+        r = c * (0.9 + 0.2 * g);
+    } else if (k > 6.5) {
+        // hair: fine strands combed down from the crown, a soft sheen across them
+        float strand = sin(q.x * 700.0 + sin(q.y * 60.0) * 2.0) * 0.5 + 0.5;
+        float tuft = texture2D(noise, vec2(q.x * 4.0, q.y * 1.5)).r;
+        r = c * (0.82 + 0.22 * strand * (1.0 - smoothstep(1.5 * M, 6.0 * M, dist)) + 0.18 * tuft);
+    }
+    return mix(c, r, near);
+}
+
 void main() {
     vec3 d = wpos - eye.xyz;
     float dist = length(d);
@@ -245,12 +294,19 @@ void main() {
         // fairways and greens keep more of their art (their mowing); a tee's raised bevel and everything else is evened
         bool cut = k > 0.5 && k < 2.5;
         bool tee = k > 5.5 && k < 6.5;
-        vec4 c = art(uv, dist, cut ? 0.45 : 0.1, cut ? 0.15 : 0.5, color.rgb);
+        // how much this texel of the art is its tile's own kind of ground (near the kind's average colour): a fairway tile's
+        // painted rough at its edge is not, so the fairway's evening and stripes follow the painted edge rather than
+        // stopping in a straight line along the tile's
+        vec3 cl = texture2D(clean, uv).rgb;
+        float own = 1.0 - smoothstep(0.045, 0.15, length(cl - color.rgb));
+        vec4 c = art(uv, dist, cut ? 0.45 : 0.1, (cut ? 0.15 : 0.5) * own, color.rgb);
         // a tee's picture is drawn for the view from above: a dark rim round its raised box and the hole's arrow on it. Seen
         // from the ground the rim would lie on the tee as a dark band, so a tee is its grass's colour at every distance (its
         // category colour, walk_ground.rs `grass_colour`), with only the de-featured art's light and shade left on it
         if (tee) c = mix(texture2D(clean, uv), vec4(color.rgb, 1.0), 0.9);
-        vec3 g = lit(c.rgb * grain(k, dist), nrm);
+        // (a cut tile's texels of other ground take the rough's grain)
+        float gr = cut || tee ? mix(grain(3.0, dist), grain(k, dist), own) : grain(k, dist);
+        vec3 g = lit(c.rgb * gr, nrm);
         if (shore > 0.5) {
             // the water drawn into these tiles' art, wherever it is
             vec4 a = art(uv, dist, 0.0, 0.0, vec3(0.0));
@@ -285,7 +341,9 @@ void main() {
             float near = 1.0 - smoothstep(6.0 * M, 60.0 * M, dist);
             vec2 p = (wpos.xz + vec2(wpos.y, -wpos.y)) / (0.45 * M);
             float gr = (texture2D(detail, p).r - 0.5) * 0.16 + (texture2D(detail, p * 0.31).g - 0.5) * 0.1;
-            o = vec4(color.rgb * tint * (1.0 + gr * near), color.a);
+            // a golfer's cloth draws its own surface in place of the grain
+            float bare = step(uv.y, 63.5);
+            o = vec4(cloth(color.rgb, dist) * tint * (1.0 + gr * near * bare), color.a);
         }
     } else if (m < 5.5) {
         vec4 c = unpremul(texture2D(tex, uv)) * color;
