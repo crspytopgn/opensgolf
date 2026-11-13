@@ -25,7 +25,7 @@
 //! (tiles and degrees) places it, `SG_WALK_FOLLOW=N` follows the golfer in slot N (`next`: whoever hits next) and
 //! `SG_WALK_SHOT=S` waits for their ball to have flown S seconds, `SG_WALK_BENCH=1` prints the frame times (with
 //! `SG_FX_BENCH`), `SG_WALK_ISO=Q` draws the scene through the overhead camera of quarter turn Q (there each building's
-//! solid must look exactly as its sprite does), `SG_WALK_CARDS=1` draws every object as its card, `SG_WALK_NO_MODELS=1` draws buildings as though none had a model, `SG_WALK_FLAT_TREES=1` draws every tree as its upright picture, `SG_WALK_FLAT_PEOPLE=1` draws people flat (golfers as pictures, not 3D bodies), `SG_WALK_POSE=CLIP:T` puts every golfer in a clip's pose, and `SG_WALK_DUMP=1`
+//! solid must look exactly as its sprite does), `SG_WALK_CARDS=1` draws every object as its card, `SG_WALK_NO_MODELS=1` draws buildings as though none had a model, `SG_WALK_FLAT_TREES=1` draws every tree as its upright picture, `SG_WALK_FLAT_PEOPLE=1` draws people flat (golfers as pictures, not 3D bodies), `SG_WALK_POSE=CLIP:T[:DEG]` puts every golfer in a clip's pose (turned DEG degrees, to see faces), `SG_WALK_NO_TOON=1` draws the models without the drawn look (outlines and bands of shade), `SG_WALK_NO_PORTRAITS=1` gives golfers their outfit's colours rather than their portrait's hair and skin, and `SG_WALK_DUMP=1`
 //! prints the fitted solids (`SG_WALK_DUMP_DIR` writes the frames fitted).
 use crate::app::{App, Screen};
 use crate::gfx::{Gfx, Mat4};

@@ -120,13 +120,23 @@ impl Look {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Act {
     Stand,
-    Walk { tired: bool },
+    Walk {
+        tired: bool,
+    },
     Fidget,
     Happy,
+    /// A fist pumped (a great shot).
+    Pump,
     Sad,
-    Swing { reach: f32 },
+    /// The club raised and slammed down in a temper, then hands on hips (a bad shot).
+    Fail,
+    Swing {
+        reach: f32,
+    },
     Putt,
-    Address { putt: bool },
+    Address {
+        putt: bool,
+    },
     LineUp,
     Point,
     Lean(f32),
@@ -142,8 +152,10 @@ impl Act {
             "NormalWalk" => Act::Walk { tired: false },
             "TiredWalk" => Act::Walk { tired: true },
             "Fidget" => Act::Fidget,
-            "Happy" | "SuccessA" => Act::Happy,
-            "Sad" | "FailureA" => Act::Sad,
+            "Happy" => Act::Happy,
+            "SuccessA" => Act::Pump,
+            "Sad" => Act::Sad,
+            "FailureA" => Act::Fail,
             "PerfectSwing" | "NoAccSwing" | "NoimagSwing" | "NormalSwing" => Act::Swing { reach: 1.0 },
             "Pitch" => Act::Swing { reach: 0.55 },
             "Putt" => Act::Putt,
@@ -221,7 +233,10 @@ fn pose(act: Act, t: f32, time: f32, club_len: f32) -> Pose {
             let shift = if act == Act::Fidget { (t * TAU).sin() * 0.04 } else { 0.0 };
             let mut p = Pose { hips: [shift, 0.95 + breathe, 0.0], lean: shift * 1.2, ..stand };
             if act == Act::LookUp {
-                p.nod = -0.55;
+                // watching the ball fly, a hand shading the eyes, the club in the other
+                p.nod = -0.45;
+                p.hands = [[0.27, 0.68, 0.06], [-0.05, 1.72, 0.2]];
+                p.club = Some(([0.27, 0.68, 0.06], norm([0.08, -1.0, 0.18]), club_len));
             }
             if act == Act::Fidget {
                 // a hand to the cap's peak at the clip's middle
@@ -250,6 +265,8 @@ fn pose(act: Act, t: f32, time: f32, club_len: f32) -> Pose {
                 nod: if tired { 0.3 } else { 0.05 },
                 feet: [[0.1, yr, zr], [-0.1, yl, zl]],
                 hands: [[0.25, 0.7, -swing], [-0.25, 0.7, swing]],
+                // a tired golfer drags the club behind him
+                club: tired.then(|| ([0.25, 0.7, -swing], norm([0.12, -0.7, -0.7]), club_len)),
                 ..stand
             }
         }
@@ -264,6 +281,36 @@ fn pose(act: Act, t: f32, time: f32, club_len: f32) -> Pose {
             }
         }
         Act::Sad => Pose { bend: 0.28, nod: 0.55, hips: [0.0, 0.94, 0.0], hands: [[0.17, 0.95, 0.08], [-0.17, 0.95, 0.08]], ..stand },
+        Act::Pump => {
+            // the right fist pumped down twice, a little crouch with each; the club in the left hand
+            let k = 0.5 + 0.5 * (t * TAU * 2.0).cos();
+            let fist = [lerp(0.16, 0.26, k), lerp(0.95, 1.6, k), lerp(0.2, 0.18, k)];
+            Pose {
+                hips: [0.0, 0.93 - (1.0 - k) * 0.05, 0.0],
+                bend: 0.1 + (1.0 - k) * 0.12,
+                nod: -0.1,
+                feet: [[0.17, 0.08, 0.02], [-0.17, 0.08, 0.0]],
+                hands: [fist, [-0.26, 0.7, 0.05]],
+                club: Some(([-0.26, 0.7, 0.05], norm([-0.05, -0.6, 0.8]), club_len)),
+                ..stand
+            }
+        }
+        Act::Fail => {
+            // the club up over the head, slammed down in front, then hands on hips glaring at it
+            let (grip, shaft, hands, bend) = if t < 0.3 {
+                let k = smooth(t / 0.3);
+                let g = [0.0, lerp(0.85, 1.95, k), lerp(0.3, -0.05, k)];
+                (g, norm([0.0, lerp(-0.9, 0.6, k), lerp(0.4, -0.8, k)]), [add(g, [0.05, -0.05, 0.0]), g], lerp(0.1, -0.1, k))
+            } else if t < 0.4 {
+                let k = smooth((t - 0.3) / 0.1);
+                let g = [0.0, lerp(1.95, 0.75, k), lerp(-0.05, 0.4, k)];
+                (g, norm([0.0, lerp(0.6, -0.8, k), lerp(-0.8, 0.6, k)]), [add(g, [0.05, -0.05, 0.0]), g], lerp(-0.1, 0.45, k))
+            } else {
+                // the club left lying where it was thrown
+                ([0.12, 0.03, 0.4], norm([0.2, 0.0, 1.0]), [[0.2, 0.98, -0.04], [-0.2, 0.98, -0.04]], 0.15)
+            };
+            Pose { bend, nod: 0.35, hands, club: Some((grip, shaft, club_len)), feet: [[0.16, 0.08, 0.0], [-0.16, 0.08, 0.0]], ..stand }
+        }
         Act::Point => Pose { nod: -0.05, hands: [[0.12, 1.5, 0.62], [-0.27, 0.68, 0.04]], ..stand },
         Act::Shake => Pose { hands: [[0.08, 1.0, 0.45], [-0.27, 0.68, 0.04]], ..stand },
         Act::Lean(side) => {
@@ -508,17 +555,60 @@ fn club_length(club: i32) -> f32 {
     }
 }
 
-/// A golfer's body in metres, standing at the origin: x to their right, y up, z forward (`at_ball` acts: towards the
-/// ball, the target on their left). `t` is how far through the clip, `time` seconds for idle movement, `club` the club
-/// in hand (0..13, 13 the putter).
+/// Who a golfer is, for their figure: their colours, their build (from their body's pictures: `height` and `girth` about
+/// 1), what kind of golfer they are (`Golfer::kind`: 0x20 a pro, 0x40 the commissioner, 0x60 a CEO, 0x80 the heiress)
+/// and their mood (-10..10).
+#[derive(Clone, Copy, Debug)]
+pub struct Who {
+    pub look: Look,
+    pub height: f32,
+    pub girth: f32,
+    pub kind: u8,
+    pub mood: i32,
+    /// A beard, as the golfer's own portrait shows (in the hair's colour).
+    pub beard: bool,
+}
+
+impl Who {
+    #[cfg(test)]
+    pub fn plain(look: Look) -> Who {
+        Who { look, height: 1.0, girth: 1.0, kind: 0, mood: 0, beard: false }
+    }
+}
+
+/// A golfer's body in metres, standing at the origin, as `figure`, for someone of ordinary build and mood.
+#[cfg(test)]
 pub fn body(look: &Look, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
-    let p = pose(act, t, time, club_length(club));
-    let mut out = Vec::with_capacity(4000);
+    figure(&Who::plain(*look), act, t, time, club)
+}
+
+/// A golfer's figure in metres, standing at the origin: x to their right, y up, z forward (`at_ball` acts: towards the
+/// ball, the target on their left). `t` is how far through the clip, `time` seconds for idle movement, `club` the club
+/// in hand (0..13, 13 the putter). Drawn as a cartoon is: a big head with a face that shows the mood, big hands and
+/// feet, and the build of the golfer's own pictures.
+pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
+    let look = &who.look;
+    let mut p = pose(act, t, time, club_length(club));
+    // a club held at the side or dragged rests on the ground rather than through it
+    if let Some((grip, shaft, l)) = p.club {
+        if !act.at_ball() && grip[1] + shaft[1] * l < 0.02 {
+            let dy = ((0.02 - grip[1]) / l).clamp(-0.999, 0.999);
+            let h = (shaft[0] * shaft[0] + shaft[2] * shaft[2]).sqrt().max(1e-4);
+            let k = (1.0 - dy * dy).sqrt() / h;
+            p.club = Some((grip, [shaft[0] * k, dy, shaft[2] * k], l));
+        }
+    }
+    let mut out = Vec::with_capacity(6000);
     let o = &mut out;
     let up = [0.0, 1.0, 0.0];
-    let tall = if look.female { 0.94 } else { 1.0 };
+    let tall = if look.female { 0.94 } else { 1.0 } * who.height.clamp(0.85, 1.15);
+    let g = who.girth.clamp(0.8, 1.35);
+    let kind = who.kind & 0xe0;
     let shoe = [0.93, 0.93, 0.9];
     let belt = [0.12, 0.1, 0.09];
+    let dark = [0.06, 0.05, 0.05];
+    // the head drawn big, as a cartoon's is
+    let hs = 1.32;
 
     // the hips and the spine: bent forward and leant, the shoulders turned on the hips
     let hip_right = yaw([1.0, 0.0, 0.0], -p.hip_turn);
@@ -531,85 +621,146 @@ pub fn body(look: &Look, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
     let shoulders = add(hips, mul(spine, 0.5));
     let neck = add(shoulders, mul(spine, 0.07));
     let face = norm(add(mul(chest_fwd, p.nod.cos()), mul(up, -p.nod.sin())));
-    let head = add(add(neck, mul(spine, 0.12)), mul(face, 0.02));
+    let head = add(add(neck, mul(spine, 0.11 * hs)), mul(face, 0.02));
+    let side = norm(cross(up, face));
+    let crown = norm(cross(face, side));
 
-    // legs: from the hip joints to the feet, the knees forward
+    // legs: from the hip joints to the feet, the knees forward; big shoes
     for (k, s) in [(0usize, 1.0f32), (1, -1.0)] {
-        let hip = add(hips, mul(hip_right, s * 0.1));
+        let hip = add(hips, mul(hip_right, s * 0.1 * g));
         let foot = p.feet[k];
         let hint = add(yaw([0.0, 0.0, 1.0], -p.hip_turn * 0.5), [s * 0.1, 0.0, 0.0]);
         let (knee, ankle) = reach(hip, foot, 0.45, 0.43, hint);
-        tube(o, hip, knee, 0.095, 0.07, look.pants, hip_right, 0.9, 8);
-        tube(o, knee, ankle, 0.068, 0.05, look.pants, hip_right, 0.9, 8);
-        let toe = add(ankle, [s * 0.015, -0.05, 0.17]);
-        let heel = add(ankle, [0.0, -0.05, -0.05]);
-        tube(o, heel, toe, 0.05, 0.045, shoe, [0.0, 1.0, 0.0], 0.7, 8);
+        tube(o, hip, knee, 0.095 * g, 0.07 * g.sqrt(), look.pants, hip_right, 0.9, 8);
+        tube(o, knee, ankle, 0.068 * g.sqrt(), 0.05, look.pants, hip_right, 0.9, 8);
+        let toe = add(ankle, [s * 0.02, -0.05, 0.22]);
+        let heel = add(ankle, [0.0, -0.05, -0.06]);
+        tube(o, heel, toe, 0.062, 0.058, shoe, [0.0, 1.0, 0.0], 0.65, 8);
     }
     // the body: trousers to the belt, the shirt to the shoulders, wider than deep
-    tube(o, sub(hips, mul(spine, 0.06)), waist, 0.16, 0.155, look.pants, hip_right, 0.68, 10);
-    tube(o, waist, add(waist, mul(spine, 0.03)), 0.158, 0.158, belt, chest_right, 0.68, 10);
-    tube(o, add(waist, mul(spine, 0.03)), shoulders, 0.158, 0.19, look.shirt, chest_right, 0.62, 10);
-    ball(o, shoulders, [0.19, 0.06, 0.12], look.shirt);
-    tube(o, shoulders, neck, 0.055, 0.05, look.skin, chest_right, 1.0, 8);
-    // the head: a face to the nod, a cap with a peak (or a woman's hair)
-    ball(o, head, [0.095, 0.11, 0.1], look.skin);
-    ball(o, add(head, mul(face, 0.095)), [0.018, 0.022, 0.02], look.skin);
-    let side = norm(cross(up, face));
-    for s in [-1.0f32, 1.0] {
-        ball(o, add(add(add(head, mul(face, 0.088)), mul(side, s * 0.035)), [0.0, 0.025, 0.0]), [0.012, 0.012, 0.008], [0.08, 0.06, 0.05]);
+    tube(o, sub(hips, mul(spine, 0.06)), waist, 0.16 * g, 0.155 * g, look.pants, hip_right, 0.68, 10);
+    tube(o, waist, add(waist, mul(spine, 0.03)), 0.158 * g, 0.158 * g, belt, chest_right, 0.68, 10);
+    tube(o, add(waist, mul(spine, 0.03)), shoulders, 0.158 * g, 0.19 * g.sqrt(), look.shirt, chest_right, 0.62, 10);
+    ball(o, shoulders, [0.19 * g.sqrt(), 0.06, 0.12], look.shirt);
+    // a businessman's belly and tie
+    let belly = if matches!(kind, 0x40 | 0x60) { 1.0 } else { (g - 1.0).max(0.0) * 3.0 };
+    if belly > 0.0 {
+        ball(o, add(add(waist, mul(spine, 0.12)), mul(chest_fwd, 0.06 * g)), [0.16 * g, 0.16, 0.12 + 0.03 * belly], look.shirt);
     }
+    if matches!(kind, 0x40 | 0x60) {
+        let tie = if kind == 0x60 { [0.12, 0.16, 0.45] } else { [0.6, 0.1, 0.12] };
+        let a = add(add(shoulders, mul(spine, -0.03)), mul(chest_fwd, 0.125 * g.sqrt()));
+        let b = add(add(waist, mul(spine, 0.14)), mul(chest_fwd, 0.2 * g));
+        tube(o, a, b, 0.028, 0.045, tie, chest_right, 0.25, 6);
+        ball(o, a, [0.03, 0.028, 0.02], tie);
+    }
+    tube(o, shoulders, neck, 0.058, 0.055, look.skin, chest_right, 1.0, 8);
+    if kind == 0x80 {
+        // the heiress's pearls
+        for i in 0..11 {
+            let a = (i as f32 / 10.0 - 0.5) * 2.6;
+            let at = add(add(add(neck, mul(spine, -0.035)), mul(chest_fwd, a.cos() * 0.075)), mul(chest_right, a.sin() * 0.075));
+            ball(o, at, [0.014; 3], [0.97, 0.96, 0.92]);
+        }
+    }
+
+    // the head and face: eyes that look where the head does, brows and a mouth that show the mood
+    let mood = match act {
+        Act::Happy | Act::Pump => 1.0,
+        Act::Sad => -1.0,
+        Act::Fail => -2.0,
+        _ => (who.mood as f32 / 6.0).clamp(-1.0, 1.0),
+    };
+    let r = [0.095 * hs, 0.11 * hs, 0.1 * hs];
+    let front = |d: f32, x: f32, y: f32| add(add(add(head, mul(face, d)), mul(side, x)), mul(crown, y));
+    {
+        ball(o, head, r, look.skin);
+        // a big nose and ears
+        ball(o, front(r[2] * 0.98, 0.0, -0.01), [0.026, 0.03, 0.03], look.skin);
+        for s in [-1.0f32, 1.0] {
+            ball(o, add(head, mul(side, s * r[0] * 0.98)), [0.016, 0.034, 0.026], look.skin);
+        }
+        for s in [-1.0f32, 1.0] {
+            let eye = front(r[2] * 0.84, s * 0.045, 0.032);
+            ball(o, eye, [0.027, 0.032, 0.02], [0.97, 0.97, 0.95]);
+            ball(o, add(eye, mul(face, 0.016)), [0.013, 0.016, 0.01], dark);
+            // the brows: raised when happy, down at the middle when cross, down at the outside when sad
+            let tilt = if mood < -1.5 {
+                -0.02
+            } else if mood < -0.3 {
+                0.015
+            } else {
+                0.0
+            };
+            let lift = if mood > 0.3 { 0.012 } else { 0.0 };
+            let inner = front(r[2] * 0.86, s * 0.022, 0.072 + lift + tilt);
+            let outer = front(r[2] * 0.8, s * 0.07, 0.07 + lift - tilt);
+            tube(o, inner, outer, 0.009, 0.008, if look.female { look.hair } else { dark }, crown, 0.6, 5);
+        }
+        if who.beard {
+            // round the jaw and over the lip, in the hair's colour
+            ball(o, front(r[2] * 0.45, 0.0, -0.1), [r[0] * 0.8, r[1] * 0.34, r[2] * 0.6], look.hair);
+            ball(o, front(r[2] * 0.95, 0.0, -0.03), [0.04, 0.012, 0.012], look.hair);
+        }
+        // the mouth: a smile, a line or a frown, made of beads along a curve
+        for i in 0..7 {
+            let u = i as f32 / 6.0 - 0.5;
+            let bend = -(mood.clamp(-1.0, 1.0) * 0.022 * (u * u * 4.0 - 1.0));
+            let at = front(r[2] * 0.9, u * 0.07, -0.05 - bend);
+            ball(o, at, [0.009, 0.009, 0.007], [0.45, 0.12, 0.12]);
+        }
+        if kind == 0x60 {
+            // the CEO's cigar
+            let a = front(r[2] * 0.88, 0.03, -0.055);
+            let b = add(add(a, mul(face, 0.09)), mul(side, 0.03));
+            tube(o, a, b, 0.012, 0.012, [0.38, 0.22, 0.1], side, 1.0, 6);
+            ball(o, b, [0.013; 3], [1.0, 0.45, 0.1]);
+        }
+    }
+    // the hair and the hat: a cap (a visor for a pro), a woman's hair (the heiress's sun hat)
+    let top = add(head, mul(crown, r[1] * 0.4));
     if look.female {
-        ball(o, add(head, add(mul(face, -0.02), [0.0, 0.02, 0.0])), [0.108, 0.112, 0.112], look.hair);
-        ball(o, add(head, add(mul(face, -0.12), [0.0, -0.03, 0.0])), [0.045, 0.06, 0.045], look.hair);
-        // a visor in the hat colour
-        tube(o, add(head, [0.0, 0.06, 0.0]), add(head, [0.0, 0.085, 0.0]), 0.112, 0.112, look.hat, face, 1.0, 10);
-        tube(
-            o,
-            add(add(head, mul(face, 0.1)), [0.0, 0.07, 0.0]),
-            add(add(head, mul(face, 0.18)), [0.0, 0.065, 0.0]),
-            0.06,
-            0.05,
-            look.hat,
-            side,
-            0.15,
-            8,
-        );
+        ball(o, add(head, add(mul(face, -0.025), mul(crown, 0.02))), [r[0] * 1.12, r[1] * 1.02, r[2] * 1.1], look.hair);
+        ball(o, add(head, add(mul(face, -0.16), mul(crown, -0.03))), [0.055, 0.075, 0.055], look.hair);
+        if kind == 0x80 {
+            tube(o, top, add(top, mul(crown, 0.08)), r[0] * 1.05, r[0] * 0.8, look.hat, face, 1.0, 12);
+            tube(o, top, add(top, mul(crown, 0.012)), r[0] * 2.3, r[0] * 2.2, look.hat, face, 1.0, 14);
+        } else {
+            tube(o, add(head, mul(crown, 0.07)), add(head, mul(crown, 0.105)), r[0] * 1.13, r[0] * 1.12, look.hat, face, 1.0, 10);
+            tube(o, front(r[2] * 0.95, 0.0, 0.09), front(r[2] * 1.9, 0.0, 0.082), 0.075, 0.065, look.hat, side, 0.15, 8);
+        }
     } else {
-        ball(o, add(head, add(mul(face, -0.03), [0.0, 0.0, 0.0])), [0.098, 0.1, 0.1], look.hair);
-        ball(o, add(head, [0.0, 0.045, 0.0]), [0.105, 0.07, 0.108], look.hat);
-        tube(
-            o,
-            add(add(head, mul(face, 0.08)), [0.0, 0.04, 0.0]),
-            add(add(head, mul(face, 0.19)), [0.0, 0.03, 0.0]),
-            0.075,
-            0.06,
-            look.hat,
-            side,
-            0.12,
-            8,
-        );
+        ball(o, add(head, mul(face, -0.03)), [r[0] * 1.03, r[1] * 0.98, r[2] * 1.02], look.hair);
+        if kind == 0x20 {
+            tube(o, add(head, mul(crown, 0.055)), add(head, mul(crown, 0.085)), r[0] * 1.06, r[0] * 1.05, look.hat, face, 1.0, 10);
+        } else {
+            ball(o, add(head, mul(crown, 0.055)), [r[0] * 1.1, r[1] * 0.68, r[2] * 1.1], look.hat);
+            ball(o, add(head, mul(crown, r[1] * 0.62)), [0.018; 3], look.hat);
+        }
+        tube(o, front(r[2] * 0.85, 0.0, 0.06), front(r[2] * 2.0, 0.0, 0.045), 0.09, 0.075, look.hat, side, 0.12, 8);
     }
-    // arms: short sleeves, then the arm and the hand; the elbows down and out
+
+    // arms: short sleeves, then the arm and a big hand; the elbows down and out
     for (k, s) in [(0usize, 1.0f32), (1, -1.0)] {
-        let shoulder = add(add(shoulders, mul(chest_right, s * 0.2)), mul(spine, -0.02));
+        let shoulder = add(add(shoulders, mul(chest_right, s * 0.2 * g.sqrt())), mul(spine, -0.02));
         let hint = add(add([0.0, -1.0, 0.0], mul(chest_right, s * 0.6)), mul(chest_fwd, -0.3));
         let (elbow, wrist) = reach(shoulder, p.hands[k], 0.3, 0.28, hint);
         let sleeve = add(shoulder, mul(sub(elbow, shoulder), 0.5));
-        tube(o, shoulder, sleeve, 0.058, 0.056, look.shirt, chest_right, 1.0, 8);
+        tube(o, shoulder, sleeve, 0.062, 0.06, look.shirt, chest_right, 1.0, 8);
         tube(o, sleeve, elbow, 0.045, 0.04, look.skin, chest_right, 1.0, 8);
         tube(o, elbow, wrist, 0.04, 0.034, look.skin, chest_right, 1.0, 8);
-        ball(o, wrist, [0.04, 0.045, 0.04], look.hands);
+        ball(o, wrist, [0.055, 0.062, 0.055], look.hands);
     }
     // the club: grip, shaft and head
     if let Some((grip, shaft, l)) = p.club {
         let top = sub(grip, mul(shaft, 0.06));
         let end = add(grip, mul(shaft, l));
-        tube(o, top, add(grip, mul(shaft, 0.22)), 0.016, 0.013, [0.1, 0.1, 0.1], up, 1.0, 6);
-        tube(o, add(grip, mul(shaft, 0.22)), end, 0.009, 0.006, [0.72, 0.73, 0.75], up, 1.0, 6);
+        tube(o, top, add(grip, mul(shaft, 0.22)), 0.018, 0.015, [0.1, 0.1, 0.1], up, 1.0, 6);
+        tube(o, add(grip, mul(shaft, 0.22)), end, 0.011, 0.008, [0.72, 0.73, 0.75], up, 1.0, 6);
         let face_dir = norm(cross(shaft, [1.0, 0.0, 0.0]));
         let toe = norm(cross(face_dir, shaft));
         let head_col = if club <= 2 { [0.15, 0.15, 0.17] } else { [0.78, 0.79, 0.82] };
-        let size = if club <= 2 { [0.06, 0.035, 0.05] } else { [0.045, 0.02, 0.014] };
+        let size = if club <= 2 { [0.07, 0.042, 0.06] } else { [0.055, 0.025, 0.016] };
         let c = add(end, mul(toe, -size[0] * 0.8));
         tube(o, add(c, mul(toe, -size[0])), add(c, mul(toe, size[0])), size[1], size[1], head_col, face_dir, size[2] / size[1], 8);
     }
@@ -653,6 +804,8 @@ mod tests {
             Act::Fidget,
             Act::Happy,
             Act::Sad,
+            Act::Pump,
+            Act::Fail,
             Act::Swing { reach: 1.0 },
             Act::Swing { reach: 0.55 },
             Act::Putt,
@@ -681,13 +834,16 @@ mod tests {
         // the club's head: furthest point of the club's colour from the body's middle
         let head = |t: f32| {
             let v = body(&look(), Act::Swing { reach: 1.0 }, t, 0.0, 4);
-            v.iter().filter(|p| p.color[0] > 0.7 && p.color[2] > 0.75 && p.color[1] > 0.7).map(|p| p.pos).fold([0.0; 3], |a, p| {
-                if len(p) > len(a) {
-                    p
-                } else {
-                    a
-                }
-            })
+            v.iter().filter(|p| (p.color[0] - 0.78).abs() < 0.005 && (p.color[2] - 0.82).abs() < 0.005).map(|p| p.pos).fold(
+                [0.0; 3],
+                |a, p| {
+                    if len(p) > len(a) {
+                        p
+                    } else {
+                        a
+                    }
+                },
+            )
         };
         let (address, top, finish) = (head(0.0), head(0.6), head(0.98));
         assert!(address[1] < 0.3, "at the ball {address:?}");
@@ -720,6 +876,36 @@ mod dump {
     fn dump_swing() {
         let Ok(dir) = std::env::var("SG_GOLFER_DUMP") else { return };
         let look = Look::plain(&sg_core::bodies::Outfit { female: false, shirt: 0, pants: 2, skin: 1, hat: 1, hair: 0, alt_skin: 1 });
+        let o = |female: bool, shirt: u8, pants: u8, skin: u8, hat: u8| sg_core::bodies::Outfit {
+            female,
+            shirt,
+            pants,
+            skin,
+            hat,
+            hair: 2,
+            alt_skin: skin,
+        };
+        let cast = [
+            ("joe", Who { mood: 8, ..Who::plain(Look::plain(&o(false, 1, 2, 0, 3))) }, Act::Happy, 0.25),
+            ("ceo", Who { kind: 0x60, girth: 1.2, ..Who::plain(Look::plain(&o(false, 0, 6, 1, 6))) }, Act::Stand, 0.0),
+            ("heiress", Who { kind: 0x80, mood: 5, ..Who::plain(Look::plain(&o(true, 7, 0, 0, 4))) }, Act::Stand, 0.0),
+            ("pro", Who { kind: 0x20, mood: 3, ..Who::plain(Look::plain(&o(false, 2, 0, 2, 0))) }, Act::Pump, 0.0),
+            ("cross", Who { mood: -8, ..Who::plain(Look::plain(&o(false, 4, 3, 1, 2))) }, Act::Fail, 0.8),
+            ("sad", Who { mood: -6, girth: 0.85, height: 1.1, ..Who::plain(Look::plain(&o(true, 3, 5, 3, 1))) }, Act::Sad, 0.5),
+        ];
+        for (k, (name, who, act, t)) in cast.iter().enumerate() {
+            let v = figure(who, *act, *t, 0.0, 4);
+            let s: String = v
+                .iter()
+                .map(|p| {
+                    format!(
+                        "{} {} {} {} {} {} {} {} {}\n",
+                        p.pos[0], p.pos[1], p.pos[2], p.normal[0], p.normal[1], p.normal[2], p.color[0], p.color[1], p.color[2]
+                    )
+                })
+                .collect();
+            std::fs::write(format!("{dir}/cast-{k:02}-{name}.txt"), s).unwrap();
+        }
         let acts = [("swing", Act::Swing { reach: 1.0 }, 4), ("chip", Act::Swing { reach: 0.55 }, 9), ("putt", Act::Putt, 13)];
         for (name, act, club) in acts {
             for k in 0..=20 {

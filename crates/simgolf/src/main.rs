@@ -125,6 +125,7 @@ mod walk_ground;
 mod walk_models;
 mod walk_objects;
 mod walk_relief;
+mod walk_toon;
 mod walk_trees;
 mod welcome;
 mod wild_ui;

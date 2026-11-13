@@ -596,6 +596,9 @@ struct FrameInfo {
     vivid: [f32; 3],
 }
 
+/// A golfer's head as their portrait shows it: the hair's colour, the skin's, and whether they have a beard.
+type Portrait = ([f32; 3], [f32; 3], bool);
+
 /// The objects' caches: textures of their frames, fitted solids, per-frame facts, and people's eased positions.
 #[derive(Default)]
 pub struct Objects {
@@ -615,6 +618,12 @@ pub struct Objects {
     reliefs: HashMap<(usize, usize), Option<Vec<Vert>>>,
     /// Golfers' colours by outfit, for their 3D bodies (walk_golfer.rs).
     looks: HashMap<sg_core::bodies::Outfit, crate::walk_golfer::Look>,
+    /// Each golfer body's build (height, girth) from its walking pictures, by the body's number (`app::GOLFER_BODIES`).
+    builds: Option<Vec<(f32, f32)>>,
+    /// The golfers' heads as their portraits show them (the game's own, Heads/golfballhalopage_*.pcx) by gender and head.
+    portraits: HashMap<(bool, u8), Option<Portrait>>,
+    /// The portrait pages, read once by gender.
+    halo: HashMap<bool, Option<Rgba>>,
     /// A moving prop's shown place (x, z) by its identity, eased between the simulation's ticks.
     eased: HashMap<u32, (f32, f32)>,
     /// The trees beyond the property (built with the ground, `walk_far_trees`).
@@ -1065,6 +1074,26 @@ impl App {
         let mut modelled = std::collections::HashSet::new();
         let flat_trees = std::env::var_os("SG_WALK_FLAT_TREES").is_some();
         let flat_people = std::env::var_os("SG_WALK_FLAT_PEOPLE").is_some();
+        if o.builds.is_none() {
+            // each body's walking picture: how tall it stands and how broad it is for its height, against the others'
+            let sizes: Vec<Option<(f32, f32)>> = (0..crate::app::GOLFER_BODIES.len() as i32)
+                .map(|b| {
+                    let si = self.golfer_clip(b).0?;
+                    let m = Mask::new(&self.sprites[si].s.frame(0));
+                    let (w, h) = ((m.bbox.2.saturating_sub(m.bbox.0)) as f32, (m.bbox.3.saturating_sub(m.bbox.1)) as f32);
+                    (h > 4.0).then_some((h, w / h))
+                })
+                .collect();
+            let found: Vec<(f32, f32)> = sizes.iter().flatten().copied().collect();
+            let n = found.len().max(1) as f32;
+            let (mh, mr) = found.iter().fold((0.0, 0.0), |a, s| (a.0 + s.0 / n, a.1 + s.1 / n));
+            o.builds = Some(
+                sizes
+                    .iter()
+                    .map(|s| s.map(|(h, r)| (1.0 + (h / mh - 1.0) * 0.8, 1.0 + (r / mr - 1.0) * 1.2)).unwrap_or((1.0, 1.0)))
+                    .collect(),
+            );
+        }
         let eye = sc.eye;
         let up = [0.0, 1.0, 0.0];
         let right = [sc.right[0], 0.0, sc.right[1]];
@@ -1074,6 +1103,10 @@ impl App {
         // are drawn a little towards the eye, in front, as the overhead view draws them over it
         let mut front = Lists::default();
         let (mut blobs, mut solids, mut shadows) = (Vec::new(), Vec::new(), Vec::new());
+        // the drawn look of the models (walk_toon.rs): flat bands of light, their outlines drawn pushed back
+        let toon = std::env::var_os("SG_WALK_NO_TOON").is_none();
+        let sun = [sc.u.sun[0], sc.u.sun[1], sc.u.sun[2]];
+        let mut inks: Vec<Vert> = Vec::new();
         let mut proxies: Vec<((f32, f32), Fit)> = Vec::new();
         let mut eased: HashMap<u32, (f32, f32)> = HashMap::new();
         let white = [1.0; 4];
@@ -1161,7 +1194,12 @@ impl App {
                             continue;
                         }
                         o.drawn += 1;
-                        solids.extend(crate::walk_models::placed(m, p.facing, [x, ground, z]));
+                        let mut mv: Vec<Vert> = crate::walk_models::placed(m, p.facing, [x, ground, z]).collect();
+                        if toon {
+                            crate::walk_toon::outline(&mv, crate::walk_toon::width(dist, 0.05 * M), &mut inks);
+                            crate::walk_toon::cel(&mut mv, sun);
+                        }
+                        solids.extend(mv);
                         // its shadow, soft, on the ground round its foot
                         let (ox, oz) = turn(cx, cz);
                         let (bx, bz) = if p.facing.rem_euclid(2) == 1 { (hz, hx) } else { (hx, hz) };
@@ -1350,7 +1388,7 @@ impl App {
                     let forced = std::env::var("SG_WALK_POSE").ok();
                     let clip = match forced.as_deref().and_then(|f| f.split_once(':')) {
                         Some((c, ft)) => {
-                            t = ft.parse().unwrap_or(0.0);
+                            t = ft.split(':').next().and_then(|v| v.parse().ok()).unwrap_or(0.0);
                             crate::app::GOLFER_CLIPS.iter().find(|g| g.1 == c).map(|g| g.1).unwrap_or(clip)
                         }
                         None => clip,
@@ -1363,10 +1401,36 @@ impl App {
                     });
                     let club = self.club.g.get(gi).map(|g| g.club).unwrap_or(0);
                     let ph = place_hash(gi as f32, 3.0);
-                    let v = crate::walk_golfer::body(&look, act, t, sc.time + ph * 10.0, club);
+                    let base_id = crate::app::GOLFER_CLIPS.iter().rev().find(|(b, _)| *b <= id && id - *b <= 8).map(|c| c.0).unwrap_or(id);
+                    let (height, girth) = o.builds.as_ref().and_then(|b| b.get((id - base_id) as usize)).copied().unwrap_or((1.0, 1.0));
+                    let (kind, mood) = self.club.g.get(gi).map(|g| (g.kind, g.mood)).unwrap_or((0, 0));
+                    // the golfer's own head: the hair, skin and beard their portrait shows
+                    let roster = self.club.g.get(gi).map(|g| g.roster).unwrap_or(-1);
+                    let face = if roster >= 0 && std::env::var_os("SG_WALK_NO_PORTRAITS").is_none() {
+                        let person = self.club.roster.get(roster as usize).cloned().unwrap_or_default();
+                        self.walk_portrait(o, person.female(), person.head_index(roster as usize))
+                    } else {
+                        None
+                    };
+                    let mut look = look;
+                    if let Some((hair, skin, _)) = face {
+                        if look.hands == look.skin {
+                            look.hands = skin;
+                        }
+                        look.skin = skin;
+                        look.hair = hair;
+                    }
+                    let beard = face.is_some_and(|f| f.2);
+                    let who = crate::walk_golfer::Who { look, height, girth, kind, mood, beard };
+                    let v = crate::walk_golfer::figure(&who, act, t, sc.time + ph * 10.0, club);
                     // facing: along the heading, or side on to it at the ball (the target on a right-hander's left)
                     let (hs, hc) = p.heading.to_radians().sin_cos();
                     let mut fwd = if act.at_ball() { [-hs, hc] } else { [hc, hs] };
+                    // (SG_WALK_POSE=CLIP:T:DEG also turns every golfer DEG degrees, to see their faces in stills)
+                    if let Some(deg) = forced.as_deref().and_then(|f| f.split(':').nth(2)).and_then(|d| d.parse::<f32>().ok()) {
+                        let (s2, c2) = deg.to_radians().sin_cos();
+                        fwd = [fwd[0] * c2 - fwd[1] * s2, fwd[0] * s2 + fwd[1] * c2];
+                    }
                     if p.mirror && act.at_ball() {
                         fwd = [-fwd[0], -fwd[1]];
                     }
@@ -1379,14 +1443,20 @@ impl App {
                     let [sx, sz] = if act.at_ball() { crate::walk_golfer::ball_spot(act, club, of.female) } else { [0.0, 0.0] };
                     let (bx, bz) = (x - (rt[0] * sx * fl + fwd[0] * sz) * k, z - (rt[1] * sx * fl + fwd[1] * sz) * k);
                     let base = [bx, self.terrain.height_at(bx, bz) + lift, bz];
-                    for q in v {
+                    let place = |q: Vert| {
                         let (lx, ly, lz) = (q.pos[0] * fl, q.pos[1], q.pos[2]);
                         let mut w = q;
                         w.pos = [base[0] + (rt[0] * lx + fwd[0] * lz) * k, base[1] + ly * k, base[2] + (rt[1] * lx + fwd[1] * lz) * k];
                         let n = q.normal;
                         w.normal = [rt[0] * n[0] * fl + fwd[0] * n[2], n[1], rt[1] * n[0] * fl + fwd[1] * n[2]];
-                        solids.push(w);
+                        w
+                    };
+                    let mut gv: Vec<Vert> = v.into_iter().map(place).collect();
+                    if toon {
+                        crate::walk_toon::outline(&gv, crate::walk_toon::width(dist, 0.015 * M), &mut inks);
+                        crate::walk_toon::cel(&mut gv, sun);
                     }
+                    solids.extend(gv);
                     blob(self, x, z, 0.5 * M, 0.38, &mut blobs);
                     continue;
                 }
@@ -1463,7 +1533,89 @@ impl App {
         uf.pull[3] = 0.004;
         front.draw(gpu, Pipe::Solid, &uf);
         gpu.tris(Pipe::Solid, g.white, &sc.u.with_mode(mode::FLAT), &solids);
+        // the outlines: pushed back from the eye by more than a model is deep, so only their rims show round the models
+        let mut ui = sc.u.with_mode(mode::FLAT);
+        ui.pull = [sc.eye[0], sc.eye[1], sc.eye[2], -0.035];
+        gpu.tris(Pipe::Solid, g.white, &ui, &inks);
         gpu.tris(Pipe::Blend, g.white, &sc.u.with_mode(mode::FLAT), &trails);
+    }
+
+    /// A stock head's colours (0..18), read from the game's own portrait of it (the halo page the screens draw from,
+    /// `Art::halo_cell_in`): its hair, its skin, and whether it has a beard. None for a custom head or when the page is
+    /// missing.
+    fn walk_portrait(&self, o: &mut Objects, female: bool, head: u8) -> Option<Portrait> {
+        if let Some(p) = o.portraits.get(&(female, head)) {
+            return *p;
+        }
+        if head >= 19 {
+            o.portraits.insert((female, head), None);
+            return None;
+        }
+        let page = o
+            .halo
+            .entry(female)
+            .or_insert_with(|| {
+                let sheet = if female { "Heads/golfballhalopage_female.pcx" } else { "Heads/golfballhalopage_male .pcx" };
+                let d = sg_core::fsutil::read_file(self.game_path(sheet))?;
+                let mut img = sg_core::assets::decode_pcx(&d).ok()?;
+                for p in img.px.chunks_exact_mut(4) {
+                    if (p[0] >= 0xf8 && p[1] == 0 && p[2] >= 0xf8) || (p[0] == 255 && p[1] == 0 && p[2] == 255) {
+                        p[3] = 0;
+                    }
+                }
+                Some(img)
+            })
+            .clone();
+        let made = page.and_then(|page| {
+            // the neutral face's cell
+            let (x0, y0) = ((head / 2) as usize * 140, (head & 1) as usize * 420 + 140);
+            if x0 + 140 > page.w as usize || y0 + 140 > page.h as usize {
+                return None;
+            }
+            let mut px = vec![0u8; 140 * 140 * 4];
+            for y in 0..140 {
+                let s = ((y0 + y) * page.w as usize + x0) * 4;
+                px[y * 560..y * 560 + 560].copy_from_slice(&page.px[s..s + 560]);
+            }
+            let cell = Rgba { w: 140, h: 140, px };
+            let (bx0, by0, bx1, by1) = Mask::new(&cell).bbox;
+            if bx1 <= bx0 + 8 || by1 <= by0 + 8 {
+                return None;
+            }
+            let (bw, bh) = (bx1 - bx0, by1 - by0);
+            // the opaque colours in a part of the head (fractions of its box across and down)
+            let part = |x: (usize, usize), y: (usize, usize)| {
+                let mut v = Vec::new();
+                for yy in by0 + bh * y.0 / 100..by0 + bh * y.1 / 100 {
+                    for xx in bx0 + bw * x.0 / 100..bx0 + bw * x.1 / 100 {
+                        let p = &cell.px[(yy * 140 + xx) * 4..(yy * 140 + xx) * 4 + 4];
+                        if p[3] > 127 {
+                            v.push([p[0] as f32 / 255.0, p[1] as f32 / 255.0, p[2] as f32 / 255.0]);
+                        }
+                    }
+                }
+                v
+            };
+            let mean = |v: &[[f32; 3]]| {
+                (!v.is_empty()).then(|| {
+                    let n = v.len() as f32;
+                    v.iter().fold([0.0; 3], |a, c| [a[0] + c[0] / n, a[1] + c[1] / n, a[2] + c[2] / n])
+                })
+            };
+            let lum = |c: &[f32; 3]| c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11;
+            let hair = mean(&part((25, 75), (4, 16))).unwrap_or([0.3, 0.2, 0.12]);
+            // the skin: the cheeks and brow, skin-coloured texels only (not the eyes, brows or shadow), the lighter half
+            let mut sk: Vec<[f32; 3]> = part((28, 72), (35, 62)).into_iter().filter(|c| c[0] > c[1] && c[1] >= c[2] * 0.9).collect();
+            sk.sort_by(|a, b| lum(b).total_cmp(&lum(a)));
+            sk.truncate(sk.len().div_ceil(2));
+            let skin = mean(&sk).unwrap_or([0.85, 0.65, 0.5]);
+            // a beard: the chin is nearer the hair's colour than the skin's
+            let dist = |a: [f32; 3], b: [f32; 3]| (0..3).map(|k| (a[k] - b[k]).powi(2)).sum::<f32>();
+            let beard = !female && mean(&part((38, 62), (82, 94))).is_some_and(|c| dist(c, hair) < dist(c, skin) * 0.6);
+            Some((hair, skin, beard))
+        });
+        o.portraits.insert((female, head), made);
+        made
     }
 
     /// A person's frame in an outfit's colours, as a texture of the walk camera's own (cached).
