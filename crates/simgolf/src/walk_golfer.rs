@@ -498,6 +498,7 @@ pub enum Cloth {
     Twill = 4,
     Leather = 5,
     Skin = 6,
+    Hair = 7,
 }
 
 /// The parts built from here on are of `c`.
@@ -537,7 +538,7 @@ fn fine() -> bool {
 /// The detail a figure is built at for how tall it stands on the screen, in pixels: rounder the bigger it is drawn, so a
 /// golfer close up on a 4K screen is smooth and a distant one, or one on a small screen, costs little.
 pub fn detail_for(pixels: f32) -> f32 {
-    (pixels / 360.0).clamp(0.05, 1.6)
+    (pixels / 450.0).clamp(0.05, 1.4)
 }
 
 /// A tube from `a` to `b` (radii `ra`, `rb`), elliptical: `flat` times as deep (along `across` × the tube) as wide.
@@ -585,7 +586,7 @@ fn tube(out: &mut Vec<Vert>, a: V, b: V, ra: f32, rb: f32, col: [f32; 3], across
 /// A ball at `c`, its radii `r` along x, y and z.
 fn ball(out: &mut Vec<Vert>, c: V, r: V, col: [f32; 3]) {
     let big = r[0].max(r[1]).max(r[2]) / 0.08;
-    let (seg, rings) = (sized(14, 6, big), sized(9, 4, big));
+    let (seg, rings) = (sized(22, 6, big), sized(14, 4, big));
     grid(out, seg, rings, true, true, col, r[0].max(r[2]), |i, j| {
         let (th, ph) = (TAU * i as f32 / seg as f32, PI * j as f32 / rings as f32);
         let n = [ph.sin() * th.cos(), ph.cos(), ph.sin() * th.sin()];
@@ -599,7 +600,7 @@ fn ball(out: &mut Vec<Vert>, c: V, r: V, col: [f32; 3]) {
 #[allow(clippy::too_many_arguments)]
 fn shell(out: &mut Vec<Vert>, c: V, ax: [V; 3], r: V, ph0: f32, ph1: f32, th: (f32, f32), col: [f32; 3]) {
     let big = r[0].max(r[1]).max(r[2]) / 0.16;
-    let (seg, rings) = (sized(20, 6, big), sized(11, 4, big));
+    let (seg, rings) = (sized(30, 6, big), sized(17, 4, big));
     grid(out, seg, rings, ph0 <= 1e-4, ph1 >= PI - 1e-4, col, r[0].max(r[2]), |i, j| {
         let th = th.0 + (th.1 - th.0) * i as f32 / seg as f32;
         let ph = ph0 + (ph1 - ph0) * j as f32 / rings as f32;
@@ -807,9 +808,10 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
         let (knee, ankle) = reach(hip, foot, 0.45, 0.43, hint);
         // trousers: straight, loose legs falling to a hem over the shoe
         cloth(Cloth::Twill);
-        tube(o, hip, knee, 0.11 * g, 0.088 * g.sqrt(), look.pants, hip_right, 0.92, 14);
+        ball(o, hip, [0.11 * g; 3], look.pants);
+        tube(o, hip, knee, 0.11 * g, 0.088 * g.sqrt(), look.pants, hip_right, 0.92, 22);
         ball(o, knee, [0.088 * g.sqrt(); 3], look.pants);
-        tube(o, knee, add(ankle, [0.0, -0.02, 0.0]), 0.086 * g.sqrt(), 0.084, look.pants, hip_right, 0.92, 14);
+        tube(o, knee, add(ankle, [0.0, -0.02, 0.0]), 0.086 * g.sqrt(), 0.084, look.pants, hip_right, 0.92, 22);
         // leather shoes: a rounded upper on a darker sole, the toe a little long
         cloth(Cloth::Leather);
         let toe = add(ankle, [s * 0.015, -0.02, 0.19]);
@@ -822,9 +824,9 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
     }
     // the body: trousers to the belt, the shirt to the shoulders, wider than deep
     cloth(Cloth::Twill);
-    tube(o, sub(hips, mul(spine, 0.06)), waist, 0.19 * g, 0.19 * g, look.pants, hip_right, 0.72, 12);
+    tube(o, sub(hips, mul(spine, 0.06)), waist, 0.19 * g, 0.19 * g, look.pants, hip_right, 0.72, 20);
     cloth(Cloth::Leather);
-    tube(o, waist, add(waist, mul(spine, 0.035)), 0.197 * g, 0.197 * g, belt, chest_right, 0.72, 12);
+    tube(o, waist, add(waist, mul(spine, 0.035)), 0.197 * g, 0.197 * g, belt, chest_right, 0.72, 20);
     cloth(Cloth::Plain);
     if fine() {
         // the buckle, square on the belt's front
@@ -833,7 +835,7 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
         tube(o, sub(at, mul(chest_right, 0.03)), add(at, mul(chest_right, 0.03)), 0.024, 0.024, steel, flat, 0.3, 4);
     }
     cloth(shirt_cloth);
-    tube(o, add(waist, mul(spine, 0.03)), shoulders, 0.2 * g, 0.22 * g.sqrt(), look.shirt, chest_right, 0.72, 12);
+    tube(o, add(waist, mul(spine, 0.03)), shoulders, 0.2 * g, 0.22 * g.sqrt(), look.shirt, chest_right, 0.72, 20);
     ball(o, add(shoulders, mul(spine, -0.02)), [0.2 * g.sqrt(), 0.08, 0.14], look.shirt);
     if fine() {
         // the collar: two flaps folded down either side of the neck, and the placket's buttons down the front
@@ -865,7 +867,7 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
         ball(o, a, [0.03, 0.028, 0.02], tie);
     }
     cloth(Cloth::Skin);
-    tube(o, shoulders, add(neck, mul(spine, 0.05)), 0.075, 0.068, look.skin, chest_right, 1.0, 14);
+    tube(o, shoulders, add(neck, mul(spine, 0.05)), 0.075, 0.068, look.skin, chest_right, 1.0, 22);
     cloth(Cloth::Plain);
     if who.star {
         // a big gold star on the pro's chest
@@ -893,11 +895,12 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
         let (elbow, wrist) = reach(shoulder, p.hands[k], 0.3, 0.28, hint);
         let sleeve = add(shoulder, mul(sub(elbow, shoulder), 0.5));
         cloth(shirt_cloth);
-        tube(o, shoulder, sleeve, 0.098, 0.092, look.shirt, chest_right, 1.0, 14);
+        ball(o, shoulder, [0.098; 3], look.shirt);
+        tube(o, shoulder, sleeve, 0.098, 0.092, look.shirt, chest_right, 1.0, 22);
         cloth(Cloth::Skin);
-        tube(o, sleeve, elbow, 0.07, 0.066, look.skin, chest_right, 1.0, 14);
+        tube(o, sleeve, elbow, 0.07, 0.066, look.skin, chest_right, 1.0, 22);
         ball(o, elbow, [0.066; 3], look.skin);
-        tube(o, elbow, wrist, 0.064, 0.056, look.skin, chest_right, 1.0, 14);
+        tube(o, elbow, wrist, 0.064, 0.056, look.skin, chest_right, 1.0, 22);
         // the pro's white golf glove on his leading (left) hand
         // (bare hands in the skin's colour: the outfit's arm colour reads as a dark lump on the grip)
         let hand = if who.star && k == 1 { [0.97, 0.97, 0.95] } else { look.skin };
@@ -938,7 +941,7 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
 /// The head, as a cartoon's: big and round, with big eyes, a nose, ears, brows and a mouth that show the mood, the hair
 /// and the hat fitted to it. `neck` is the top of the neck, `spine` the way up the neck, `face` the way the face looks.
 fn head(o: &mut Vec<Vert>, who: &Who, act: Act, neck: V, spine: V, face: V) {
-    cloth(Cloth::Plain);
+    cloth(Cloth::Skin);
     let look = &who.look;
     let kind = if who.star { 0x20 } else { who.kind & 0xe0 };
     let dark = [0.06, 0.05, 0.05];
@@ -972,13 +975,24 @@ fn head(o: &mut Vec<Vert>, who: &Who, act: Act, neck: V, spine: V, face: V) {
     for sx in [-1.0f32, 1.0] {
         shell(o, at(sx * r[0] * 0.96, -0.01, -0.005), ax, [0.03, 0.045, 0.035], 0.0, PI, full, look.skin);
     }
-    shell(o, on(0.0, -0.03, 0.0), ax, [0.034, 0.032, 0.036], 0.0, PI, full, look.skin);
-    // big eyes: white ovals with dark pupils and a glint, looking where the head looks
+    shell(o, on(0.0, -0.03, 0.0), ax, [0.027, 0.025, 0.03], 0.0, PI, full, look.skin);
+    // full cheeks, a little rosy, and a rounded chin: a soft, friendly face
     for sx in [-1.0f32, 1.0] {
-        let e = on(sx * 0.052, 0.022, -0.012);
-        shell(o, e, ax, [0.034, 0.042, 0.022], 0.0, PI, full, white);
-        let pupil = add(e, add(mul(face, 0.017), mul(side, sx * -0.004)));
-        shell(o, pupil, ax, [0.017, 0.022, 0.009], 0.0, PI, full, dark);
+        shell(o, at(sx * 0.07, -0.055, 0.06), ax, [0.055, 0.05, 0.055], 0.0, PI, full, look.skin);
+        if fine() {
+            shell(o, on(sx * 0.085, -0.045, -0.004), ax, [0.026, 0.017, 0.008], 0.0, PI, full, mix(look.skin, [0.95, 0.45, 0.45], 0.28));
+        }
+    }
+    shell(o, at(0.0, -0.11, 0.06), ax, [0.07, 0.05, 0.07], 0.0, PI, full, look.skin);
+    cloth(Cloth::Plain);
+    // eyes: white ovals with dark brown irises and a glint, looking where the head looks
+    let iris = [0.16, 0.1, 0.07];
+    for sx in [-1.0f32, 1.0] {
+        let e = on(sx * 0.05, 0.02, -0.01);
+        shell(o, e, ax, [0.027, 0.033, 0.018], 0.0, PI, full, white);
+        let pupil = add(e, add(mul(face, 0.014), mul(side, sx * -0.003)));
+        shell(o, pupil, ax, [0.015, 0.019, 0.008], 0.0, PI, full, iris);
+        shell(o, add(pupil, mul(face, 0.004)), ax, [0.008, 0.01, 0.005], 0.0, PI, full, dark);
         if fine() {
             shell(o, add(add(pupil, mul(face, 0.008)), add(mul(side, 0.006), mul(crown, 0.008))), ax, [0.005; 3], 0.0, PI, full, white);
         }
@@ -1041,6 +1055,7 @@ fn head(o: &mut Vec<Vert>, who: &Who, act: Act, neck: V, spine: V, face: V) {
         ball(o, b, [0.014; 3], [1.0, 0.45, 0.1]);
     }
     // the hair, then the hat: fitted to the head, the brim above the brows
+    cloth(Cloth::Hair);
     let rim = 0.085 / r[1];
     let hr = |k: f32| [r[0] * k, r[1] * k, r[2] * k];
     if look.female {
@@ -1050,8 +1065,9 @@ fn head(o: &mut Vec<Vert>, who: &Who, act: Act, neck: V, spine: V, face: V) {
         shell(o, at(0.0, -0.12, -0.12), ax, [0.07, 0.09, 0.06], 0.0, PI, full, look.hair);
     } else {
         // short at the sides and back
-        shell(o, c, ax, hr(1.03), 0.0, 1.95, (PI * 1.05, TAU - PI * 0.05), look.hair);
+        shell(o, c, ax, hr(1.06), 0.0, 1.95, (PI * 1.05, TAU - PI * 0.05), look.hair);
     }
+    cloth(Cloth::Plain);
     match kind {
         0x80 => {
             // the heiress's sun hat: a low crown and a wide brim

@@ -266,6 +266,11 @@ vec3 cloth(vec3 c, float dist) {
         // leather: a fine grain under a soft sheen
         float g = texture2D(noise, q * 6.0).g;
         r = c * (0.9 + 0.2 * g);
+    } else if (k > 6.5) {
+        // hair: fine strands combed down from the crown, a soft sheen across them
+        float strand = sin(q.x * 700.0 + sin(q.y * 60.0) * 2.0) * 0.5 + 0.5;
+        float tuft = texture2D(noise, vec2(q.x * 4.0, q.y * 1.5)).r;
+        r = c * (0.82 + 0.22 * strand * (1.0 - smoothstep(1.5 * M, 6.0 * M, dist)) + 0.18 * tuft);
     }
     return mix(c, r, near);
 }
