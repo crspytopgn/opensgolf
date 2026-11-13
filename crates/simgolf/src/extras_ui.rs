@@ -150,6 +150,9 @@ const RETIRED_DESERT_ART: usize = 23;
 /// The option lines of each page, in order (each page's most wanted first). Slower
 /// seasons and Pause the calendar (options 6 and 7) are the Sandbox page's Calendar line; the Info page's groups stand for
 /// their ticks (`GROUPS`); the update check is on Preferences itself.
+/// The first-person view's interface extra bit (extras.rs `first_person`).
+pub const FIRST_PERSON: usize = 35;
+
 const PAGE_LINES: [&[ExtrasLine]; 6] = {
     use sg_core::extras as x;
     use ExtrasLine::{Calendar, Game as G, Group, Ui as U};
@@ -171,8 +174,8 @@ const PAGE_LINES: [&[ExtrasLine]; 6] = {
         // approval (moved here when the Gameplay page grew too long for the box), eyesore demolition, moving the clubhouse
         &[G(9), G(x::NO_WEEDS), G(8), Calendar, G(x::KEEP_LAND), G(x::DEMOLISH), G(x::MOVE_CLUBHOUSE)],
         // the interface at the edges, path styles and lamps, random trees, Tab turns buildings (only the picture turns),
-        // home names on hover, the hole flyover, playing upright
-        &[U(26), G(x::PATHS), U(21), G(0), U(28), U(29), U(34)],
+        // home names on hover, the hole flyover, playing upright, the first-person view (computers only)
+        &[U(26), G(x::PATHS), U(21), G(0), U(28), U(29), U(34), U(FIRST_PERSON)],
         // People, extra reports, messages, home-site details, path help, unlock info, challenges and the design lab
         &[Group(0), Group(1), Group(2), U(19), U(4), U(32), U(33)],
         // autosave, the Load list newest first (with backups), import and export saved games, sharing, save pictures
@@ -199,9 +202,14 @@ fn cut_shown() -> bool {
 
 /// The option lines of a page, in order.
 pub fn page_lines(page: u8) -> Vec<ExtrasLine> {
-    PAGE_LINES
-        .get(page as usize)
-        .map_or_else(Vec::new, |l| l.iter().copied().filter(|&l| l != ExtrasLine::Game(CUT) || cut_shown()).collect())
+    PAGE_LINES.get(page as usize).map_or_else(Vec::new, |l| {
+        l.iter()
+            .copied()
+            .filter(|&l| l != ExtrasLine::Game(CUT) || cut_shown())
+            // the first-person view needs a keyboard and the desktop's graphics: not in the browser or on Android
+            .filter(|&l| l != ExtrasLine::Ui(FIRST_PERSON) || cfg!(not(any(target_arch = "wasm32", target_os = "android"))))
+            .collect()
+    })
 }
 
 /// The box's option lines on a page: the preset line, then the page's.
@@ -300,6 +308,7 @@ const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_UNLOCK_INFO",
     "STR_EXTRAS_DESC_CHALLENGES",
     "STR_EXTRAS_DESC_PORTRAIT",
+    "STR_EXTRAS_DESC_FIRST_PERSON",
 ];
 
 /// A line's description (what ticking it changes; for the preset line, what the preset in use is).
@@ -1070,7 +1079,7 @@ mod tests {
         assert_eq!(foot_text(2, Some(2), &e, &ui), (sg_core::lang::tr("STR_EXTRAS_DESC_PATHS"), true));
         assert_eq!(foot_text(2, Some(0), &e, &ui), (sg_core::lang::tr("STR_PRESET_DESC_ORIGINAL"), true));
         assert_eq!(foot_text(0, Some(0), &Extras::OPENSGOLF, &Settings::HELPERS).0, sg_core::lang::tr("STR_PRESET_DESC_OPENSGOLF"));
-        assert!(!foot_text(2, Some(8), &e, &ui).1);
+        assert!(!foot_text(2, Some(9), &e, &ui).1);
         assert!(!foot_text(3, None, &e, &ui).1);
     }
 

@@ -76,6 +76,8 @@ pub enum Try {
     Portrait,
     /// Eyesore demolition on for the next games (sg_core::extras).
     Demolish,
+    /// The First-person view extra on (extras.rs; computers only).
+    FirstPerson,
 }
 
 /// One of a version's highlights: its line, the note under it, and what its Try it does (none: no option to try).
@@ -118,13 +120,13 @@ pub const HIGHLIGHTS: &[(&str, &[Highlight])] = &[
     (
         "0.8",
         &[
+            hl("STR_WHATSNEW_FIRSTPERSON", "STR_WHATSNEW_FIRSTPERSON_NOTE", Some(Try::FirstPerson)),
             hl("STR_WHATSNEW_WEBAPP", "STR_WHATSNEW_WEBAPP_NOTE", None),
             hl("STR_WHATSNEW_PAUSEAIM", "STR_WHATSNEW_PAUSEAIM_NOTE", Some(Try::PauseAim)),
             hl("STR_WHATSNEW_SAVES", "STR_WHATSNEW_SAVES_NOTE", Some(Try::SaveNewest)),
             hl("STR_WHATSNEW_CHALLENGES", "STR_WHATSNEW_CHALLENGES_NOTE", Some(Try::Challenges)),
             hl("STR_WHATSNEW_DEMOLISH", "STR_WHATSNEW_DEMOLISH_NOTE", Some(Try::Demolish)),
             hl("STR_WHATSNEW_PORTRAIT", "STR_WHATSNEW_PORTRAIT_NOTE", Some(Try::Portrait)),
-            hl("STR_WHATSNEW_GUIDE", "STR_WHATSNEW_GUIDE_NOTE", None),
             hl("STR_WHATSNEW_MORE08", "STR_WHATSNEW_MORE08_NOTE", None),
         ],
     ),
@@ -158,6 +160,7 @@ pub fn try_named(name: &str) -> Option<Try> {
         "challenges" => Try::Challenges,
         "portrait" => Try::Portrait,
         "demolish" => Try::Demolish,
+        "first_person" => Try::FirstPerson,
         _ => return None,
     })
 }
@@ -512,7 +515,12 @@ impl App {
     /// Whether a highlight's Try it can be offered here (the HD maker only with the original game's files, not in a
     /// browser).
     pub fn can_try(&self, t: Try) -> bool {
-        t != Try::MakeHd || self.hd_make_offer().is_some()
+        match t {
+            Try::MakeHd => self.hd_make_offer().is_some(),
+            // the first-person view is a computer's (extras.rs `first_person`)
+            Try::FirstPerson => cfg!(not(any(target_arch = "wasm32", target_os = "android"))),
+            _ => true,
+        }
     }
 
     /// The What's new box's options that only tell (`whatsnew_plain`).
@@ -536,6 +544,7 @@ impl App {
             Try::Challenges => crate::extras::settings().challenges,
             Try::Portrait => crate::extras::settings().portrait,
             Try::Demolish => self.extras_next.demolish,
+            Try::FirstPerson => crate::extras::settings().first_person,
         }
     }
 
@@ -573,7 +582,8 @@ impl App {
                 | Try::PauseAim
                 | Try::SaveNewest
                 | Try::Challenges
-                | Try::Portrait),
+                | Try::Portrait
+                | Try::FirstPerson),
             ) => {
                 let mut ui = crate::extras::settings();
                 match t {
@@ -584,6 +594,7 @@ impl App {
                     Try::SaveNewest => ui.save_newest = true,
                     Try::Challenges => ui.challenges = true,
                     Try::Portrait => ui.portrait = true,
+                    Try::FirstPerson => ui.first_person = true,
                     _ => ui.home_labels_hover = true,
                 }
                 crate::extras::set(ui);

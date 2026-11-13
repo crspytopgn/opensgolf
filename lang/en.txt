@@ -3626,6 +3626,8 @@ STR_WHATSNEW_DOUBLE                     : Double-click a save to load it
 STR_WHATSNEW_DOUBLE_NOTE                :Or double-tap it on a touch screen.
 STR_WHATSNEW_MORE07                     : And more
 STR_WHATSNEW_MORE07_NOTE                :Longer translations fit, replays in problem reports, controller fixes.
+STR_WHATSNEW_FIRSTPERSON                : Walk your course in first person
+STR_WHATSNEW_FIRSTPERSON_NOTE           :On a computer, F12 walks the course in 3D and G follows a golfer's shot.
 STR_WHATSNEW_WEBAPP                     : Play offline in the browser
 STR_WHATSNEW_WEBAPP_NOTE                :Add the web version to your home screen; it plays with no connection.
 STR_WHATSNEW_PAUSEAIM                   : Pause while you aim
@@ -3638,10 +3640,8 @@ STR_WHATSNEW_DEMOLISH                   : Pull down eyesores
 STR_WHATSNEW_DEMOLISH_NOTE              :Right-click a water tower, radio mast or oil pump to pull it down (new games).
 STR_WHATSNEW_PORTRAIT                   : Play upright on phones
 STR_WHATSNEW_PORTRAIT_NOTE              :Phones and tablets can play in portrait, with the interface at the screen's edges.
-STR_WHATSNEW_GUIDE                      : A feature guide
-STR_WHATSNEW_GUIDE_NOTE                 :Every option OpenSGolf adds, on the website and in the launcher's Features tab.
 STR_WHATSNEW_MORE08                     : And more
-STR_WHATSNEW_MORE08_NOTE                :Speed x8, a height map (Shift+K), club records, a course review, moving the clubhouse.
+STR_WHATSNEW_MORE08_NOTE                :Speed x8, a height map, club records, a course review, a feature guide.
 STR_WHATSNEW_ALL                        : See everything that's new
 STR_WHATSNEW_OK                         : OK
 STR_WHATSNEW_TRY                        :Try it
@@ -3697,6 +3697,8 @@ STR_EXTRAS_WIDE_UI                      : Interface at the screen's edges
 STR_EXTRAS_DESC_WIDE_UI                 :On a wide screen the dock, panels and money sit at the screen's edges (on by default; off keeps them in the 4:3 middle).
 STR_EXTRAS_PORTRAIT                     : Play upright on phones and tablets
 STR_EXTRAS_DESC_PORTRAIT                :A phone or tablet held upright plays on the whole tall screen, with the dock, panels and money at its edges, instead of asking you to turn it sideways.
+STR_EXTRAS_FIRST_PERSON                 : First-person view (F12)
+STR_EXTRAS_DESC_FIRST_PERSON            :On a computer, F12 on the course walks it at a golfer's eye height in 3D: W A S D walk, a drag looks round, G follows a golfer's shot, F12 or Esc goes back.
 # Edge scrolling (OpenSGolf extras, extras.rs edge_scroll; main.rs edge_scroll)
 STR_EXTRAS_EDGE_SCROLL                  : Edge scrolling
 STR_EXTRAS_DESC_EDGE_SCROLL             :In full screen the pointer at the screen's edge scrolls the view, as in the original (on by default).

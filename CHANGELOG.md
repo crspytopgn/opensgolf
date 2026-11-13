@@ -12,6 +12,11 @@ Enhanced graphics and HD.
 
 **Highlights**
 
+- **Walk your course in first person:** with *First-person view (F12)* (Preferences > Game options, Looks; off unless
+  you tick it, on computers), F12 on the course puts you on the ground at a golfer's eye height. Every building in every
+  theme is a 3D model, near trees are drawn in the round, and golfers are cartoon 3D figures that walk, swing, chip,
+  putt, cheer and sulk. W A S D walk, a drag looks round, G follows a golfer and their ball's flight, F12 or Esc goes
+  back to the overhead view.
 - **The browser version installs as an app and plays offline:** add it to your home screen (or install it from the
   browser's menu) and after the first visit it starts with no connection. Only one tab runs the game at a time, saving a
   file on a phone opens the share sheet, and the game files can be given as a `.7z` too.
@@ -33,9 +38,6 @@ Enhanced graphics and HD.
   from the game itself, so it keeps up with each new version. Linked from the start page.
 - **The launcher's Features tab:** every option of Preferences in one scrolling list, grouped, each with what it does and a
   tick to switch it on there and then, and a side list to jump to each group. Its *Feature guide* button opens the guide.
-- **A first look at the first-person view (experimental, desktop):** start the game with `--walk` and press F12 on the
-  course to walk it at a golfer's eye height, with 3D buildings for every theme, 3D trees and cartoon 3D golfers that
-  swing, putt and cheer. G follows the golfers and their shots. It is a preview and is in no menu yet.
 - **Fixed (#176):** with *Right click puts the tool away* on, the elevation tools keep their right-click lower again;
   Space or Esc puts them away. Brushes and buildings still drop on a right click.
 

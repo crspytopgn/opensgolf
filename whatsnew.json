@@ -4,7 +4,7 @@
       "date": "13 November 2026",
       "iso": "2026-11-13",
       "title": "OpenSGolf 0.8 released",
-      "text": "Play offline as an app in the browser, play upright on phones, pause while you aim, saves newest first with backups, course challenges, demolish eyesores or move the clubhouse, speed x8, a height map, and a feature guide for every option."
+      "text": "Walk your course in first person in 3D, play offline as an app in the browser, play upright on phones, pause while you aim, saves newest first with backups, course challenges, demolish eyesores or move the clubhouse, and speed x8."
     },
     {
       "date": "7 November 2026",
@@ -58,6 +58,11 @@
     ],
     "0.8": [
       {
+        "line": "Walk your course in first person",
+        "note": "On a computer, F12 walks the course in 3D and G follows a golfer's shot.",
+        "try": "first_person"
+      },
+      {
         "line": "Play offline in the browser",
         "note": "Add the web version to your home screen; it plays with no connection."
       },
@@ -87,12 +92,8 @@
         "try": "portrait"
       },
       {
-        "line": "A feature guide",
-        "note": "Every option OpenSGolf adds, on the website and in the launcher's Features tab."
-      },
-      {
         "line": "And more",
-        "note": "Speed x8, a height map (Shift+K), club records, a course review, moving the clubhouse."
+        "note": "Speed x8, a height map, club records, a course review, a feature guide."
       }
     ]
   }
