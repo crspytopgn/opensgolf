@@ -3766,7 +3766,12 @@ impl EventHandler for Stage {
     }
 
     fn mouse_wheel_event(&mut self, _x: f32, y: f32) {
-        if self.walk_shown() || self.app.launcher.is_some() && self.app.screen != Screen::Popup {
+        // the launcher's Features list scrolls (y: notches, up positive)
+        if self.app.launcher.is_some() && self.app.screen != Screen::Popup {
+            self.app.launcher_scroll(-y * launcher::WHEEL_STEP);
+            return;
+        }
+        if self.walk_shown() {
             return;
         }
         if self.app.photo.is_some() {
@@ -4111,7 +4116,13 @@ impl EventHandler for Stage {
             self.photo_button(false, button, x, y);
             return;
         }
+        // the launcher's Features list: a press that did not drag is a click on its line
         if self.app.launcher.is_some() && self.app.screen != Screen::Popup {
+            if button == MouseButton::Left {
+                if let Some(h) = self.app.launcher_release(x, y) {
+                    self.launcher_act(h);
+                }
+            }
             return;
         }
         // the Right-drag panning extra: a right button that did not drag is the original's right click

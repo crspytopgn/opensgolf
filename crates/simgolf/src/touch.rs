@@ -745,7 +745,7 @@ impl Stage {
     /// target and the point is on the course where the pointer would preview it (above the panel, off the dock).
     fn targets_here(&self, p: (f32, f32)) -> bool {
         let a = &self.app;
-        if a.popup.is_some() || a.notice.is_some() || a.touch_target_for().is_none() {
+        if a.launcher.is_some() || a.popup.is_some() || a.notice.is_some() || a.touch_target_for().is_none() {
             return false;
         }
         let (vx, vy) = a.view.to_virtual(p.0, p.1);
@@ -757,7 +757,7 @@ impl Stage {
     /// on its new spot.
     fn picks_spot(&self, p: (f32, f32)) -> bool {
         let a = &self.app;
-        if a.screen != Screen::Play || a.popup.is_some() || a.notice.is_some() {
+        if a.screen != Screen::Play || a.launcher.is_some() || a.popup.is_some() || a.notice.is_some() {
             return false;
         }
         if a.moving_employee.is_none() && a.card_ui.held.is_none() {
@@ -779,7 +779,7 @@ impl Stage {
             || a.analysis.is_some()
             || a.bt.tape.is_some()
             || a.typing();
-        if a.screen != Screen::Play || a.edit || a.popup.is_some() || a.notice.is_some() || over {
+        if a.screen != Screen::Play || a.edit || a.launcher.is_some() || a.popup.is_some() || a.notice.is_some() || over {
             return false;
         }
         let (vx, vy) = a.view.to_virtual(p.0, p.1);

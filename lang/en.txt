@@ -3604,10 +3604,10 @@ STR_LAUNCHER_TAB_FILES                  :Game files
 STR_LAUNCHER_TAB_PLAY                   :How to play
 STR_LAUNCHER_TAB_FEATURES               :Features
 STR_FEATURES_GENERAL                    :General
-STR_FEATURES_GENERAL_BANNER             :The fixes for the original's bugs and the update check. Use the arrows for every other option.
+STR_FEATURES_GENERAL_BANNER             :The fixes for the original's bugs and the update check.
 STR_FEATURES_GRAPHICS_PAGE              :Graphics: {PAGE}
 STR_FEATURES_NEEDS_ENHANCED             :These need Enhanced graphics on: the first line of Graphics: Display, or Display & sound.
-STR_FEATURES_SCREEN                     :{N} of {COUNT}
+STR_FEATURES_GRAPHICS                   :Graphics
 STR_LAUNCHER_TAB_DISPLAY                :Display & sound
 STR_LAUNCHER_TAB_NEWS                   :News & updates
 STR_LAUNCHER_PLAY                       :Play

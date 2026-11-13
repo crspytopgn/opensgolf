@@ -15,8 +15,8 @@ Enhanced graphics and HD.
 - **A feature guide** on the website ([crspytopgn.github.io/opensgolf/guide.html](https://crspytopgn.github.io/opensgolf/guide.html)):
   every feature OpenSGolf adds, whether it starts on, and exactly where to switch it on, with every option and key listed
   from the game itself, so it keeps up with each new version. Linked from the start page.
-- **The launcher's Features tab:** every option of Preferences, a group to a screen, each with what it does and a tick
-  to switch it on there and then. Its *Feature guide* button opens the guide.
+- **The launcher's Features tab:** every option of Preferences in one scrolling list, grouped, each with what it does and a
+  tick to switch it on there and then, and a side list to jump to each group. Its *Feature guide* button opens the guide.
 
 ## 0.7 (7 November 2026)
 

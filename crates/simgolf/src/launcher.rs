@@ -125,8 +125,10 @@ pub enum Hit {
     Guide,
     /// A line of the Features tab (`Model::features[i]`): its tick flips, a setting steps on.
     Feature(usize),
-    /// The Features tab's next (1) or previous (-1) screen of lines.
-    FeaturePage(i32),
+    /// A section of the Features tab's side list (`FeatureRow::section`): the list scrolls to it.
+    FeatureSection(usize),
+    /// The Features tab's list itself, under its lines: a press there starts a drag that scrolls it.
+    FeatureList,
     Fullscreen(bool),
     /// The next (1) or the previous (-1) window size.
     WindowSize(i32),
@@ -144,8 +146,13 @@ pub enum Hit {
 #[derive(Clone)]
 pub struct State {
     pub tab: Tab,
-    /// The Features tab's screen of lines (clamped to the screens there are when laid out).
-    pub feat_page: usize,
+    /// How far the Features tab's list is scrolled (units), the most it can be (from the last frame) and where each of its
+    /// sections starts in it.
+    pub feat_scroll: f32,
+    scroll_max: f32,
+    sections: Vec<f32>,
+    /// A press on the list: where it was (units), the scroll then, and whether it has moved far enough to be a drag.
+    drag: Option<(f32, f32, bool)>,
     pub hover: Option<Hit>,
     /// The "Show this at start" tick.
     pub at_start: bool,
@@ -287,9 +294,9 @@ pub struct Model {
     pub highlights: Vec<(String, String)>,
     /// Check for updates (where the build has it): whether a check is under way.
     pub update: Option<bool>,
-    /// The Features tab's lines (`feature_rows`) and the screen of them shown.
+    /// The Features tab's lines (`feature_rows`) and how far its list is scrolled.
     pub features: Vec<FeatureRow>,
-    pub feat_page: usize,
+    pub feat_scroll: f32,
 }
 
 impl Model {
@@ -323,7 +330,7 @@ impl Model {
             highlights: (0..6).map(|i| (format!("Highlight number {i}"), "A note about it, a line or so long at most.".into())).collect(),
             update: Some(false),
             features: feature_rows(&crate::prefs_search::Prefs::original(), true),
-            feat_page: 0,
+            feat_scroll: 0.0,
         }
     }
 }
@@ -945,6 +952,9 @@ fn art_image(g: &mut Gfx, a: Art) -> Image {
 pub struct Dr<'a> {
     pub g: &'a mut Gfx,
     pub s: &'a Ui,
+    /// Window pixels per unit and the drawable's height in pixels, for clipping (`Out::clip`).
+    pub k: f32,
+    pub h: f32,
 }
 
 /// One pass over the launcher: its buttons (`hits`), each piece's rectangle (`pieces`, for the tests) and whether anything
@@ -955,11 +965,14 @@ pub struct Out<'a> {
     pub squeezed: Vec<&'static str>,
     pub dr: Option<Dr<'a>>,
     hover: Option<Hit>,
+    /// The Features tab's list: the most it can scroll and where each section starts (kept for the pointer).
+    pub scroll_max: f32,
+    pub sections: Vec<f32>,
 }
 
 impl<'a> Out<'a> {
     pub fn new(dr: Option<Dr<'a>>, hover: Option<Hit>) -> Out<'a> {
-        Out { hits: Vec::new(), pieces: Vec::new(), squeezed: Vec::new(), dr, hover }
+        Out { hits: Vec::new(), pieces: Vec::new(), squeezed: Vec::new(), dr, hover, scroll_max: 0.0, sections: Vec::new() }
     }
 
     fn lit(&self, h: Hit) -> bool {
@@ -1055,6 +1068,17 @@ impl<'a> Out<'a> {
     }
 
     /// Text in a room `w` wide from x (smaller or cut when too long: ui.rs fit_line).
+    /// Draws only inside `r` from here on (none: the whole window again), as the Features tab's scrolled list needs.
+    fn clip(&mut self, r: Option<Rect>) {
+        let Some(d) = self.dr.as_mut() else { return };
+        let full = (0, 0, 1 << 15, 1 << 15);
+        let (x, y, w, h) = r.map_or(full, |r| {
+            let (k, x0, y1) = (d.k, (r.x * d.k).floor(), ((r.y + r.h) * d.k).ceil());
+            (x0 as i32, (d.h - y1).max(0.0) as i32, (r.w * k).ceil() as i32, (r.h * k).ceil() as i32)
+        });
+        d.g.flush();
+        d.g.ctx.apply_scissor_rect(x, y, w, h);
+    }
     /// `note`, where cutting the text short is expected (the Features tab's descriptions, shown whole at its foot).
     fn note_cut(&mut self, f: Fnt, x: f32, y: f32, w: f32, lines: usize, s: &str, col: [f32; 4]) -> f32 {
         let n = self.squeezed.len();
@@ -1806,6 +1830,9 @@ pub struct FeatureRow {
     pub on: bool,
     /// A setting with choices: its value (a click steps it on); none for a tick.
     pub value: Option<String>,
+    /// Its section in the side list (General, each Game options page, Graphics) and the section's name.
+    pub section: usize,
+    pub section_name: String,
 }
 
 /// Every line of the Features tab, in groups: General (the bug fixes, the update check), the Game options pages
@@ -1816,7 +1843,7 @@ pub fn feature_rows(p: &crate::prefs_search::Prefs, original_files: bool) -> Vec
     use crate::extras_ui as xu;
     use crate::prefs_search::{self as ps, Hit as H};
     xu::show_cut_content(original_files);
-    let mut v = Vec::new();
+    let mut v: Vec<FeatureRow> = Vec::new();
     let mut push = |h: H, group: &str, banner: &str, desc: &'static str, tag: Option<&'static str>| {
         let (text, on) = ps::text(h, p);
         let (name, value) = match text.split_once(':') {
@@ -1828,7 +1855,16 @@ pub fn feature_rows(p: &crate::prefs_search::Prefs, original_files: bool) -> Vec
             Some(t) => format!("{} \u{b7} {desc}", tr(t)),
             None => desc,
         };
-        v.push(FeatureRow { hit: h, group: group.to_string(), banner: banner.to_string(), name, desc, on, value });
+        // a new section with each group, but the Enhanced graphics pages are one, Graphics
+        let graphics = matches!(h, H::EnhancedOn | H::Enhanced(_));
+        let (section, section_name) = match v.last() {
+            Some(l) if l.group == group || graphics && matches!(l.hit, H::EnhancedOn | H::Enhanced(_)) => {
+                (l.section, l.section_name.clone())
+            }
+            Some(l) => (l.section + 1, if graphics { tr("STR_FEATURES_GRAPHICS").to_string() } else { group.to_string() }),
+            None => (0, group.to_string()),
+        };
+        v.push(FeatureRow { hit: h, group: group.to_string(), banner: banner.to_string(), name, desc, on, value, section, section_name });
     };
     let (g, gb) = (tr("STR_FEATURES_GENERAL"), tr("STR_FEATURES_GENERAL_BANNER"));
     push(H::Pref(false), g, gb, "STR_PREFS_DESC_FIX_BUGS", None);
@@ -1852,72 +1888,125 @@ pub fn feature_rows(p: &crate::prefs_search::Prefs, original_files: bool) -> Vec
     v
 }
 
-/// The Features tab's screens: runs of at most `per` lines of one group (start, end).
-fn feature_screens(rows: &[FeatureRow], per: usize) -> Vec<(usize, usize)> {
-    let mut v = Vec::new();
-    let mut i = 0;
-    while i < rows.len() {
-        let mut e = i;
-        while e < rows.len() && e - i < per.max(1) && rows[e].group == rows[i].group {
-            e += 1;
-        }
-        v.push((i, e));
-        i = e;
+/// How far one notch of the mouse wheel (or an arrow key) scrolls the Features tab's list, and how far a press must move
+/// to be a drag rather than a click (units).
+pub const WHEEL_STEP: f32 = 48.0;
+const DRAG_SLOP: f32 = 6.0;
+
+/// The Features tab's side list and the list itself in its room `r`.
+fn feature_rects(r: Rect, compact: bool) -> (Option<Rect>, Rect) {
+    if r.w < 560.0 {
+        return (None, r);
     }
-    v
+    let sw = if compact { 150.0 } else { 190.0 };
+    (Some(Rect::new(r.x, r.y, sw, r.h)), Rect::new(r.x + sw + 12.0, r.y, r.w - sw - 12.0, r.h))
 }
 
-/// Features: every option, a screen of one group at a time, each line with what it does and its tick (a setting: its
-/// value), put in use at once; the arrows step through the screens, and Feature guide opens the web site's guide.
+/// The Features tab's list laid out from its top: each group's heading (y, the first line's index) and each line (y),
+/// and the list's whole height.
+fn feature_offsets(rows: &[FeatureRow], compact: bool) -> (Vec<(f32, usize)>, Vec<f32>, f32) {
+    let (head_h, row_h, gap) = feature_sizes(compact);
+    let (mut heads, mut ys, mut y) = (Vec::new(), Vec::new(), 0.0);
+    for (i, f) in rows.iter().enumerate() {
+        if i == 0 || rows[i - 1].group != f.group {
+            if i > 0 {
+                y += gap * 2.0;
+            }
+            heads.push((y, i));
+            y += head_h;
+        }
+        ys.push(y);
+        y += row_h + gap;
+    }
+    (heads, ys, y)
+}
+
+/// The heights of a group's heading and of a line, and the gap between lines.
+fn feature_sizes(compact: bool) -> (f32, f32, f32) {
+    if compact {
+        (40.0, 46.0, 5.0)
+    } else {
+        (50.0, 66.0, 6.0)
+    }
+}
+
+/// Features: every option in one list that scrolls (the wheel, a drag with the mouse or a finger, the arrow keys), in
+/// groups each headed by its name and what it changes, every line with its tick (a setting: its value) and what it does,
+/// put in use at once; on the left a list of the sections that scrolls to each, and Feature guide, which opens the web
+/// site's guide.
 fn features_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
-    let hf = display(if compact { 17.0 } else { 20.0 });
-    let bf = body(if compact { 12.0 } else { 13.0 });
-    let nf = body(if compact { 11.0 } else { 12.0 });
-    let bh = if compact { 28.0 } else { 32.0 };
-    let gap = if compact { 6.0 } else { 8.0 };
-    let cols = if r.w >= 600.0 { 2 } else { 1 };
-    let row_h = if compact { 36.0 } else { 46.0 };
-    let banner_h = (nf.px * 1.32).round();
-    let top = r.y + bh + gap + banner_h + gap;
-    // the foot: the whole description of the line under the pointer (or last tapped), two lines
-    let foot_h = 2.0 * banner_h;
-    let per_col = (((r.y + r.h - foot_h - gap - top) + gap) / (row_h + gap)).floor().max(1.0) as usize;
-    let screens = feature_screens(&m.features, per_col * cols);
-    if screens.is_empty() {
+    if m.features.is_empty() {
         return;
     }
-    let page = m.feat_page.min(screens.len() - 1);
-    let (start, end) = screens[page];
-    // the head: the arrows round the group's name, the feature guide on the right
-    let guide = tr("STR_LAUNCHER_GUIDE");
-    let gw = button_w(bf, guide, 110.0, r.w * 0.35);
-    button(out, Skin::Sky, Rect::new(r.x + r.w - gw, r.y, gw, bh), bf, guide, Some(Hit::Guide), true);
-    let aw = (bh * 1.25).round();
-    let arrow = |out: &mut Out, x: f32, dir: f32, en: bool| {
-        let hit = Hit::FeaturePage(dir as i32);
-        button(out, Skin::Sky, Rect::new(x, r.y, aw, bh), bf, "", Some(hit), en);
-        let (cx, cy, s) = (x + aw / 2.0, r.y + bh / 2.0, bh * 0.2);
-        let ink = if en { c(0x0d2a52) } else { ca(0x0d2a52, 0.35) };
-        out.tri([(cx - s * dir * 0.7, cy - s), (cx + s * dir * 0.7, cy), (cx - s * dir * 0.7, cy + s)], ink);
+    let (heads, ys, total) = feature_offsets(&m.features, compact);
+    let n_sections = 1 + (1..m.features.len()).filter(|&i| m.features[i].section != m.features[i - 1].section).count();
+    // the side list needs room for the guide and every section at 20 units each; without it the list has the room alone
+    let (side, list) = match feature_rects(r, compact) {
+        (Some(_), _) if r.h < (n_sections + 1) as f32 * 24.0 - 4.0 => (None, r),
+        rects => rects,
     };
-    arrow(out, r.x, -1.0, page > 0);
-    arrow(out, r.x + aw + 6.0, 1.0, page + 1 < screens.len());
-    let tx = r.x + 2.0 * aw + 18.0;
-    let room = r.x + r.w - gw - 12.0 - tx;
-    let count = trf("STR_FEATURES_SCREEN", &[("N", &(page + 1)), ("COUNT", &screens.len())]);
-    let cw = nf.width(&count);
-    let name = &m.features[start].group;
-    out.text_fit(hf, tx, mid(hf, r.y, bh), (room - cw - 10.0).max(20.0), name, CARD_HEAD);
-    let nx = tx + hf.width(name).min((room - cw - 10.0).max(20.0)) + 10.0;
-    out.text(nf, nx, mid(nf, r.y, bh) + 2.0, &count, INK_SOFT);
-    out.text_fit(nf, r.x, r.y + bh + gap, r.w, &m.features[start].banner, INK_SOFT);
-    // the lines, down the first column, then the second
-    let cw = (r.w - gap * (cols - 1) as f32) / cols as f32;
+    let (head_h, row_h, _) = feature_sizes(compact);
+    let max = (total - list.h).max(0.0);
+    let scroll = m.feat_scroll.clamp(0.0, max);
+    out.scroll_max = max;
+    let sections: Vec<(f32, usize)> =
+        heads.iter().filter(|(_, i)| *i == 0 || m.features[*i].section != m.features[*i - 1].section).copied().collect();
+    out.sections = sections.iter().map(|(y, _)| y.min(max)).collect();
+    let bf = body(if compact { 12.0 } else { 13.0 });
+    let nf = body(if compact { 11.0 } else { 12.0 });
+    let hf = display(if compact { 16.0 } else { 19.0 });
     let tf = body(if compact { 13.0 } else { 14.0 });
-    for (k, i) in (start..end).enumerate() {
+    // the side list: Feature guide, then a button for each section, the one at the list's top marked
+    if let Some(sr) = side {
+        let n = sections.len() + 1;
+        let gap = 4.0;
+        let bh = ((sr.h - gap * (n - 1) as f32) / n as f32).clamp(20.0, 34.0).floor();
+        let guide = tr("STR_LAUNCHER_GUIDE");
+        button(out, Skin::Sky, Rect::new(sr.x, sr.y, sr.w, bh), bf, guide, Some(Hit::Guide), true);
+        let at = sections.iter().rposition(|(y, _)| *y <= scroll + 1.0).unwrap_or(0);
+        for (k, (_, i)) in sections.iter().enumerate() {
+            let br = Rect::new(sr.x, sr.y + (bh + gap) * (k + 1) as f32, sr.w, bh);
+            let hit = Hit::FeatureSection(k);
+            let on = k == at;
+            out.skin(if on { Skin::Primary } else { Skin::Card }, br, !on && out.lit(hit));
+            if out.lit(hit) && !on {
+                out.skin_tint(Skin::Summary, br, false, [1.0, 1.0, 1.0, 0.5]);
+            }
+            out.text_fit(bf, br.x + 10.0, mid(bf, br.y, bh), br.w - 20.0, &m.features[*i].section_name, if on { CARD_HEAD } else { INK });
+            out.hit(br, hit);
+        }
+    } else {
+        // no room for the side list: the guide over the list
+        let bh = if compact { 26.0 } else { 30.0 };
+        let guide = tr("STR_LAUNCHER_GUIDE");
+        let gw = button_w(bf, guide, 110.0, list.w);
+        button(out, Skin::Sky, Rect::new(list.x + list.w - gw, list.y, gw, bh), bf, guide, Some(Hit::Guide), true);
+    }
+    let list = if side.is_none() {
+        let bh = if compact { 26.0 } else { 30.0 } + 6.0;
+        Rect::new(list.x, list.y + bh, list.w, list.h - bh)
+    } else {
+        list
+    };
+    out.hit(list, Hit::FeatureList);
+    // the list, clipped to its room, with a scroll bar on the right
+    let bar_w = 6.0;
+    let lw = list.w - bar_w - 8.0;
+    out.clip(Some(list));
+    for &(hy, i) in &heads {
+        let y = list.y + hy - scroll;
+        if y + head_h < list.y || y > list.y + list.h {
+            continue;
+        }
         let f = &m.features[i];
-        let (col, row) = (k / per_col, k % per_col);
-        let rr = Rect::new(r.x + (cw + gap) * col as f32, top + (row_h + gap) * row as f32, cw, row_h);
+        out.text_fit(hf, list.x, y + 4.0, lw, &f.group, CARD_HEAD);
+        out.text_fit(nf, list.x, y + 4.0 + hf.px + 4.0, lw, &f.banner, INK_SOFT);
+    }
+    for (i, f) in m.features.iter().enumerate() {
+        let rr = Rect::new(list.x, list.y + ys[i] - scroll, lw, row_h);
+        if rr.y + rr.h < list.y || rr.y > list.y + list.h {
+            continue;
+        }
         let hit = Hit::Feature(i);
         let lit = out.lit(hit);
         out.skin(if f.on && f.value.is_none() { Skin::Summary } else { Skin::Card }, rr, false);
@@ -1931,7 +2020,7 @@ fn features_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
             // a setting: its value in a field on the right
             Some(v) => {
                 let fw = (bf.width(v) + 18.0).clamp(60.0, rr.w * 0.4);
-                let fh = (row_h - 2.0 * pad).min(26.0);
+                let fh = 26.0_f32.min(row_h - 2.0 * pad);
                 let fr = Rect::new(right - fw, rr.y + (rr.h - fh) / 2.0, fw, fh);
                 out.skin(Skin::Field, fr, lit);
                 out.text_center(bf, fr.x + fw / 2.0, mid(bf, fr.y, fh), fw - 8.0, v, INK);
@@ -1950,21 +2039,31 @@ fn features_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
             }
         }
         let w = (right - tx).max(20.0);
-        let two = !f.desc.is_empty() && row_h - 2.0 * (pad - 3.0) >= tf.px + nf.px * 1.2 + 2.0;
-        let ny = if two { rr.y + (rr.h - tf.px - nf.px * 1.2 - 2.0) / 2.0 - 1.0 } else { mid(tf, rr.y, rr.h) };
+        let pitch = (nf.px * 1.32).round();
+        let lines =
+            if f.desc.is_empty() { 0 } else { (((row_h - 2.0 * (pad - 2.0) - tf.px - 2.0) / pitch).floor().max(0.0) as usize).min(2) };
+        let used = if lines == 0 { 0.0 } else { crate::extras::wrap(nf, &f.desc, w).len().clamp(1, lines) as f32 * pitch + 2.0 };
+        let ny = rr.y + (rr.h - tf.px - used) / 2.0 - 1.0;
         out.text_fit(tf, tx, ny, w, &f.name, INK);
-        if two {
-            out.note_cut(nf, tx, ny + tf.px + 2.0, w, 1, &f.desc, INK_SOFT);
+        if lines > 0 {
+            out.note_cut(nf, tx, ny + tf.px + 2.0, w, lines, &f.desc, INK_SOFT);
         }
-        out.hit(rr, hit);
+        // the line answers only where it is in the list's room (its cut-off part is under the room's edge)
+        let top = rr.y.max(list.y);
+        let bottom = (rr.y + rr.h).min(list.y + list.h);
+        if bottom - top >= 20.0 {
+            out.hit(Rect::new(rr.x, top, rr.w, bottom - top), hit);
+        }
     }
-    let shown = match m.hover {
-        Some(Hit::Feature(i)) if (start..end).contains(&i) => i,
-        _ => start,
-    };
-    let rows = (end - start).min(per_col);
-    let fy = (top + (row_h + gap) * rows as f32 + 2.0).max(r.y + r.h - foot_h);
-    out.note_cut(nf, r.x, fy.min(r.y + r.h - foot_h), r.w, 2, &m.features[shown].desc, INK);
+    out.clip(None);
+    // the scroll bar
+    if max > 0.0 {
+        let track = Rect::new(list.x + list.w - bar_w, list.y, bar_w, list.h);
+        out.fill(track, ca(0x1d6b2f, 0.12));
+        let th = (list.h * list.h / total).max(24.0).min(list.h);
+        let ty = list.y + (list.h - th) * scroll / max;
+        out.fill(Rect::new(track.x, ty, bar_w, th), ca(0x1d6b2f, 0.55));
+    }
 }
 
 // ---- the game's side -----------------------------------------------------------------------------------------------------------
@@ -1984,7 +2083,18 @@ pub fn title_button_rect(files: Option<&str>) -> Rect {
 
 impl State {
     pub fn new(tab: Tab, forced: bool) -> State {
-        State { tab, feat_page: 0, hover: None, at_start: show_at_start(), forced, hits: Vec::new(), k: 1.0 }
+        State {
+            tab,
+            feat_scroll: 0.0,
+            scroll_max: 0.0,
+            sections: Vec::new(),
+            drag: None,
+            hover: None,
+            at_start: show_at_start(),
+            forced,
+            hits: Vec::new(),
+            k: 1.0,
+        }
     }
 }
 
@@ -2072,7 +2182,7 @@ impl App {
                 .unwrap_or_default(),
             update: crate::update::AVAILABLE.then_some(self.update_check.is_some()),
             features: feature_rows(&self.current_prefs(), !self.on_free_set()),
-            feat_page: st.feat_page,
+            feat_scroll: st.feat_scroll,
         }
     }
 
@@ -2096,24 +2206,61 @@ impl App {
         let model = self.launcher_model(fullscreen);
         let s = Ui::with_unit(self.draw_w, self.draw_h, k);
         crate::ui::set_crisp(true);
-        let mut out = Out::new(Some(Dr { g: &mut *g, s: &s }), model.hover);
+        let mut out = Out::new(Some(Dr { g: &mut *g, s: &s, k, h: self.draw_h }), model.hover);
         layout(&model, w, h, &mut out);
         let hits = std::mem::take(&mut out.hits);
+        let (scroll_max, sections) = (out.scroll_max, std::mem::take(&mut out.sections));
         drop(out);
         crate::ui::set_crisp(false);
         g.flush();
         if let Some(st) = self.launcher.as_mut() {
             st.hits = hits;
             st.k = k;
+            st.scroll_max = scroll_max;
+            st.sections = sections;
+            st.feat_scroll = st.feat_scroll.clamp(0.0, scroll_max);
         }
+    }
+
+    /// Scrolls the Features tab's list by `by` units (more: further down).
+    pub fn launcher_scroll(&mut self, by: f32) {
+        if let Some(st) = self.launcher.as_mut().filter(|st| st.tab == Tab::Features) {
+            st.feat_scroll = (st.feat_scroll + by).clamp(0.0, st.scroll_max);
+        }
+    }
+
+    /// The button let go at window pixel (x, y): a press on the Features tab's list that did not move far enough to be a
+    /// drag is a click on the line under it (the line then answers here, not at the press).
+    pub fn launcher_release(&mut self, x: f32, y: f32) -> Option<Hit> {
+        let st = self.launcher.as_mut()?;
+        let (_, _, moved) = st.drag.take()?;
+        let (ux, uy) = (x / st.k, y / st.k);
+        let hit = st.hits.iter().rev().find(|(r, _)| r.has(ux, uy)).map(|(_, h)| *h);
+        hit.filter(|h| !moved && matches!(h, Hit::Feature(_)))
     }
 
     /// The pointer at window pixel (x, y): the button under it lit; with `click`, what it does.
     pub fn launcher_pointer(&mut self, x: f32, y: f32, click: bool) -> Option<Hit> {
         let st = self.launcher.as_mut()?;
         let (ux, uy) = (x / st.k, y / st.k);
+        // dragging the Features tab's list (a mouse or a finger): it follows the pointer, and nothing lights
+        if let Some((y0, s0, moved)) = st.drag.as_mut() {
+            if !click {
+                *moved |= (uy - *y0).abs() > DRAG_SLOP;
+                if *moved {
+                    st.feat_scroll = (*s0 - (uy - *y0)).clamp(0.0, st.scroll_max);
+                    st.hover = None;
+                    return None;
+                }
+            }
+        }
         let hit = st.hits.iter().rev().find(|(r, _)| r.has(ux, uy)).map(|(_, h)| *h);
         st.hover = hit;
+        // a press on the list starts a drag; the line answers when it is let go (`launcher_release`)
+        if click && matches!(hit, Some(Hit::Feature(_) | Hit::FeatureList)) {
+            st.drag = Some((uy, st.feat_scroll, false));
+            return None;
+        }
         hit.filter(|_| click)
     }
 
@@ -2125,6 +2272,19 @@ impl App {
             KeyCode::Enter | KeyCode::KpEnter | KeyCode::Escape | KeyCode::Space => Some(Hit::Play),
             KeyCode::Right | KeyCode::Tab => Some(Hit::Tab(st.tab.step(1))),
             KeyCode::Left => Some(Hit::Tab(st.tab.step(-1))),
+            // the Features tab's list scrolls
+            KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown | KeyCode::Home | KeyCode::End if st.tab == Tab::Features => {
+                let by = match k {
+                    KeyCode::Up => -WHEEL_STEP,
+                    KeyCode::Down => WHEEL_STEP,
+                    KeyCode::PageUp => -WHEEL_STEP * 6.0,
+                    KeyCode::PageDown => WHEEL_STEP * 6.0,
+                    KeyCode::Home => -1e9,
+                    _ => 1e9,
+                };
+                st.feat_scroll = (st.feat_scroll + by).clamp(0.0, st.scroll_max);
+                None
+            }
             _ => None,
         }
     }
@@ -2149,7 +2309,7 @@ impl App {
             Hit::Coffee => self.open_support_page(),
             Hit::Changelog => self.open_changelog(),
             Hit::Guide => self.open_guide(),
-            Hit::FeaturePage(step) => st.feat_page = (st.feat_page as i64 + step as i64).max(0) as usize,
+            Hit::FeatureSection(k) => st.feat_scroll = st.sections.get(k).copied().unwrap_or(0.0).min(st.scroll_max),
             Hit::Shortcut =>
             {
                 #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
@@ -2268,7 +2428,9 @@ mod tests {
         }
         for (i, (a, ha)) in out.hits.iter().enumerate() {
             for (b, hb) in &out.hits[i + 1..] {
-                assert!(!overlap(a, b), "{what}: {ha:?} {a:?} over {hb:?} {b:?}");
+                // the Features tab's list lies under its own lines (a press between them drags it)
+                let under = |h: &Hit| *h == Hit::FeatureList;
+                assert!(under(ha) || under(hb) || !overlap(a, b), "{what}: {ha:?} {a:?} over {hb:?} {b:?}");
             }
         }
         for p in &out.pieces {
@@ -2353,7 +2515,14 @@ mod tests {
         layout(&Model { tab: Tab::Features, ..Model::sample() }, 800.0, 600.0, &mut out);
         assert!(out.hits.iter().any(|(_, h)| *h == Hit::Guide));
         assert!(out.hits.iter().any(|(_, h)| *h == Hit::Feature(0)));
-        assert!(out.hits.iter().any(|(_, h)| *h == Hit::FeaturePage(1)));
+        assert!(out.hits.iter().any(|(_, h)| *h == Hit::FeatureSection(1)));
+        assert!(out.scroll_max > 0.0, "the list is longer than its room");
+        // scrolled to the end: the last line is shown, the first is not
+        let n = Model::sample().features.len();
+        let mut out = Out::new(None, None);
+        layout(&Model { tab: Tab::Features, feat_scroll: 1e6, ..Model::sample() }, 800.0, 600.0, &mut out);
+        assert!(out.hits.iter().any(|(_, h)| *h == Hit::Feature(n - 1)));
+        assert!(!out.hits.iter().any(|(_, h)| *h == Hit::Feature(0)));
     }
 
     #[test]
@@ -2420,7 +2589,7 @@ mod tests {
             "STR_FEATURES_GENERAL_BANNER",
             "STR_FEATURES_GRAPHICS_PAGE",
             "STR_FEATURES_NEEDS_ENHANCED",
-            "STR_FEATURES_SCREEN",
+            "STR_FEATURES_GRAPHICS",
             "STR_LAUNCHER_DISPLAY_NOTE",
             "STR_LAUNCHER_UPDATE",
             "STR_LAUNCHER_CHANGELOG",
