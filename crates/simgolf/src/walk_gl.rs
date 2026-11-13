@@ -178,6 +178,15 @@ float grain(float k, float dist) {
         // path, water's edge
         g += ((f.a - 0.5) * 0.24 + (f.b - 0.5) * 0.14) * near;
     }
+    // and at the feet the finest grain: blades a few centimetres across on the grasses, so the ground under the eye is
+    // crisp rather than a smooth wash of the art's colour
+    float feet = 1.0 - smoothstep(2.0 * M, 22.0 * M, dist);
+    if (feet > 0.0 && k < 7.5 && (k < 3.5 || k > 5.5)) {
+        float b1 = texture2D(detail, w / (0.55 * M)).r;
+        float b2 = texture2D(detail, w.yx / (0.31 * M) + vec2(0.37, 0.11)).g;
+        float amount = k > 2.5 && k < 3.5 ? 0.30 : (k > 0.5 && k < 2.5 ? 0.12 : 0.22);
+        g += ((b1 - 0.5) * 0.6 + (b2 - 0.5) * 0.4) * amount * feet;
+    }
     return 1.0 + g;
 }
 
@@ -235,9 +244,12 @@ void main() {
         float k = floor((color.a - 0.5 * shore) * 32.0 + 0.5);
         // fairways and greens keep more of their art (their mowing); a tee's raised bevel and everything else is evened
         bool cut = k > 0.5 && k < 2.5;
-        // (a tee's picture has a dark rim round its raised box, which round the eye standing on it would be a dark ring)
         bool tee = k > 5.5 && k < 6.5;
-        vec4 c = art(uv, dist, cut ? 0.45 : 0.1, tee ? 0.85 : cut ? 0.15 : 0.5, color.rgb);
+        vec4 c = art(uv, dist, cut ? 0.45 : 0.1, cut ? 0.15 : 0.5, color.rgb);
+        // a tee's picture is drawn for the view from above: a dark rim round its raised box and the hole's arrow on it. Seen
+        // from the ground the rim would lie on the tee as a dark band, so a tee is its grass's colour at every distance (its
+        // category colour, walk_ground.rs `grass_colour`), with only the de-featured art's light and shade left on it
+        if (tee) c = mix(texture2D(clean, uv), vec4(color.rgb, 1.0), 0.9);
         vec3 g = lit(c.rgb * grain(k, dist), nrm);
         if (shore > 0.5) {
             // the water drawn into these tiles' art, wherever it is
@@ -260,12 +272,21 @@ void main() {
         vec4 c = art(uv, dist, 0.0, 0.0, vec3(0.0));
         o = vec4(water_at(c.rgb, v), 1.0);
     } else if (m < 4.5) {
-        float l = 1.0;
         if (dot(nrm, nrm) > 0.25) {
             vec3 n = normalize(nrm);
-            l = 0.62 + 0.45 * max(dot(n, sun.xyz), 0.0);
+            o = vec4(color.rgb * (0.62 + 0.45 * max(dot(n, sun.xyz), 0.0)), color.a);
+        } else {
+            // a drawn model (walk_toon.rs: its light already banded into its colour) set in the painted scene: tinted by the
+            // scene's light as the ground under it is, and given a little of the ground's painted grain, so it sits in the
+            // picture rather than on it
+            vec3 g = lit(vec3(1.0), vec3(0.0, 1.0, 0.0));
+            float top = max(g.r, max(g.g, g.b));
+            vec3 tint = mix(vec3(1.0), g / max(top, 0.05), 0.75) * mix(1.0, top, 0.35);
+            float near = 1.0 - smoothstep(6.0 * M, 60.0 * M, dist);
+            vec2 p = (wpos.xz + vec2(wpos.y, -wpos.y)) / (0.45 * M);
+            float gr = (texture2D(detail, p).r - 0.5) * 0.16 + (texture2D(detail, p * 0.31).g - 0.5) * 0.1;
+            o = vec4(color.rgb * tint * (1.0 + gr * near), color.a);
         }
-        o = vec4(color.rgb * l, color.a);
     } else if (m < 5.5) {
         vec4 c = unpremul(texture2D(tex, uv)) * color;
         if (c.a < 0.01) discard;
@@ -836,6 +857,26 @@ pub fn noise_image(size: usize, seed: u32) -> Rgba {
         }
     }
     img
+}
+
+/// The average colour of the lighter half (by brightness) of a picture's opaque texels (0..1): a tee's mown grass, without
+/// the dark rim the overhead art paints round the raised box and the arrow on it. None when it has no opaque texels.
+pub fn grass_colour(img: &Rgba) -> Option<[f32; 3]> {
+    let lum = |p: &[u8]| 3 * p[0] as u32 + 6 * p[1] as u32 + p[2] as u32;
+    let mut l: Vec<u32> = img.px.chunks_exact(4).filter(|p| p[3] > 127).map(lum).collect();
+    if l.is_empty() {
+        return None;
+    }
+    let mid = l.len() / 2;
+    let cut = *l.select_nth_unstable(mid).1;
+    let (mut s, mut n) = ([0.0f32; 3], 0.0f32);
+    for p in img.px.chunks_exact(4).filter(|p| p[3] > 127 && lum(p) >= cut) {
+        for k in 0..3 {
+            s[k] += p[k] as f32;
+        }
+        n += 1.0;
+    }
+    Some(s.map(|v| v / n / 255.0))
 }
 
 /// The average colour of a picture's opaque texels (0..1), None when it has none.
