@@ -45,6 +45,13 @@ Enhanced graphics and HD.
 - **Translations (#164):** a language file can describe the Course Terrain tiles theme by theme
   (`STR_TILE_<TILE>_DESC_<THEME>`), as the four themes' own files do; docs/TRANSLATING.md lists the keys.
 
+**Fix releases**
+
+- **0.8.1:** the first-person view gets golfers of a person's height in real clothes (collars, belts, striped,
+  checked or knit shirts, leather shoes) with softer faces; your own pro in 3D; course sounds heard from where you stand;
+  the blimp, the hot air balloons and the desert oil pump as 3D models; smooth balls; mowing stripes that follow the
+  fairway's edge; the great-shot photo shown in first person; and the backtick key (`` ` ``) as well as F12, for Macs.
+
 ## 0.7 (7 November 2026)
 
 **Highlights**

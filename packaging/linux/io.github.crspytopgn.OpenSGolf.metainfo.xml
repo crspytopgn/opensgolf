@@ -107,6 +107,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.8.1" date="2026-11-13">
+      <description>
+        <p>First-person view: golfers with clothes and softer faces, your pro in 3D, course sounds heard from where you stand, 3D blimps, balloons and oil pumps, and the backtick key as well as F12.</p>
+      </description>
+    </release>
     <release version="0.8.0" date="2026-11-13">
       <description>
         <p>Walk your course in first person: F12 shows it at eye height in 3D, with 3D buildings, trees and golfers (an option, off by default).</p>
