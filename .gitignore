@@ -48,3 +48,6 @@ selfcheck-test/
 
 # a local sanitizer build folder (not part of the source)
 build_asan/
+
+# Python wheels (downloaded while making test fixtures; never part of the project)
+*.whl
