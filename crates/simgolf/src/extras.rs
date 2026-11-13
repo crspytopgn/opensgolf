@@ -155,6 +155,10 @@ pub struct Settings {
     /// original's screens are landscape, and an upright device is asked to turn sideways.
     #[serde(default)]
     pub portrait: bool,
+    /// F12 on the course walks it in first person (walk.rs), on computers. Off by default: the original has only the
+    /// overhead view.
+    #[serde(default)]
+    pub first_person: bool,
 }
 
 impl Settings {
@@ -199,6 +203,7 @@ impl Settings {
         unlock_info: true,
         challenges: true,
         portrait: false,
+        first_person: false,
     };
     pub const ALL_OFF: Settings = Settings {
         people: false,
@@ -236,6 +241,7 @@ impl Settings {
         unlock_info: false,
         challenges: false,
         portrait: false,
+        first_person: false,
     };
 
     /// The ticks as the Extras box's checkbox bits (in `UI_KEYS` order).
@@ -276,6 +282,7 @@ impl Settings {
             self.unlock_info,
             self.challenges,
             self.portrait,
+            self.first_person,
         ]
         .iter()
         .enumerate()
@@ -320,6 +327,7 @@ impl Settings {
             unlock_info: on(32),
             challenges: on(33),
             portrait: on(34),
+            first_person: on(35),
         }
     }
 
@@ -343,6 +351,7 @@ impl Settings {
             right_drop: from.right_drop,
             wide_ui: from.wide_ui,
             portrait: from.portrait,
+            first_person: from.first_person,
             edge_scroll: from.edge_scroll,
             home_labels_hover: from.home_labels_hover,
             pause_aim: from.pause_aim,
@@ -360,7 +369,7 @@ impl Default for Settings {
 
 /// The interface extras' lines on the Extras box's Interface page (extras_ui.rs), one tick per extra in `Settings::bits`
 /// order (text keys in lang/en.txt).
-pub const UI_KEYS: [&str; 35] = [
+pub const UI_KEYS: [&str; 36] = [
     "STR_EXTRAS_PEOPLE",
     "STR_EXTRAS_HISTORY",
     "STR_EXTRAS_NAME_TAGS",
@@ -396,6 +405,7 @@ pub const UI_KEYS: [&str; 35] = [
     "STR_EXTRAS_UNLOCK_INFO",
     "STR_EXTRAS_CHALLENGES",
     "STR_EXTRAS_PORTRAIT",
+    "STR_EXTRAS_FIRST_PERSON",
 ];
 
 /// The update check's value when settings.json has none (`Settings::update_check`).
@@ -422,6 +432,11 @@ pub fn set(s: Settings) {
 thread_local! {
     /// Whether the device has heard of the portrait tick yet (it is told once at the start, then on each change).
     static PORTRAIT_TOLD: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Whether F12 walks the course in first person (walk.rs; computers only).
+pub fn first_person() -> bool {
+    cfg!(not(any(target_arch = "wasm32", target_os = "android"))) && settings().first_person
 }
 
 /// Whether phones and tablets may play upright (portrait.rs).
@@ -1352,7 +1367,7 @@ mod tests {
         let f = Settings { save_files: true, ..Settings::ALL_OFF };
         assert_eq!(f.bits(), 1 << 22);
         assert_eq!(Settings::from_bits(f.bits()), f);
-        assert_eq!(UI_KEYS.len(), 35);
+        assert_eq!(UI_KEYS.len(), 36);
     }
 
     #[test]
