@@ -92,6 +92,7 @@ pub fn outline(v: &[Vert], width: f32, out: &mut Vec<Vert>) {
         // a dark shade of the colour itself, as a painter's line is, not black ink
         q.color = [p.color[0] * 0.42 + 0.02, p.color[1] * 0.4 + 0.02, p.color[2] * 0.44 + 0.03, 1.0];
         q.normal = [0.0; 3];
+        q.uv = [0.0; 2];
         out.push(q);
     }
 }

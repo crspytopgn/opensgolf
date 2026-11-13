@@ -232,6 +232,44 @@ float shore_wet(vec2 t) {
     return smoothstep(0.25, 0.75, w + n * 0.55);
 }
 
+// a modelled golfer's cloth (walk_golfer.rs `Cloth`): its kind in the texture coordinate's 64s, the place on the part
+// in metres round it (x) and along it (y). The pattern fades out with distance before it would shimmer.
+vec3 cloth(vec3 c, float dist) {
+    float k = floor(uv.y / 64.0 + 0.001);
+    if (k < 0.5) return c;
+    vec2 q = vec2(uv.x, uv.y - k * 64.0);
+    float near = 1.0 - smoothstep(5.0 * M, 26.0 * M, dist);
+    if (near <= 0.0) return c;
+    float top = max(c.r, max(c.g, c.b));
+    vec3 r = c;
+    if (k < 1.5) {
+        // stripes along the part: a pale stripe and a thin dark pinstripe
+        float f = fract(q.x / 0.05);
+        float pale = smoothstep(0.0, 0.06, f) * (1.0 - smoothstep(0.3, 0.36, f));
+        float pin = smoothstep(0.62, 0.65, f) * (1.0 - smoothstep(0.69, 0.72, f));
+        r = mix(c, mix(c, vec3(top * 1.05), 0.7), pale * 0.75) * (1.0 - 0.3 * pin);
+    } else if (k < 2.5) {
+        // gingham: bands each way, darker where they cross, a pale ground between
+        vec2 f = smoothstep(0.45, 0.55, fract(q / 0.055)) * (1.0 - smoothstep(0.95, 1.0, fract(q / 0.055)));
+        float n = f.x + f.y;
+        r = mix(mix(c, vec3(top * 1.05), 0.65), c * 0.8, n * 0.5);
+    } else if (k < 3.5) {
+        // pique knit: a fine cellular texture
+        vec2 f = fract(q / 0.009) - 0.5;
+        r = c * (0.95 + 0.25 * (0.2 - dot(f, f)));
+    } else if (k < 4.5) {
+        // twill: fine diagonal ribs close up, soft creases and folds down the leg
+        float rib = sin((q.x + q.y) * 1400.0) * (1.0 - smoothstep(1.0 * M, 4.0 * M, dist));
+        float fold = texture2D(noise, vec2(q.x * 1.6, q.y * 0.35)).r;
+        r = c * (1.0 + 0.035 * rib) * (0.9 + 0.2 * smoothstep(0.25, 0.75, fold));
+    } else if (k < 5.5) {
+        // leather: a fine grain under a soft sheen
+        float g = texture2D(noise, q * 6.0).g;
+        r = c * (0.9 + 0.2 * g);
+    }
+    return mix(c, r, near);
+}
+
 void main() {
     vec3 d = wpos - eye.xyz;
     float dist = length(d);
@@ -285,7 +323,9 @@ void main() {
             float near = 1.0 - smoothstep(6.0 * M, 60.0 * M, dist);
             vec2 p = (wpos.xz + vec2(wpos.y, -wpos.y)) / (0.45 * M);
             float gr = (texture2D(detail, p).r - 0.5) * 0.16 + (texture2D(detail, p * 0.31).g - 0.5) * 0.1;
-            o = vec4(color.rgb * tint * (1.0 + gr * near), color.a);
+            // a golfer's cloth draws its own surface in place of the grain
+            float bare = step(uv.y, 63.5);
+            o = vec4(cloth(color.rgb, dist) * tint * (1.0 + gr * near * bare), color.a);
         }
     } else if (m < 5.5) {
         vec4 c = unpremul(texture2D(tex, uv)) * color;

@@ -41,7 +41,7 @@ enum Sky {
 }
 /// How much bigger than the game's own scale a 3D golfer is drawn, so seen from eye height they stand as tall as the
 /// walker rather than looking like children (the sprites are drawn small against the course).
-const GOLFER: f32 = 1.18;
+const GOLFER: f32 = 1.04;
 /// A person's height.
 const PERSON: f32 = 1.8 * M;
 /// Trees' size against the overhead art's (whose trees are drawn far larger than the ground they stand on).
