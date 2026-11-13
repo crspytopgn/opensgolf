@@ -966,6 +966,9 @@ pub struct App {
     pub slot_voices: std::collections::HashMap<i32, i32>,
     /// The painting tune's note counter (0x5a9cdc): counts up for every fairway tile painted on screen, never reset.
     pub tune_note: i32,
+    /// Where the player listens from in the walk camera (walk.rs): the eye's ground point (world units) and its heading
+    /// (degrees, walk.rs `Cam::yaw`). None in the overhead view, whose screen places and gates the sounds.
+    pub ear: Option<(f32, f32, f32)>,
     pub music: i32,
     pub music_idx: usize,
     /// Wall clock (seconds) used for toasts and the story timer.
@@ -1242,6 +1245,7 @@ impl App {
             jingle: None,
             slot_voices: Default::default(),
             tune_note: 0,
+            ear: None,
             music: -1,
             music_idx: 0,
             clock: 0.0,
@@ -1402,14 +1406,21 @@ impl App {
         const TUNE: [i8; 36] =
             [0, 2, 4, 7, 5, 5, 9, 7, 7, 12, 11, 12, 7, 4, 0, 2, 4, 5, 7, 9, 7, 5, 4, 2, 4, 0, -1, 0, 2, -5, -1, 2, 5, 4, 2, 4];
         let Some(file) = sg_core::sounds::slot_file(slot) else { return -1 };
-        let (sx, sy) = match at {
+        let (sx, sy, gain) = match at {
+            // in the walk camera a sound is placed by where it is from the eye, not by the overhead view (which is not
+            // shown and stays where it was): heard within the distance the overhead view spans, panned by its bearing
+            // and fading with distance
+            Some((x, z)) if self.ear.is_some() => match self.ear.and_then(|e| walk_hearing(e, x, z)) {
+                Some(p) => p,
+                None => return -1,
+            },
             Some((x, z)) => match self.screen_of_world(x, z) {
-                Some((vx, vy)) if (0.0..800.0).contains(&vx) && (0.0..=500.0).contains(&vy) => (vx, vy),
+                Some((vx, vy)) if (0.0..800.0).contains(&vx) && (0.0..=500.0).contains(&vy) => (vx, vy, 1.0),
                 _ => return -1,
             },
-            None => (400.0, 300.0),
+            None => (400.0, 300.0, 1.0),
         };
-        let mut vol = (((sx - 400.0).abs() as i32 >> 4) + 50) as f32 / 127.0 * 1.3;
+        let mut vol = (((sx - 400.0).abs() as i32 >> 4) + 50) as f32 / 127.0 * 1.3 * gain;
         let pan = (sx * 127.0 / 800.0 - 64.0) / 64.0;
         let cents = if tune {
             let note = TUNE[(self.tune_note % 36) as usize] as i32;
@@ -5875,5 +5886,50 @@ mod tests {
         let loaded = plan_of(&b);
         b.sync_course();
         assert_eq!(plan_of(&b), loaded);
+    }
+}
+
+/// How far the walk camera hears, in world units: about the width the overhead view shows at its middle zoom.
+const WALK_HEARING: f32 = 160.0 * crate::walk::METRE;
+
+/// Where a sound at (x, z) sits for the walk camera's ear (x, z, heading in degrees), as the overhead view's screen point
+/// the exe's positional play reads (800 x 600, centred at 400): across by its bearing (left of the eye left), and
+/// nearer the screen's middle the closer it is, and how much quieter it is for its distance: full within a few metres,
+/// a third at the edge of hearing. None beyond hearing.
+pub fn walk_hearing(ear: (f32, f32, f32), x: f32, z: f32) -> Option<(f32, f32, f32)> {
+    let (dx, dz) = (x - ear.0, z - ear.1);
+    let d = (dx * dx + dz * dz).sqrt();
+    if d > WALK_HEARING {
+        return None;
+    }
+    // the eye's right, as walk.rs Cam::axes has it
+    let (s, c) = ear.2.to_radians().sin_cos();
+    let across = if d > 1e-3 { (dx * c + dz * s) / d } else { 0.0 };
+    let near = 10.0 * crate::walk::METRE;
+    let gain = if d <= near { 1.0 } else { 1.0 - 0.67 * ((d - near) / (WALK_HEARING - near)).sqrt() };
+    Some((400.0 + across * 360.0 * (d / (8.0 * crate::walk::METRE)).min(1.0), 300.0, gain))
+}
+
+#[cfg(test)]
+mod hearing_tests {
+    use super::walk_hearing;
+    use crate::walk::METRE as M;
+
+    #[test]
+    fn the_walk_camera_hears_round_the_eye_and_pans_by_bearing() {
+        // the eye at the origin looking towards -Z (heading 0): its right is +X
+        let ear = (0.0, 0.0, 0.0);
+        let (right, _, near) = walk_hearing(ear, 20.0 * M, 0.0).unwrap();
+        let (left, _, _) = walk_hearing(ear, -20.0 * M, 0.0).unwrap();
+        let (ahead, _, far) = walk_hearing(ear, 0.0, -120.0 * M).unwrap();
+        assert!(right > 700.0 && left < 100.0, "{right} {left}");
+        assert!((ahead - 400.0).abs() < 1.0);
+        assert!(near > far && far > 0.3);
+        // beyond hearing, silent; behind the eye still heard
+        assert!(walk_hearing(ear, 0.0, 400.0 * M).is_none());
+        assert!(walk_hearing(ear, 0.0, 30.0 * M).is_some());
+        // turned to face +X, a sound at +X is ahead
+        let (sx, _, _) = walk_hearing((0.0, 0.0, 90.0), 30.0 * M, 0.0).unwrap();
+        assert!((sx - 400.0).abs() < 1.0, "{sx}");
     }
 }

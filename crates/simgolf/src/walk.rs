@@ -1,5 +1,5 @@
 //! The walk camera: the course from a golfer's eye height, with a perspective projection, on computers. The First-person
-//! view interface extra (Looks page, off by default) or the `--walk` command-line switch makes it available. F12 turns it on and off on
+//! view interface extra (Looks page, off by default) or the `--walk` command-line switch makes it available. F12 (or `, which needs no fn on a laptop) turns it on and off on
 //! the course screen, Esc turns it off; W A S D or the arrows walk (Shift faster), a drag with a mouse button held turns
 //! and looks up and down, and the eye follows the ground. G follows the golfers on the course one after another (Shift+G
 //! back): the camera walks behind the one chosen and, when they hit, follows the ball's flight and roll, then goes back to
@@ -65,6 +65,13 @@ const BOB: f32 = 0.03 * METRE;
 const STEP: f32 = 0.75 * METRE;
 /// The key that turns the walk camera on and off (one the game leaves unused).
 pub const KEY: KeyCode = KeyCode::F12;
+/// The same, a key that needs no fn on a laptop (a Mac's F12 is its volume key): ` (the key left of 1, or of Z on a Mac's
+/// ISO keyboard). No action of the course screen uses it.
+pub const ALT_KEY: KeyCode = KeyCode::GraveAccent;
+
+fn is_key(k: KeyCode) -> bool {
+    k == KEY || k == ALT_KEY
+}
 /// The key that follows the golfers.
 pub const FOLLOW_KEY: KeyCode = KeyCode::G;
 
@@ -385,6 +392,7 @@ impl Stage {
 
     fn walk_end(&mut self) {
         self.walk.cam = None;
+        self.app.ear = None;
         self.walk.follow = None;
         let a = &mut self.app;
         (a.cam_x, a.cam_z, a.zoom, a.rot) = self.walk.saved;
@@ -427,7 +435,7 @@ impl Stage {
             return false;
         }
         if self.walk_shown() {
-            if k == KEY {
+            if is_key(k) {
                 self.walk_end();
             } else if k == KeyCode::Escape {
                 if self.walk.follow.take().is_none() {
@@ -452,7 +460,7 @@ impl Stage {
             }
             return true;
         }
-        if k == KEY && walk_screen(&self.app) {
+        if is_key(k) && walk_screen(&self.app) {
             self.walk_begin();
             return true;
         }
@@ -497,6 +505,8 @@ impl Stage {
         }
         let dt = (t - self.walk.last).clamp(0.0, 0.1) as f32;
         self.walk.last = t;
+        // the sounds are heard from the eye while the walk is shown (app.rs `walk_hearing`)
+        self.app.ear = self.walk.cam.filter(|_| self.walk_shown()).map(|c| (c.x, c.z, c.yaw));
         if !self.walk_shown() {
             return;
         }
@@ -975,7 +985,7 @@ impl App {
         let w = F_INFO14.width(&line) + 16.0;
         s.fill(g, l + 8.0, tp + 8.0, w, 22.0, shade);
         s.put(g, F_INFO14, l + 16.0, tp + 11.0, &line, white);
-        let help = "Walk camera: W A S D or arrows walk, Shift run, drag to look, G follow a golfer (Shift+G back), F12 or Esc back";
+        let help = "Walk camera: W A S D or arrows walk, Shift run, drag to look, G follow a golfer (Shift+G back), F12, ` or Esc back";
         let w = F_ARIAL10.width(help) + 12.0;
         s.fill(g, l + 6.0, bt - 20.0, w, 14.0, shade);
         s.put(g, F_ARIAL10, l + 12.0, bt - 18.0, help, rgba(1.0, 1.0, 1.0, 0.85));

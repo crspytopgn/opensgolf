@@ -3697,8 +3697,8 @@ STR_EXTRAS_WIDE_UI                      : Interface at the screen's edges
 STR_EXTRAS_DESC_WIDE_UI                 :On a wide screen the dock, panels and money sit at the screen's edges (on by default; off keeps them in the 4:3 middle).
 STR_EXTRAS_PORTRAIT                     : Play upright on phones and tablets
 STR_EXTRAS_DESC_PORTRAIT                :A phone or tablet held upright plays on the whole tall screen, with the dock, panels and money at its edges, instead of asking you to turn it sideways.
-STR_EXTRAS_FIRST_PERSON                 : First-person view (F12)
-STR_EXTRAS_DESC_FIRST_PERSON            :On a computer, F12 on the course walks it at a golfer's eye height in 3D: W A S D walk, a drag looks round, G follows a golfer's shot, F12 or Esc goes back.
+STR_EXTRAS_FIRST_PERSON                 : First-person view (F12 or `)
+STR_EXTRAS_DESC_FIRST_PERSON            :On a computer, F12 (or `, handy on a Mac) on the course walks it at a golfer's eye height in 3D: W A S D walk, a drag looks round, G follows a golfer's shot, F12, ` or Esc goes back.
 # Edge scrolling (OpenSGolf extras, extras.rs edge_scroll; main.rs edge_scroll)
 STR_EXTRAS_EDGE_SCROLL                  : Edge scrolling
 STR_EXTRAS_DESC_EDGE_SCROLL             :In full screen the pointer at the screen's edge scrolls the view, as in the original (on by default).
