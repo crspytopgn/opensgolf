@@ -186,6 +186,12 @@ float grain(float k, float dist) {
         float b2 = texture2D(detail, w.yx / (0.31 * M) + vec2(0.37, 0.11)).g;
         float amount = k > 2.5 && k < 3.5 ? 0.30 : (k > 0.5 && k < 2.5 ? 0.12 : 0.22);
         g += ((b1 - 0.5) * 0.6 + (b2 - 0.5) * 0.4) * amount * feet;
+        // single blades: thin streaks, longer than wide, lit at their tips and dark at their roots
+        vec2 bw = vec2(w.x * 0.8 + w.y * 0.6, w.y * 0.8 - w.x * 0.6);
+        float blade = texture2D(detail, vec2(bw.x / (0.06 * M), bw.y / (0.22 * M))).r;
+        float tip = texture2D(detail, vec2(bw.y / (0.05 * M), bw.x / (0.2 * M)) + vec2(0.5, 0.2)).g;
+        float near_feet = 1.0 - smoothstep(1.5 * M, 14.0 * M, dist);
+        g += ((blade - 0.5) * 1.1 + (tip - 0.5) * 0.6) * amount * near_feet;
     }
     return 1.0 + g;
 }
@@ -288,12 +294,19 @@ void main() {
         // fairways and greens keep more of their art (their mowing); a tee's raised bevel and everything else is evened
         bool cut = k > 0.5 && k < 2.5;
         bool tee = k > 5.5 && k < 6.5;
-        vec4 c = art(uv, dist, cut ? 0.45 : 0.1, cut ? 0.15 : 0.5, color.rgb);
+        // how much this texel of the art is its tile's own kind of ground (near the kind's average colour): a fairway tile's
+        // painted rough at its edge is not, so the fairway's evening and stripes follow the painted edge rather than
+        // stopping in a straight line along the tile's
+        vec3 cl = texture2D(clean, uv).rgb;
+        float own = 1.0 - smoothstep(0.045, 0.15, length(cl - color.rgb));
+        vec4 c = art(uv, dist, cut ? 0.45 : 0.1, (cut ? 0.15 : 0.5) * own, color.rgb);
         // a tee's picture is drawn for the view from above: a dark rim round its raised box and the hole's arrow on it. Seen
         // from the ground the rim would lie on the tee as a dark band, so a tee is its grass's colour at every distance (its
         // category colour, walk_ground.rs `grass_colour`), with only the de-featured art's light and shade left on it
         if (tee) c = mix(texture2D(clean, uv), vec4(color.rgb, 1.0), 0.9);
-        vec3 g = lit(c.rgb * grain(k, dist), nrm);
+        // (a cut tile's texels of other ground take the rough's grain)
+        float gr = cut || tee ? mix(grain(3.0, dist), grain(k, dist), own) : grain(k, dist);
+        vec3 g = lit(c.rgb * gr, nrm);
         if (shore > 0.5) {
             // the water drawn into these tiles' art, wherever it is
             vec4 a = art(uv, dist, 0.0, 0.0, vec3(0.0));
