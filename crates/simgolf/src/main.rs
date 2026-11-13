@@ -1939,6 +1939,9 @@ impl Stage {
             PopupKind::Report => {
                 if k == bugreport::BOX_GO {
                     self.report_problem(checks & 1 << bugreport::BOX_SHOT != 0);
+                } else if k == bugreport::BOX_COPY {
+                    let gl = self.gl_names();
+                    self.app.copy_report_details(&gl);
                 }
             }
             // Preferences > Enhanced graphics: the ticks become the settings (enhanced.rs)
@@ -2534,6 +2537,10 @@ impl Stage {
             if app.update_button().is_some_and(|r| r.has(vx, vy)) {
                 hit = update::UPDATE_HOVER;
             }
+            // the port's own: "Continue" with the newest save (backups.rs, the Saves newest first extra)
+            if app.continue_button().is_some_and(|(r, ..)| r.has(vx, vy)) {
+                hit = backups::CONTINUE_HOVER;
+            }
             // the port's own: "Course editor..." (editor.rs)
             if editor::title_button_rect().has(vx, vy) {
                 hit = editor::EDITOR_HOVER;
@@ -2614,6 +2621,7 @@ impl Stage {
                     }
                 }
                 update::UPDATE_HOVER => app.check_for_updates(),
+                backups::CONTINUE_HOVER => app.continue_click(),
                 launcher::TITLE_HOVER => app.open_launcher(false, false),
                 editor::EDITOR_HOVER => app.open_editor_start(),
                 _ => quit_game(),
@@ -3133,13 +3141,18 @@ impl Stage {
     /// driver's names for the system line.
     fn report_problem(&mut self, shot: bool) {
         let img = shot.then(|| self.grab());
-        let gl = if self.g.ctx.info().backend == miniquad::Backend::OpenGl {
+        let gl = self.gl_names();
+        self.app.report_problem(img, &gl);
+    }
+
+    /// The graphics driver's names, for the report's system line.
+    fn gl_names(&self) -> String {
+        if self.g.ctx.info().backend == miniquad::Backend::OpenGl {
             let [vendor, renderer, version, _] = sysdiag::gl_strings();
             format!("{vendor} / {renderer} / {version}")
         } else {
             format!("{:?}", self.g.ctx.info().backend)
-        };
-        self.app.report_problem(img, &gl);
+        }
     }
 
     /// Renders the current frame offscreen and writes it as a PNG.

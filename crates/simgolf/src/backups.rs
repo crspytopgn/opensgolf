@@ -11,6 +11,9 @@
 //! is in the browser's storage as well, where files have no dates of their own. A save the index does not know (one
 //! copied in, or made with the extra off) takes its file's date on the desktop, and sorts last, by name, in the browser.
 //! Autosaves are not backed up: they keep their own three (autosave.rs).
+//!
+//! With the extra on, the title menu also gets a **Continue** button under Check for updates, naming the newest save
+//! (autosaves included) and how long ago it was made; a click loads it as the Load list's tick would.
 
 use sg_core::fsutil;
 use std::collections::BTreeMap;
@@ -179,6 +182,75 @@ pub fn age_words(now: f64, then: f64) -> String {
     } else {
         let (y, mo, d, ..) = crate::photo::civil(then as i64);
         format!("{y:04}-{mo:02}-{d:02}")
+    }
+}
+
+/// The title menu's Continue button's hover id (main.rs; beside update.rs's and the others').
+pub const CONTINUE_HOVER: i32 = 11;
+
+/// The newest save in a Saved Games folder (autosaves too, not the backups) and when it was made.
+pub fn newest(dir: &Path) -> Option<(PathBuf, f64)> {
+    let idx = index(dir);
+    fsutil::list_dir(dir)
+        .into_iter()
+        .filter(|p| p.extension().is_some_and(|x| x.eq_ignore_ascii_case("sgs")))
+        .filter_map(|p| saved_at(&p, &idx).map(|t| (p, t)))
+        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+}
+
+impl crate::app::App {
+    /// The Continue button's save and label (None with the extra off or no dated save).
+    pub fn continue_save(&self) -> Option<(PathBuf, String)> {
+        if !crate::extras::save_newest() {
+            return None;
+        }
+        let (p, t) = newest(&crate::files_ui::saved_games_dir())?;
+        let label = sg_core::lang::trf(
+            "STR_TITLE_CONTINUE_SAVE",
+            &[("NAME", &crate::files_ui::row_name(&p)), ("AGE", &age_words(miniquad::date::now(), t))],
+        );
+        Some((p, label))
+    }
+
+    /// The Continue button's rectangle: under Check for updates at the top right (the update button's own size rule).
+    pub fn continue_button(&self) -> Option<(crate::render::Rect, PathBuf, String)> {
+        let (p, label) = self.continue_save()?;
+        let w = crate::ui::F_MANUAL15.width(&label).clamp(120.0, 420.0) + 24.0;
+        let y = if self.update_button().is_some() { 36.0 } else { 6.0 };
+        Some((crate::render::Rect::new(792.0 - w, y, w, 24.0), p, label))
+    }
+
+    /// Draws the Continue button, in the update button's style.
+    pub fn draw_continue_button(&self, g: &mut crate::gfx::Gfx, s: &crate::ui::Screen) {
+        use crate::ui::{rgb, rgba};
+        let Some((r, _, label)) = self.continue_button() else { return };
+        let lit = self.hover == CONTINUE_HOVER;
+        if crate::glass_ui::active() {
+            crate::glass_ui::title_button(g, s, r.x, r.y, r.w, r.h, &label, lit);
+            return;
+        }
+        s.fill(g, r.x - 1.0, r.y - 1.0, r.w + 2.0, r.h + 2.0, rgba(1.0, 1.0, 1.0, 0.85));
+        s.fill(g, r.x, r.y, r.w, r.h, if lit { rgba(0.13, 0.32, 0.55, 0.95) } else { rgba(0.08, 0.16, 0.32, 0.88) });
+        s.put_centered_fit(
+            g,
+            crate::ui::F_MANUAL15,
+            r.x + r.w / 2.0,
+            r.y + 4.0,
+            r.w - 12.0,
+            &label,
+            rgb(1.0, 1.0, if lit { 1.0 } else { 0.8 }),
+        );
+    }
+
+    /// A click on Continue: Load Previous Game opens with the save chosen and loads it, as its tick does (so a game
+    /// saved with other content packs still asks first, content_profiles.rs).
+    pub fn continue_click(&mut self) {
+        let Some((_, p, _)) = self.continue_button() else { return };
+        self.open_files(crate::files_ui::ListKind::Load, false);
+        let row = self.title.files.as_ref().and_then(|f| f.files.iter().position(|q| q == &p));
+        if let Some(row) = row {
+            self.files_select_and_load(row);
+        }
     }
 }
 

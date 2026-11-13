@@ -1350,6 +1350,7 @@ impl App {
                     Some(usize::MAX)
                 }
                 Some(crate::bugreport::BOX_CANCEL) => None,
+                Some(crate::bugreport::BOX_COPY) => Some(crate::bugreport::BOX_COPY),
                 _ => Some(crate::bugreport::BOX_GO),
             };
         }

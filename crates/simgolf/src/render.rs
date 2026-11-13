@@ -901,6 +901,8 @@ impl App {
         self.draw_launcher_button(g, &s);
         // and "Check for updates" (update.rs)
         self.draw_update_button(g, &s);
+        // and "Continue" with the newest save under it (backups.rs)
+        self.draw_continue_button(g, &s);
         // and "Course editor..." (editor.rs)
         self.draw_editor_button(g, &s);
         // and the player's own time played (support.rs's counter; from a minute on): the free set's bottom left corner, the

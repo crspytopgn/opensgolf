@@ -59,6 +59,7 @@ STR_FILES_AGE_MIN                       :{N} min ago
 STR_FILES_AGE_HOURS                     :{N} hours ago
 STR_FILES_AGE_YESTERDAY                 :yesterday
 STR_FILES_AGE_DAYS                      :{N} days ago
+STR_TITLE_CONTINUE_SAVE                 :Continue {NAME} ({AGE})
 STR_FILES_LOAD                          :Load
 STR_FILES_CANCEL                        :Cancel
 STR_FILES_DELETE                        :Delete
@@ -3402,6 +3403,9 @@ STR_TOUCH_AIM_LABEL                     :{YARDS} yds, {CLUB}
 STR_TOUCH_PLACE                         :Place
 STR_TOUCH_CENTRE                        :Centre on my pro
 STR_TOUCH_UNDO                          :Undo
+STR_TOUCH_SOUND                         :Sound
+STR_TOUCH_SOUND_OFF                     :Sound off
+STR_TOUCH_SOUND_ON                      :Sound on
 STR_TOUCH_LOOK_HINT                     :Drag the course to look round, drag the target to aim. Two fingers move the view.
 STR_SELFCHECK_FOUND                     :OpenSGolf found a problem with a saved game and kept a report. Preferences > More > Report a problem can send it.
 
@@ -3419,6 +3423,8 @@ STR_BUGREPORT_EXPLAIN_WEB               :This opens the project's bug report for
 STR_BUGREPORT_EXPLAIN_ANDROID           :This opens the project's bug report form on GitHub in your browser, filled in with the game's version and your phone.\nA copy of this game, its recent warnings (and a screenshot, if ticked) go in the Reports folder next to the game's Photos, for you to attach.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
 STR_BUGREPORT_SCREENSHOT                : Include a screenshot
 STR_BUGREPORT_OPEN                      : OK, open the form
+STR_BUGREPORT_COPY                      : Copy the details only (for Discord or a forum post)
+STR_BUGREPORT_COPIED                    :The version and system details are on the clipboard: paste them into your post.
 STR_BUGREPORT_CANCEL                    : Cancel
 STR_BUGREPORT_DONE                      :The bug report form is open in your browser. Drag these files from the Reports folder (just opened) into its "Screenshots, save file, log" box: {FILES}.\nThe folder: {FOLDER}
 STR_BUGREPORT_DONE_WEB                  :The bug report form is open in a new tab, and these files were downloaded: {FILES}. Drag them into the form's "Screenshots, save file, log" box.

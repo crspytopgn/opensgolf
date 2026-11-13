@@ -937,7 +937,9 @@ compare pixel for pixel with the build before the extras).
   long ago it was saved ("5 min ago", "yesterday", then the date). Saving over a game keeps the one that was there as a
   backup, up to three of each, in `Saved Games/Backups` (`My Club~1.sgs` is the newest); they are listed at the foot of
   the Load list as *My Club (backup 1)* and load as a game of their own, so saving one never replaces the original. When
-  each save was made is kept in `Saved Games/saves.json`. Autosaves keep their own three and are not backed up.
+  each save was made is kept in `Saved Games/saves.json`. Autosaves keep their own three and are not backed up. The
+  title menu also gets **Continue** under Check for updates, naming your newest save (autosaves too) and how long ago it
+  was made: a click loads it.
 - **Landing map** (**Shift+D**, or *Information, Landing map on / off*): where the golfers' shots on a hole come to rest,
   as small dots on the course for the hole under the pointer (or the last one pointed at, or the one Hole Stats showed
   last): white the tee shots, yellow the second shots, orange the third, red the fourth and later, with a fainter pip
@@ -1278,7 +1280,8 @@ after `SG_CLICK`; letters and Space also type their character.
 The port's own helper (crates/simgolf/src/bugreport.rs); nothing changes until you use it (the original's System
 Functions menu is left as it is). System Functions → Preferences → *More...* → *Report a problem...*, or **Shift+F8** on
 the course (Change keys can move it), open a small box that says what will happen, with an *Include a screenshot* tick (ticked), *OK, open the form* (the
-box's tick and Enter too) and *Cancel* (Esc too). OK:
+box's tick and Enter too), *Copy the details only* and *Cancel* (Esc too). *Copy the details only* puts the version, the
+platform and the system line below on the clipboard and nothing else, for a post on Discord or a forum. OK:
 
 - opens the project's bug report form on GitHub in your browser with its one-line fields filled in: the version, the
   platform, the base set (your SimGolf files or the free set) and *System*, a short system line (system and processor,
@@ -1426,6 +1429,9 @@ phone's keyboard (in the browser through a hidden text box on the page, on Andro
 the game also draws its own keyboard across the bottom of the screen while a name is typed, with **OK** (Enter) and
 **Cancel** (Esc), because Safari on an iPad raises its keyboard only for some taps and a name box closes only with those
 keys (issue #50).
+
+**Sound in one tap.** A round speaker button left of the Message button turns the sound off and on, as Preferences'
+Sound tick does (the port's own). It steps aside while you aim your pro or place a building.
 
 **Aiming your pro and placing buildings by touch.** With a mouse the shot's aim (and a building's footprint) follows the
 pointer and a click shoots (or places); a finger cannot hover, so with a finger the two are apart. While your pro waits

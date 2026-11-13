@@ -500,6 +500,14 @@ impl App {
         true
     }
 
+    /// Chooses a row and loads it, as a click on it and the tick do (backups.rs's Continue).
+    pub fn files_select_and_load(&mut self, row: usize) {
+        self.select_row(row);
+        if let Some(f) = self.title.files.as_mut().filter(|f| f.sel == Some(row)) {
+            f.loading = 1;
+        }
+    }
+
     fn select_row(&mut self, row: usize) {
         let Some(f) = self.title.files.as_mut() else { return };
         if row >= f.files.len() {
