@@ -266,12 +266,14 @@ test("a phone or tablet held upright is asked to turn; a desktop window never is
     assert.strictEqual(f.sgPortraitAsk(true, 500, 500, false), false); // square is not upright
     assert.strictEqual(f.sgPortraitAsk(true, 390, 664, true), false); // "Play anyway"
     assert.strictEqual(f.sgPortraitAsk(false, 600, 1000, false), false); // a tall desktop window
+    assert.strictEqual(f.sgPortraitAsk(true, 390, 664, false, true), false); // the "Play upright" extra
 });
 
 test("the canvas fills the view, or a 4:3 band across the middle of an upright touch screen", () => {
     assert.deepStrictEqual(f.sgCanvasRect(true, 750, 342, 0, 0), { left: 0, top: 0, width: 750, height: 342 });
     assert.deepStrictEqual(f.sgCanvasRect(false, 600, 1000, 0, 0), { left: 0, top: 0, width: 600, height: 1000 });
     assert.deepStrictEqual(f.sgCanvasRect(true, 390, 664, 0, 0), { left: 0, top: 186, width: 390, height: 293 });
+    assert.deepStrictEqual(f.sgCanvasRect(true, 390, 664, 0, 0, true), { left: 0, top: 0, width: 390, height: 664 }); // upright
     // the visual viewport's offset (Safari's bars, a pinch) carries over
     assert.deepStrictEqual(f.sgCanvasRect(true, 400, 700, 0, 10), { left: 0, top: 210, width: 400, height: 300 });
     // never taller than the view (a nearly square upright view)

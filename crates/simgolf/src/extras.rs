@@ -150,6 +150,10 @@ pub struct Settings {
     /// Information > Challenges and Hole Stats' design lab (challenges.rs). Off by default: the original has neither.
     #[serde(default)]
     pub challenges: bool,
+    /// Phones and tablets play upright too, with the interface at the screen's edges (`portrait`). Off by default: the
+    /// original's screens are landscape, and an upright device is asked to turn sideways.
+    #[serde(default)]
+    pub portrait: bool,
 }
 
 impl Settings {
@@ -193,6 +197,7 @@ impl Settings {
         save_newest: true,
         unlock_info: true,
         challenges: true,
+        portrait: false,
     };
     pub const ALL_OFF: Settings = Settings {
         people: false,
@@ -229,6 +234,7 @@ impl Settings {
         save_newest: false,
         unlock_info: false,
         challenges: false,
+        portrait: false,
     };
 
     /// The ticks as the Extras box's checkbox bits (in `UI_KEYS` order).
@@ -268,6 +274,7 @@ impl Settings {
             self.save_newest,
             self.unlock_info,
             self.challenges,
+            self.portrait,
         ]
         .iter()
         .enumerate()
@@ -311,6 +318,7 @@ impl Settings {
             save_newest: on(31),
             unlock_info: on(32),
             challenges: on(33),
+            portrait: on(34),
         }
     }
 
@@ -333,6 +341,7 @@ impl Settings {
             mouse_swing: from.mouse_swing,
             right_drop: from.right_drop,
             wide_ui: from.wide_ui,
+            portrait: from.portrait,
             edge_scroll: from.edge_scroll,
             home_labels_hover: from.home_labels_hover,
             pause_aim: from.pause_aim,
@@ -350,7 +359,7 @@ impl Default for Settings {
 
 /// The interface extras' lines on the Extras box's Interface page (extras_ui.rs), one tick per extra in `Settings::bits`
 /// order (text keys in lang/en.txt).
-pub const UI_KEYS: [&str; 34] = [
+pub const UI_KEYS: [&str; 35] = [
     "STR_EXTRAS_PEOPLE",
     "STR_EXTRAS_HISTORY",
     "STR_EXTRAS_NAME_TAGS",
@@ -385,6 +394,7 @@ pub const UI_KEYS: [&str; 34] = [
     "STR_EXTRAS_SAVE_NEWEST",
     "STR_EXTRAS_UNLOCK_INFO",
     "STR_EXTRAS_CHALLENGES",
+    "STR_EXTRAS_PORTRAIT",
 ];
 
 /// The update check's value when settings.json has none (`Settings::update_check`).
@@ -401,7 +411,21 @@ pub fn settings() -> Settings {
 }
 
 pub fn set(s: Settings) {
+    let was = settings().portrait;
     SETTINGS.with(|c| c.set(s));
+    if s.portrait != was || !PORTRAIT_TOLD.with(|t| t.replace(true)) {
+        crate::portrait::tell_device(s.portrait);
+    }
+}
+
+thread_local! {
+    /// Whether the device has heard of the portrait tick yet (it is told once at the start, then on each change).
+    static PORTRAIT_TOLD: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Whether phones and tablets may play upright (portrait.rs).
+pub fn portrait() -> bool {
+    settings().portrait
 }
 
 pub fn people() -> bool {
@@ -1320,7 +1344,7 @@ mod tests {
         let f = Settings { save_files: true, ..Settings::ALL_OFF };
         assert_eq!(f.bits(), 1 << 22);
         assert_eq!(Settings::from_bits(f.bits()), f);
-        assert_eq!(UI_KEYS.len(), 34);
+        assert_eq!(UI_KEYS.len(), 35);
     }
 
     #[test]

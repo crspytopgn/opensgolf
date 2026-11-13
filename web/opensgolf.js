@@ -191,6 +191,8 @@ miniquad_add_plugin({
         // 0 awake again (sgSoundSleep)
         env.sg_sound_sleep = function (asleep) { sgSoundSleep(asleep !== 0); };
         // the watch over the game's drawing (sgDrawingStopped): a frame was drawn; Enhanced graphics on or off
+        // playing upright (portrait.rs): 1 the extra is on, 0 off
+        env.sg_portrait = function (on) { sgSetUpright(on !== 0); };
         env.sg_frame_drawn = function () { sgDraw.last = performance.now(); };
         env.sg_enhanced = function (on) {
             const was = sgDraw.enhanced;
@@ -988,8 +990,8 @@ function sgFitCanvas() {
     const w = vv ? vv.width : win.width || window.innerWidth, h = vv ? vv.height : win.height || window.innerHeight;
     // a phone or tablet held upright: the "turn sideways" card, and after "Play anyway" the game in a 4:3 band (files.js)
     const touch = sgTouchDevice();
-    sgRotateCard(sgPortraitAsk(touch, w, h, sgRotateDismissed()));
-    const r = sgCanvasRect(touch, w, h, vv ? vv.offsetLeft : 0, vv ? vv.offsetTop : 0);
+    sgRotateCard(sgPortraitAsk(touch, w, h, sgRotateDismissed(), sgUpright));
+    const r = sgCanvasRect(touch, w, h, vv ? vv.offsetLeft : 0, vv ? vv.offsetTop : 0, sgUpright);
     // what of the canvas the phone hides, for the game to keep its edge pieces clear of (env.sg_safe_area)
     sgSafe = sgSafeInsets(win.insets, r, win.width || w, win.height || h);
     const css = (k, v) => { if (c.style[k] !== v) c.style[k] = v; };
@@ -1052,6 +1054,21 @@ function sgTouchDevice() {
         if (window.matchMedia && matchMedia("(pointer: coarse)").matches) return true;
     } catch (e) {}
     return navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent);
+}
+
+// The game's "Play upright on phones and tablets" extra (portrait.rs, env.sg_portrait): the whole tall screen, no card. With
+// it off an installed web app is held landscape where the browser lets a page say so (the manifest allows every way, so
+// that the extra can turn it upright).
+let sgUpright = false;
+function sgSetUpright(on) {
+    sgUpright = on;
+    try {
+        if (window.screen && screen.orientation) {
+            if (on && screen.orientation.unlock) screen.orientation.unlock();
+            else if (!on && screen.orientation.lock && sgHomeScreenApp()) screen.orientation.lock("landscape").catch(() => {});
+        }
+    } catch (e) {}
+    sgFitSoon();
 }
 
 // "Play anyway" holds for the tab's session (sessionStorage, which a private window may refuse: then for the page).

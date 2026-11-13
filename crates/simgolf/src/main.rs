@@ -95,6 +95,7 @@ mod photo;
 mod playcount;
 mod player_panel;
 mod popup_ui;
+mod portrait;
 mod prefs_search;
 mod prefs_ui;
 mod pro_ui;

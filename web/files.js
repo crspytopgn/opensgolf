@@ -16,16 +16,18 @@ function sgVersion() {
 // --- phones and tablets held upright (the port's own; web/opensgolf.js sgFitCanvas) ------------------------------------------
 // SimGolf is a landscape game: its screens are 800 x 600. A phone or tablet (a touch device: a coarse pointer, or an iPad
 // that calls itself a Mac) held upright (taller than wide) is asked to turn sideways, until the player picks "Play anyway"
-// for the session. A desktop window, however tall, is never asked.
-function sgPortraitAsk(touch, w, h, dismissed) {
-    return !!touch && h > w && !dismissed;
+// for the session. A desktop window, however tall, is never asked, and nor is anyone with the game's "Play upright on phones
+// and tablets" extra on (`upright`; portrait.rs).
+function sgPortraitAsk(touch, w, h, dismissed, upright) {
+    return !!touch && h > w && !dismissed && !upright;
 }
 
 // Where the game's canvas goes in the visible area (w x h at left, top): all of it, except on a touch device held upright,
 // where the game plays in a 4:3 band across the middle (the 800 x 600 screens fill its width; the rest is black), so the
-// whole game shows at the largest size the width allows, neither cut off nor stretched.
-function sgCanvasRect(touch, w, h, left, top) {
-    if (!touch || h <= w) return { left: Math.round(left), top: Math.round(top), width: Math.round(w), height: Math.round(h) };
+// whole game shows at the largest size the width allows, neither cut off nor stretched. With the "Play upright" extra on
+// (`upright`) the game has the whole tall screen and lays its interface out at the edges.
+function sgCanvasRect(touch, w, h, left, top, upright) {
+    if (!touch || h <= w || upright) return { left: Math.round(left), top: Math.round(top), width: Math.round(w), height: Math.round(h) };
     const bh = Math.min(h, w * 3 / 4);
     return { left: Math.round(left), top: Math.round(top + (h - bh) / 2), width: Math.round(w), height: Math.round(bh) };
 }

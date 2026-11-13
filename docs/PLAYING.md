@@ -1459,6 +1459,14 @@ plays upright for the rest of the browser tab's session: the whole game in a 4:3
 black above and below (web/files.js `sgPortraitAsk`, `sgCanvasRect`). Only touch devices are asked (a coarse pointer, or
 an iPad); a desktop window, however tall, never is. The Android app is held in landscape by the system (either way up).
 
+**Play upright on phones and tablets** (an interface extra on the Extras box's edges page, off by default; portrait.rs)
+lets a phone or tablet play held upright on the whole tall screen: no card in the browser, and the Android app turns every
+way the device does. The course view fills the screen and the interface is laid out at its edges, as with the interface at
+the screen's edges: the dock and build palette along the bottom, the date, money and ratings at the top corners, and the
+boxes and reports across the width in the middle. The interface is drawn at the size the screen's width allows, so it is
+smaller than when the device is held sideways. An installed web app is held landscape with the extra off where the browser
+allows it.
+
 Tap for a click; drag one finger to scroll the course (or to paint with the selected tool); hold a finger still for half a
 second for a right click (undo, remove, close a screen). While an employee (Move) or a golfer (the card's Move or Eject)
 waits for its new spot, dragging only scrolls the course and the next tap is the spot (issue #86). With no tool in hand a drag over the course only scrolls it too: it no longer picks up the employee, or opens the golfer's card or the flag's Hole Stats, under the finger where it starts (a tap still does). With the raise / lower tool (the Elevation panel, or =), a tap raises
