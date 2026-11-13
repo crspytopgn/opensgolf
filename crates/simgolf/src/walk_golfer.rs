@@ -286,7 +286,18 @@ fn pose(act: Act, t: f32, time: f32, club_len: f32) -> Pose {
             club: Some(([-0.15, 0.55, 0.3], norm([0.1, -0.45, 0.6]), club_len)),
             ..stand
         },
-        Act::Swing { .. } | Act::Putt | Act::Address { .. } => {
+        Act::Swing { reach } => full_swing(reach, t, club_len),
+        Act::Address { putt: false } => {
+            // at the ball, the club waggling a little
+            let mut p = full_swing(1.0, 0.0, club_len);
+            if let Some((g, d, l)) = p.club {
+                let w = (time * 2.2).sin() * 0.06;
+                p.club = Some((g, norm(add(d, [w, 0.0, 0.0])), l));
+                p.hands[0] = add(g, mul(p.club.unwrap().1, 0.09));
+            }
+            p
+        }
+        Act::Putt | Act::Address { .. } => {
             let putt = matches!(act, Act::Putt | Act::Address { putt: true });
             // the club's turn round the swing (radians): 0 at the ball, + back over the right shoulder, - through
             let theta = match act {
@@ -354,6 +365,67 @@ fn pose(act: Act, t: f32, time: f32, club_len: f32) -> Pose {
                 club: Some((grip, shaft, club_len)),
             }
         }
+    }
+}
+
+/// A full swing's keys through its clip: (t, the top hand's place, the club's direction down the shaft, the shoulders'
+/// turn), in metres with x to the golfer's right, y up, z towards the ball; the target is on their left (-x).
+const SWING: [(f32, V, V, f32); 9] = [
+    // at the ball, still
+    (0.0, [-0.04, 0.84, 0.3], [0.04, -0.87, 0.48], 0.0),
+    (0.12, [-0.04, 0.84, 0.3], [0.04, -0.87, 0.48], 0.0),
+    // the takeaway: hands back to the right hip, the club along the target line, toe up
+    (0.26, [0.3, 0.86, 0.3], [1.0, 0.12, -0.05], 0.55),
+    // halfway back: the wrists cocked, the club upright
+    (0.36, [0.42, 1.18, 0.14], [0.35, 1.0, -0.2], 1.0),
+    // the top: the hands over the right shoulder, the club across the back of the neck towards the target
+    (0.47, [0.26, 1.52, -0.04], [-1.0, -0.08, -0.3], 1.45),
+    // the downswing: the club lagging behind the hands
+    (0.53, [0.34, 1.02, 0.22], [0.55, 0.95, -0.05], 0.75),
+    // impact: back at the ball, the hands a little ahead
+    (0.57, [-0.1, 0.84, 0.31], [0.1, -0.87, 0.47], 0.15),
+    // through: the arms out towards the target, the club along the line
+    (0.66, [-0.4, 0.95, 0.28], [-1.0, 0.2, 0.05], -0.85),
+    // the finish: the hands high by the left ear, the club down the back, the chest to the target
+    (0.8, [-0.2, 1.48, 0.02], [0.65, -0.45, -0.62], -1.6),
+];
+
+/// A chip's keys: the full swing's, back only to halfway and through only to the arms out along the line.
+fn chip_keys() -> [(f32, V, V, f32); 6] {
+    let k = |i: usize, t: f32| (t, SWING[i].1, SWING[i].2, SWING[i].3);
+    [k(0, 0.0), k(1, 0.15), k(2, 0.32), k(3, 0.46), k(6, 0.58), k(7, 0.74)]
+}
+
+/// The pose of a full swing (`reach` 1) or a chip (less) `t` of the way through its clip.
+fn full_swing(reach: f32, t: f32, club_len: f32) -> Pose {
+    let chip;
+    let keys: &[(f32, V, V, f32)] = if reach < 1.0 {
+        chip = chip_keys();
+        &chip
+    } else {
+        &SWING
+    };
+    let k = keys.iter().rposition(|key| key.0 <= t).unwrap_or(0);
+    let (a, b) = (keys[k], keys[(k + 1).min(keys.len() - 1)]);
+    let f = if b.0 > a.0 { smooth((t - a.0) / (b.0 - a.0)) } else { 0.0 };
+    let mix = |p: V, q: V| add(p, mul(sub(q, p), f));
+    let (mut grip, shaft, turn) = (mix(a.1, b.1), norm(mix(a.2, b.2)), lerp(a.3, b.3, f));
+    // a longer club (the driver) held a little higher at the ball, its head on the ground
+    let near = 1.0 - (turn.abs() / 0.6).min(1.0);
+    grip[1] += (club_len - 0.96) * 0.87 * near;
+    let finish = (-turn - 0.6).max(0.0);
+    let bend: f32 = 0.45 - finish * 0.22;
+    Pose {
+        hips: [turn * -0.025, 0.88 + finish * 0.04, -0.04],
+        hip_turn: turn * 0.45,
+        chest_turn: turn * 0.55,
+        bend,
+        lean: 0.06 - turn * 0.02,
+        nod: 0.75 - finish * 0.55,
+        // the right heel up and the knee turned through at the finish
+        feet: [[0.23, 0.08 + finish * 0.07, finish * 0.05], [-0.23, 0.08, 0.0]],
+        hands: [add(grip, mul(shaft, 0.09)), grip],
+        club: Some((grip, shaft, club_len)),
     }
 }
 
@@ -600,8 +672,10 @@ mod tests {
         };
         let (address, top, finish) = (head(0.0), head(0.47), head(0.95));
         assert!(address[1] < 0.3, "at the ball {address:?}");
-        assert!(top[1] > 1.3 && top[0] > -0.2, "at the top {top:?}");
-        assert!(finish[0] < 0.0 && finish[1] > 1.0, "at the finish {finish:?}");
+        // (at the top, across the back of the neck towards the target)
+        assert!(top[1] > 1.3 && top[0] < 0.0 && top[2] < 0.0, "at the top {top:?}");
+        // (at the finish, hanging down the back)
+        assert!(finish[2] < -0.2 && finish[1] > 0.6, "at the finish {finish:?}");
     }
 
     #[test]
@@ -614,5 +688,34 @@ mod tests {
         let l = Look::from_palette(&pal, false);
         assert!(l.shirt[0] > 0.7 && l.shirt[2] < 0.1);
         assert!(l.pants[2] > 0.7 && l.pants[0] < 0.1);
+    }
+}
+
+#[cfg(test)]
+mod dump {
+    use super::*;
+
+    /// Writes swing frames' triangles for looking at outside the game: SG_GOLFER_DUMP=DIR cargo test dump_swing -- --ignored
+    #[test]
+    #[ignore]
+    fn dump_swing() {
+        let Ok(dir) = std::env::var("SG_GOLFER_DUMP") else { return };
+        let look = Look::plain(&sg_core::bodies::Outfit { female: false, shirt: 0, pants: 2, skin: 1, hat: 1, hair: 0, alt_skin: 1 });
+        let acts = [("swing", Act::Swing { reach: 1.0 }, 4), ("chip", Act::Swing { reach: 0.55 }, 9), ("putt", Act::Putt, 13)];
+        for (name, act, club) in acts {
+            for k in 0..=20 {
+                let v = body(&look, act, k as f32 / 20.0, 0.0, club);
+                let s: String = v
+                    .iter()
+                    .map(|p| {
+                        format!(
+                            "{} {} {} {} {} {} {} {} {}\n",
+                            p.pos[0], p.pos[1], p.pos[2], p.normal[0], p.normal[1], p.normal[2], p.color[0], p.color[1], p.color[2]
+                        )
+                    })
+                    .collect();
+                std::fs::write(format!("{dir}/{name}-{k:02}.txt"), s).unwrap();
+            }
+        }
     }
 }
