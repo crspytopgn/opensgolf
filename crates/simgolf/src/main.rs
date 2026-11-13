@@ -2096,6 +2096,14 @@ impl Stage {
                 }
             }
             Hit::GameOptions => self.app.open_popup(popup_ui::PopupKind::Extras),
+            // a line of Features: the option ticked or stepped as Preferences' Search does it, and put in use at once
+            Hit::Feature(i) => {
+                let mut p = self.app.current_prefs();
+                if let Some(row) = launcher::feature_rows(&p, !self.app.on_free_set()).get(i) {
+                    prefs_search::toggle(row.hit, &mut p);
+                    self.apply_prefs(&p);
+                }
+            }
             #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
             Hit::Fullscreen(on) => {
                 if on != self.fullscreen {

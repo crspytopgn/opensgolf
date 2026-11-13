@@ -10,8 +10,8 @@
 //! OPENSGOLF_WRITE_GUIDE=1 cargo test -p opensgolf guide
 //! ```
 //!
-//! to write the new reference into web/guide.html, and add a line to `enhanced_note` for a new Enhanced graphics option
-//! (those have no description in the game). The hand-written half of the page (the feature sections above the reference)
+//! to write the new reference into web/guide.html, and give a new Enhanced graphics option a description (enhanced.rs
+//! `desc_key`, lang/en.txt). The hand-written half of the page (the feature sections above the reference)
 //! is edited in web/guide.html itself.
 
 use crate::extras_ui::{self, ExtrasLine, Preset, Tag};
@@ -24,67 +24,6 @@ use sg_core::lang::tr;
 pub const BEGIN: &str =
     "<!-- reference:begin (made by crates/simgolf/src/guide.rs: OPENSGOLF_WRITE_GUIDE=1 cargo test -p opensgolf guide) -->";
 pub const END: &str = "<!-- reference:end -->";
-
-/// What an Enhanced graphics option does, for the guide (the game's box has no descriptions for them). Every option of
-/// `enhanced::OPTIONS` needs one: the test says which is missing.
-fn enhanced_note(key: &str) -> Option<&'static str> {
-    Some(match key {
-        "native_text" => "Draws text from the fonts at your screen's real resolution, so it stays sharp at any window size. Layouts stay the original's.",
-        "smooth_ui" => "Interface art, sprites and portraits scale smoothly, with clean edges and no shimmer when drawn small.",
-        "widescreen" => "On a wide window the course badge, dock, panels and buttons move out to the window's edges instead of sitting in a 4:3 box in the middle.",
-        "terrain_filter" => "Anisotropic filtering keeps the course sharp towards the top of the screen. Desktop only.",
-        "msaa" => "4x multisampling smooths the edges of terrain, cliffs and lines. Desktop only.",
-        "smooth_camera" => "Continuous wheel and pinch zoom, animated quarter turns and gliding scrolls. The game's rules still use the original's three zoom levels.",
-        "smooth_motion" => "Golfers, staff, carts, animals and balls move smoothly between the game's 11.5 ticks a second instead of jumping once a tick. Drawing only.",
-        "photo_mode" => "Lets the C key or the camera button open photo mode: hide the interface, frame the shot, add a look and a focus blur, and save a picture up to 4K.",
-        "frame_cap" => "The most frames a second the game draws: 30, 60, 120, 144, 240 or no cap. Counts with Classic graphics too.",
-        "vsync" => "Waits for the display's refresh, so the picture never tears. Takes effect from the next start; always on in a browser. Counts with Classic graphics too.",
-        "pixel_perfect" => "Scales the 800 x 600 picture by whole numbers only, so every art pixel is the same size, with bars round it. Also a line of Preferences > Graphics; counts with Classic graphics too.",
-        "fx_scaler" => "Sprites and pictures drawn larger than their pixels go through a pixel-art scaler instead of a plain blur.",
-        "fx_scaler_mode" => "Which scaler: Sharp (crisp pixels), Edge-directed (smooths diagonals) or Smooth (follows the art's own edges; the strongest).",
-        "fx_water" => "Water gets moving waves, sky reflections, glints and foam along the shore, over the theme's own water art.",
-        "fx_terrain_light" => "Per-pixel light, ambient occlusion in valleys and soft shadows of the hills on the ground.",
-        "fx_sprite_shadows" => "Softens the edges of the art's own shadows under buildings, trees and people.",
-        "fx_cast_shadows" => "Buildings, trees and people cast their own outline along the sun onto the ground.",
-        "fx_ball_trail" => "A soft trail fades out behind a ball in the air.",
-        "fx_ball_impacts" => "A puff of sand in a bunker, rings and drops on water, a flick of grass where a ball comes down.",
-        "fx_quality" => "Low, medium or high: the detail of the light map, the blurs and the shadows. Lower is quicker on slow machines.",
-        "fx_grass" => "Tiny tufts of grass standing up from the rough and swaying in the wind, at the closest zoom.",
-        "fx_sharpen" => "Contrast-adaptive sharpening brings out the art's own detail on big screens, without halos. Desktop only.",
-        "fx_crowds" => "Spectators round the greens and fairways of the holes in play during tournaments and championships, cheering now and then.",
-        "fx_life" => "Flocks of birds crossing the sky, butterflies over flower beds in summer, leaves falling in autumn.",
-        "fx_sky" => "A sky gradient beyond the property and below its cliff instead of the original's black.",
-        "fx_time_of_day" => "Morning, midday, golden hour, sunset and a short blue dusk pass over the course.",
-        "fx_day_length" => "How long a day of light lasts with Time of day: short (one game month), normal (three) or long (six).",
-        "fx_evening_lights" => "With Time of day: lamps with pools of light and fireflies at dusk.",
-        "fx_window_lights" => "With Time of day: a warm light in the buildings' windows at night.",
-        "fx_sprinklers" => "With Time of day: sprinklers watering the fairways and greens at first light.",
-        "fx_clouds" => "Soft cloud shadows drift over the course and dim what is under them.",
-        "fx_haze" => "The far part of the view pales towards the horizon's colour, more when zoomed out.",
-        "fx_reflections" => "Trees, buildings and golfers mirrored in the water, rippling, with sun glitter.",
-        "fx_tilt_shift" => "Blurs the top and bottom of the screen for a miniature look.",
-        "fx_grading" => "Gentle contrast, vibrance and a tint for each theme, with slightly darker corners.",
-        "fx_bloom" => "The brightest parts (sparkle, white sand, highlights) glow a little.",
-        "fx_rain" => "Light rain on some days (the same days for a save), with greyer light and faint shadows. Looks only: see Weather that matters for rain that changes play.",
-        "fx_after_rain" => "With Rain: wet, glossy ground and puddles during and after a rainy day, and now and then a rainbow.",
-        "fx_lightning" => "Flashes and distant flicker in heavy rain where the climate is wet; never in the desert.",
-        "fx_heat" => "On a desert course's hot summer days: bleached midday light, heat haze, and parched grass on the hottest days.",
-        "fx_winter" => "The first days of March on parkland and links courses: morning frost, snow showers instead of rain, a light dusting some mornings.",
-        "fx_frost" => "Frost on cold spring and autumn mornings, melting by late morning.",
-        "fx_mist" => "Mist pooling in hollows and over water, thick at dawn and gone by late morning.",
-        "fx_wind" => "A wind for each day: trees, palms and grasses sway, flags fly downwind, and the rain and clouds follow it.",
-        "fx_seasons" => "Blossom and fresh greens in spring, autumn colours in September and October, dew on the grass.",
-        "fx_water_colour" => "Lighter, more turquoise shallows and a deeper blue in the middle, from the theme's own water colour.",
-        "fx_waves" => "Soft waves lying across the wind, drifting downwind: glassy at dawn and dusk, choppy in a storm.",
-        "fx_shoreline" => "Water lapping in and out along the shore, with a wet band on the bank.",
-        "fx_caustics" => "Sunlight rippling in a web over the bottom of shallow water.",
-        "fx_rain_rings" => "With Rain: rings opening on the water where drops fall.",
-        "fx_water_life" => "Reeds and lily pads at the edges of ponds, ducks and swans on the larger lakes, and now and then a jumping fish.",
-        "fx_ice" => "With Winter: small ponds ice over in the late-winter cold snap, and larger water gets a rim of ice.",
-        "fx_spray" => "Foam, drops and rings round fountains and at the foot of waterfalls.",
-        _ => return None,
-    })
-}
 
 /// When an option of Preferences' own boxes is there (none: always).
 fn pref_note(l: Line) -> Option<&'static str> {
@@ -106,7 +45,7 @@ fn esc(s: &str) -> String {
 
 /// An anchor id from a text key ("STR_EXTRAS_WEATHER" -> "opt-extras-weather").
 fn anchor(key: &str) -> String {
-    format!("opt-{}", key.trim_start_matches("STR_").to_lowercase().replace('_', "-"))
+    format!("opt-{}", key.split_once('_').map_or(key, |(_, rest)| rest).to_lowercase().replace('_', "-"))
 }
 
 /// The status pill: on, off or a value.
@@ -315,7 +254,7 @@ fn enhanced_rows(out: &mut String) {
                 "<tr id=\"opt-enhanced-{}\"><td><b>{}</b></td><td>{}</td><td>{}</td></tr>\n",
                 o.key.replace('_', "-"),
                 esc(&label),
-                esc(enhanced_note(o.key).unwrap_or("")),
+                esc(enhanced::desc_key(o.key).map(tr).unwrap_or("")),
                 value
             ));
         }
@@ -382,8 +321,8 @@ mod tests {
 
     #[test]
     fn every_enhanced_option_has_a_note() {
-        let missing: Vec<_> = enhanced::OPTIONS.iter().filter(|o| enhanced_note(o.key).is_none()).map(|o| o.key).collect();
-        assert!(missing.is_empty(), "add a line for {missing:?} to guide.rs enhanced_note (the web site's feature guide)");
+        let missing: Vec<_> = enhanced::OPTIONS.iter().filter(|o| enhanced::desc_key(o.key).is_none()).map(|o| o.key).collect();
+        assert!(missing.is_empty(), "add a STR_ENHANCED_DESC_ line for {missing:?} to enhanced.rs desc_key and lang/en.txt");
     }
 
     #[test]

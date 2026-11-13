@@ -9,12 +9,15 @@
 //! player unticks it), and always at a new player's first start, where it takes the place of the "How would you like to
 //! play?" box (welcome.rs, recorded as shown; that box still shows when the launcher does not). After an update it opens
 //! on its News tab, in place of the What's new box. It never shows in scripted runs (--png, --time, --screen) nor over a
-//! game being loaded. Preferences > More > Launcher... and the title menu's Launcher... button bring it back. Four tabs:
+//! game being loaded. Preferences > More > Launcher... and the title menu's Launcher... button bring it back. Five tabs:
 //!
 //! * **Game files**: what is in use and what was found (gamefiles.rs), with "Use my SimGolf files" (the title button's
 //!   picker: a folder, a .zip or the CD) and "Play with the free graphics", where this system offers them.
 //! * **How to play**: the four presets of "How would you like to play?" (welcome.rs `CHOICES`), the one in use marked; a
 //!   choice is put in use exactly as that box and Game options put it.
+//! * **Features**: every option of Preferences (prefs_search.rs's list, less the keys, the text size and HD), a screen of
+//!   one group at a time (General, the Game options pages, the Enhanced graphics pages), each with what it does and its
+//!   tick or value, put in use at once as Search's OK puts it; Feature guide opens the web site's guide (web/guide.html).
 //! * **Display & sound**: a window or full screen and the window's size (desktop), Classic / Enhanced / HD graphics (HD
 //!   where a pack is made), the text size, the sound and the language: the same settings as Preferences, saved the same way.
 //! * **News & updates**: the version, its What's new highlights (welcome.rs, whatsnew.json), Check for updates (where
@@ -24,7 +27,7 @@
 //! click) and a controller (gamepad.rs moves the pointer, A clicks) all work its buttons.
 //!
 //! Test hooks (for stills; nothing is written to settings.json): --screen launcher or SG_LAUNCHER=1 show it;
-//! SG_LAUNCHER_TAB=files|play|display|news picks the tab; SG_LAUNCHER_FILES=mine:N shows the game files as the player's
+//! SG_LAUNCHER_TAB=files|play|features|display|news picks the tab; SG_LAUNCHER_FILES=mine:N shows the game files as the player's
 //! own with N sounds.
 use crate::app::App;
 use crate::extras_ui::Preset;
@@ -55,17 +58,19 @@ pub const SIZES: [(u32, u32); 5] = [(1024, 640), (1280, 800), (1440, 900), (1680
 pub enum Tab {
     Files,
     Play,
+    Features,
     Display,
     News,
 }
 
 impl Tab {
-    pub const ALL: [Tab; 4] = [Tab::Files, Tab::Play, Tab::Display, Tab::News];
+    pub const ALL: [Tab; 5] = [Tab::Files, Tab::Play, Tab::Features, Tab::Display, Tab::News];
 
     fn key(self) -> &'static str {
         match self {
             Tab::Files => "STR_LAUNCHER_TAB_FILES",
             Tab::Play => "STR_LAUNCHER_TAB_PLAY",
+            Tab::Features => "STR_LAUNCHER_TAB_FEATURES",
             Tab::Display => "STR_LAUNCHER_TAB_DISPLAY",
             Tab::News => "STR_LAUNCHER_TAB_NEWS",
         }
@@ -76,6 +81,7 @@ impl Tab {
         Some(match s.trim().to_lowercase().as_str() {
             "files" => Tab::Files,
             "play" | "presets" => Tab::Play,
+            "features" => Tab::Features,
             "display" | "sound" => Tab::Display,
             "news" => Tab::News,
             _ => return None,
@@ -115,6 +121,12 @@ pub enum Hit {
     Preset(usize),
     /// Game options... (the extras box).
     GameOptions,
+    /// Feature guide (the website's guide to every OpenSGolf feature, in the browser).
+    Guide,
+    /// A line of the Features tab (`Model::features[i]`): its tick flips, a setting steps on.
+    Feature(usize),
+    /// The Features tab's next (1) or previous (-1) screen of lines.
+    FeaturePage(i32),
     Fullscreen(bool),
     /// The next (1) or the previous (-1) window size.
     WindowSize(i32),
@@ -132,6 +144,8 @@ pub enum Hit {
 #[derive(Clone)]
 pub struct State {
     pub tab: Tab,
+    /// The Features tab's screen of lines (clamped to the screens there are when laid out).
+    pub feat_page: usize,
     pub hover: Option<Hit>,
     /// The "Show this at start" tick.
     pub at_start: bool,
@@ -273,6 +287,9 @@ pub struct Model {
     pub highlights: Vec<(String, String)>,
     /// Check for updates (where the build has it): whether a check is under way.
     pub update: Option<bool>,
+    /// The Features tab's lines (`feature_rows`) and the screen of them shown.
+    pub features: Vec<FeatureRow>,
+    pub feat_page: usize,
 }
 
 impl Model {
@@ -305,6 +322,8 @@ impl Model {
             news_title: "What's new in 0.7".into(),
             highlights: (0..6).map(|i| (format!("Highlight number {i}"), "A note about it, a line or so long at most.".into())).collect(),
             update: Some(false),
+            features: feature_rows(&crate::prefs_search::Prefs::original(), true),
+            feat_page: 0,
         }
     }
 }
@@ -1036,6 +1055,13 @@ impl<'a> Out<'a> {
     }
 
     /// Text in a room `w` wide from x (smaller or cut when too long: ui.rs fit_line).
+    /// `note`, where cutting the text short is expected (the Features tab's descriptions, shown whole at its foot).
+    fn note_cut(&mut self, f: Fnt, x: f32, y: f32, w: f32, lines: usize, s: &str, col: [f32; 4]) -> f32 {
+        let n = self.squeezed.len();
+        let h = self.note(f, x, y, w, lines, s, col);
+        self.squeezed.truncate(n);
+        h
+    }
     fn text_fit(&mut self, f: Fnt, x: f32, y: f32, w: f32, s: &str, col: [f32; 4]) {
         if let Some(d) = self.dr.as_mut() {
             d.s.put_fit(d.g, f, x, y, w, s, col);
@@ -1149,6 +1175,7 @@ pub fn layout(m: &Model, w: f32, h: f32, out: &mut Out) {
     match m.tab {
         Tab::Files => files_tab(m, fr.content, fr.compact, out),
         Tab::Play => play_tab(m, fr.content, fr.compact, out),
+        Tab::Features => features_tab(m, fr.content, fr.compact, out),
         Tab::Display => display_tab(m, fr.content, fr.compact, out),
         Tab::News => news_tab(m, fr.content, fr.compact, out),
     }
@@ -1255,7 +1282,8 @@ fn tabs(m: &Model, fr: &Frame, out: &mut Out) {
     out.fill(Rect::new(r.x + 1.0, r.y, r.w - 2.0, 1.0), c(0x5cb86b));
     out.fill(Rect::new(r.x + 1.0, r.y + r.h - 3.0, r.w - 2.0, 3.0), c(PANEL));
     let (gap, pad) = (3.0, 8.0);
-    let tw = (r.w - 2.0 * pad - gap * 3.0) / 4.0;
+    let n = Tab::ALL.len() as f32;
+    let tw = (r.w - 2.0 * pad - gap * (n - 1.0)) / n;
     let f = body(if fr.compact { 13.0 } else { 14.0 });
     for (i, t) in Tab::ALL.iter().enumerate() {
         let x = r.x + pad + (tw + gap) * i as f32;
@@ -1765,6 +1793,180 @@ fn news_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
     }
 }
 
+/// A line of the Features tab: an option of Preferences (prefs_search.rs's list, the one Search finds in), with its group,
+/// its words and whether it is on.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FeatureRow {
+    pub hit: crate::prefs_search::Hit,
+    /// The group it is listed under (a page of Game options or of the Enhanced graphics settings), and its banner.
+    pub group: String,
+    pub banner: String,
+    pub name: String,
+    pub desc: String,
+    pub on: bool,
+    /// A setting with choices: its value (a click steps it on); none for a tick.
+    pub value: Option<String>,
+}
+
+/// Every line of the Features tab, in groups: General (the bug fixes, the update check), the Game options pages
+/// (Gameplay, Sandbox, Looks, Info, Saves, Controls) and the Enhanced graphics pages, the master switch first. The same
+/// options Preferences has (prefs_search.rs `all`, less the keys, the text size and HD, which have screens of their own),
+/// with the same words, so a new option is listed here by itself. `original_files`: the cut content is listed (extras_ui).
+pub fn feature_rows(p: &crate::prefs_search::Prefs, original_files: bool) -> Vec<FeatureRow> {
+    use crate::extras_ui as xu;
+    use crate::prefs_search::{self as ps, Hit as H};
+    xu::show_cut_content(original_files);
+    let mut v = Vec::new();
+    let mut push = |h: H, group: &str, banner: &str, desc: &'static str, tag: Option<&'static str>| {
+        let (text, on) = ps::text(h, p);
+        let (name, value) = match text.split_once(':') {
+            Some((a, b)) if ps::plain(h) => (a.trim().to_string(), Some(capital(b.trim()))),
+            _ => (text, None),
+        };
+        let desc = if desc.is_empty() { String::new() } else { tr(desc).to_string() };
+        let desc = match tag {
+            Some(t) => format!("{} \u{b7} {desc}", tr(t)),
+            None => desc,
+        };
+        v.push(FeatureRow { hit: h, group: group.to_string(), banner: banner.to_string(), name, desc, on, value });
+    };
+    let (g, gb) = (tr("STR_FEATURES_GENERAL"), tr("STR_FEATURES_GENERAL_BANNER"));
+    push(H::Pref(false), g, gb, "STR_PREFS_DESC_FIX_BUGS", None);
+    push(H::Pref(true), g, gb, "STR_EXTRAS_DESC_UPDATE_CHECK", None);
+    for page in 0..xu::PAGES.len() as u8 {
+        let (group, banner) = (tr(xu::PAGES[page as usize]), tr(xu::BANNERS[page as usize]));
+        for l in xu::page_lines(page) {
+            push(H::Extra(l), group, banner, xu::desc_key(l, &p.ex, &p.ui), xu::tag(l).map(|t| t.key()));
+        }
+    }
+    let banner = tr(if p.enh.enabled { "STR_ENHANCED_BANNER" } else { "STR_FEATURES_NEEDS_ENHANCED" });
+    for page in 0..crate::enhanced::PAGES.len() as u8 {
+        let group = trf("STR_FEATURES_GRAPHICS_PAGE", &[("PAGE", &tr(crate::enhanced::PAGES[page as usize]))]);
+        if page == crate::enhanced::DISPLAY {
+            push(H::EnhancedOn, &group, banner, "STR_PREFS_DESC_ENHANCED", None);
+        }
+        for (i, o) in crate::enhanced::OPTIONS.iter().enumerate().filter(|(_, o)| o.page == page) {
+            push(H::Enhanced(i), &group, banner, crate::enhanced::desc_key(o.key).unwrap_or(""), None);
+        }
+    }
+    v
+}
+
+/// The Features tab's screens: runs of at most `per` lines of one group (start, end).
+fn feature_screens(rows: &[FeatureRow], per: usize) -> Vec<(usize, usize)> {
+    let mut v = Vec::new();
+    let mut i = 0;
+    while i < rows.len() {
+        let mut e = i;
+        while e < rows.len() && e - i < per.max(1) && rows[e].group == rows[i].group {
+            e += 1;
+        }
+        v.push((i, e));
+        i = e;
+    }
+    v
+}
+
+/// Features: every option, a screen of one group at a time, each line with what it does and its tick (a setting: its
+/// value), put in use at once; the arrows step through the screens, and Feature guide opens the web site's guide.
+fn features_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
+    let hf = display(if compact { 17.0 } else { 20.0 });
+    let bf = body(if compact { 12.0 } else { 13.0 });
+    let nf = body(if compact { 11.0 } else { 12.0 });
+    let bh = if compact { 28.0 } else { 32.0 };
+    let gap = if compact { 6.0 } else { 8.0 };
+    let cols = if r.w >= 600.0 { 2 } else { 1 };
+    let row_h = if compact { 36.0 } else { 46.0 };
+    let banner_h = (nf.px * 1.32).round();
+    let top = r.y + bh + gap + banner_h + gap;
+    // the foot: the whole description of the line under the pointer (or last tapped), two lines
+    let foot_h = 2.0 * banner_h;
+    let per_col = (((r.y + r.h - foot_h - gap - top) + gap) / (row_h + gap)).floor().max(1.0) as usize;
+    let screens = feature_screens(&m.features, per_col * cols);
+    if screens.is_empty() {
+        return;
+    }
+    let page = m.feat_page.min(screens.len() - 1);
+    let (start, end) = screens[page];
+    // the head: the arrows round the group's name, the feature guide on the right
+    let guide = tr("STR_LAUNCHER_GUIDE");
+    let gw = button_w(bf, guide, 110.0, r.w * 0.35);
+    button(out, Skin::Sky, Rect::new(r.x + r.w - gw, r.y, gw, bh), bf, guide, Some(Hit::Guide), true);
+    let aw = (bh * 1.25).round();
+    let arrow = |out: &mut Out, x: f32, dir: f32, en: bool| {
+        let hit = Hit::FeaturePage(dir as i32);
+        button(out, Skin::Sky, Rect::new(x, r.y, aw, bh), bf, "", Some(hit), en);
+        let (cx, cy, s) = (x + aw / 2.0, r.y + bh / 2.0, bh * 0.2);
+        let ink = if en { c(0x0d2a52) } else { ca(0x0d2a52, 0.35) };
+        out.tri([(cx - s * dir * 0.7, cy - s), (cx + s * dir * 0.7, cy), (cx - s * dir * 0.7, cy + s)], ink);
+    };
+    arrow(out, r.x, -1.0, page > 0);
+    arrow(out, r.x + aw + 6.0, 1.0, page + 1 < screens.len());
+    let tx = r.x + 2.0 * aw + 18.0;
+    let room = r.x + r.w - gw - 12.0 - tx;
+    let count = trf("STR_FEATURES_SCREEN", &[("N", &(page + 1)), ("COUNT", &screens.len())]);
+    let cw = nf.width(&count);
+    let name = &m.features[start].group;
+    out.text_fit(hf, tx, mid(hf, r.y, bh), (room - cw - 10.0).max(20.0), name, CARD_HEAD);
+    let nx = tx + hf.width(name).min((room - cw - 10.0).max(20.0)) + 10.0;
+    out.text(nf, nx, mid(nf, r.y, bh) + 2.0, &count, INK_SOFT);
+    out.text_fit(nf, r.x, r.y + bh + gap, r.w, &m.features[start].banner, INK_SOFT);
+    // the lines, down the first column, then the second
+    let cw = (r.w - gap * (cols - 1) as f32) / cols as f32;
+    let tf = body(if compact { 13.0 } else { 14.0 });
+    for (k, i) in (start..end).enumerate() {
+        let f = &m.features[i];
+        let (col, row) = (k / per_col, k % per_col);
+        let rr = Rect::new(r.x + (cw + gap) * col as f32, top + (row_h + gap) * row as f32, cw, row_h);
+        let hit = Hit::Feature(i);
+        let lit = out.lit(hit);
+        out.skin(if f.on && f.value.is_none() { Skin::Summary } else { Skin::Card }, rr, false);
+        if lit {
+            out.skin_tint(Skin::Summary, rr, false, [1.0, 1.0, 1.0, 0.5]);
+        }
+        let pad = if compact { 8.0 } else { 10.0 };
+        let mut tx = rr.x + pad;
+        let mut right = rr.x + rr.w - pad;
+        match &f.value {
+            // a setting: its value in a field on the right
+            Some(v) => {
+                let fw = (bf.width(v) + 18.0).clamp(60.0, rr.w * 0.4);
+                let fh = (row_h - 2.0 * pad).min(26.0);
+                let fr = Rect::new(right - fw, rr.y + (rr.h - fh) / 2.0, fw, fh);
+                out.skin(Skin::Field, fr, lit);
+                out.text_center(bf, fr.x + fw / 2.0, mid(bf, fr.y, fh), fw - 8.0, v, INK);
+                right = fr.x - 8.0;
+            }
+            // a tick: the box on the left
+            None => {
+                let bs = 20.0;
+                let (bx, by) = (tx, rr.y + (rr.h - bs) / 2.0);
+                out.skin(if f.on { Skin::CheckOn } else { Skin::Check }, Rect::new(bx, by, bs, bs), lit);
+                if f.on {
+                    out.line((bx + 5.0, by + 10.5), (bx + 8.6, by + 14.1), 2.4, WHITE);
+                    out.line((bx + 8.6, by + 14.1), (bx + 15.5, by + 6.0), 2.4, WHITE);
+                }
+                tx += bs + 10.0;
+            }
+        }
+        let w = (right - tx).max(20.0);
+        let two = !f.desc.is_empty() && row_h - 2.0 * (pad - 3.0) >= tf.px + nf.px * 1.2 + 2.0;
+        let ny = if two { rr.y + (rr.h - tf.px - nf.px * 1.2 - 2.0) / 2.0 - 1.0 } else { mid(tf, rr.y, rr.h) };
+        out.text_fit(tf, tx, ny, w, &f.name, INK);
+        if two {
+            out.note_cut(nf, tx, ny + tf.px + 2.0, w, 1, &f.desc, INK_SOFT);
+        }
+        out.hit(rr, hit);
+    }
+    let shown = match m.hover {
+        Some(Hit::Feature(i)) if (start..end).contains(&i) => i,
+        _ => start,
+    };
+    let rows = (end - start).min(per_col);
+    let fy = (top + (row_h + gap) * rows as f32 + 2.0).max(r.y + r.h - foot_h);
+    out.note_cut(nf, r.x, fy.min(r.y + r.h - foot_h), r.w, 2, &m.features[shown].desc, INK);
+}
+
 // ---- the game's side -----------------------------------------------------------------------------------------------------------
 
 /// The title menu's Launcher... button's hover value (after editor::EDITOR_HOVER).
@@ -1782,7 +1984,7 @@ pub fn title_button_rect(files: Option<&str>) -> Rect {
 
 impl State {
     pub fn new(tab: Tab, forced: bool) -> State {
-        State { tab, hover: None, at_start: show_at_start(), forced, hits: Vec::new(), k: 1.0 }
+        State { tab, feat_page: 0, hover: None, at_start: show_at_start(), forced, hits: Vec::new(), k: 1.0 }
     }
 }
 
@@ -1869,6 +2071,20 @@ impl App {
                 .map(|(_, h)| h.iter().map(|x| (tr(x.line).trim().to_string(), tr(x.note).to_string())).collect())
                 .unwrap_or_default(),
             update: crate::update::AVAILABLE.then_some(self.update_check.is_some()),
+            features: feature_rows(&self.current_prefs(), !self.on_free_set()),
+            feat_page: st.feat_page,
+        }
+    }
+
+    /// The settings Preferences' Search box and the Features tab show and change (prefs_search.rs), as they are in use.
+    pub fn current_prefs(&self) -> crate::prefs_search::Prefs {
+        crate::prefs_search::Prefs {
+            enh: crate::enhanced::settings(),
+            ex: self.extras_shown(),
+            ui: crate::extras::settings(),
+            keys: crate::controls::settings(),
+            text: crate::textsize::pct(),
+            hd: self.hd.enabled,
         }
     }
 
@@ -1932,6 +2148,8 @@ impl App {
             }
             Hit::Coffee => self.open_support_page(),
             Hit::Changelog => self.open_changelog(),
+            Hit::Guide => self.open_guide(),
+            Hit::FeaturePage(step) => st.feat_page = (st.feat_page as i64 + step as i64).max(0) as usize,
             Hit::Shortcut =>
             {
                 #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
@@ -2130,6 +2348,12 @@ mod tests {
             out.hits.iter().filter(|(_, h)| *h == Hit::Coffee).count() == 3,
             "the masthead's link, the news tab's button and the support button by Play"
         );
+        // features: a tick for each option on the screen, the paging and the feature guide
+        let mut out = Out::new(None, None);
+        layout(&Model { tab: Tab::Features, ..Model::sample() }, 800.0, 600.0, &mut out);
+        assert!(out.hits.iter().any(|(_, h)| *h == Hit::Guide));
+        assert!(out.hits.iter().any(|(_, h)| *h == Hit::Feature(0)));
+        assert!(out.hits.iter().any(|(_, h)| *h == Hit::FeaturePage(1)));
     }
 
     #[test]
@@ -2190,6 +2414,13 @@ mod tests {
             "STR_LAUNCHER_IN_USE",
             "STR_LAUNCHER_NOT_HERE",
             "STR_LAUNCHER_GAME_OPTIONS",
+            "STR_LAUNCHER_GUIDE",
+            "STR_LAUNCHER_TAB_FEATURES",
+            "STR_FEATURES_GENERAL",
+            "STR_FEATURES_GENERAL_BANNER",
+            "STR_FEATURES_GRAPHICS_PAGE",
+            "STR_FEATURES_NEEDS_ENHANCED",
+            "STR_FEATURES_SCREEN",
             "STR_LAUNCHER_DISPLAY_NOTE",
             "STR_LAUNCHER_UPDATE",
             "STR_LAUNCHER_CHANGELOG",
