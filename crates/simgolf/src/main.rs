@@ -120,6 +120,7 @@ mod update;
 mod views;
 mod walk;
 mod walk_gl;
+mod walk_golfer;
 mod walk_ground;
 mod walk_models;
 mod walk_objects;

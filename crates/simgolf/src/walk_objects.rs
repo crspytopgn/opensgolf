@@ -38,6 +38,8 @@ const TREE_SCALE: f32 = 0.42;
 /// Trees nearer than this are drawn in the round (walk_trees.rs); further ones as upright pictures, which look the same
 /// from so far and cost far less.
 const TREE_SOLID_NEAR: f32 = 110.0 * M;
+/// Golfers nearer than this are drawn as 3D bodies (walk_golfer.rs); further ones as pictures.
+const GOLFER_BODY_NEAR: f32 = 220.0 * M;
 /// People nearer than this are drawn in relief (walk_relief.rs); further ones as flat pictures.
 const PERSON_RELIEF_NEAR: f32 = 70.0 * M;
 /// Other small things' size against the art's (animals, weeds and the like).
@@ -611,6 +613,8 @@ pub struct Objects {
     trees: HashMap<(usize, usize), Option<Vec<Vert>>>,
     /// People's frames raised in relief (walk_relief.rs) by sprite and frame, in the picture's pixels, built once.
     reliefs: HashMap<(usize, usize), Option<Vec<Vert>>>,
+    /// Golfers' colours by outfit, for their 3D bodies (walk_golfer.rs).
+    looks: HashMap<sg_core::bodies::Outfit, crate::walk_golfer::Look>,
     /// A moving prop's shown place (x, z) by its identity, eased between the simulation's ticks.
     eased: HashMap<u32, (f32, f32)>,
     /// The trees beyond the property (built with the ground, `walk_far_trees`).
@@ -1336,6 +1340,52 @@ impl App {
                     continue;
                 }
                 o.drawn += 1;
+                // a golfer near enough: a 3D body acting out their clip
+                if let (Some(gi), true) = (p.golfer, dist < GOLFER_BODY_NEAR && !flat_people) {
+                    let (id, frame) = self.club.drawn.get(gi).copied().unwrap_or((0, 0));
+                    let clip = crate::app::GOLFER_CLIPS.iter().rev().find(|(b, _)| *b <= id && id - *b <= 8).map(|c| c.1).unwrap_or("");
+                    let n = self.club.clip_frames.get(id as usize).copied().unwrap_or(1).max(1);
+                    let mut t = if n > 1 { frame as f32 / (n - 1) as f32 } else { 0.0 };
+                    // (SG_WALK_POSE=CLIP:T puts every golfer in that clip's pose, T of the way through it, for stills)
+                    let forced = std::env::var("SG_WALK_POSE").ok();
+                    let clip = match forced.as_deref().and_then(|f| f.split_once(':')) {
+                        Some((c, ft)) => {
+                            t = ft.parse().unwrap_or(0.0);
+                            crate::app::GOLFER_CLIPS.iter().find(|g| g.1 == c).map(|g| g.1).unwrap_or(clip)
+                        }
+                        None => clip,
+                    };
+                    let act = crate::walk_golfer::Act::of_clip(clip);
+                    let of = p.outfit.unwrap_or_default();
+                    let look = *o.looks.entry(of).or_insert_with(|| match self.swaps.compose(&of) {
+                        Some(pal) => crate::walk_golfer::Look::from_palette(&pal, of.female),
+                        None => crate::walk_golfer::Look::plain(&of),
+                    });
+                    let club = self.club.g.get(gi).map(|g| g.club).unwrap_or(0);
+                    let ph = place_hash(gi as f32, 3.0);
+                    let v = crate::walk_golfer::body(&look, act, t, sc.time + ph * 10.0, club);
+                    // facing: along the heading, or side on to it at the ball (the target on a right-hander's left)
+                    let (hs, hc) = p.heading.to_radians().sin_cos();
+                    let mut fwd = if act.at_ball() { [-hs, hc] } else { [hc, hs] };
+                    if p.mirror && act.at_ball() {
+                        fwd = [-fwd[0], -fwd[1]];
+                    }
+                    let rt = [-fwd[1], fwd[0]];
+                    // a left-hander is the mirror image: the body built right-handed, its right and left swapped
+                    let fl = if p.mirror && act.at_ball() { -1.0 } else { 1.0 };
+                    let k = M * p.scale.max(0.1);
+                    let base = [x, ground + lift, z];
+                    for q in v {
+                        let (lx, ly, lz) = (q.pos[0] * fl, q.pos[1], q.pos[2]);
+                        let mut w = q;
+                        w.pos = [base[0] + (rt[0] * lx + fwd[0] * lz) * k, base[1] + ly * k, base[2] + (rt[1] * lx + fwd[1] * lz) * k];
+                        let n = q.normal;
+                        w.normal = [rt[0] * n[0] * fl + fwd[0] * n[2], n[1], rt[1] * n[0] * fl + fwd[1] * n[2]];
+                        solids.push(w);
+                    }
+                    blob(self, x, z, 0.5 * M, 0.38, &mut blobs);
+                    continue;
+                }
                 let view = match p.view {
                     Some(v) => v.rem_euclid(views.max(1)),
                     None if views >= 8 && p.heading > -999.0 => person_view(p.heading, sc.yaw, p.mirror),
