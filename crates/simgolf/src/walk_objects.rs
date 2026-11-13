@@ -31,6 +31,14 @@ use std::collections::HashMap;
 
 /// World units per metre (walk.rs).
 const M: f32 = crate::walk::METRE;
+
+/// A fly-over or landmark drawn as a model of its own (walk_sky.rs).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Sky {
+    Blimp,
+    Balloon,
+    Pump,
+}
 /// How much bigger than the game's own scale a 3D golfer is drawn, so seen from eye height they stand as tall as the
 /// walker rather than looking like children (the sprites are drawn small against the course).
 const GOLFER: f32 = 1.18;
@@ -1114,6 +1122,28 @@ impl App {
         let mut eased: HashMap<u32, (f32, f32)> = HashMap::new();
         let white = [1.0; 4];
         let near_obstacle = 120.0 * M;
+        // the fly-overs and landmarks drawn as models of their own (walk_sky.rs), by their pictures
+        // (test hook: SG_WALK_NO_MODELS draws them as their cards too)
+        let sky: HashMap<usize, Sky> = if std::env::var_os("SG_WALK_NO_MODELS").is_some() {
+            HashMap::new()
+        } else {
+            self.sprite_index
+                .iter()
+                .filter_map(|(k, v)| {
+                    let name = k.split('|').next().unwrap_or("");
+                    let kind = if name.starts_with("Scenic/blimp") && !name.contains("Shadow") {
+                        Sky::Blimp
+                    } else if name.starts_with("Scenic/hotair") && !name.contains("Shadow") {
+                        Sky::Balloon
+                    } else if name.starts_with("Landmarks/Red Oil Pump") && !name.contains("Shadow") {
+                        Sky::Pump
+                    } else {
+                        return None;
+                    };
+                    v.map(|si| (si, kind))
+                })
+                .collect()
+        };
         for idx in 0..self.props.len() {
             let p = self.props[idx].clone();
             if p.hidden {
@@ -1150,6 +1180,47 @@ impl App {
                 continue;
             }
             let s = SPRITE_UNITS_PER_PIXEL * p.scale;
+            if let Some(&kind) = sky.get(&si) {
+                // sized by the picture: its width is the blimp's length or the pump's, its height the balloon's
+                let (model, size, foot) = match kind {
+                    Sky::Blimp => (crate::walk_sky::blimp(), 52.0, 0.0),
+                    Sky::Balloon => (crate::walk_sky::balloon(p.view.unwrap_or(0).rem_euclid(4) as usize), 22.0, 0.0),
+                    Sky::Pump => (crate::walk_sky::pump_jack(sc.time), 9.0, 0.0),
+                };
+                let span = match kind {
+                    Sky::Balloon => h * s * 0.85,
+                    _ => w * s * 0.8,
+                };
+                let k = span / size;
+                let at = [x, ground + p.lift + foot, z];
+                if !sphere_visible(&sc.planes, at, span) {
+                    o.culled += 1;
+                    continue;
+                }
+                o.drawn += 1;
+                let heading = match kind {
+                    Sky::Blimp => p.heading.to_radians(),
+                    // the pump stands as the picture's quarter turn has it, its head towards the camera's right
+                    Sky::Pump => p.facing as f32 * std::f32::consts::FRAC_PI_2 + std::f32::consts::FRAC_PI_4,
+                    Sky::Balloon => 0.0,
+                };
+                let mut mv: Vec<Vert> = crate::walk_sky::place(&model, heading, k, at).collect();
+                if toon {
+                    crate::walk_toon::outline(&mv, crate::walk_toon::width(dist, 0.04 * M), &mut inks);
+                    crate::walk_toon::soft(&mut mv, sun, eye);
+                }
+                solids.extend(mv);
+                let r = match kind {
+                    Sky::Blimp => 14.0,
+                    Sky::Balloon => 4.0,
+                    Sky::Pump => 5.5,
+                } * k;
+                blob(self, x, z, r, if kind == Sky::Pump { 0.4 } else { 0.25 }, &mut blobs);
+                if kind == Sky::Pump && dist < near_obstacle {
+                    o.obstacles.push(Obstacle::Box { cx: x, cz: z, hx: 3.0 * k, hz: 3.0 * k });
+                }
+                continue;
+            }
             if p.decor {
                 self.walk_marker(o, &p, si, x, z, dist, &mut solids, &mut blobs);
                 continue;
