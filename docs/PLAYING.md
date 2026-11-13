@@ -918,6 +918,9 @@ compare pixel for pixel with the build before the extras).
   original leaves closed) and on each hole with no joined path within three tiles of its tee, with a legend in the upper
   right. The original's monthly warning that a building is not operational gets a **Show** button on the ticker that takes
   the camera to the building.
+- **What unlocks it** (Info page; on in the helper presets): clicking a building that is still locked says how many holes
+  open it and how many the course has (*The Marina opens when the course has 9 holes. It has 4.*), where the original only
+  asks for more holes.
 - **Autosave**: every five minutes of play (time on the course, not in reports or menus) the game is saved to Saved Games
   as *autosave (Latest)*, so a crash or a closed tab loses at most five minutes. The two autosaves before it are kept too,
   as *autosave (Latest, one before)* and *autosave (Latest, two before)* (files `&Latest.sgs`, `&Latest-2.sgs`,

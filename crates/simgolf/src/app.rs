@@ -2280,6 +2280,18 @@ impl App {
         self.club.unlocked.max(land::unlocked_kinds(self.hole_numbers.len(), false))
     }
 
+    /// A locked building's message: the original's `key`, or with the What unlocks it extra the holes that open it.
+    pub fn locked_text(&self, kind: i32, key: &'static str) -> String {
+        if crate::extras::unlock_info() && (6..=17).contains(&kind) {
+            let have = self.hole_numbers.len();
+            if let Some(need) = (have + 1..=36).find(|&n| land::unlocked_kinds(n, false) > kind) {
+                let what = land::building_name(kind);
+                return trf("STR_UNLOCK_AT_HOLES", &[("WHAT", &what), ("NEED", &need), ("HAVE", &have)]);
+            }
+        }
+        tr(key).to_string()
+    }
+
     pub fn build_available(&self, kind: usize) -> bool {
         // The garden page (kinds up to 5, the willow and the bridge) is always open; buildings unlock with holes.
         let k = kind as i32;
@@ -4301,7 +4313,8 @@ impl App {
         let Some(land) = self.land.as_mut() else { return };
         land.sync_from_terrain(&self.terrain);
         if !self.build_available(kind as usize) {
-            return self.show_toast(tr("STR_TOAST_BUILD_MORE_HOLES"));
+            let m = self.locked_text(kind, "STR_TOAST_BUILD_MORE_HOLES");
+            return self.show_toast(&m);
         }
         let Some(land) = self.land.as_mut() else { return };
         // a Snack Bar never upgrades the one standing: any number may be built (land::kind_has_levels, 0x41f926)

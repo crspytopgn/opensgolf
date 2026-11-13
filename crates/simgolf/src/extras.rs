@@ -143,6 +143,10 @@ pub struct Settings {
     /// older one keeps that one as a backup (files_ui.rs, backups.rs). Off by default: the original lists them by name.
     #[serde(default)]
     pub save_newest: bool,
+    /// A locked building's message says how many holes open it (`App::locked_text`). Off by default: the original only
+    /// says more holes are needed.
+    #[serde(default)]
+    pub unlock_info: bool,
 }
 
 impl Settings {
@@ -184,6 +188,7 @@ impl Settings {
         hole_flyover: true,
         pause_aim: false,
         save_newest: true,
+        unlock_info: true,
     };
     pub const ALL_OFF: Settings = Settings {
         people: false,
@@ -218,10 +223,11 @@ impl Settings {
         hole_flyover: false,
         pause_aim: false,
         save_newest: false,
+        unlock_info: false,
     };
 
     /// The ticks as the Extras box's checkbox bits (in `UI_KEYS` order).
-    pub fn bits(&self) -> u32 {
+    pub fn bits(&self) -> u64 {
         [
             self.people,
             self.history,
@@ -255,13 +261,14 @@ impl Settings {
             self.hole_flyover,
             self.pause_aim,
             self.save_newest,
+            self.unlock_info,
         ]
         .iter()
         .enumerate()
-        .fold(0, |m, (i, &on)| m | (on as u32) << i)
+        .fold(0, |m, (i, &on)| m | (on as u64) << i)
     }
 
-    pub fn from_bits(m: u32) -> Settings {
+    pub fn from_bits(m: u64) -> Settings {
         let on = |i: u32| m & 1 << i != 0;
         Settings {
             people: on(0),
@@ -296,6 +303,7 @@ impl Settings {
             hole_flyover: on(29),
             pause_aim: on(30),
             save_newest: on(31),
+            unlock_info: on(32),
         }
     }
 
@@ -335,7 +343,7 @@ impl Default for Settings {
 
 /// The interface extras' lines on the Extras box's Interface page (extras_ui.rs), one tick per extra in `Settings::bits`
 /// order (text keys in lang/en.txt).
-pub const UI_KEYS: [&str; 32] = [
+pub const UI_KEYS: [&str; 33] = [
     "STR_EXTRAS_PEOPLE",
     "STR_EXTRAS_HISTORY",
     "STR_EXTRAS_NAME_TAGS",
@@ -368,6 +376,7 @@ pub const UI_KEYS: [&str; 32] = [
     "STR_EXTRAS_HOLE_FLYOVER",
     "STR_EXTRAS_PAUSE_AIM",
     "STR_EXTRAS_SAVE_NEWEST",
+    "STR_EXTRAS_UNLOCK_INFO",
 ];
 
 /// The update check's value when settings.json has none (`Settings::update_check`).
@@ -483,6 +492,9 @@ pub fn pause_aim() -> bool {
 /// Whether the Load list is newest first with dates, and saves keep backups (files_ui.rs, backups.rs).
 pub fn save_newest() -> bool {
     settings().save_newest
+}
+pub fn unlock_info() -> bool {
+    settings().unlock_info
 }
 pub fn random_trees() -> bool {
     settings().random_trees
@@ -1235,7 +1247,7 @@ mod tests {
         let f = Settings { save_files: true, ..Settings::ALL_OFF };
         assert_eq!(f.bits(), 1 << 22);
         assert_eq!(Settings::from_bits(f.bits()), f);
-        assert_eq!(UI_KEYS.len(), 32);
+        assert_eq!(UI_KEYS.len(), 33);
     }
 
     #[test]

@@ -781,6 +781,7 @@ STR_TOAST_EMPLOYEE_POSTED               :{EMPLOYEE} will work around here
 STR_TOAST_EMPLOYEE_CLICK                :Click the course where the {EMPLOYEE} should work
 # the typo is the exe's
 STR_TOAST_BUILDING_LOCKED               :This building is will become available as you build additional holes.
+STR_UNLOCK_AT_HOLES                     :The {WHAT} opens when the course has {NEED} holes. It has {HAVE}.
 STR_TOAST_NO_HOME_SITES                 :No home sites are free: each Silver (or better) member buys one lot.
 STR_TOAST_NO_LANDMARK                   :The club has no landmark to place yet.
 STR_TOAST_CANNOT_RENAME                 :Employees cannot be renamed yet
@@ -3587,7 +3588,9 @@ STR_EXTRAS_DESC_HOLE_FLYOVER            :Hole Stats gets a Fly over button: the 
 STR_EXTRAS_PAUSE_AIM                    : Pause while you aim your pro
 STR_EXTRAS_DESC_PAUSE_AIM               :The game stands still while your pro waits for your shot, in tournaments too, and goes on as you swing.
 STR_EXTRAS_SAVE_NEWEST                  : Saves newest first, with dates and backups
+STR_EXTRAS_UNLOCK_INFO                  : What unlocks it: how many holes open a building
 STR_EXTRAS_DESC_SAVE_NEWEST             :Load Previous Game lists your saves newest first with when each was saved, and saving over a game keeps its last three versions as backups.
+STR_EXTRAS_DESC_UNLOCK_INFO             :A locked building says how many holes open it and how many the course has, where the original only asks for more holes.
 STR_HOLESTATS_FLY_OVER                  :Fly over
 
 # The launcher (the port's own, launcher.rs; docs/PLAYING.md "The launcher"): the screen before the title menu. Its tabs,
