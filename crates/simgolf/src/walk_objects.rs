@@ -1085,7 +1085,7 @@ impl App {
                 if let Some((kind, variant)) = kind_at(x, z).filter(|_| std::env::var_os("SG_WALK_NO_MODELS").is_none()) {
                     let theme = self.theme;
                     let model = o.models.entry((kind, theme, variant)).or_insert_with(|| crate::walk_models::model(kind, theme, variant));
-                    if let (Some(m), Some((cx, cz, hx, hz))) = (model.as_ref(), crate::walk_models::model_half(kind)) {
+                    if let (Some(m), Some((cx, cz, hx, hz))) = (model.as_ref(), crate::walk_models::model_half(kind, theme)) {
                         if !modelled.insert(((x * 4.0) as i64, (z * 4.0) as i64)) {
                             continue;
                         }

@@ -36,6 +36,9 @@ struct Palette {
     flower: Rgb,
     lamp: Rgb,
     stone: Rgb,
+    /// How the theme builds: 0 clapboard (Parkland), 1 stone (Links), 2 adobe under flat roofs (Desert), 3 light timber
+    /// under steep, deep roofs (Tropical).
+    style: u8,
 }
 
 /// The clubhouse's colours by theme (app::THEMES: 0 Parkland, 1 Links, 2 Desert, 3 Tropical).
@@ -57,6 +60,7 @@ fn clubhouse_palette(theme: usize) -> Palette {
         flower: [0.82, 0.48, 0.78],
         lamp: [0.30, 0.66, 0.72],
         stone: [0.62, 0.58, 0.52],
+        style: 0,
     };
     match theme {
         1 => Palette {
@@ -65,6 +69,7 @@ fn clubhouse_palette(theme: usize) -> Palette {
             trim: [0.20, 0.30, 0.38],
             rail: [0.92, 0.92, 0.90],
             awning: [0.18, 0.32, 0.52],
+            style: 1,
             ..parkland
         },
         2 => Palette {
@@ -75,6 +80,7 @@ fn clubhouse_palette(theme: usize) -> Palette {
             rail: [0.48, 0.30, 0.20],
             awning: [0.20, 0.50, 0.50],
             leaf: [0.40, 0.48, 0.26],
+            style: 2,
             ..parkland
         },
         3 => Palette {
@@ -84,6 +90,7 @@ fn clubhouse_palette(theme: usize) -> Palette {
             rail: [0.95, 0.95, 0.92],
             awning: [0.18, 0.55, 0.52],
             leaf: [0.20, 0.50, 0.22],
+            style: 3,
             ..parkland
         },
         _ => parkland,
@@ -123,6 +130,33 @@ fn ring(cx: f32, cz: f32, r: f32, n: usize, turn: f32) -> Vec<(f32, f32)> {
 const OCT: f32 = FRAC_PI_8;
 
 impl Build {
+    /// The lines across a wall from `y0` to `y1` that show how it is built: clapboards' shadow lines, stone courses, or
+    /// none for adobe. `sides` are the wall's sides' lengths.
+    fn courses(&mut self, c: &[(f32, f32)], sides: &[f32], y0: f32, y1: f32, pal: &Palette) {
+        let (step, h, dark) = match pal.style {
+            1 => (0.6, 0.05, 0.8),
+            2 => return,
+            _ => (0.45, 0.06, 0.86),
+        };
+        let mut y = y0 + step;
+        let mut row = 0;
+        while y < y1 - 0.4 {
+            for (i, &len) in sides.iter().enumerate() {
+                self.panel(c, i, 0.5, len, y - h, y, 0.015, scale(pal.wall, dark));
+                if pal.style == 1 {
+                    // the stones' joints, staggered course by course
+                    let n = (len / 1.1).floor().max(1.0) as usize;
+                    for k in 0..n {
+                        let along = (k as f32 + if row % 2 == 0 { 0.25 } else { 0.75 }) / n as f32;
+                        self.panel(c, i, along, 0.05, y, (y + step - h).min(y1), 0.015, scale(pal.wall, dark));
+                    }
+                }
+            }
+            y += step;
+            row += 1;
+        }
+    }
+
     /// A flat polygon, its normal turned away from `inside`. `shade` darkens its corners below `y` (a wall's foot).
     fn poly(&mut self, p: &[[f32; 3]], inside: [f32; 3], col: Rgb) {
         if p.len() < 3 {
@@ -386,18 +420,9 @@ impl Build {
     ) -> Vec<(f32, f32)> {
         let c = ring(cx, cz, r, 8, OCT);
         self.walls(&c, 0.0, floor + wall, pal.wall);
-        // its clapboards: a shadow line under each board
+        // its clapboards or courses
         let side_len = 2.0 * r * OCT.sin();
-        let mut y = floor + 0.45;
-        while y < floor + wall - 0.6 {
-            for i in 0..8 {
-                self.panel(&c, i, 0.5, side_len, y - 0.06, y, 0.015, scale(pal.wall, 0.86));
-            }
-            y += 0.45;
-        }
-        // its foundation and a band under the eaves
-        self.walls(&ring(cx, cz, r + 0.12, 8, OCT), 0.0, floor, pal.stone);
-        self.walls(&ring(cx, cz, r + 0.08, 8, OCT), floor + wall - 0.5, floor + wall, pal.trim);
+        self.courses(&c, &[side_len; 8], floor, floor + wall, pal);
         let storeys = if wall > 6.5 { 2 } else { 1 };
         let side = 2.0 * r * OCT.sin();
         let sh = wall / storeys as f32;
@@ -657,13 +682,7 @@ impl Build {
         self.walls(&rect(x0 - 0.1, z0 - 0.1, x1 + 0.1, z1 + 0.1), -0.5, floor, pal.stone);
         self.walls(&c, floor - 0.05, floor + wall, pal.wall);
         let lens = [x1 - x0, z1 - z0, x1 - x0, z1 - z0];
-        let mut y = floor + 0.45;
-        while y < floor + wall - 0.5 {
-            for (i, &len) in lens.iter().enumerate() {
-                self.panel(&c, i, 0.5, len, y - 0.06, y, 0.015, scale(pal.wall, 0.86));
-            }
-            y += 0.45;
-        }
+        self.courses(&c, &lens, floor, floor + wall, pal);
         // corner boards and the band under the eaves
         for &(x, z) in &c {
             self.cuboid([x - 0.2, floor, z - 0.2], [x + 0.2, floor + wall, z + 0.2], pal.frame);
@@ -688,7 +707,11 @@ impl Build {
             self.panel(&c, 2, 0.5, 0.08, floor, floor + 2.5, 0.09, pal.frame);
             self.cuboid([(x0 + x1) * 0.5 - 1.8, -0.3, z1], [(x0 + x1) * 0.5 + 1.8, floor, z1 + 1.2], pal.stone);
         }
-        self.rect_roof(x0, z0, x1, z1, floor + wall, rh, 0.6, roof, pal);
+        match pal.style {
+            2 => self.rect_roof(x0, z0, x1, z1, floor + wall, rh, 0.2, Roof::Flat, pal),
+            3 => self.rect_roof(x0, z0, x1, z1, floor + wall, rh * 1.35, 1.3, roof, pal),
+            _ => self.rect_roof(x0, z0, x1, z1, floor + wall, rh, 0.6, roof, pal),
+        }
     }
 
     /// A table under a striped umbrella, with chairs.
@@ -741,6 +764,16 @@ impl Build {
 
 /// A palette for a building of `wall` colour under a `roof` colour, in a theme.
 fn palette(theme: usize, wall: Rgb, roof: Rgb) -> Palette {
+    let mix = |a: Rgb, b: Rgb, t: f32| [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+    let (wall, roof) = match theme {
+        // grey stone under slate
+        1 => (mix(wall, [0.64, 0.62, 0.58], 0.75), [0.24, 0.26, 0.30]),
+        // sand coloured adobe; its flat roofs show only their parapets
+        2 => (mix(wall, [0.86, 0.71, 0.53], 0.75), [0.70, 0.36, 0.24]),
+        // pale timber under thatch
+        3 => (mix(wall, [0.96, 0.94, 0.86], 0.5), [0.64, 0.54, 0.34]),
+        _ => (wall, roof),
+    };
     Palette { wall, roof, ..clubhouse_palette(theme) }
 }
 
@@ -1155,6 +1188,505 @@ fn tv_booth(theme: usize) -> Build {
     b
 }
 
+impl Build {
+    /// A palm: a leaning, ringed trunk and drooping fronds.
+    fn palm(&mut self, x: f32, z: f32, h: f32, pal: &Palette) {
+        let lean = hash(x, z) * TAU;
+        let (lx, lz) = (lean.cos() * 0.12, lean.sin() * 0.12);
+        let n = 8;
+        for k in 0..n {
+            let (t0, t1) = (k as f32 / n as f32, (k + 1) as f32 / n as f32);
+            let (y0, y1) = (h * t0, h * t1);
+            let off = |t: f32| (x + lx * h * t * t, z + lz * h * t * t);
+            let (a, b) = (off(t0), off(t1));
+            let r0 = 0.28 - 0.08 * t0;
+            let col = scale(pal.trunk, if k % 2 == 0 { 1.0 } else { 0.85 });
+            let lo = ring(a.0, a.1, r0, 6, 0.0);
+            let hi = ring(b.0, b.1, r0 - 0.01, 6, 0.0);
+            for i in 0..6 {
+                let j = (i + 1) % 6;
+                self.poly(
+                    &[[lo[i].0, y0, lo[i].1], [lo[j].0, y0, lo[j].1], [hi[j].0, y1, hi[j].1], [hi[i].0, y1, hi[i].1]],
+                    [a.0, (y0 + y1) * 0.5, a.1],
+                    col,
+                );
+            }
+        }
+        let top = [x + lx * h, h, z + lz * h];
+        for k in 0..9 {
+            let a = TAU * k as f32 / 9.0 + lean;
+            let (dx, dz) = (a.cos(), a.sin());
+            let len = h * 0.42;
+            let mid = [top[0] + dx * len * 0.55, top[1] + 0.5, top[2] + dz * len * 0.55];
+            let tip = [top[0] + dx * len, top[1] - h * 0.18, top[2] + dz * len];
+            let (sx, sz) = (-dz * 0.55, dx * 0.55);
+            let col = if k % 2 == 0 { pal.leaf } else { scale(pal.leaf, 0.8) };
+            for up in [1.0, -1.0] {
+                let inside = [top[0], top[1] - up * 3.0, top[2]];
+                self.poly(&[top, [mid[0] + sx, mid[1], mid[2] + sz], tip], inside, col);
+                self.poly(&[top, tip, [mid[0] - sx, mid[1], mid[2] - sz]], inside, col);
+            }
+        }
+    }
+
+    /// Battlements along the top of a wall from `a` to `b` at `y`, `t` thick.
+    fn battlements(&mut self, a: (f32, f32), b: (f32, f32), y: f32, t: f32, col: Rgb) {
+        let len = ((b.0 - a.0).powi(2) + (b.1 - a.1).powi(2)).sqrt();
+        let n = (len / 1.6).floor().max(1.0) as usize;
+        let (dx, dz) = ((b.0 - a.0) / len, (b.1 - a.1) / len);
+        for k in 0..n {
+            let s = len * (k as f32 + 0.25) / n as f32;
+            let e = s + len * 0.5 / n as f32;
+            let (p, q) = ((a.0 + dx * s, a.1 + dz * s), (a.0 + dx * e, a.1 + dz * e));
+            let (nx, nz) = (-dz * t * 0.5, dx * t * 0.5);
+            let c = [(p.0 - nx, p.1 - nz), (q.0 - nx, q.1 - nz), (q.0 + nx, q.1 + nz), (p.0 + nx, p.1 + nz)];
+            self.prism(&c, y, y + 1.0, col);
+        }
+    }
+
+    /// A round tower: stone walls, battlements round its top, slit windows and a conical roof if `cone`.
+    fn tower(&mut self, x: f32, z: f32, r: f32, h: f32, cone: bool, pal: &Palette) {
+        let c = ring(x, z, r, 12, 0.0);
+        self.walls(&c, -0.5, h, pal.wall);
+        self.courses(&c, &[2.0 * r * (std::f32::consts::PI / 12.0).sin(); 12], 0.0, h, pal);
+        for i in (0..12).step_by(3) {
+            for y in [h * 0.35, h * 0.7] {
+                self.panel(&c, i, 0.5, 0.35, y, y + 1.4, 0.04, [0.10, 0.10, 0.12]);
+            }
+        }
+        if cone {
+            self.walls(&ring(x, z, r + 0.3, 12, 0.0), h - 0.6, h, scale(pal.wall, 0.9));
+            self.roof(&ring(x, z, r + 0.5, 12, 0.0), h, h + r * 2.2, 0.0, pal.roof);
+        } else {
+            self.cap(&c, h, true, scale(pal.wall, 0.85));
+            for i in 0..12 {
+                self.battlements(c[i], c[(i + 1) % 12], h, 0.6, pal.wall);
+            }
+        }
+    }
+
+    /// A horse, standing: body, neck and head, legs and tail.
+    fn horse(&mut self, x: f32, z: f32, along_x: bool, col: Rgb) {
+        let p = |a: f32, b: f32| if along_x { (x + a, z + b) } else { (x + b, z + a) };
+        let bx = |b: &mut Build, a0: f32, a1: f32, y0: f32, y1: f32, w: f32, c: Rgb| {
+            let (p0, p1) = (p(a0, -w), p(a1, w));
+            b.cuboid([p0.0.min(p1.0), y0, p0.1.min(p1.1)], [p0.0.max(p1.0), y1, p0.1.max(p1.1)], c);
+        };
+        bx(self, -0.9, 0.9, 1.0, 1.6, 0.3, col);
+        for a in [-0.75, 0.75] {
+            for w in [-0.2, 0.2] {
+                let q = p(a, w);
+                self.cuboid([q.0 - 0.07, 0.0, q.1 - 0.07], [q.0 + 0.07, 1.05, q.1 + 0.07], scale(col, 0.8));
+            }
+        }
+        bx(self, 0.75, 1.1, 1.4, 2.1, 0.17, col);
+        bx(self, 1.0, 1.55, 1.85, 2.15, 0.13, col);
+        bx(self, -1.05, -0.9, 0.9, 1.5, 0.06, scale(col, 0.5));
+    }
+}
+
+/// The pub (the Links snack bar): a whitewashed stone cottage under thatch, its chimneys and hanging sign, benches
+/// outside. 2 tiles.
+fn pub_inn(theme: usize) -> Build {
+    let pal = Palette { wall: [0.93, 0.92, 0.88], roof: [0.62, 0.52, 0.32], style: 0, ..clubhouse_palette(theme) };
+    let mut b = Build::default();
+    b.pad(-11.0, -7.0, 11.0, 11.0, 0.03, pal.stone);
+    b.block(-8.0, -5.0, 8.0, 2.5, 1, 3.4, Roof::Gable, 4.0, &pal, true);
+    for x in [-7.5, 7.5] {
+        b.cuboid([x - 0.6, 3.0, -2.0], [x + 0.6, 9.5, -0.6], [0.58, 0.55, 0.50]);
+    }
+    // the sign on its bracket
+    b.cuboid([3.2, 0.0, 3.0], [3.4, 3.6, 3.2], pal.trunk);
+    b.cuboid([3.3, 3.4, 3.05], [4.8, 3.5, 3.15], pal.trunk);
+    b.cuboid([4.0, 2.2, 3.05], [4.7, 3.3, 3.15], [0.55, 0.15, 0.12]);
+    for k in 0..3 {
+        let x = -7.0 + k as f32 * 4.5;
+        b.cuboid([x - 1.0, 0.6, 6.0], [x + 1.0, 0.7, 7.0], pal.deck);
+        b.cuboid([x - 1.0, 0.35, 5.2], [x + 1.0, 0.45, 5.6], pal.deck);
+        b.cuboid([x - 1.0, 0.35, 7.4], [x + 1.0, 0.45, 7.8], pal.deck);
+        for dx in [-0.9, 0.9] {
+            b.cuboid([x + dx - 0.05, 0.0, 5.3], [x + dx + 0.05, 0.6, 7.7], pal.deck);
+        }
+    }
+    b.shrub(-10.0, -6.0, 1.2, &pal, false);
+    b.tree(10.0, -8.0, 8.0, &pal);
+    b
+}
+
+/// The stable (the Links take on kind 9): a long timber stable with half doors, a paddock with its rail fence, horses
+/// and hay bales. 3 tiles.
+fn stable(theme: usize) -> Build {
+    let pal =
+        Palette { wall: [0.48, 0.28, 0.20], roof: [0.26, 0.28, 0.30], frame: [0.92, 0.90, 0.84], style: 0, ..clubhouse_palette(theme) };
+    let mut b = Build::default();
+    b.block(-16.0, -22.0, 16.0, -14.0, 1, 3.6, Roof::Gable, 3.4, &pal, false);
+    let c = rect(-16.0, -22.0, 16.0, -14.0);
+    for k in 0..8 {
+        let along = (k as f32 + 0.5) / 8.0;
+        b.panel(&c, 2, along, 2.0, 0.5, 3.2, 0.04, pal.frame);
+        b.panel(&c, 2, along, 1.7, 0.5, 1.8, 0.07, scale(pal.wall, 0.75));
+        b.panel(&c, 2, along, 1.7, 1.9, 3.0, 0.07, [0.08, 0.06, 0.05]);
+    }
+    // a cupola on the ridge
+    b.cuboid([-1.2, 7.2, -19.2], [1.2, 9.0, -16.8], pal.frame);
+    b.roof(&rect(-1.6, -19.6, 1.6, -16.4), 9.0, 10.4, 0.0, pal.roof);
+    let paddock = rect(-22.0, -8.0, 22.0, 24.0);
+    b.railing(&paddock, 0.0, 3.0, None, pal.frame);
+    for (k, &(x, z)) in [(-8.0, 2.0), (6.0, 10.0), (-2.0, 16.0)].iter().enumerate() {
+        let col = [[0.42, 0.26, 0.15], [0.20, 0.14, 0.10], [0.75, 0.70, 0.62]][k];
+        b.horse(x, z, k % 2 == 0, col);
+    }
+    for &(x, z) in &[(18.0, -12.0), (20.0, -11.0), (19.0, -12.4)] {
+        b.cuboid([x - 0.9, 0.0, z - 0.5], [x + 0.9, 0.9, z + 0.5], [0.84, 0.74, 0.42]);
+    }
+    for &(x, z) in &[(-26.0, -24.0), (26.0, -24.0), (-27.0, 26.0)] {
+        b.tree(x, z, 9.0, &pal);
+    }
+    b
+}
+
+/// The church (the Links take on kind 12): a stone nave under slate with tall windows, a square tower with a spire, and
+/// a churchyard. 2 tiles.
+fn church(theme: usize) -> Build {
+    let pal = Palette { wall: [0.62, 0.60, 0.56], roof: [0.24, 0.26, 0.30], style: 1, ..clubhouse_palette(theme) };
+    let mut b = Build::default();
+    b.block(-5.0, -14.0, 5.0, 6.0, 1, 7.0, Roof::Gable, 5.0, &pal, false);
+    // the tower at the front, its door, belfry openings and spire
+    let t = rect(-3.0, 6.0, 3.0, 12.0);
+    b.walls(&t, -0.5, 16.0, pal.wall);
+    b.courses(&t, &[6.0; 4], 0.0, 16.0, &pal);
+    b.panel(&t, 2, 0.5, 2.0, 0.0, 3.6, 0.05, pal.door);
+    for i in 0..4 {
+        b.panel(&t, i, 0.5, 1.2, 12.5, 14.8, 0.05, [0.08, 0.08, 0.10]);
+    }
+    b.cap(&t, 16.0, true, scale(pal.wall, 0.85));
+    for i in 0..4 {
+        b.battlements(t[i], t[(i + 1) % 4], 16.0, 0.5, pal.wall);
+    }
+    b.roof(&rect(-2.4, 6.6, 2.4, 11.4), 16.0, 26.0, 0.0, pal.roof);
+    b.cuboid([-0.06, 26.0, 8.94], [0.06, 27.6, 9.06], pal.gold);
+    b.cuboid([-0.5, 26.9, 8.94], [0.5, 27.0, 9.06], pal.gold);
+    // gravestones and a wall round the churchyard
+    for k in 0..12 {
+        let (x, z) = (-14.0 + (k % 4) as f32 * 2.2 + hash(k as f32, 1.0), -10.0 + (k / 4) as f32 * 4.0);
+        b.cuboid([x - 0.35, 0.0, z - 0.1], [x + 0.35, 0.9 + hash(x, z) * 0.4, z + 0.1], [0.55, 0.55, 0.53]);
+    }
+    let yard = rect(-18.0, -18.0, 18.0, 16.0);
+    for i in 0..4 {
+        let (a, c) = (yard[i], yard[(i + 1) % 4]);
+        if i == 2 {
+            b.cuboid([a.0.min(c.0), 0.0, a.1 - 0.3], [-2.0, 1.0, a.1 + 0.3], pal.wall);
+            b.cuboid([2.0, 0.0, a.1 - 0.3], [a.0.max(c.0), 1.0, a.1 + 0.3], pal.wall);
+        } else {
+            b.cuboid([a.0.min(c.0) - 0.3, 0.0, a.1.min(c.1) - 0.3], [a.0.max(c.0) + 0.3, 1.0, a.1.max(c.1) + 0.3], pal.wall);
+        }
+    }
+    b.cypress(-16.0, 12.0, 8.0, &pal);
+    b.cypress(16.0, 12.0, 8.5, &pal);
+    b.tree(14.0, -13.0, 10.0, &pal);
+    b
+}
+
+/// The castle (the Links take on kind 14): a curtain wall with round corner towers and a gatehouse round a tall
+/// square keep. 6 tiles.
+fn castle(theme: usize) -> Build {
+    let pal = Palette { wall: [0.60, 0.58, 0.54], roof: [0.24, 0.26, 0.30], style: 1, ..clubhouse_palette(theme) };
+    let mut b = Build::default();
+    let (h, w): (f32, f32) = (32.0, 9.0);
+    let corners: [(f32, f32); 4] = [(-h, -h), (h, -h), (h, h), (-h, h)];
+    for i in 0..4 {
+        let (a, c) = (corners[i], corners[(i + 1) % 4]);
+        let (x0, x1, z0, z1) = (a.0.min(c.0) - 1.2, a.0.max(c.0) + 1.2, a.1.min(c.1) - 1.2, a.1.max(c.1) + 1.2);
+        let wall = rect(x0, z0, x1, z1);
+        b.walls(&wall, -0.5, w, pal.wall);
+        b.courses(&wall, &[x1 - x0, z1 - z0, x1 - x0, z1 - z0], 0.0, w, &pal);
+        b.cap(&wall, w, true, scale(pal.wall, 0.85));
+        let out = |p: (f32, f32)| (p.0 * (h + 1.2) / h, p.1 * (h + 1.2) / h);
+        b.battlements(out(a), out(c), w, 0.6, pal.wall);
+    }
+    for &(x, z) in &corners {
+        b.tower(x, z, 4.5, 14.0, false, &pal);
+    }
+    // the gatehouse
+    b.tower(-5.5, h, 3.6, 13.0, false, &pal);
+    b.tower(5.5, h, 3.6, 13.0, false, &pal);
+    b.cuboid([-3.0, 0.0, h + 1.25], [3.0, 4.5, h + 1.3], [0.12, 0.10, 0.08]);
+    // the keep
+    let k = rect(-10.0, -12.0, 10.0, 8.0);
+    b.walls(&k, -0.5, 24.0, pal.wall);
+    b.courses(&k, &[20.0; 4], 0.0, 24.0, &pal);
+    for i in 0..4 {
+        for y in [6.0, 12.0, 18.0] {
+            for along in [0.3, 0.7] {
+                b.panel(&k, i, along, 0.9, y, y + 2.2, 0.05, [0.10, 0.10, 0.12]);
+            }
+        }
+    }
+    b.cap(&k, 24.0, true, scale(pal.wall, 0.85));
+    for i in 0..4 {
+        b.battlements(k[i], k[(i + 1) % 4], 24.0, 0.7, pal.wall);
+    }
+    for &(x, z) in &k {
+        b.tower(x, z, 2.2, 28.0, true, &pal);
+    }
+    // a flag on the keep
+    b.cuboid([-0.08, 24.0, -2.08], [0.08, 31.0, -1.92], [0.3, 0.3, 0.3]);
+    b.poly(&[[0.0, 31.0, -2.0], [3.0, 30.3, -2.0], [3.0, 29.0, -2.0], [0.0, 29.6, -2.0]], [1.0, 30.0, -3.0], [0.15, 0.25, 0.55]);
+    b.poly(&[[0.0, 31.0, -2.0], [3.0, 30.3, -2.0], [3.0, 29.0, -2.0], [0.0, 29.6, -2.0]], [1.0, 30.0, -1.0], [0.15, 0.25, 0.55]);
+    b.pad(-2.5, h + 1.3, 2.5, h + 14.0, 0.04, [0.55, 0.50, 0.42]);
+    for &(x, z) in &[(-50.0, 40.0), (48.0, 44.0), (-52.0, -40.0), (50.0, -46.0)] {
+        b.tree(x, z, 11.0, &pal);
+    }
+    b
+}
+
+/// The spa (the Desert take on kind 9): a low adobe building under a flat roof with a shaded terrace, a pool and palms.
+/// 3 tiles.
+fn spa(theme: usize) -> Build {
+    let pal = palette(theme, [0.88, 0.76, 0.60], [0.70, 0.36, 0.24]);
+    let mut b = Build::default();
+    b.pad(-24.0, -22.0, 24.0, 22.0, 0.04, [0.86, 0.78, 0.64]);
+    b.block(-16.0, -20.0, 16.0, -9.0, 1, 4.0, Roof::Flat, 0.5, &pal, true);
+    b.block(-16.0, -9.0, -6.0, 0.0, 1, 4.0, Roof::Flat, 0.5, &pal, false);
+    // a pergola over the terrace
+    for k in 0..6 {
+        let x = -4.0 + k as f32 * 3.6;
+        b.cuboid([x - 0.15, 0.0, -1.0], [x + 0.15, 3.2, -0.7], pal.frame);
+        b.cuboid([x - 0.1, 3.2, -9.0], [x + 0.1, 3.4, -0.7], pal.trunk);
+    }
+    b.cuboid([-4.2, 3.2, -1.0], [14.2, 3.45, -0.7], pal.trunk);
+    b.pad(-2.0, 4.0, 18.0, 14.0, 0.08, [0.20, 0.62, 0.70]);
+    b.walls(&rect(-2.3, 3.7, 18.3, 14.3), 0.0, 0.25, [0.92, 0.90, 0.84]);
+    b.walls(&rect(-2.0, 4.0, 18.0, 14.0), 0.0, 0.25, [0.92, 0.90, 0.84]);
+    for k in 0..4 {
+        let x = 0.0 + k as f32 * 4.5;
+        b.cuboid([x - 0.4, 0.05, 16.0], [x + 0.4, 0.45, 18.0], pal.frame);
+    }
+    for &(x, z) in &[(-20.0, 4.0), (-20.0, 14.0), (21.0, 2.0), (21.0, 16.0), (-10.0, 19.0), (10.0, 20.0)] {
+        b.palm(x, z, 8.0 + hash(x, z) * 3.0, &pal);
+    }
+    b
+}
+
+/// The helipad (the Desert take on kind 12): a raised pad with its markings, a helicopter, a windsock and a control
+/// hut. 2 tiles.
+fn helipad(theme: usize) -> Build {
+    let pal = palette(theme, [0.85, 0.80, 0.70], [0.6, 0.4, 0.3]);
+    let mut b = Build::default();
+    let pad = ring(0.0, 2.0, 11.0, 24, 0.0);
+    b.prism(&pad, -0.5, 0.6, [0.36, 0.36, 0.38]);
+    let edge = ring(0.0, 2.0, 10.2, 24, 0.0);
+    for i in 0..24 {
+        let (a, c) = (edge[i], edge[(i + 1) % 24]);
+        if i % 2 == 0 {
+            b.poly(
+                &[
+                    [a.0, 0.62, a.1],
+                    [c.0, 0.62, c.1],
+                    [c.0 * 0.95, 0.62, 2.0 + (c.1 - 2.0) * 0.95],
+                    [a.0 * 0.95, 0.62, 2.0 + (a.1 - 2.0) * 0.95],
+                ],
+                [0.0, 0.0, 2.0],
+                [0.95, 0.85, 0.2],
+            );
+        }
+    }
+    let white = [0.95, 0.95, 0.93];
+    b.pad(-3.0, -2.0, -2.0, 6.0, 0.63, white);
+    b.pad(2.0, -2.0, 3.0, 6.0, 0.63, white);
+    b.pad(-2.0, 1.5, 2.0, 2.5, 0.63, white);
+    // the helicopter, standing to one side of the H
+    let (hx, hz) = (0.0, 2.0);
+    let body = [0.18, 0.30, 0.55];
+    b.ball([hx, 2.2, hz], 1.5, body);
+    b.ball([hx + 0.9, 2.3, hz], 1.0, [0.55, 0.70, 0.80]);
+    b.cuboid([hx - 6.0, 2.2, hz - 0.2], [hx - 1.0, 2.6, hz + 0.2], body);
+    b.cuboid([hx - 6.2, 2.2, hz - 0.05], [hx - 5.6, 3.6, hz + 0.05], body);
+    for z in [hz - 1.0, hz + 1.0] {
+        b.cuboid([hx - 1.5, 0.6, z - 0.06], [hx + 1.6, 0.7, z + 0.06], [0.2, 0.2, 0.2]);
+    }
+    b.cuboid([hx - 0.06, 3.6, hz - 0.06], [hx + 0.06, 4.0, hz + 0.06], [0.2, 0.2, 0.2]);
+    for a in [0.3_f32, 0.3 + std::f32::consts::FRAC_PI_2] {
+        let (dx, dz) = (a.cos() * 5.5, a.sin() * 5.5);
+        b.poly(
+            &[
+                [hx - dx - dz * 0.03, 4.0, hz - dz + dx * 0.03],
+                [hx + dx - dz * 0.03, 4.0, hz + dz + dx * 0.03],
+                [hx + dx + dz * 0.03, 4.05, hz + dz - dx * 0.03],
+                [hx - dx + dz * 0.03, 4.05, hz - dz - dx * 0.03],
+            ],
+            [hx, 3.0, hz],
+            [0.15, 0.15, 0.15],
+        );
+    }
+    b.block(10.0, -16.0, 16.0, -11.0, 1, 3.2, Roof::Flat, 0.5, &pal, true);
+    b.cuboid([-14.0, 0.0, -12.0], [-13.85, 6.0, -11.85], white);
+    b.cuboid([-13.9, 5.2, -12.3], [-11.0, 5.9, -11.5], [0.95, 0.5, 0.1]);
+    for &(x, z) in &[(-16.0, 14.0), (16.0, 14.0)] {
+        b.palm(x, z, 9.0, &pal);
+    }
+    b
+}
+
+/// The casino (the Desert take on kind 14): a tall hotel tower over a broad, lit podium with a grand entrance, a big
+/// sign, fountains and palms. 6 tiles.
+fn casino(theme: usize) -> Build {
+    let pal =
+        Palette { wall: [0.92, 0.86, 0.72], roof: [0.70, 0.36, 0.24], glass: [0.30, 0.42, 0.55], style: 2, ..clubhouse_palette(theme) };
+    let mut b = Build::default();
+    b.pad(-60.0, -40.0, 60.0, 50.0, 0.03, [0.82, 0.76, 0.64]);
+    b.block(-40.0, -30.0, 40.0, 0.0, 2, 4.5, Roof::Flat, 0.5, &pal, true);
+    // the tower, its windows in bands
+    let t = rect(-14.0, -26.0, 14.0, -14.0);
+    let top = 60.0;
+    b.walls(&t, 9.0, top, pal.wall);
+    let mut y = 10.0;
+    while y < top - 2.0 {
+        for (i, len) in [(0usize, 28.0), (1, 12.0), (2, 28.0), (3, 12.0)] {
+            b.panel(&t, i, 0.5, len - 1.0, y, y + 1.4, 0.04, pal.glass);
+        }
+        y += 3.0;
+    }
+    b.rect_roof(-14.0, -26.0, 14.0, -14.0, top, 0.5, 0.3, Roof::Flat, &pal);
+    // the sign: a tall pylon of lights
+    let gold = pal.gold;
+    b.cuboid([28.0, 0.0, 20.0], [30.0, 16.0, 22.0], [0.3, 0.3, 0.32]);
+    b.cuboid([24.0, 16.0, 20.5], [34.0, 24.0, 21.5], [0.85, 0.15, 0.25]);
+    for k in 0..6 {
+        let yy = 17.0 + k as f32 * 1.2;
+        b.cuboid([24.5, yy, 21.5], [33.5, yy + 0.4, 21.6], gold);
+    }
+    b.ball([29.0, 25.2, 21.0], 1.2, gold);
+    // the porte-cochère
+    b.cuboid([-12.0, 6.0, 0.0], [12.0, 7.0, 10.0], pal.trim);
+    for &(x, z) in &[(-11.0, 9.0), (11.0, 9.0), (-11.0, 4.0), (11.0, 4.0)] {
+        b.prism(&ring(x, z, 0.5, 10, 0.0), 0.0, 6.0, pal.frame);
+    }
+    for k in 0..12 {
+        b.ball([-11.0 + k as f32 * 2.0, 6.0, 10.05], 0.2, gold);
+    }
+    // fountains and palms along the drive
+    for x in [-26.0, 26.0] {
+        b.prism(&ring(x, 25.0, 7.0, 20, 0.0), 0.0, 0.6, pal.stone);
+        b.prism(&ring(x, 25.0, 6.4, 20, 0.0), 0.0, 0.65, [0.20, 0.55, 0.75]);
+        b.prism(&ring(x, 25.0, 0.5, 8, 0.0), 0.0, 3.5, pal.frame);
+        b.ball([x, 4.2, 25.0], 1.0, [0.82, 0.92, 0.96]);
+    }
+    for k in 0..8 {
+        let z = 14.0 + k as f32 * 4.5;
+        b.palm(-8.0, z, 9.0 + hash(-8.0, z) * 2.0, &pal);
+        b.palm(8.0, z, 9.0 + hash(8.0, z) * 2.0, &pal);
+    }
+    b
+}
+
+/// The theme park (the Tropical take on kind 14): a big wheel, a carousel under a striped canopy, a roller coaster's
+/// loop of track on its trestles, stalls and an entrance arch. 6 tiles.
+fn theme_park(theme: usize) -> Build {
+    let pal = clubhouse_palette(theme);
+    let mut b = Build::default();
+    b.pad(-60.0, -60.0, 60.0, 60.0, 0.03, [0.78, 0.72, 0.62]);
+    let steel = [0.85, 0.86, 0.88];
+    // the big wheel, upright in the x-y plane
+    let (wx, wz, wy, r) = (-25.0, -25.0, 22.0, 18.0);
+    for a in [-1.0, 1.0] {
+        let z = wz + a * 1.0;
+        let legs = [(wx - 9.0, 0.0), (wx, wy), (wx + 9.0, 0.0)];
+        for leg in [(legs[0], legs[1]), (legs[1], legs[2])] {
+            let ((x0, y0), (x1, y1)) = leg;
+            b.poly(&[[x0 - 0.3, y0, z], [x0 + 0.3, y0, z], [x1 + 0.3, y1, z], [x1 - 0.3, y1, z]], [wx, wy, wz], steel);
+            b.poly(&[[x0 - 0.3, y0, z], [x0 + 0.3, y0, z], [x1 + 0.3, y1, z], [x1 - 0.3, y1, z]], [wx, wy, z * 2.0 - wz], steel);
+        }
+    }
+    let n = 16;
+    for k in 0..n {
+        let (a0, a1) = (TAU * k as f32 / n as f32, TAU * (k + 1) as f32 / n as f32);
+        let p = |a: f32, rr: f32| (wx + a.cos() * rr, wy + a.sin() * rr);
+        for z in [wz - 0.6, wz + 0.6] {
+            let (q0, q1) = (p(a0, r), p(a1, r));
+            b.poly(&[[q0.0, q0.1, z], [q1.0, q1.1, z], [q1.0, q1.1 + 0.3, z], [q0.0, q0.1 + 0.3, z]], [wx, wy, wz], steel);
+            b.poly(&[[q0.0, q0.1, z], [q1.0, q1.1, z], [q1.0, q1.1 + 0.3, z], [q0.0, q0.1 + 0.3, z]], [wx, wy, z * 2.0 - wz], steel);
+            let c = p(a0, r);
+            b.poly(&[[wx, wy, z], [c.0, c.1, z], [c.0 + 0.15, c.1 + 0.15, z], [wx + 0.15, wy + 0.15, z]], [wx, wy, wz], steel);
+            b.poly(&[[wx, wy, z], [c.0, c.1, z], [c.0 + 0.15, c.1 + 0.15, z], [wx + 0.15, wy + 0.15, z]], [wx, wy, z * 2.0 - wz], steel);
+        }
+        let c = p(a0, r);
+        let col = [[0.85, 0.20, 0.18], [0.20, 0.45, 0.80], [0.95, 0.80, 0.20], [0.25, 0.65, 0.35]][k % 4];
+        b.cuboid([c.0 - 1.0, c.1 - 2.4, wz - 1.0], [c.0 + 1.0, c.1 - 0.6, wz + 1.0], col);
+    }
+    // the carousel
+    let (cx, cz) = (22.0, -22.0);
+    b.prism(&ring(cx, cz, 9.0, 24, 0.0), 0.0, 0.8, pal.deck);
+    b.prism(&ring(cx, cz, 1.2, 12, 0.0), 0.8, 6.0, pal.gold);
+    let canopy = ring(cx, cz, 9.6, 24, 0.0);
+    for i in 0..24 {
+        let (a, c) = (canopy[i], canopy[(i + 1) % 24]);
+        let col = if i % 2 == 0 { pal.awning } else { pal.frame };
+        b.poly(&[[a.0, 6.0, a.1], [c.0, 6.0, c.1], [cx, 9.5, cz]], [cx, 4.0, cz], col);
+        b.poly(&[[a.0, 6.0, a.1], [c.0, 6.0, c.1], [c.0, 5.2, c.1], [a.0, 5.2, a.1]], [cx, 5.6, cz], col);
+        if i % 3 == 0 {
+            let (px, pz) = (cx + (a.0 - cx) * 0.75, cz + (a.1 - cz) * 0.75);
+            b.cuboid([px - 0.05, 0.8, pz - 0.05], [px + 0.05, 5.2, pz + 0.05], pal.gold);
+            b.horse(px, pz, true, [0.95, 0.95, 0.93]);
+        }
+    }
+    b.ball([cx, 9.8, cz], 0.5, pal.gold);
+    // the roller coaster: a closed loop of track rising and falling on trestles
+    let m = 48;
+    let track = |k: usize| {
+        let a = TAU * k as f32 / m as f32;
+        let (x, z) = (10.0 + 40.0 * a.cos(), 26.0 + 20.0 * a.sin());
+        let y = 6.0 + 9.0 * (0.5 + 0.5 * (a * 2.0).sin()) + 4.0 * a.cos().max(0.0);
+        [x, y, z]
+    };
+    for k in 0..m {
+        let (p0, p1) = (track(k), track((k + 1) % m));
+        let col = [0.85, 0.20, 0.18];
+        let (dx, dz) = (p1[0] - p0[0], p1[2] - p0[2]);
+        let l = (dx * dx + dz * dz).sqrt().max(1e-3);
+        let (nx, nz) = (-dz / l * 0.9, dx / l * 0.9);
+        b.poly(
+            &[
+                [p0[0] - nx, p0[1], p0[2] - nz],
+                [p0[0] + nx, p0[1], p0[2] + nz],
+                [p1[0] + nx, p1[1], p1[2] + nz],
+                [p1[0] - nx, p1[1], p1[2] - nz],
+            ],
+            [p0[0], p0[1] - 3.0, p0[2]],
+            col,
+        );
+        b.poly(
+            &[
+                [p0[0] - nx, p0[1], p0[2] - nz],
+                [p0[0] + nx, p0[1], p0[2] + nz],
+                [p1[0] + nx, p1[1], p1[2] + nz],
+                [p1[0] - nx, p1[1], p1[2] - nz],
+            ],
+            [p0[0], p0[1] + 3.0, p0[2]],
+            scale(col, 0.7),
+        );
+        if k % 3 == 0 {
+            b.cuboid([p0[0] - 0.2, 0.0, p0[2] - 0.2], [p0[0] + 0.2, p0[1], p0[2] + 0.2], steel);
+        }
+    }
+    // stalls and the entrance arch
+    for k in 0..4 {
+        let x = -40.0 + k as f32 * 9.0;
+        b.cuboid([x, 0.0, 34.0], [x + 6.0, 3.0, 38.0], pal.wall);
+        let c = rect(x, 34.0, x + 6.0, 38.0);
+        b.awning(&c, 0, 6.0, 3.0, 1.5, 0.6, &pal);
+        b.rect_roof(x, 34.0, x + 6.0, 38.0, 3.0, 1.5, 0.3, Roof::Gable, &pal);
+    }
+    for x in [-6.0, 6.0] {
+        b.cuboid([x - 0.8, 0.0, 54.0], [x + 0.8, 9.0, 55.6], pal.awning);
+    }
+    b.cuboid([-7.0, 9.0, 54.0], [7.0, 11.5, 55.6], pal.gold);
+    for &(x, z) in &[(-50.0, 50.0), (50.0, 50.0), (-50.0, 0.0), (52.0, -40.0), (-52.0, -50.0)] {
+        b.palm(x, z, 10.0, &pal);
+    }
+    b
+}
+
 /// The model of an object kind (data.rs OBJECT_IDS) in a theme, if it has one: its triangles in world units about the
 /// footprint's centre, front to +z (facing 0). `variant` (0..4) picks among a kind's looks (the houses' colours).
 pub fn model(kind: usize, theme: usize, variant: usize) -> Option<Vec<Vert>> {
@@ -1163,12 +1695,11 @@ pub fn model(kind: usize, theme: usize, variant: usize) -> Option<Vec<Vert>> {
         "pro-shop" => pro_shop(theme),
         "cart-garage" => cart_garage(theme),
         // (the themed kinds: app::THEMES 0 Parkland, 1 Links, 2 Desert, 3 Tropical; land.rs THEMED_NAMES)
-        "snack-bar" if theme == 1 => return None,
-        "swim-club" if theme == 0 => tennis_court(theme),
-        "swim-club" if theme == 3 => swim_club(theme),
-        "swim-club" => return None,
-        "marina" if theme == 1 || theme == 2 => return None,
-        "airstrip" if theme != 0 => return None,
+        "snack-bar" if theme == 1 => pub_inn(theme),
+        "swim-club" => [tennis_court, stable, spa, swim_club][theme.min(3)](theme),
+        "marina" if theme == 1 => church(theme),
+        "marina" if theme == 2 => helipad(theme),
+        "airstrip" if theme > 0 => [airstrip, castle, casino, theme_park][theme.min(3)](theme),
         "snack-bar" => snack_bar(theme),
         "resort-hotel" => resort_hotel(theme),
         "marina" => marina(theme),
@@ -1190,12 +1721,21 @@ pub fn model(kind: usize, theme: usize, variant: usize) -> Option<Vec<Vert>> {
 }
 
 /// What of a model stops a walk: its main building's half size and centre (world units, facing 0).
-pub fn model_half(kind: usize) -> Option<(f32, f32, f32, f32)> {
+pub fn model_half(kind: usize, theme: usize) -> Option<(f32, f32, f32, f32)> {
     let (cx, cz, hx, hz) = match sg_core::data::object_id(kind) {
+        "snack-bar" if theme == 1 => (0.0, -1.25, 8.0, 3.75),
+        "swim-club" if theme == 1 => (0.0, -18.0, 16.0, 4.0),
+        "swim-club" if theme == 2 => (0.0, -10.0, 16.0, 10.0),
+        "marina" if theme == 1 => (0.0, -1.0, 5.0, 13.0),
+        "marina" if theme == 2 => (0.0, 2.0, 11.0, 11.0),
+        "airstrip" if theme == 1 => (0.0, 0.0, 34.0, 34.0),
+        "airstrip" if theme == 2 => (0.0, -15.0, 40.0, 15.0),
+        "airstrip" if theme == 3 => (0.0, 0.0, 0.0, 0.0),
         "clubhouse" => (0.0, -0.5, 31.0, 29.5),
         "snack-bar" => (0.0, -1.5, 4.5, 3.5),
         "pro-shop" => (0.0, -1.5, 9.0, 5.5),
         "cart-garage" => (0.0, -1.5, 13.0, 4.5),
+        "swim-club" if theme == 0 => (15.0, -2.0, 3.0, 4.0),
         "swim-club" => (0.0, -14.5, 10.0, 3.5),
         "resort-hotel" => (0.0, -3.0, 26.0, 9.0),
         "marina" => (-2.0, -7.5, 6.0, 4.5),
@@ -1244,15 +1784,15 @@ mod tests {
                     let Some(v) = model(kind, theme, variant) else { continue };
                     modelled += 1;
                     assert!(v.len() >= 300 && v.len() % 3 == 0, "kind {kind}");
-                    assert!(model_half(kind).is_some(), "kind {kind}");
+                    assert!(model_half(kind, theme).is_some(), "kind {kind}");
                     for p in &v {
                         assert!(p.pos[0].abs() <= half && p.pos[2].abs() <= half, "kind {kind} theme {theme}: {:?}", p.pos);
-                        assert!(p.pos[1] > -2.0 * M && p.pos[1] < 40.0 * M, "kind {kind}");
+                        assert!(p.pos[1] > -2.0 * M && p.pos[1] < 70.0 * M, "kind {kind}");
                     }
                 }
             }
         }
-        assert!(modelled >= 12 * 4);
+        assert_eq!(modelled, 12 * 4 * 4);
         let clubhouse = (0..20).find(|&k| sg_core::data::object_id(k) == "clubhouse").unwrap();
         assert!((0..4).all(|t| model(clubhouse, t, 0).is_some()));
         assert!(model(0, 0, 0).is_none());
