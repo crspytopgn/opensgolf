@@ -2251,8 +2251,10 @@ impl Stage {
     /// away; otherwise it is the undo's: the first right click on a tile names what an undo there would do, the second
     /// undoes it (App::right_click_undo). A terrain brush and the Undo button's undo mode stay in hand.
     fn right_click(&mut self, x: f32, y: f32) {
-        // Right click puts the tool away (OpenSGolf extras): any tool in hand is put down, as Space puts it down
-        if extras::right_drop() && self.app.edit {
+        // Right click puts the tool away (OpenSGolf extras): a tool in hand is put down, as Space puts it down. The
+        // elevation tools keep the original's right click (lowering the ground, Analyze Golf Shot's / key), which is
+        // their only way to lower with the mouse (issue #176); Space or Esc puts them away.
+        if extras::right_drop() && self.app.edit && self.app.tool != 1 {
             self.app.edit = false;
             return;
         }
