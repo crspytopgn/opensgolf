@@ -306,6 +306,7 @@ impl App {
                 true
             }
             Action::SetPar { hole, par } => self.club.set_par((*hole).clamp(1, 18) as usize, *par),
+            Action::Demolish { x, y } => self.demolish(*x, *y),
             Action::Hire { kind, skilled } => self.hire_employee(*kind, *skilled),
             Action::Fire { employee } => self.fire_employee(*employee),
             Action::Post { employee, x, y } => match self.employees.get_mut(*employee) {

@@ -279,6 +279,9 @@ pub enum Action {
         #[serde(rename = "p")]
         par: i32,
     },
+    /// The Eyesore demolition extra: the eyesore on tile x, y pulled down and paid for.
+    #[serde(rename = "demolish")]
+    Demolish { x: i32, y: i32 },
 
     // --- staff
     /// An employee hired: `kind` 0 groundskeeper .. 3, `skilled` the experienced one.

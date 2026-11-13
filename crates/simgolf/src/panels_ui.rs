@@ -774,7 +774,8 @@ impl App {
     /// The level the next building of a kind would have: 0 when none stands, 1 for an upgrade, 2 when it is upgraded already.
     /// Always 0 for the Snack Bar, which the exe never levels (land::kind_has_levels).
     pub(crate) fn lot_level(&self, kind: i32) -> i32 {
-        if !land::kind_has_levels(kind) {
+        // (the clubhouse, in hand only with the Move the clubhouse extra, moves as it is)
+        if !land::kind_has_levels(kind) || kind == land::K_CLUBHOUSE {
             return 0;
         }
         self.land.as_ref().and_then(|l| l.objects.iter().find(|o| o.kind == kind)).map(|o| o.sub + 1).unwrap_or(0)
@@ -1692,15 +1693,15 @@ impl App {
                 let kind = 6 + i;
                 let level = self.lot_level(kind);
                 let refusal = if (level != 0 && economy::rank(self.hole_numbers.len()) < 2) || level > 1 {
-                    Some(tr(if level < 2 { MSG_UPGRADE_EARLY } else { MSG_MAX_LEVEL }))
+                    Some(tr(if level < 2 { MSG_UPGRADE_EARLY } else { MSG_MAX_LEVEL }).to_string())
                 } else if !self.build_available(kind as usize) {
-                    Some(tr(MSG_LOCKED))
+                    Some(self.locked_text(kind, MSG_LOCKED))
                 } else {
                     None
                 };
                 if let Some(m) = refusal {
                     self.ui_sound(0x18);
-                    self.show_toast(m);
+                    self.show_toast(&m);
                     if self.tool == 4 && self.build_idx == kind as usize {
                         self.edit = false;
                     }

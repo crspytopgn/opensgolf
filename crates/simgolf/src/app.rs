@@ -281,6 +281,10 @@ pub enum Screen {
     HoleComments,
     /// OpenSGolf extras: history graphs (graphs.rs).
     Graphs,
+    /// OpenSGolf extras: the course review (review_ui.rs).
+    Review,
+    /// OpenSGolf extras: the challenges (challenges.rs).
+    Challenges,
     /// The course editor's box over the course (editor.rs; the port's own).
     Editor,
 }
@@ -907,6 +911,10 @@ pub struct App {
     pub extras_next: sg_core::extras::Extras,
     /// The Set par extra's change waiting for its confirmation box: hole and new par (extras_ui.rs).
     pub par_change: Option<(usize, i32)>,
+    /// The Eyesore demolition extra's question (demolish.rs): the tile and the eyesore's type.
+    pub demolish_at: Option<(i32, i32, i32)>,
+    /// The Move the clubhouse extra (clubhouse_move.rs): the building the tool held before the clubhouse was put in it.
+    pub clubhouse_tool_was: Option<usize>,
     /// The words the Preferences' search box opens on (prefs_search.rs).
     pub pref_query: String,
     /// Undo for building and terrain (undo.rs).
@@ -1201,6 +1209,8 @@ impl App {
             design_hover: -1,
             extras_next: crate::extras_ui::saved(),
             par_change: None,
+            demolish_at: None,
+            clubhouse_tool_was: None,
             pref_query: String::new(),
             undo: Default::default(),
             bt: Default::default(),
@@ -1274,11 +1284,15 @@ impl App {
         Some((msg, boxed))
     }
 
-    /// The port's own game speed one step faster or slower (normal, x2, x4), stopping at either end; says the speed.
+    /// The port's own game speed one step faster or slower (normal, x2, x4, x8), stopping at either end; says the speed.
+    /// x8 is for passing long stretches (a winter, the months before a tournament); how fast it really goes depends on
+    /// the machine, as the simulation's ticks are all still run.
     pub fn step_speed(&mut self, faster: bool) {
         let s = match (self.speed, faster) {
             (1, true) => 2,
-            (_, true) => 4,
+            (2, true) => 4,
+            (_, true) => 8,
+            (8, false) => 4,
             (4, false) => 2,
             (_, false) => 1,
         };
@@ -1286,11 +1300,12 @@ impl App {
         self.say_speed();
     }
 
-    /// The game speed's single button (a controller's Y, the touch button): normal, x2, x4, then normal again.
+    /// The game speed's single button (a controller's Y, the touch button): normal, x2, x4, x8, then normal again.
     pub fn cycle_speed(&mut self) {
         let s = match self.speed {
             1 => 2,
             2 => 4,
+            4 => 8,
             _ => 1,
         };
         self.act(sg_core::action::Action::Speed(s));
@@ -1301,7 +1316,8 @@ impl App {
         let name = match self.speed {
             1 => tr("STR_TOAST_SPEED_NORMAL"),
             2 => tr("STR_TOAST_SPEED_FAST"),
-            _ => tr("STR_TOAST_SPEED_FASTEST"),
+            4 => tr("STR_TOAST_SPEED_FASTEST"),
+            _ => tr("STR_TOAST_SPEED_X8"),
         };
         self.show_toast(name);
     }
@@ -2268,6 +2284,18 @@ impl App {
         self.club.unlocked.max(land::unlocked_kinds(self.hole_numbers.len(), false))
     }
 
+    /// A locked building's message: the original's `key`, or with the What unlocks it extra the holes that open it.
+    pub fn locked_text(&self, kind: i32, key: &'static str) -> String {
+        if crate::extras::unlock_info() && (6..=17).contains(&kind) {
+            let have = self.hole_numbers.len();
+            if let Some(need) = (have + 1..=36).find(|&n| land::unlocked_kinds(n, false) > kind) {
+                let what = land::building_name(kind);
+                return trf("STR_UNLOCK_AT_HOLES", &[("WHAT", &what), ("NEED", &need), ("HAVE", &have)]);
+            }
+        }
+        tr(key).to_string()
+    }
+
     pub fn build_available(&self, kind: usize) -> bool {
         // The garden page (kinds up to 5, the willow and the bridge) is always open; buildings unlock with holes.
         let k = kind as i32;
@@ -2912,6 +2940,8 @@ impl App {
                 golf::Event::HoleDone { g, .. } if self.club.g.get(g).is_some_and(|gg| gg.course_b) => {}
                 golf::Event::HoleDone { g, hole, strokes, mood, fee } => {
                     self.script_hole_done(g, hole, strokes);
+                    // the club records (records.rs)
+                    self.records_hole_done(g, hole, strokes);
                     if crate::extras::graphs() {
                         self.graphs_hole_done(hole, strokes, mood, fee);
                     }
@@ -2929,6 +2959,12 @@ impl App {
                         hs.mood += mood as f64 * 10.0;
                         hs.hist[(strokes - 3).clamp(0, 5) as usize] += 1;
                         hs.mood_sum = mood_sum;
+                    }
+                }
+                // the golfer profile's Rounds list (profile_ui.rs); a Course B round too
+                golf::Event::RoundDone { g, holes, strokes, par } => {
+                    if crate::extras::people() {
+                        self.keep_round(g, holes, strokes, par);
                     }
                 }
                 golf::Event::Thought { g, id: 0x32, arg } => {
@@ -3334,7 +3370,15 @@ impl App {
     /// Saves the whole game.
     pub fn save_game(&self, path: &Path) -> Result<(), String> {
         let out = self.save_bytes(6)?;
+        // the Saves newest first extra (backups.rs): the game saved over is kept as a backup, and the time is recorded
+        let dated = crate::extras::save_newest() && path.parent() == Some(crate::files_ui::saved_games_dir().as_path());
+        if dated {
+            crate::backups::keep_backup(path);
+        }
         if sg_core::fsutil::write_file(path, &out) {
+            if dated {
+                crate::backups::stamp(path, miniquad::date::now());
+            }
             self.fingerprint_note("save");
             // the save self-check reads the file back over the next frames (selfcheck.rs)
             self.selfcheck_after_save(&out);
@@ -4153,6 +4197,10 @@ impl App {
     pub fn undo_tile(&mut self, x: i32, y: i32) {
         // the interface's call is an action (replay.rs): logged, then applied by App::apply
         if self.rec.depth_zero() {
+            // an eyesore with the Eyesore demolition extra: asked first (demolish.rs)
+            if self.ask_demolish(x, y) || self.ask_move_clubhouse(x, y) {
+                return;
+            }
             self.act(Action::TakeBack { x, y });
             return;
         }
@@ -4252,6 +4300,11 @@ impl App {
             return self.undo_tile(tx, ty);
         }
         let kind = self.build_idx as i32;
+        // the Move the clubhouse extra's tool (clubhouse_move.rs)
+        if kind == land::K_CLUBHOUSE {
+            self.move_clubhouse(tx, ty);
+            return;
+        }
         if kind == land::K_LANDMARK && self.chosen_landmark().is_none() {
             // a click on the course before a landmark is chosen puts the tool down (0x41fc7c)
             self.edit = false;
@@ -4272,7 +4325,8 @@ impl App {
         let Some(land) = self.land.as_mut() else { return };
         land.sync_from_terrain(&self.terrain);
         if !self.build_available(kind as usize) {
-            return self.show_toast(tr("STR_TOAST_BUILD_MORE_HOLES"));
+            let m = self.locked_text(kind, "STR_TOAST_BUILD_MORE_HOLES");
+            return self.show_toast(&m);
         }
         let Some(land) = self.land.as_mut() else { return };
         // a Snack Bar never upgrades the one standing: any number may be built (land::kind_has_levels, 0x41f926)

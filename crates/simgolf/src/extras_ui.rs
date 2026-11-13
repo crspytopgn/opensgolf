@@ -168,18 +168,18 @@ const PAGE_LINES: [&[ExtrasLine]; 6] = {
             G(CUT),
         ],
         // unlock all, no new dandelions, freeze moods, the calendar (slower seasons, pause), keeping the commissioner's
-        // approval (moved here when the Gameplay page grew too long for the box)
-        &[G(9), G(x::NO_WEEDS), G(8), Calendar, G(x::KEEP_LAND)],
+        // approval (moved here when the Gameplay page grew too long for the box), eyesore demolition, moving the clubhouse
+        &[G(9), G(x::NO_WEEDS), G(8), Calendar, G(x::KEEP_LAND), G(x::DEMOLISH), G(x::MOVE_CLUBHOUSE)],
         // the interface at the edges, path styles and lamps, random trees, Tab turns buildings (only the picture turns),
-        // home names on hover, the hole flyover
-        &[U(26), G(x::PATHS), U(21), G(0), U(28), U(29)],
-        // People, extra reports, messages, home-site details, path help
-        &[Group(0), Group(1), Group(2), U(19), U(4)],
-        // autosave, import and export saved games, sharing, save pictures
-        &[U(5), U(22), U(7), U(6)],
+        // home names on hover, the hole flyover, playing upright
+        &[U(26), G(x::PATHS), U(21), G(0), U(28), U(29), U(34)],
+        // People, extra reports, messages, home-site details, path help, unlock info, challenges and the design lab
+        &[Group(0), Group(1), Group(2), U(19), U(4), U(32), U(33)],
+        // autosave, the Load list newest first (with backups), import and export saved games, sharing, save pictures
+        &[U(5), U(31), U(22), U(7), U(6)],
         // zoom towards the pointer, right click puts the tool away, drag to place, right-drag panning, mouse aim and swing
-        // (the three the controls presets set and the two that change what the original's mouse does), then the two pauses
-        &[U(14), U(25), U(15), U(20), U(27), U(24), U(8), U(9)],
+        // (the three the controls presets set and the two that change what the original's mouse does), then the three pauses
+        &[U(14), U(25), U(15), U(20), U(27), U(24), U(8), U(9), U(30)],
     ]
 };
 
@@ -222,7 +222,14 @@ pub fn tag(l: ExtrasLine) -> Option<Tag> {
     Some(match l {
         // animals, left-handed golfers, keeping the commissioner's approval, multiple tees (nothing changes until one is
         // placed)
-        ExtrasLine::Game(i) if i == 4 || i == sg_core::extras::LEFTIES || i == sg_core::extras::KEEP_LAND || i == sg_core::extras::TEES => {
+        ExtrasLine::Game(i)
+            if i == 4
+                || i == sg_core::extras::LEFTIES
+                || i == sg_core::extras::KEEP_LAND
+                || i == sg_core::extras::TEES
+                || i == sg_core::extras::DEMOLISH
+                || i == sg_core::extras::MOVE_CLUBHOUSE =>
+        {
             Tag::Light
         }
         ExtrasLine::Game(CUT) => Tag::Experimental,
@@ -254,6 +261,8 @@ const GAME_DESC: [&str; sg_core::extras::OPTION_KEYS.len()] = [
     "STR_EXTRAS_DESC_KEEP_LAND",
     "STR_EXTRAS_DESC_SECOND_COURSE",
     "STR_EXTRAS_DESC_TEES",
+    "STR_EXTRAS_DESC_DEMOLISH",
+    "STR_EXTRAS_DESC_MOVE_CLUBHOUSE",
 ];
 const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_PEOPLE",
@@ -286,6 +295,11 @@ const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_EDGE_SCROLL",
     "STR_EXTRAS_DESC_HOME_LABELS_HOVER",
     "STR_EXTRAS_DESC_HOLE_FLYOVER",
+    "STR_EXTRAS_DESC_PAUSE_AIM",
+    "STR_EXTRAS_DESC_SAVE_NEWEST",
+    "STR_EXTRAS_DESC_UNLOCK_INFO",
+    "STR_EXTRAS_DESC_CHALLENGES",
+    "STR_EXTRAS_DESC_PORTRAIT",
 ];
 
 /// A line's description (what ticking it changes; for the preset line, what the preset in use is).
@@ -735,6 +749,10 @@ impl App {
             let h = self.info.stats_hole.clamp(1, 18);
             return self.start_flyover(h);
         }
+        if self.lab_button().is_some_and(|r| r.has(x, y)) {
+            self.lab_mark();
+            return true;
+        }
         // a click on the title names the hole (the port's own; the original's Hole Stats closes on any click there)
         if (200.0..=570.0).contains(&x) && (30.0..=66.0).contains(&y) {
             let h = self.info.stats_hole.clamp(1, 18);
@@ -987,7 +1005,7 @@ mod tests {
         }
         assert_eq!(PAGES.len(), PAGE_LINES.len());
         assert_eq!(BANNERS.len(), PAGES.len());
-        assert_eq!(page_lines(3).len(), 5, "the Info page's five lines");
+        assert_eq!(page_lines(3).len(), 7, "the Info page's seven lines");
     }
 
     #[test]
@@ -1014,10 +1032,10 @@ mod tests {
         assert_eq!((page_of(ExtrasLine::Game(x::SECOND_COURSE)), tag(ExtrasLine::Game(x::SECOND_COURSE))), (Some(0), Some(Tag::Big)));
         assert_eq!((page_of(ExtrasLine::Game(x::TEES)), tag(ExtrasLine::Game(x::TEES))), (Some(0), Some(Tag::Light)));
         assert_eq!(page_of(ExtrasLine::Ui(5)), Some(4), "autosave");
-        // the Controls page holds the mouse ticks, the most wanted first, then the two pauses
-        assert_eq!(page_lines(5), [14, 25, 15, 20, 27, 24, 8, 9].map(ExtrasLine::Ui));
+        // the Controls page holds the mouse ticks, the most wanted first, then the three pauses
+        assert_eq!(page_lines(5), [14, 25, 15, 20, 27, 24, 8, 9, 30].map(ExtrasLine::Ui));
         // the Saves page holds the saving and sharing ticks only, autosave first
-        assert_eq!(page_lines(4), [ExtrasLine::Ui(5), ExtrasLine::Ui(22), ExtrasLine::Ui(7), ExtrasLine::Ui(6)]);
+        assert_eq!(page_lines(4), [5, 31, 22, 7, 6].map(ExtrasLine::Ui));
         // the most wanted first: weather on Gameplay, the interface at the edges on Looks; the experimental line last
         assert_eq!(page_lines(0)[0], ExtrasLine::Game(x::WEATHER));
         assert_eq!(page_lines(2)[0], ExtrasLine::Ui(26));
@@ -1052,7 +1070,7 @@ mod tests {
         assert_eq!(foot_text(2, Some(2), &e, &ui), (sg_core::lang::tr("STR_EXTRAS_DESC_PATHS"), true));
         assert_eq!(foot_text(2, Some(0), &e, &ui), (sg_core::lang::tr("STR_PRESET_DESC_ORIGINAL"), true));
         assert_eq!(foot_text(0, Some(0), &Extras::OPENSGOLF, &Settings::HELPERS).0, sg_core::lang::tr("STR_PRESET_DESC_OPENSGOLF"));
-        assert!(!foot_text(2, Some(7), &e, &ui).1);
+        assert!(!foot_text(2, Some(8), &e, &ui).1);
         assert!(!foot_text(3, None, &e, &ui).1);
     }
 
