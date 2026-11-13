@@ -168,8 +168,8 @@ const PAGE_LINES: [&[ExtrasLine]; 6] = {
             G(CUT),
         ],
         // unlock all, no new dandelions, freeze moods, the calendar (slower seasons, pause), keeping the commissioner's
-        // approval (moved here when the Gameplay page grew too long for the box), eyesore demolition
-        &[G(9), G(x::NO_WEEDS), G(8), Calendar, G(x::KEEP_LAND), G(x::DEMOLISH)],
+        // approval (moved here when the Gameplay page grew too long for the box), eyesore demolition, moving the clubhouse
+        &[G(9), G(x::NO_WEEDS), G(8), Calendar, G(x::KEEP_LAND), G(x::DEMOLISH), G(x::MOVE_CLUBHOUSE)],
         // the interface at the edges, path styles and lamps, random trees, Tab turns buildings (only the picture turns),
         // home names on hover, the hole flyover
         &[U(26), G(x::PATHS), U(21), G(0), U(28), U(29)],
@@ -227,7 +227,8 @@ pub fn tag(l: ExtrasLine) -> Option<Tag> {
                 || i == sg_core::extras::LEFTIES
                 || i == sg_core::extras::KEEP_LAND
                 || i == sg_core::extras::TEES
-                || i == sg_core::extras::DEMOLISH =>
+                || i == sg_core::extras::DEMOLISH
+                || i == sg_core::extras::MOVE_CLUBHOUSE =>
         {
             Tag::Light
         }
@@ -261,6 +262,7 @@ const GAME_DESC: [&str; sg_core::extras::OPTION_KEYS.len()] = [
     "STR_EXTRAS_DESC_SECOND_COURSE",
     "STR_EXTRAS_DESC_TEES",
     "STR_EXTRAS_DESC_DEMOLISH",
+    "STR_EXTRAS_DESC_MOVE_CLUBHOUSE",
 ];
 const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_PEOPLE",

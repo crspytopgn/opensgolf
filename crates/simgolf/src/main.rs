@@ -29,6 +29,7 @@ mod bugreport;
 mod build_tools;
 mod champ_ui;
 mod cheats_ui;
+mod clubhouse_move;
 mod comfort;
 mod content;
 mod content_profiles;
@@ -1255,6 +1256,15 @@ fn apply_edit_spec(app: &mut App, spec: &str) {
                     println!("ejected golfer {gi} (hole now {})", app.club.g[gi].hole);
                 }
             }
+            b'Q' => {
+                // test hook: the Move the clubhouse extra (clubhouse_move.rs): Q:x,y moves it there through the box's Yes
+                // and the building tool's click
+                let before = app.land.as_ref().map(|l| l.clubhouse);
+                app.start_move_clubhouse();
+                app.edit_building(at(0), at(1), false);
+                let after = app.land.as_ref().map(|l| l.clubhouse);
+                println!("clubhouse {before:?} -> {after:?}, door {:?}, cash {}", app.course.door, app.econ.cash);
+            }
             b'E' => {
                 // test hook: the eyesores on the club's land (the Eyesore demolition extra, demolish.rs); E:1 pulls the first
                 // one down through the confirmation box's Yes, E:2 opens the box
@@ -1942,6 +1952,12 @@ impl Stage {
                     self.app.confirm_demolish();
                 } else {
                     self.app.demolish_at = None;
+                }
+            }
+            // the Move the clubhouse extra's question (clubhouse_move.rs)
+            PopupKind::MoveClubhouse => {
+                if k == 0 {
+                    self.app.start_move_clubhouse();
                 }
             }
             PopupKind::CareerOver => {

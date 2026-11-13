@@ -599,6 +599,13 @@ On the **Gameplay** page:
   painting, and books the cost to Build course. It works only on land the club owns, and only when the club can pay
   (as with building, the price is not checked before the third hole is open). Switching the extra off leaves anything
   already pulled down gone.
+- **Move the clubhouse.** *(Light touch)* The original leaves the clubhouse wherever the property put it. With this on,
+  right-click it (on a touch screen, long press it) and a box offers to move it for what a new clubhouse costs
+  (§20,000, plus clearing the new spot). Yes puts the clubhouse in the building tool: its see-through picture follows the
+  pointer, red where it will not fit, and a click on land the club owns puts it down there, turned as Tab sets it. The old
+  spot goes back to rough. Paths are not moved, so buildings joined only through the old spot show as unjoined until a path
+  reaches the new one; golfers already out finish their round, and the next pair starts from the new clubhouse. Not
+  during a tournament.
 - **Left-handed golfers.** *(Light touch)* About one golfer in ten who arrives from now on is left-handed (decided by the game's own
   random draws when the golfer is made, and kept with the saved game). A left-hander is drawn as the mirror image of a
   right-hander while addressing the ball, swinging and following through, still facing the shot's target; walking,

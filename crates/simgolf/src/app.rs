@@ -909,6 +909,8 @@ pub struct App {
     pub par_change: Option<(usize, i32)>,
     /// The Eyesore demolition extra's question (demolish.rs): the tile and the eyesore's type.
     pub demolish_at: Option<(i32, i32, i32)>,
+    /// The Move the clubhouse extra (clubhouse_move.rs): the building the tool held before the clubhouse was put in it.
+    pub clubhouse_tool_was: Option<usize>,
     /// The words the Preferences' search box opens on (prefs_search.rs).
     pub pref_query: String,
     /// Undo for building and terrain (undo.rs).
@@ -1204,6 +1206,7 @@ impl App {
             extras_next: crate::extras_ui::saved(),
             par_change: None,
             demolish_at: None,
+            clubhouse_tool_was: None,
             pref_query: String::new(),
             undo: Default::default(),
             bt: Default::default(),
@@ -4171,7 +4174,7 @@ impl App {
         // the interface's call is an action (replay.rs): logged, then applied by App::apply
         if self.rec.depth_zero() {
             // an eyesore with the Eyesore demolition extra: asked first (demolish.rs)
-            if self.ask_demolish(x, y) {
+            if self.ask_demolish(x, y) || self.ask_move_clubhouse(x, y) {
                 return;
             }
             self.act(Action::TakeBack { x, y });
@@ -4273,6 +4276,11 @@ impl App {
             return self.undo_tile(tx, ty);
         }
         let kind = self.build_idx as i32;
+        // the Move the clubhouse extra's tool (clubhouse_move.rs)
+        if kind == land::K_CLUBHOUSE {
+            self.move_clubhouse(tx, ty);
+            return;
+        }
         if kind == land::K_LANDMARK && self.chosen_landmark().is_none() {
             // a click on the course before a landmark is chosen puts the tool down (0x41fc7c)
             self.edit = false;

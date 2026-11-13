@@ -37,6 +37,8 @@ pub enum PopupKind {
     QuickLoad,
     /// The Eyesore demolition extra's confirmation (the port's own, demolish.rs): pull it down, yes or no.
     Demolish,
+    /// The Move the clubhouse extra's question (the port's own, clubhouse_move.rs): pick a new spot, yes or no.
+    MoveClubhouse,
     /// Preferences > Search (the port's own, prefs_search.rs): find an option on any page, show only the changed ones,
     /// reset to the original.
     Search,
@@ -796,6 +798,7 @@ impl App {
             if crate::prefs_ui::is_prefs_box(kind) { crate::prefs_ui::lines(kind, &ctx, crate::textsize::pct()) } else { Vec::new() };
         let set_par_lines: [String; 2];
         let demolish_lines: [String; 4];
+        let move_lines: [String; 4];
         let cheat_lines: Vec<String>;
         let report_lines: Vec<String>;
         let support_lines: Vec<String>;
@@ -908,6 +911,10 @@ impl App {
             PopupKind::Demolish => {
                 demolish_lines = self.demolish_lines();
                 (demolish_lines.iter().map(|l| l.as_str()).collect(), 0, 400.0, 200.0)
+            }
+            PopupKind::MoveClubhouse => {
+                move_lines = self.move_clubhouse_lines();
+                (move_lines.iter().map(|l| l.as_str()).collect(), 0, 400.0, 200.0)
             }
             PopupKind::QuickLoad => {
                 (vec![tr("STR_QUICK_LOAD_1"), tr("STR_QUICK_LOAD_2"), tr("STR_QUICK_LOAD_YES"), tr("STR_QUICK_LOAD_NO")], 0, 400.0, 200.0)
