@@ -123,6 +123,7 @@ mod walk_gl;
 mod walk_ground;
 mod walk_models;
 mod walk_objects;
+mod walk_trees;
 mod welcome;
 mod wild_ui;
 mod world_ui;

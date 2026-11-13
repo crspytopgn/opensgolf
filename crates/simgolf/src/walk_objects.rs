@@ -35,6 +35,9 @@ const M: f32 = crate::walk::METRE;
 const PERSON: f32 = 1.8 * M;
 /// Trees' size against the overhead art's (whose trees are drawn far larger than the ground they stand on).
 const TREE_SCALE: f32 = 0.42;
+/// Trees nearer than this are drawn in the round (walk_trees.rs); further ones as upright pictures, which look the same
+/// from so far and cost far less.
+const TREE_SOLID_NEAR: f32 = 110.0 * M;
 /// Other small things' size against the art's (animals, weeds and the like).
 const SMALL_SCALE: f32 = 0.4;
 /// The least fit for which a building keeps a roof (`raise_roof`).
@@ -602,6 +605,8 @@ pub struct Objects {
     person_scale: HashMap<usize, f32>,
     /// The buildings' models (walk_models.rs) by kind and theme, built once.
     models: HashMap<(usize, usize, usize), Option<Vec<Vert>>>,
+    /// The trees' solids (walk_trees.rs) by sprite and frame, in the picture's pixels, built once.
+    trees: HashMap<(usize, usize), Option<Vec<Vert>>>,
     /// A moving prop's shown place (x, z) by its identity, eased between the simulation's ticks.
     eased: HashMap<u32, (f32, f32)>,
     /// The trees beyond the property (built with the ground, `walk_far_trees`).
@@ -1050,6 +1055,7 @@ impl App {
         let kinds = self.walk_kinds();
         let kind_at = |x: f32, z: f32| kinds.iter().find(|((fx, fz), _)| (fx - x).abs() < 1.0 && (fz - z).abs() < 1.0).map(|f| f.1);
         let mut modelled = std::collections::HashSet::new();
+        let flat_trees = std::env::var_os("SG_WALK_FLAT_TREES").is_some();
         let eye = sc.eye;
         let up = [0.0, 1.0, 0.0];
         let right = [sc.right[0], 0.0, sc.right[1]];
@@ -1256,13 +1262,47 @@ impl App {
                     continue;
                 }
                 o.drawn += 1;
-                let i = self.sprites[si].s.frame_index(self.prop_view(&p, si, sc.quarter), p.frame);
-                let t = self.walk_tex_smooth(g, o, si, i);
                 let ph = place_hash(x, z);
                 let sway =
                     ((sc.time * (0.9 + ph * 0.5) + ph * std::f32::consts::TAU).sin() * 0.12 + (sc.time * 2.3 + ph * 3.0).sin() * 0.04) * M;
-                let rect = (-ax * k, (w - ax) * k, ay * k * v, -(h - ay) * k * v);
-                card(cut.get(t), anchor, right, up, rect, false, sway, white);
+                // near, in the round: the solid built from the tree's own picture (one view, so it never changes as the
+                // eye walks round it), turned by the place so a row of one kind isn't all alike
+                let solid = if dist < TREE_SOLID_NEAR && !flat_trees {
+                    let i = self.sprites[si].s.frame_index(0, p.frame);
+                    let body =
+                        o.trees.entry((si, i)).or_insert_with(|| crate::walk_trees::solid(&self.sprites[si].s.frame(i), ax, ay)).is_some();
+                    body.then_some(i)
+                } else {
+                    None
+                };
+                if let Some(i) = solid {
+                    let t = self.walk_tex_smooth(g, o, si, i);
+                    let (sn, cs) = (ph * std::f32::consts::TAU).sin_cos();
+                    let tall = ay.max(1.0);
+                    let l = cut.get(t);
+                    for q in o.trees[&(si, i)].iter().flatten() {
+                        let (px, py, pz) = (q.pos[0], q.pos[1], q.pos[2]);
+                        let bend = sway * (py / tall).powi(2);
+                        let (rx, rz) = (px * cs - pz * sn, px * sn + pz * cs);
+                        let mut vv =
+                            Vert::new(x + rx * k + right[0] * bend, ground + py * k * v, z + rz * k + right[2] * bend, q.uv[0], q.uv[1])
+                                .col(white);
+                        let n = q.normal;
+                        vv.normal = [n[0] * cs - n[2] * sn, n[1], n[0] * sn + n[2] * cs];
+                        l.push(vv);
+                    }
+                    // and its picture through its middle, turned to the eye: the solid's rings follow the outline's mean,
+                    // so the picture's leafy edge stands out round it as the crown's sprigs
+                    let i = self.sprites[si].s.frame_index(self.prop_view(&p, si, sc.quarter), p.frame);
+                    let t = self.walk_tex_smooth(g, o, si, i);
+                    let rect = (-ax * k, (w - ax) * k, ay * k * v, -(h - ay) * k * v);
+                    card(cut.get(t), anchor, right, up, rect, false, sway, white);
+                } else {
+                    let i = self.sprites[si].s.frame_index(self.prop_view(&p, si, sc.quarter), p.frame);
+                    let t = self.walk_tex_smooth(g, o, si, i);
+                    let rect = (-ax * k, (w - ax) * k, ay * k * v, -(h - ay) * k * v);
+                    card(cut.get(t), anchor, right, up, rect, false, sway, white);
+                }
                 if level != Detail::Far {
                     if let Some(sh) = p.shadow {
                         let i = self.sprites[sh].s.frame_index(self.prop_view(&p, sh, 0), p.frame);
