@@ -997,6 +997,18 @@ compare pixel for pixel with the build before the extras).
   what the other helpers already know: buildings off the paths, tees with no path near them, fairway, green and tee
   tiles no groundskeeper reaches, holes golfers find dull (fun factor under 40%) and each hole's commonest complaint this
   year. Each line has a green OK when all is well or a red ! when there is something to do. It only reads the game.
+- **Challenges and the design lab** (an Info page tick, off by default): *Information, Challenges* lists six aims to
+  take on. Click one (or press 1 to 6) to take it on and again to give it up. *Perfect par 3*: a par 3 rated Outstanding
+  (fun 60% or more). *Signature par 5*: a par 5 of 500 yards or more rated Outstanding that golfers average 6 or less
+  on. *Tough but fair*: a hole golfers average a stroke or more over par on and still rate Very good (40%). *Balanced
+  eighteen*: 18 holes with four or five par 3s and four or five par 5s, every one rated Good (20%). *Nine-hole test*:
+  9 to 17 holes with a total par of 34 to 37, every one rated Good. A hole counts only after 20 rounds. *Turnaround*:
+  §100,000 more cash than when you took it on, by the end of the next year. Taken challenges are checked at each month
+  start and listed with the goals under *Information, Scenario goals*; in a scenario they never win or lose it.
+  Hole Stats gets a **Mark before** button: it keeps the hole's figures (length, par, fun, stroke average, rounds) with
+  the date, and Hole Stats then shows them beside the figures since, so you can see whether a change helped. Rebuilding
+  a hole starts its figures again; on a hole only played on, the rounds since the mark are worked out from the
+  difference. Marks are kept with the save.
 - **History graphs** (**Shift+Y**, *Information, History graphs*, or the *Graphs* tab after the others on the tabbed
   reports): from the moment the extra is on, every game month is recorded for the club (rounds finished, holes played,
   revenue and costs as the F4 Financial Report's ledger books them, profit, cash at the month's end, golfer happiness

@@ -27,6 +27,7 @@ mod autoupdate;
 mod backups;
 mod bugreport;
 mod build_tools;
+mod challenges;
 mod champ_ui;
 mod cheats_ui;
 mod clubhouse_move;
@@ -667,9 +668,20 @@ fn open_screen(app: &mut App, screen: Option<&str>) {
         }
         Some("golfers") if app.ui_ok => app.panel = 4,
         Some("review") if app.ui_ok => app.open_review(),
+        Some("challenges") if app.ui_ok => {
+            app.open_challenges();
+            // test hook: SG_CHALLENGES=0,5 takes those challenges on (challenges.rs)
+            for k in std::env::var("SG_CHALLENGES").unwrap_or_default().split(',').filter_map(|v| v.parse().ok()) {
+                app.toggle_challenge(k);
+            }
+        }
         Some("holestats") if app.ui_ok => {
             app.info.stats_hole = (1..19).find(|&h| app.club.holes[h].par != 0).unwrap_or(1);
             app.screen = Screen::HoleStats;
+            // test hook: SG_LAB=1 marks the hole's figures for the design lab (challenges.rs)
+            if std::env::var_os("SG_LAB").is_some() {
+                app.lab_mark();
+            }
             // test hook: SG_HOLE_NAME=TEXT names the hole and shows the prompt with TEXT in it (extras_ui.rs)
             if let Ok(n) = std::env::var("SG_HOLE_NAME") {
                 let h = app.info.stats_hole;
@@ -1911,6 +1923,7 @@ impl Stage {
             PopupKind::Info if line == tr("STR_MENU_INFO_LANDING_MAP") => self.app.toggle_landing_map(),
             PopupKind::Info if line == tr("STR_MENU_INFO_HEIGHT_VIEW") => self.app.toggle_height_view(),
             PopupKind::Info if line == tr("STR_MENU_INFO_REVIEW") => self.app.open_review(),
+            PopupKind::Info if line == tr("STR_MENU_INFO_CHALLENGES") => self.app.open_challenges(),
             PopupKind::Info if line == tr("STR_MENU_INFO_HOLE_COMMENTS") => self.app.open_hole_comments(),
             PopupKind::Info if line == tr("STR_MENU_INFO_GRAPHS") => self.app.open_graphs(),
             PopupKind::Info => match k {
@@ -3173,6 +3186,7 @@ impl Stage {
                 Screen::HoleComments => app.draw_hole_comments(&mut self.g),
                 Screen::Graphs => app.draw_graphs(&mut self.g),
                 Screen::Review => app.draw_review(&mut self.g),
+                Screen::Challenges => app.draw_challenges(&mut self.g),
                 Screen::Profile => {
                     app.draw_profile(&mut self.g);
                     app.draw_rename(&mut self.g);
@@ -3846,6 +3860,7 @@ impl EventHandler for Stage {
                 Screen::HoleComments => return self.app.hole_comments_wheel(y),
                 Screen::Graphs => return self.app.graphs_wheel(y),
                 Screen::Review => return self.app.review_wheel(y),
+                Screen::Challenges => return self.app.challenges_wheel(y),
                 Screen::Profile => return self.app.profile_wheel(y),
                 _ => {}
             }
@@ -3983,6 +3998,9 @@ impl EventHandler for Stage {
             } else if self.app.screen == Screen::Review {
                 let (vx, vy) = self.app.view.to_virtual(x, y);
                 self.app.review_click(vx, vy, button == MouseButton::Right);
+            } else if self.app.screen == Screen::Challenges {
+                let (vx, vy) = self.app.view.to_virtual(x, y);
+                self.app.challenges_click(vx, vy, button == MouseButton::Right);
             } else if self.app.screen == Screen::Report {
                 let (vx, vy) = self.app.view.to_virtual(x, y);
                 self.app.report_click(vx, vy);
@@ -4416,6 +4434,8 @@ impl Stage {
                 app.graphs_key(k);
             } else if app.screen == Screen::Review {
                 app.review_key(k);
+            } else if app.screen == Screen::Challenges {
+                app.challenges_key(k);
             } else if app.screen == Screen::Report {
                 if k == KeyCode::Escape || k == KeyCode::F1 {
                     app.screen = Screen::Play;

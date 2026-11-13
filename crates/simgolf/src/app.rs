@@ -283,6 +283,8 @@ pub enum Screen {
     Graphs,
     /// OpenSGolf extras: the course review (review_ui.rs).
     Review,
+    /// OpenSGolf extras: the challenges (challenges.rs).
+    Challenges,
     /// The course editor's box over the course (editor.rs; the port's own).
     Editor,
 }

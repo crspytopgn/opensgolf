@@ -2883,6 +2883,7 @@ STR_MENU_INFO_PATH_VIEW                 : Path view on / off
 STR_MENU_INFO_LANDING_MAP               : Landing map on / off
 STR_MENU_INFO_HEIGHT_VIEW               : Height map on / off
 STR_MENU_INFO_REVIEW                    : Course review
+STR_MENU_INFO_CHALLENGES                : Challenges
 STR_MENU_INFO_HOLE_COMMENTS             : Comments by hole
 STR_MENU_INFO_GRAPHS                    : History graphs
 # The message history
@@ -2975,6 +2976,31 @@ STR_REVIEW_FUN_DULL                      :Golfers find these holes dull: {LIST}.
 STR_REVIEW_COMPLAINT                     :Hole {HOLE}: "{WHAT}" heard {COUNT} times this year.
 STR_REVIEW_NO_COMPLAINTS                 :No complaints heard on the course this year.
 STR_REVIEW_HELP                          :Up/Down scroll; Esc, Enter or a click outside the box goes back.
+# Information > Challenges and Hole Stats' design lab (the Challenges extra)
+STR_CHALLENGES_TITLE                     :CHALLENGES
+STR_CHALLENGES_HELP                      :Click a challenge (or press 1 to 6) to take it on, again to give it up. Checked at each month start.
+STR_CHALLENGE_TAKE                       :Take
+STR_CHALLENGE_TAKEN                      :Taken
+STR_CHALLENGE_DONE                       :Done
+STR_CHALLENGE_MISSED                     :Missed
+STR_CHALLENGE_PAR3                       :Perfect par 3
+STR_CHALLENGE_PAR3_DESC                  :a par 3 that golfers rate Outstanding (fun 60% or more) after 20 rounds.
+STR_CHALLENGE_PAR5                       :Signature par 5
+STR_CHALLENGE_PAR5_DESC                  :a par 5 of 500 yards or more, rated Outstanding after 20 rounds, that golfers average 6 or less on.
+STR_CHALLENGE_TOUGH                      :Tough but fair
+STR_CHALLENGE_TOUGH_DESC                 :a hole that golfers average a stroke or more over par on and still rate Very good (fun 40% or more) after 20 rounds.
+STR_CHALLENGE_BALANCED                   :Balanced eighteen
+STR_CHALLENGE_BALANCED_DESC              :18 holes with four or five par 3s and four or five par 5s, every one rated Good (fun 20% or more) after 20 rounds.
+STR_CHALLENGE_NINE                       :Nine-hole test
+STR_CHALLENGE_NINE_DESC                  :a course of 9 to 17 holes with a total par of 34 to 37, every hole rated Good after 20 rounds.
+STR_CHALLENGE_TURNAROUND                 :Turnaround
+STR_CHALLENGE_TURNAROUND_DESC            :have §100,000 more cash than when you take it on, by the end of next year.
+STR_CHALLENGE_TURNAROUND_GOAL            :Turnaround: have {MONEY} cash by the end of {YEAR}
+STR_LAB_MARK                             :Mark before
+STR_LAB_NO_ROUNDS                        :no rounds played yet
+STR_LAB_FIGURES                          :fun {FUN}, average {AVG} over {ROUNDS} rounds
+STR_LAB_BEFORE                           :Before ({DATE}): {YARDS} yds, par {PAR}, {FIGURES}
+STR_LAB_SINCE                            :Since: {YARDS} yds, par {PAR}, {FIGURES}
 STR_GPROFILE_HELP                        :L locate, C card, B edit bio, R rounds, Up/Down scroll; Esc, Enter or a click outside the box goes back.
 STR_RENAME_EMPLOYEE                     :Rename the employee:
 STR_RENAME_BIO                          :The golfer's bio:
@@ -3612,8 +3638,10 @@ STR_EXTRAS_PAUSE_AIM                    : Pause while you aim your pro
 STR_EXTRAS_DESC_PAUSE_AIM               :The game stands still while your pro waits for your shot, in tournaments too, and goes on as you swing.
 STR_EXTRAS_SAVE_NEWEST                  : Saves newest first, with dates and backups
 STR_EXTRAS_UNLOCK_INFO                  : What unlocks it: how many holes open a building
+STR_EXTRAS_CHALLENGES                   : Challenges and the design lab
 STR_EXTRAS_DESC_SAVE_NEWEST             :Load Previous Game lists your saves newest first with when each was saved, and saving over a game keeps its last three versions as backups.
 STR_EXTRAS_DESC_UNLOCK_INFO             :A locked building says how many holes open it and how many the course has, where the original only asks for more holes.
+STR_EXTRAS_DESC_CHALLENGES              :Information > Challenges sets design and business aims to take on, and Hole Stats' Mark before keeps a hole's figures to compare after you change it.
 STR_HOLESTATS_FLY_OVER                  :Fly over
 
 # The launcher (the port's own, launcher.rs; docs/PLAYING.md "The launcher"): the screen before the title menu. Its tabs,

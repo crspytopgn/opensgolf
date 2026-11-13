@@ -147,6 +147,9 @@ pub struct Settings {
     /// says more holes are needed.
     #[serde(default)]
     pub unlock_info: bool,
+    /// Information > Challenges and Hole Stats' design lab (challenges.rs). Off by default: the original has neither.
+    #[serde(default)]
+    pub challenges: bool,
 }
 
 impl Settings {
@@ -189,6 +192,7 @@ impl Settings {
         pause_aim: false,
         save_newest: true,
         unlock_info: true,
+        challenges: true,
     };
     pub const ALL_OFF: Settings = Settings {
         people: false,
@@ -224,6 +228,7 @@ impl Settings {
         pause_aim: false,
         save_newest: false,
         unlock_info: false,
+        challenges: false,
     };
 
     /// The ticks as the Extras box's checkbox bits (in `UI_KEYS` order).
@@ -262,6 +267,7 @@ impl Settings {
             self.pause_aim,
             self.save_newest,
             self.unlock_info,
+            self.challenges,
         ]
         .iter()
         .enumerate()
@@ -304,6 +310,7 @@ impl Settings {
             pause_aim: on(30),
             save_newest: on(31),
             unlock_info: on(32),
+            challenges: on(33),
         }
     }
 
@@ -343,7 +350,7 @@ impl Default for Settings {
 
 /// The interface extras' lines on the Extras box's Interface page (extras_ui.rs), one tick per extra in `Settings::bits`
 /// order (text keys in lang/en.txt).
-pub const UI_KEYS: [&str; 33] = [
+pub const UI_KEYS: [&str; 34] = [
     "STR_EXTRAS_PEOPLE",
     "STR_EXTRAS_HISTORY",
     "STR_EXTRAS_NAME_TAGS",
@@ -377,6 +384,7 @@ pub const UI_KEYS: [&str; 33] = [
     "STR_EXTRAS_PAUSE_AIM",
     "STR_EXTRAS_SAVE_NEWEST",
     "STR_EXTRAS_UNLOCK_INFO",
+    "STR_EXTRAS_CHALLENGES",
 ];
 
 /// The update check's value when settings.json has none (`Settings::update_check`).
@@ -495,6 +503,10 @@ pub fn save_newest() -> bool {
 }
 pub fn unlock_info() -> bool {
     settings().unlock_info
+}
+/// Whether Information > Challenges and Hole Stats' design lab are on (challenges.rs).
+pub fn challenges() -> bool {
+    settings().challenges
 }
 pub fn random_trees() -> bool {
     settings().random_trees
@@ -686,6 +698,9 @@ pub struct Kept {
     /// The club records (records.rs), once a hole is finished with the comments by hole on.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub records: Option<crate::records::Records>,
+    /// The design lab's marks (challenges.rs), by hole number.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub lab: BTreeMap<u8, crate::challenges::LabMark>,
 }
 
 /// A round a golfer played here: when it ended, the holes played, strokes, their par and what the golfer spent.
@@ -714,6 +729,7 @@ impl Kept {
             && self.homes.is_empty()
             && self.rounds.is_empty()
             && self.records.is_none()
+            && self.lab.is_empty()
     }
 
     pub fn push_message(&mut self, m: Message) {
@@ -779,6 +795,8 @@ pub struct State {
     pub path_view: bool,
     /// The course review's first item shown (review_ui.rs).
     pub review_off: usize,
+    /// The Challenges page's first row shown (challenges.rs).
+    pub challenges_off: usize,
     /// The --screen test hook's extras screen, opened once the game has run (main.rs).
     pub test_open: Option<String>,
     /// The screen has been touched (touch.rs): no pointer to hover with, so no name tags.
@@ -1302,7 +1320,7 @@ mod tests {
         let f = Settings { save_files: true, ..Settings::ALL_OFF };
         assert_eq!(f.bits(), 1 << 22);
         assert_eq!(Settings::from_bits(f.bits()), f);
-        assert_eq!(UI_KEYS.len(), 33);
+        assert_eq!(UI_KEYS.len(), 34);
     }
 
     #[test]

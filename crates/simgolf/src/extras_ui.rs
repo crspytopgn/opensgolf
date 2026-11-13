@@ -173,8 +173,8 @@ const PAGE_LINES: [&[ExtrasLine]; 6] = {
         // the interface at the edges, path styles and lamps, random trees, Tab turns buildings (only the picture turns),
         // home names on hover, the hole flyover
         &[U(26), G(x::PATHS), U(21), G(0), U(28), U(29)],
-        // People, extra reports, messages, home-site details, path help, unlock info
-        &[Group(0), Group(1), Group(2), U(19), U(4), U(32)],
+        // People, extra reports, messages, home-site details, path help, unlock info, challenges and the design lab
+        &[Group(0), Group(1), Group(2), U(19), U(4), U(32), U(33)],
         // autosave, the Load list newest first (with backups), import and export saved games, sharing, save pictures
         &[U(5), U(31), U(22), U(7), U(6)],
         // zoom towards the pointer, right click puts the tool away, drag to place, right-drag panning, mouse aim and swing
@@ -298,6 +298,7 @@ const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_PAUSE_AIM",
     "STR_EXTRAS_DESC_SAVE_NEWEST",
     "STR_EXTRAS_DESC_UNLOCK_INFO",
+    "STR_EXTRAS_DESC_CHALLENGES",
 ];
 
 /// A line's description (what ticking it changes; for the preset line, what the preset in use is).
@@ -747,6 +748,10 @@ impl App {
             let h = self.info.stats_hole.clamp(1, 18);
             return self.start_flyover(h);
         }
+        if self.lab_button().is_some_and(|r| r.has(x, y)) {
+            self.lab_mark();
+            return true;
+        }
         // a click on the title names the hole (the port's own; the original's Hole Stats closes on any click there)
         if (200.0..=570.0).contains(&x) && (30.0..=66.0).contains(&y) {
             let h = self.info.stats_hole.clamp(1, 18);
@@ -999,7 +1004,7 @@ mod tests {
         }
         assert_eq!(PAGES.len(), PAGE_LINES.len());
         assert_eq!(BANNERS.len(), PAGES.len());
-        assert_eq!(page_lines(3).len(), 6, "the Info page's six lines");
+        assert_eq!(page_lines(3).len(), 7, "the Info page's seven lines");
     }
 
     #[test]

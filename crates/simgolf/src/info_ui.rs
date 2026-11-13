@@ -492,6 +492,7 @@ impl App {
         s.text_centered(g, 536.0, 135.0, &hole.par.to_string(), 14.0, par_ink);
         self.draw_par_buttons(g, &s);
         self.draw_flyover_button(g, &s);
+        self.draw_lab_button(g, &s);
         s.text(g, 441.0, 156.0, tr("STR_HOLESTATS_STROKE_AVERAGE"), 14.0, ink);
         if let Some(a) = st.avg {
             s.text_centered(g, 591.0, 156.0, &hundredths(a), 14.0, ink);
@@ -527,6 +528,12 @@ impl App {
         }
         // the club records' line (records.rs), with the comments by hole
         if let Some(line) = self.records_line(h) {
+            s.image_part(g, art, 0.0, y, 0.0, 282.0, 800.0, 16.0);
+            s.text_centered(g, 400.0, y + 12.0, &line, 14.0, c15(0x0018));
+            y += 16.0;
+        }
+        // the design lab's lines (challenges.rs): the figures when marked, and since
+        for line in self.lab_lines(h) {
             s.image_part(g, art, 0.0, y, 0.0, 282.0, 800.0, 16.0);
             s.text_centered(g, 400.0, y + 12.0, &line, 14.0, c15(0x0018));
             y += 16.0;
