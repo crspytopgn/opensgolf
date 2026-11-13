@@ -1456,6 +1456,20 @@ starts a practice round left for you to aim, `j:1,3,1` a match (the challenge br
 example, with `--size 800x600 --property 0 --clock 4242 --edit "h:2,24,27" --time 20` (a groundskeeper),
 `SG_TAP="staff;drag:400,295,520,360"` scrolls the view and leaves him where he is, where `staff;400,295` picks him up.
 
+### The browser version as an app
+
+The browser version can be installed as an app: on an iPhone or iPad tap **Share**, then **Add to Home Screen**; in Chrome
+and Edge (Android, Windows, macOS, Linux) the start page shows **Install OpenSGolf** under the start buttons. The app opens
+without the browser's bars, in landscape, from its own icon. Once the game has been started once, it starts again without a
+connection: a service worker (`web/sw.js`) keeps the page and the game, and your game files, saves and packs are in the
+browser's storage as before. A new version is fetched at the next start that has a connection; one that arrives while you
+play says so, and plays after you close and open the game again. `?nosw` in the address turns this off for a test.
+
+One game at a time: two tabs or windows of the game share one save folder, so a second one asks first ("OpenSGolf is already
+open") and plays only after the other is closed, or with **Play here anyway**. On a phone or tablet, an exported save, a
+picture and **Back up my saves** come with the system's share sheet (Save to Files, AirDrop, a cloud drive) as well as a
+download.
+
 ### Android
 
 Installing the APK (sideloading) is described in the README, [INSTALL.md](INSTALL.md). The app runs in landscape and

@@ -411,9 +411,64 @@ function sgOpenUrl(url) {
     document.body.appendChild(note);
 }
 
-// Hands a file to the browser as a download.
+// Hands a file to the browser as a download. On a phone or tablet that can share files (iPhone, iPad, Android) the game's
+// exports (a saved game, a course code's file, a picture) come with the system's share sheet as well: a note offers Share
+// (Save to Files, AirDrop, a message, a cloud drive) or Download. The note's own button is the tap the share sheet needs:
+// the game's click that asked for the file was handled frames earlier, and the browser no longer counts it.
 function sgDownload(name, bytes) {
-    const url = URL.createObjectURL(new Blob([bytes], { type: name.toLowerCase().endsWith(".png") ? "image/png" : "application/octet-stream" }));
+    const type = name.toLowerCase().endsWith(".png") ? "image/png" : name.toLowerCase().endsWith(".zip") ? "application/zip" : "application/octet-stream";
+    const file = sgShareable(name, bytes, type);
+    if (file) {
+        sgShareNote(name, file, () => sgDownloadNow(name, bytes, type));
+        return;
+    }
+    sgDownloadNow(name, bytes, type);
+}
+// A File the system's share sheet takes, or null where there is none (a desktop, or a browser that cannot share files).
+function sgShareable(name, bytes, type) {
+    if (!sgTouchDevice() || !navigator.share || !navigator.canShare || typeof File !== "function") return null;
+    try {
+        const file = new File([bytes], name, { type: type });
+        return navigator.canShare({ files: [file] }) ? file : null;
+    } catch (e) {
+        return null;
+    }
+}
+// The share sheet for a file, falling back to a download when the player cancels nothing but sharing fails.
+function sgShareNow(file, download) {
+    navigator.share({ files: [file], title: file.name }).catch(e => {
+        // the player closing the sheet is not a failure
+        if (!e || e.name !== "AbortError") download();
+    });
+}
+function sgShareNote(name, file, download) {
+    const note = document.createElement("div");
+    note.setAttribute("role", "dialog");
+    note.style.cssText = "position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top));transform:translateX(-50%);z-index:20;" +
+        "max-width:min(720px,calc(100vw - 32px));background:rgba(10,30,18,0.95);color:#fff;font:600 clamp(16px,2.4vw,20px)/1.45 system-ui,sans-serif;" +
+        "padding:14px 20px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,0.5);text-align:center";
+    const text = document.createElement("div");
+    text.textContent = name + " is ready.";
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;gap:12px;justify-content:center;margin-top:10px;flex-wrap:wrap";
+    const button = (label, act) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = label;
+        b.style.cssText = "font:inherit;padding:8px 18px;border-radius:10px;border:0;cursor:pointer;background:#f4d35e;color:#1c2a1f";
+        b.addEventListener("click", e => { e.stopPropagation(); note.remove(); if (act) act(); });
+        row.appendChild(b);
+        return b;
+    };
+    button("Share or save to Files", () => sgShareNow(file, download));
+    button("Download", download);
+    button("Close", null).style.background = "#ccd8c8";
+    note.append(text, row);
+    document.body.appendChild(note);
+    setTimeout(() => note.remove(), 60000);
+}
+function sgDownloadNow(name, bytes, type) {
+    const url = URL.createObjectURL(bytes instanceof Blob ? bytes : new Blob([bytes], { type: type }));
     const a = document.createElement("a");
     a.href = url;
     a.download = name;
@@ -686,14 +741,12 @@ function sgBackupSaves() {
     const d = new Date();
     const pad = n => String(n).padStart(2, "0");
     const name = "opensgolf-saves-" + d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + ".zip";
-    const url = URL.createObjectURL(sgZip(files));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    const zip = sgZip(files);
+    // on a phone the share sheet (the click on Back up my saves is the tap it needs): Save to Files or a cloud drive keeps
+    // the backup out of this browser's storage, where clearing the site's data would take it with the saves
+    const file = sgShareable(name, zip, "application/zip");
+    if (file) sgShareNow(file, () => sgDownloadNow(name, zip, "application/zip"));
+    else sgDownloadNow(name, zip, "application/zip");
     const games = files.filter(([p]) => sgIsGame(p)).length;
     sgSaveStatus("Downloaded " + name + ": " + sgPlural(games, "saved game") + " and " + sgPlural(files.length - games, "other file") +
         " (settings, championship courses, records). Keep it somewhere safe; Restore saves... brings it back.");
@@ -842,8 +895,57 @@ function sgSaveCount() {
         : "Kept in this browser: " + sgPlural(games, "saved game") + " (" + sgPlural(files.length, "file") + " in all).";
 }
 
+// --- one game at a time ----------------------------------------------------------------------------------------------------
+// Two tabs or windows of this page share one save folder (local storage): each keeps its own copy in memory and writes it
+// back, so a game saved in one can be overwritten by the other, and settings changed in one undone by the other. The
+// running game holds a lock (the Web Locks API; a BroadcastChannel where there is none); a second start finds it held
+// and asks first. "Play here anyway" goes on regardless.
+const SG_LOCK = "opensgolf-game";
+let sgChannel = null;
+function sgHoldLock() {
+    if (navigator.locks && navigator.locks.request) {
+        // held until the page goes away; queued behind another tab's when that one still has it
+        navigator.locks.request(SG_LOCK, () => new Promise(() => {})).catch(() => {});
+        return;
+    }
+    try {
+        sgChannel = sgChannel || new BroadcastChannel(SG_LOCK);
+        sgChannel.onmessage = e => { if (e.data === "anyone?") sgChannel.postMessage("playing"); };
+    } catch (e) {}
+}
+// Calls back with true when another tab or window of this page is running the game.
+function sgOtherGame(then) {
+    if (navigator.locks && navigator.locks.query) {
+        navigator.locks.query().then(q => then((q.held || []).some(l => l.name === SG_LOCK))).catch(() => then(false));
+        return;
+    }
+    let ch = null;
+    try { ch = new BroadcastChannel(SG_LOCK); } catch (e) { then(false); return; }
+    let seen = false;
+    ch.onmessage = e => { if (e.data === "playing") seen = true; };
+    ch.postMessage("anyone?");
+    setTimeout(() => { ch.close(); then(seen); }, 250);
+}
+function sgTabGuard(start) {
+    sgOtherGame(other => {
+        if (!other) {
+            sgHoldLock();
+            start();
+            return;
+        }
+        const el = document.getElementById("twotabs");
+        if (!el) { sgHoldLock(); start(); return; }
+        el.hidden = false;
+        document.getElementById("twotabsanyway").onclick = () => { el.hidden = true; sgHoldLock(); start(); };
+        document.getElementById("twotabsagain").onclick = () => { el.hidden = true; sgTabGuard(start); };
+    });
+}
+
 // --- starting --------------------------------------------------------------------------------------------------------------
 function sgStart() {
+    sgTabGuard(sgStartNow);
+}
+function sgStartNow() {
     sgRestoreSaves();
     // ?classic in the address starts with safe graphics settings (Classic, no frame rate cap): the same marker a run that
     // stopped drawing leaves behind (crates/simgolf/src/enhanced.rs), so the game puts them back and says so (issue #55)
@@ -1647,7 +1749,62 @@ async function sgNews() {
     }
 }
 
+// --- the home-screen app and offline play (web/sw.js, web/manifest.webmanifest) --------------------------------------------
+// The service worker keeps the page and the game so that a later start needs no connection; ?nosw in the address leaves it
+// out (and takes away one kept from earlier) for a test. Only over https, or on this computer while testing.
+function sgServiceWorker() {
+    if (!("serviceWorker" in navigator)) return;
+    const local = location.hostname === "localhost" || location.hostname === "127.0.0.1";
+    if (location.protocol !== "https:" && !local) return;
+    if (new URLSearchParams(location.search).has("nosw")) {
+        navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(() => {});
+        return;
+    }
+    const had = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register("sw.js").catch(e => console.warn("offline play is not available: " + e));
+    // a newer version took over while a game is running: it plays at the next start, and saying so here keeps a player
+    // with the app open for days from missing it
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+        const c = document.getElementById("glcanvas");
+        if (had && c && c.style.display === "block") sgNote("A new version of OpenSGolf is ready. Save your game, then close and open it again to play the new version.");
+    });
+}
+let sgInstallAsk = null;
+window.addEventListener("beforeinstallprompt", e => {
+    // the browser's own install offer (Chrome, Edge, Android): kept for the page's button
+    e.preventDefault();
+    sgInstallAsk = e;
+    sgInstallHint();
+});
+window.addEventListener("appinstalled", () => { sgInstallAsk = null; sgInstallHint(); });
+// The line under the start buttons that says how to install the game as an app, where the browser can.
+function sgInstallHint() {
+    const box = document.getElementById("install"), text = document.getElementById("installtext"), btn = document.getElementById("installbtn");
+    if (!box || !text || !btn) return;
+    if (sgHomeScreenApp()) { box.hidden = true; return; }
+    const apple = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+    if (sgInstallAsk) {
+        text.textContent = "Play it as an app: no browser bars, and it starts without a connection once played.";
+        btn.hidden = false;
+        btn.onclick = () => {
+            const ask = sgInstallAsk;
+            sgInstallAsk = null;
+            ask.prompt();
+            ask.userChoice.finally(sgInstallHint);
+        };
+        box.hidden = false;
+    } else if (apple && "serviceWorker" in navigator) {
+        text.textContent = "Play it as an app: tap Share, then Add to Home Screen. It opens without Safari's bars and starts without a connection once played.";
+        btn.hidden = true;
+        box.hidden = false;
+    } else {
+        box.hidden = true;
+    }
+}
+
 async function sgInit() {
+    sgServiceWorker();
+    sgInstallHint();
     sgSaveCount();
     sgNews();
     const ver = document.getElementById("version");
