@@ -31,6 +31,9 @@ use std::collections::HashMap;
 
 /// World units per metre (walk.rs).
 const M: f32 = crate::walk::METRE;
+/// How much bigger than the game's own scale a 3D golfer is drawn, so seen from eye height they stand as tall as the
+/// walker rather than looking like children (the sprites are drawn small against the course).
+const GOLFER: f32 = 1.18;
 /// A person's height.
 const PERSON: f32 = 1.8 * M;
 /// Trees' size against the overhead art's (whose trees are drawn far larger than the ground they stand on).
@@ -1449,7 +1452,7 @@ impl App {
                     }
                     let (beard, whiskers) = face.map(|f| (f.2, f.3)).unwrap_or((crate::walk_golfer::Beard::None, look.hair));
                     // as finely made as the golfer is big on the screen (sc.u.info[2]: the focal length in pixels)
-                    let pixels = 1.5 * M * p.scale.max(0.1) * sc.u.info[2] / dist.max(1.0);
+                    let pixels = 1.5 * GOLFER * M * p.scale.max(0.1) * sc.u.info[2] / dist.max(1.0);
                     let detail = crate::walk_golfer::detail_for(pixels);
                     let who = crate::walk_golfer::Who { look, height, girth, kind, mood, beard, whiskers, detail, star };
                     let v = crate::walk_golfer::figure(&who, act, t, sc.time + ph * 10.0, club);
@@ -1467,7 +1470,7 @@ impl App {
                     let rt = [-fwd[1], fwd[0]];
                     // a left-hander is the mirror image: the body built right-handed, its right and left swapped
                     let fl = if p.mirror && act.at_ball() { -1.0 } else { 1.0 };
-                    let k = M * p.scale.max(0.1);
+                    let k = GOLFER * M * p.scale.max(0.1);
                     // at the ball the golfer stands back from it (the game keeps the ball at the golfer's own place until it
                     // is struck), so the club meets it
                     let [sx, sz] = if act.at_ball() { crate::walk_golfer::ball_spot(act, club, of.female) } else { [0.0, 0.0] };
@@ -1484,7 +1487,7 @@ impl App {
                     let mut gv: Vec<Vert> = v.into_iter().map(place).collect();
                     if toon {
                         crate::walk_toon::outline(&gv, crate::walk_toon::width(dist, 0.011 * M), &mut inks);
-                        crate::walk_toon::cel(&mut gv, sun);
+                        crate::walk_toon::soft(&mut gv, sun, eye);
                     }
                     solids.extend(gv);
                     blob(self, x, z, 0.5 * M, 0.38, &mut blobs);

@@ -40,6 +40,48 @@ pub fn cel(v: &mut [Vert], sun: [f32; 3]) {
     }
 }
 
+/// The finish for a figure seen close (the golfers): a soft two-tone ramp from shade to light rather than hard bands, a
+/// little sky light from above, a bright rim where the body turns away from `eye` and a small soft gloss towards the sun,
+/// as a polished cartoon is lit. Like `cel` it bakes the light into the colours and clears the normals.
+pub fn soft(v: &mut [Vert], sun: [f32; 3], eye: [f32; 3]) {
+    let unit = |a: [f32; 3]| {
+        let l = (a[0] * a[0] + a[1] * a[1] + a[2] * a[2]).sqrt().max(1e-6);
+        [a[0] / l, a[1] / l, a[2] / l]
+    };
+    let dot = |a: [f32; 3], b: [f32; 3]| a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    let s = |t: f32| {
+        let t = t.clamp(0.0, 1.0);
+        t * t * (3.0 - 2.0 * t)
+    };
+    for t in v.chunks_exact_mut(3) {
+        let tn = [0, 1, 2].map(|k| t[0].normal[k] + t[1].normal[k] + t[2].normal[k]);
+        for p in t.iter_mut() {
+            let raw = if p.normal == [0.0; 3] { tn } else { p.normal };
+            if dot(raw, raw) < 1e-8 {
+                for c in &mut p.color[..3] {
+                    *c *= HALF;
+                }
+                continue;
+            }
+            let n = unit(raw);
+            let to_eye = unit([eye[0] - p.pos[0], eye[1] - p.pos[1], eye[2] - p.pos[2]]);
+            let d = dot(n, sun);
+            let k = SOFT_SHADE + (SOFT_LIT - SOFT_SHADE) * s((d + 0.2) / 0.55) + 0.07 * n[1];
+            let rim = (1.0 - dot(n, to_eye).max(0.0)).powi(3) * (0.18 + 0.22 * d.max(0.0));
+            let gloss = dot(n, unit([sun[0] + to_eye[0], sun[1] + to_eye[1], sun[2] + to_eye[2]])).max(0.0).powi(24) * 0.14;
+            for c in &mut p.color[..3] {
+                let lit = *c * k;
+                *c = (lit + (1.0 - lit).max(0.0) * rim + gloss).min(1.0);
+            }
+            p.normal = [0.0; 3];
+        }
+    }
+}
+
+/// The two ends of `soft`'s ramp.
+const SOFT_LIT: f32 = 1.08;
+const SOFT_SHADE: f32 = 0.7;
+
 /// The outline shell of `v`: each point `width` out along its normal, in a dark shade of its own colour, unlit.
 pub fn outline(v: &[Vert], width: f32, out: &mut Vec<Vert>) {
     out.reserve(v.len());

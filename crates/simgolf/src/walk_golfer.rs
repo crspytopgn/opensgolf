@@ -380,7 +380,7 @@ fn pose(act: Act, t: f32, time: f32, club_len: f32) -> Pose {
                 _ => (time * 2.2).sin() * 0.05,
             };
             let bend: f32 = if putt { 0.62 } else { 0.45 };
-            let hips = [0.0, if putt { 0.9 } else { 0.88 }, -0.04];
+            let hips = [0.0, if putt { 0.92 } else { 0.91 }, -0.04];
             let spine = 0.5;
             let shoulders = add(hips, [0.0, spine * bend.cos(), spine * bend.sin()]);
             // the hands' circle round the shoulders, in the plane of the target line and the club's line at the ball
@@ -467,7 +467,7 @@ fn full_swing(reach: f32, t: f32, club_len: f32) -> Pose {
     let finish = (-turn - 0.6).max(0.0);
     let bend: f32 = 0.45 - finish * 0.22;
     Pose {
-        hips: [turn * -0.025, 0.88 + finish * 0.04, -0.04],
+        hips: [turn * -0.025, 0.91 + finish * 0.02, -0.04],
         hip_turn: turn * 0.45,
         chest_turn: turn * 0.55,
         bend,
@@ -489,8 +489,15 @@ thread_local! {
 /// glint, a finger of the moustache) needs far fewer to look round, so it costs far less.
 fn sized(n: usize, least: usize, size: f32) -> usize {
     let d = DETAIL.with(|d| d.get());
-    // far off, the fewest that still read as round at a few pixels
-    let least = if d < 0.3 { least.min(4) - 1 } else { least };
+    // far off (a golfer a few dozen pixels tall), the fewest that still read as round; nearer, a big part (a limb, the
+    // head, the body) never fewer than eight, so it is round rather than boxy at any size it is seen at
+    let least = if d < 0.12 {
+        least.min(4) - 1
+    } else if size >= 0.5 && d >= 0.3 {
+        least.max(8)
+    } else {
+        least
+    };
     ((n as f32 * d * size.clamp(0.0, 1.0).sqrt()).round() as usize).max(least)
 }
 
@@ -606,7 +613,7 @@ const LEGS: f32 = 0.62;
 /// Where the legs end, before they are shortened.
 const HIP_Y: f32 = 0.92;
 /// How much bigger than its modelled size the head is drawn.
-const HEAD: f32 = 1.35;
+const HEAD: f32 = 1.5;
 
 /// A height of the body as drawn: the legs shortened, the rest moved down onto them (the ground stays where it is).
 fn stubby(y: f32) -> f32 {
@@ -704,7 +711,7 @@ pub fn body(look: &Look, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
 /// in hand (0..13, 13 the putter). Drawn as a cartoon is: a big head with a face that shows the mood, big hands and
 /// feet, and the build of the golfer's own pictures.
 pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
-    DETAIL.with(|d| d.set(who.detail.clamp(0.2, 3.0)));
+    DETAIL.with(|d| d.set(who.detail.clamp(0.05, 3.0)));
     let look = &who.look;
     let mut p = pose(act, t, time, club_length(club));
     // a club held at the side or dragged rests on the ground rather than through it
@@ -744,10 +751,15 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
         let hint = add(yaw([0.0, 0.0, 1.0], -p.hip_turn * 0.5), [s * 0.1, 0.0, 0.0]);
         let (knee, ankle) = reach(hip, foot, 0.45, 0.43, hint);
         tube(o, hip, knee, 0.12 * g, 0.095 * g.sqrt(), look.pants, hip_right, 0.9, 14);
-        tube(o, knee, ankle, 0.092 * g.sqrt(), 0.075, look.pants, hip_right, 0.9, 14);
-        let toe = add(ankle, [s * 0.02, -0.04, 0.25]);
-        let heel = add(ankle, [0.0, -0.04, -0.07]);
-        tube(o, heel, toe, 0.08, 0.085, shoe, [0.0, 1.0, 0.0], 0.62, 10);
+        tube(o, knee, ankle, 0.092 * g.sqrt(), 0.078, look.pants, hip_right, 0.9, 14);
+        // a round knee, so the leg bends smoothly rather than folding at a seam
+        ball(o, knee, [0.094 * g.sqrt(); 3], look.pants);
+        // chunky, rounded shoes (drawn deep: the stubby legs squash them)
+        let toe = add(ankle, [s * 0.02, -0.03, 0.25]);
+        let heel = add(ankle, [0.0, -0.03, -0.07]);
+        tube(o, heel, toe, 0.09, 0.095, shoe, [0.0, 1.0, 0.0], 0.85, 12);
+        ball(o, toe, [0.095, 0.08, 0.1], shoe);
+        ball(o, heel, [0.085, 0.075, 0.075], shoe);
     }
     // the body: trousers to the belt, the shirt to the shoulders, wider than deep
     tube(o, sub(hips, mul(spine, 0.06)), waist, 0.19 * g, 0.19 * g, look.pants, hip_right, 0.72, 12);
@@ -766,7 +778,7 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
         tube(o, a, b, 0.028, 0.045, tie, chest_right, 0.25, 6);
         ball(o, a, [0.03, 0.028, 0.02], tie);
     }
-    tube(o, shoulders, neck, 0.075, 0.07, look.skin, chest_right, 1.0, 14);
+    tube(o, shoulders, add(neck, mul(spine, 0.05)), 0.075, 0.068, look.skin, chest_right, 1.0, 14);
     if who.star {
         // a big gold star on the pro's chest
         let at = add(add(add(shoulders, mul(spine, -0.14)), mul(chest_fwd, 0.16 * g.sqrt())), mul(chest_right, -0.075));
@@ -792,12 +804,14 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
         let hint = add(add([0.0, -1.0, 0.0], mul(chest_right, s * 0.6)), mul(chest_fwd, -0.3));
         let (elbow, wrist) = reach(shoulder, p.hands[k], 0.3, 0.28, hint);
         let sleeve = add(shoulder, mul(sub(elbow, shoulder), 0.5));
-        tube(o, shoulder, sleeve, 0.085, 0.08, look.shirt, chest_right, 1.0, 14);
-        tube(o, sleeve, elbow, 0.06, 0.056, look.skin, chest_right, 1.0, 14);
-        tube(o, elbow, wrist, 0.055, 0.048, look.skin, chest_right, 1.0, 14);
+        tube(o, shoulder, sleeve, 0.098, 0.092, look.shirt, chest_right, 1.0, 14);
+        tube(o, sleeve, elbow, 0.07, 0.066, look.skin, chest_right, 1.0, 14);
+        ball(o, elbow, [0.066; 3], look.skin);
+        tube(o, elbow, wrist, 0.064, 0.056, look.skin, chest_right, 1.0, 14);
         // the pro's white golf glove on his leading (left) hand
-        let hand = if who.star && k == 1 { [0.97, 0.97, 0.95] } else { look.hands };
-        ball(o, wrist, [0.075, 0.082, 0.075], hand);
+        // (bare hands in the skin's colour: the outfit's arm colour reads as a dark lump on the grip)
+        let hand = if who.star && k == 1 { [0.97, 0.97, 0.95] } else { look.skin };
+        ball(o, wrist, [0.084, 0.09, 0.084], hand);
     }
     // the club: grip, shaft and head
     if let Some((grip, shaft, l)) = p.club {
@@ -850,7 +864,8 @@ fn head(o: &mut Vec<Vert>, who: &Who, act: Act, neck: V, spine: V, face: V) {
     let crown = spine;
     let ax = [side, crown, face];
     let r = [0.15, 0.165, 0.15];
-    let c = add(add(neck, mul(crown, r[1] * 0.92)), mul(face, 0.015));
+    // (a little neck showing under the chin)
+    let c = add(add(neck, mul(crown, r[1] * 0.92 + 0.025)), mul(face, 0.015));
     // a point by the head's frame: `x` right, `y` up, `z` forward, from the head's middle
     let at = |x: f32, y: f32, z: f32| add(add(add(c, mul(side, x)), mul(crown, y)), mul(face, z));
     // on the head's surface (ahead), at `x` right and `y` up, `out` beyond it
@@ -910,7 +925,7 @@ fn head(o: &mut Vec<Vert>, who: &Who, act: Act, neck: V, spine: V, face: V) {
         shell(o, on(0.0, -0.118, 0.004), ax, [0.03, 0.026, 0.02], 0.0, PI, full, whisk);
     }
     // the mouth: a smile, a line or a frown, one smooth stroke, rounded at its ends
-    let mouth_out = if jaw { 0.012 } else { 0.003 };
+    let mouth_out = if jaw { 0.014 } else { 0.008 };
     let mouth = |u: f32| {
         let bend = mood.clamp(-1.0, 1.0) * 0.022 * (1.0 - u * u * 4.0);
         on(u * 0.08, -0.075 - bend, mouth_out)
