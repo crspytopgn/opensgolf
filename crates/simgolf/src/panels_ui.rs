@@ -1868,12 +1868,12 @@ mod tests {
     fn a_theme_s_own_description_wins_over_the_shared_one() {
         // a language file gives each theme its own words for a shared tile, else one text for all four (#164); the keys
         // here are made up so the overlay touches no other test
-        let k: &'static str = "STR_TILE_TEST_ONLY_164";
+        let k: &'static str = "TEST_TILE_164";
         assert_eq!(desc_key(k, 3), None);
-        sg_core::lang::load_overlay("STR_TILE_TEST_ONLY_164_DESC:all\nSTR_TILE_TEST_ONLY_164_DESC_LINKS:links\n");
-        assert_eq!(desc_key(k, 3), Some("STR_TILE_TEST_ONLY_164_DESC_LINKS"));
-        assert_eq!(desc_key(k, 1), Some("STR_TILE_TEST_ONLY_164_DESC"));
-        assert_eq!(desc_key(k, 0), Some("STR_TILE_TEST_ONLY_164_DESC"));
+        sg_core::lang::load_overlay("TEST_TILE_164_DESC:all\nTEST_TILE_164_DESC_LINKS:links\n");
+        assert_eq!(desc_key(k, 3), Some("TEST_TILE_164_DESC_LINKS"));
+        assert_eq!(desc_key(k, 1), Some("TEST_TILE_164_DESC"));
+        assert_eq!(desc_key(k, 0), Some("TEST_TILE_164_DESC"));
         assert_eq!(DESC_THEMES.len(), 4);
     }
 
