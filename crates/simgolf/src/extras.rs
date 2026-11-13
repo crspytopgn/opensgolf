@@ -66,9 +66,10 @@
 //!   course aims and shoots at once as in the original. Left alone by the presets, as the controls presets' ticks are: it
 //!   changes what the original's click does.
 //!
-//! * right click puts the tool away (main.rs right_click): with a tool in hand (a terrain brush, the elevation tools,
-//!   a building), a right click on the course puts it down, as Space does, instead of the original's: a terrain brush's
-//!   right click is the undo's, which twice on a hole's tee or green takes the hole away. Left alone by the presets.
+//! * right click puts the tool away (main.rs right_click): with a tool in hand (a terrain brush, a building), a right
+//!   click on the course puts it down, as Space does, instead of the original's: a terrain brush's right click is the
+//!   undo's, which twice on a hole's tee or green takes the hole away. The elevation tools keep the original's right
+//!   click, which lowers the ground (issue #176). Left alone by the presets.
 //!
 //! * the interface at the screen's edges (enhanced.rs widescreen): on a wide screen with Classic graphics, the HUD goes
 //!   to the window's edges as Enhanced graphics' Widescreen tick puts it, instead of staying in the 800 x 600 middle. A
