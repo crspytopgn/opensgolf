@@ -259,6 +259,36 @@ impl Build {
         }
     }
 
+    /// A rounded rod from `a` to `b`, made of overlapping balls of radius `r` (thinner towards its ends by `taper`).
+    fn rod(&mut self, a: [f32; 3], b: [f32; 3], r: f32, taper: f32, col: Rgb) {
+        let len = sub(b, a).iter().map(|v| v * v).sum::<f32>().sqrt();
+        let n = ((len / (r * 0.7)).ceil() as usize).max(2);
+        for k in 0..=n {
+            let t = k as f32 / n as f32;
+            let end = (2.0 * t - 1.0).abs();
+            let rr = r * (1.0 - taper * end * end);
+            self.ball([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t], rr, col);
+        }
+    }
+
+    /// A giant die, `s` across, its lowest corner at `lo`, its pips showing on the top, front and right.
+    fn die(&mut self, lo: [f32; 3], s: f32) {
+        self.cuboid(lo, [lo[0] + s, lo[1] + s, lo[2] + s], [0.96, 0.95, 0.92]);
+        let pip = [0.10, 0.10, 0.12];
+        let (r, q) = (s * 0.09, s * 0.27);
+        let c = [lo[0] + s * 0.5, lo[1] + s * 0.5, lo[2] + s * 0.5];
+        // five on top, three on the front, two on the right
+        for (dx, dz) in [(0.0, 0.0), (-q, -q), (q, q), (-q, q), (q, -q)] {
+            self.ball([c[0] + dx, lo[1] + s, c[2] + dz], r, pip);
+        }
+        for k in -1..=1 {
+            self.ball([c[0] + k as f32 * q, c[1] - k as f32 * q, lo[2] + s], r, pip);
+        }
+        for k in [-1.0, 1.0] {
+            self.ball([lo[0] + s, c[1] + k * q, c[2] + k * q], r, pip);
+        }
+    }
+
     /// Panels on a polygon's walls: on side `i` (from corner i to i + 1), a rectangle `w` wide and from `y0` to `y1`, at
     /// `along` (0..1) across the side, standing `out` off the wall.
     #[allow(clippy::too_many_arguments)]
@@ -787,6 +817,18 @@ fn snack_bar(theme: usize) -> Build {
     b.panel(&c, 2, 0.5, 4.5, 1.4, 2.8, 0.07, [0.12, 0.10, 0.08]);
     b.cuboid([-2.5, 0.0, 2.0], [2.5, 1.3, 2.7], pal.trim);
     b.awning(&c, 2, 6.0, 3.4, 1.8, 0.7, &pal);
+    // the gag: a giant hot dog on the roof, on two struts, with a squiggle of mustard
+    for x in [-2.0, 2.0] {
+        b.cuboid([x - 0.12, 5.6, -1.6], [x + 0.12, 7.0, -1.4], [0.3, 0.3, 0.32]);
+    }
+    let (y, z) = (7.6, -1.5);
+    b.rod([-3.6, y - 0.1, z - 0.55], [3.6, y - 0.1, z - 0.55], 0.62, 0.35, [0.88, 0.66, 0.36]);
+    b.rod([-3.6, y - 0.1, z + 0.55], [3.6, y - 0.1, z + 0.55], 0.62, 0.35, [0.88, 0.66, 0.36]);
+    b.rod([-4.3, y + 0.25, z], [4.3, y + 0.25, z], 0.55, 0.3, [0.72, 0.24, 0.16]);
+    for k in 0..12 {
+        let x = -3.3 + k as f32 * 0.6;
+        b.ball([x, y + 0.78, z + if k % 2 == 0 { -0.22 } else { 0.22 }], 0.16, [0.98, 0.82, 0.12]);
+    }
     for &(x, z) in &[(-6.0, 6.0), (0.0, 7.5), (6.0, 6.0), (-7.0, -1.0), (7.0, -1.0)] {
         b.parasol(x, z, &pal);
     }
@@ -820,6 +862,19 @@ fn pro_shop(theme: usize) -> Build {
     }
     b.bed(-6.0, 9.0, 5.0, 1.6, &pal);
     b.bed(6.0, 9.0, 5.0, 1.6, &pal);
+    // the gag: a giant golf ball on a giant tee, standing on the roof's ridge, its dimples a ring of dints
+    let tee = [0.95, 0.85, 0.2];
+    b.prism(&ring(0.0, -1.5, 0.35, 10, 0.0), 6.8, 8.6, tee);
+    b.prism(&ring(0.0, -1.5, 0.9, 12, 0.0), 8.6, 8.9, tee);
+    let (cy, r) = (10.6, 1.8);
+    b.ball([0.0, cy, -1.5], r, [0.97, 0.97, 0.95]);
+    for k in 0..14 {
+        let a = TAU * k as f32 / 14.0;
+        for dy in [-0.7f32, 0.0, 0.7] {
+            let rr = (r * r - dy * dy).sqrt() * 0.97;
+            b.ball([a.cos() * rr, cy + dy, -1.5 + a.sin() * rr], 0.16, [0.82, 0.83, 0.82]);
+        }
+    }
     b.tree(-13.0, -12.0, 8.0, &pal);
     b
 }
@@ -1299,6 +1354,15 @@ fn pub_inn(theme: usize) -> Build {
     b.cuboid([3.2, 0.0, 3.0], [3.4, 3.6, 3.2], pal.trunk);
     b.cuboid([3.3, 3.4, 3.05], [4.8, 3.5, 3.15], pal.trunk);
     b.cuboid([4.0, 2.2, 3.05], [4.7, 3.3, 3.15], [0.55, 0.15, 0.12]);
+    // the gag: a giant pint by the door, its head of froth spilling over
+    b.prism(&ring(-4.0, 4.4, 0.9, 12, 0.0), 0.0, 2.6, [0.50, 0.26, 0.08]);
+    b.prism(&ring(-4.0, 4.4, 0.95, 12, 0.0), 2.6, 3.0, [0.96, 0.93, 0.84]);
+    for k in 0..6 {
+        let a = TAU * k as f32 / 6.0;
+        b.ball([-4.0 + a.cos() * 0.6, 3.05, 4.4 + a.sin() * 0.6], 0.42, [0.97, 0.95, 0.88]);
+    }
+    b.ball([-3.1, 2.7, 4.6], 0.3, [0.97, 0.95, 0.88]);
+    b.ball([-3.0, 2.2, 4.65], 0.22, [0.97, 0.95, 0.88]);
     for k in 0..3 {
         let x = -7.0 + k as f32 * 4.5;
         b.cuboid([x - 1.0, 0.6, 6.0], [x + 1.0, 0.7, 7.0], pal.deck);
@@ -1548,6 +1612,9 @@ fn casino(theme: usize) -> Build {
         y += 3.0;
     }
     b.rect_roof(-14.0, -26.0, 14.0, -14.0, top, 0.5, 0.3, Roof::Flat, &pal);
+    // the gag: a pair of giant dice thrown on the roof
+    b.die([20.0, 9.5, -12.0], 5.0);
+    b.die([28.0, 9.5, -8.0], 5.0);
     // the sign: a tall pylon of lights
     let gold = pal.gold;
     b.cuboid([28.0, 0.0, 20.0], [30.0, 16.0, 22.0], [0.3, 0.3, 0.32]);

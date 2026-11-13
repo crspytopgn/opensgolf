@@ -10,8 +10,8 @@ use crate::gfx::Vert;
 
 /// The bands: lit, half lit, in shade (multiplying the colour).
 const LIT: f32 = 1.1;
-const HALF: f32 = 0.86;
-const SHADE: f32 = 0.64;
+const HALF: f32 = 0.9;
+const SHADE: f32 = 0.74;
 
 /// Each triangle in one flat band of light by its facing to `sun` (unit, towards it). The normals are cleared so the
 /// shader takes the colour as it is.
