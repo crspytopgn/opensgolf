@@ -235,9 +235,12 @@ void main() {
         float k = floor((color.a - 0.5 * shore) * 32.0 + 0.5);
         // fairways and greens keep more of their art (their mowing); a tee's raised bevel and everything else is evened
         bool cut = k > 0.5 && k < 2.5;
-        // (a tee's picture has a dark rim round its raised box, which round the eye standing on it would be a dark ring)
         bool tee = k > 5.5 && k < 6.5;
-        vec4 c = art(uv, dist, cut ? 0.45 : 0.1, tee ? 0.85 : cut ? 0.15 : 0.5, color.rgb);
+        vec4 c = art(uv, dist, cut ? 0.45 : 0.1, cut ? 0.15 : 0.5, color.rgb);
+        // a tee's picture is drawn for the view from above: a dark rim round its raised box and the hole's arrow on it. Seen
+        // from the ground the rim would lie on the tee as a dark band, so a tee is its grass's colour at every distance (its
+        // category colour, walk_ground.rs `grass_colour`), with only the de-featured art's light and shade left on it
+        if (tee) c = mix(texture2D(clean, uv), vec4(color.rgb, 1.0), 0.9);
         vec3 g = lit(c.rgb * grain(k, dist), nrm);
         if (shore > 0.5) {
             // the water drawn into these tiles' art, wherever it is
@@ -836,6 +839,26 @@ pub fn noise_image(size: usize, seed: u32) -> Rgba {
         }
     }
     img
+}
+
+/// The average colour of the lighter half (by brightness) of a picture's opaque texels (0..1): a tee's mown grass, without
+/// the dark rim the overhead art paints round the raised box and the arrow on it. None when it has no opaque texels.
+pub fn grass_colour(img: &Rgba) -> Option<[f32; 3]> {
+    let lum = |p: &[u8]| 3 * p[0] as u32 + 6 * p[1] as u32 + p[2] as u32;
+    let mut l: Vec<u32> = img.px.chunks_exact(4).filter(|p| p[3] > 127).map(lum).collect();
+    if l.is_empty() {
+        return None;
+    }
+    let mid = l.len() / 2;
+    let cut = *l.select_nth_unstable(mid).1;
+    let (mut s, mut n) = ([0.0f32; 3], 0.0f32);
+    for p in img.px.chunks_exact(4).filter(|p| p[3] > 127 && lum(p) >= cut) {
+        for k in 0..3 {
+            s[k] += p[k] as f32;
+        }
+        n += 1.0;
+    }
+    Some(s.map(|v| v / n / 255.0))
 }
 
 /// The average colour of a picture's opaque texels (0..1), None when it has none.
