@@ -1469,6 +1469,15 @@ plays upright for the rest of the browser tab's session: the whole game in a 4:3
 black above and below (web/files.js `sgPortraitAsk`, `sgCanvasRect`). Only touch devices are asked (a coarse pointer, or
 an iPad); a desktop window, however tall, never is. The Android app is held in landscape by the system (either way up).
 
+**First-person view (F12)** (an interface extra on the Extras box's Looks page, off by default; on computers, not in
+the browser or on Android; walk.rs): F12 on the course walks it at a golfer's eye height in a perspective view. Every
+building has a 3D model of the project's own in each theme (walk_models.rs), trees near the eye are solids built from
+their own pictures (walk_trees.rs), golfers within 220 m are jointed cartoon 3D figures coloured from their outfits and
+posed by what they are doing (walk_golfer.rs), and staff and residents are drawn in relief. W A S D or the arrows walk
+(Shift runs), a drag with a mouse button held looks round, G follows the golfers one after another (Shift+G back) and
+their ball's flight and roll, and F12 or Esc goes back to the overhead camera where it was. It only reads the game. The
+`--walk` command-line switch makes F12 work without the tick (and takes scripted stills from the walk camera).
+
 **Play upright on phones and tablets** (an interface extra on the Extras box's edges page, off by default; portrait.rs)
 lets a phone or tablet play held upright on the whole tall screen: no card in the browser, and the Android app turns every
 way the device does. The course view fills the screen and the interface is laid out at its edges, as with the interface at

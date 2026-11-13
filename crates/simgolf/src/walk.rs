@@ -1,5 +1,5 @@
-//! The walk camera: a hidden test view of the course from a golfer's eye height, with a perspective projection, reached only
-//! with the `--walk` command-line switch on the desktop (it is in no menu, setting or help text). F12 turns it on and off on
+//! The walk camera: the course from a golfer's eye height, with a perspective projection, on computers. The First-person
+//! view interface extra (Looks page, off by default) or the `--walk` command-line switch makes it available. F12 turns it on and off on
 //! the course screen, Esc turns it off; W A S D or the arrows walk (Shift faster), a drag with a mouse button held turns
 //! and looks up and down, and the eye follows the ground. G follows the golfers on the course one after another (Shift+G
 //! back): the camera walks behind the one chosen and, when they hit, follows the ball's flight and roll, then goes back to
@@ -18,7 +18,7 @@
 //!   picture, upright), small objects as solids with their own sprites projected onto them, trees and people as cards,
 //!   flags, tee markers and balls as small solids, shadows on the ground.
 //!
-//! Nothing here runs without the switch, and nothing in the game's state changes: the walk only reads it, and leaving
+//! Nothing here runs without the extra or the switch, and nothing in the game's state changes: the walk only reads it, and leaving
 //! puts the overhead camera back where it was.
 //!
 //! With the switch on a scripted still (`--png`), the still is taken from the walk camera; `SG_WALK_AT=TX,TY,YAW[,PITCH]`
@@ -76,7 +76,13 @@ pub fn enable() {
     ENABLED.store(true, Ordering::Relaxed);
 }
 
+/// Whether the walk camera can be used: the `--walk` switch, or the First-person view extra (extras.rs).
 pub fn enabled() -> bool {
+    ENABLED.load(Ordering::Relaxed) || crate::extras::first_person()
+}
+
+/// Whether the `--walk` switch was given (a scripted still is taken from the walk camera only then).
+pub fn switch_given() -> bool {
     ENABLED.load(Ordering::Relaxed)
 }
 
@@ -485,7 +491,7 @@ impl Stage {
 
     /// Once a frame: the walk's steps, the eye's easing and the following, and a scripted still's start in the walk camera.
     pub(crate) fn walk_update(&mut self, t: f64) {
-        if enabled() && self.png_out.is_some() && !self.walk.still_begun && walk_screen(&self.app) {
+        if switch_given() && self.png_out.is_some() && !self.walk.still_begun && walk_screen(&self.app) {
             self.walk.still_begun = true;
             self.walk_begin();
         }

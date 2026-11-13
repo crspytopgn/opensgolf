@@ -107,6 +107,14 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.8.0" date="2026-11-13">
+      <description>
+        <p>Walk your course in first person: F12 shows it at eye height in 3D, with 3D buildings, trees and golfers (an option, off by default).</p>
+        <p>The browser version installs as an app and plays offline, and phones and tablets can play upright.</p>
+        <p>New options: pause while you aim, saves newest first with backups, course challenges, demolishing eyesores and moving the clubhouse, speed x8 and a height map.</p>
+        <p>A feature guide on the website and a Features tab in the launcher list every option OpenSGolf adds.</p>
+      </description>
+    </release>
     <release version="0.7.6" date="2026-11-11">
       <description>
         <p>Name your holes from their Hole Stats.</p>
