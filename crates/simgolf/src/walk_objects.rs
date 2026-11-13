@@ -593,6 +593,9 @@ struct FrameInfo {
 #[derive(Default)]
 pub struct Objects {
     tex: HashMap<(usize, usize), TextureId>,
+    /// Frames scaled up smoothly (xBRZ) for the things seen large up close: the trees and the pictures of buildings with no
+    /// model, whose pixels would otherwise show as jagged steps.
+    smooth: HashMap<(usize, usize), TextureId>,
     people: HashMap<(usize, usize, sg_core::bodies::Outfit), TextureId>,
     fits: HashMap<(usize, [usize; 4], i32), Option<Fit>>,
     info: HashMap<(usize, usize), FrameInfo>,
@@ -621,7 +624,7 @@ impl Objects {
                 g.delete_mesh(m);
             }
         }
-        for t in self.tex.drain().map(|e| e.1).chain(self.people.drain().map(|e| e.1)) {
+        for t in self.tex.drain().map(|e| e.1).chain(self.people.drain().map(|e| e.1)).chain(self.smooth.drain().map(|e| e.1)) {
             g.ctx.delete_texture(t);
         }
     }
@@ -756,6 +759,32 @@ fn blob(app: &App, x: f32, z: f32, r: f32, alpha: f32, out: &mut Vec<Vert>) {
     }
 }
 
+/// A soft shadow under a building: darkest over its foot (half sizes `hx`, `hz` round (x, z)) and fading out over `spread`
+/// beyond it, following the ground in a grid. Drawn flat and blended (its alpha is the shade).
+fn shadow_rect(app: &App, (x, z): (f32, f32), (hx, hz): (f32, f32), spread: f32, alpha: f32, out: &mut Vec<Vert>) {
+    let n = 12;
+    let (ex, ez) = (hx + spread, hz + spread);
+    let shade = |px: f32, pz: f32| {
+        // the distance out from the foot's edge, over the spread
+        let (dx, dz) = (((px - x).abs() - hx).max(0.0), ((pz - z).abs() - hz).max(0.0));
+        let d = ((dx * dx + dz * dz).sqrt() / spread).min(1.0);
+        alpha * (1.0 - d).powf(1.5)
+    };
+    for j in 0..n {
+        for i in 0..n {
+            let q = |a: usize, b: usize| {
+                let (px, pz) = (x - ex + 2.0 * ex * a as f32 / n as f32, z - ez + 2.0 * ez * b as f32 / n as f32);
+                // (over the building's lot, a decal 0.2 above the ground)
+                let mut v = Vert::new(px, app.terrain.height_at(px, pz) + 0.35, pz, 0.0, 0.0).col([0.0, 0.0, 0.0, shade(px, pz)]);
+                v.normal = [0.0, 1.0, 0.0];
+                v
+            };
+            let (a, b, c, d) = (q(i, j), q(i + 1, j), q(i + 1, j + 1), q(i, j + 1));
+            out.extend([a, c, b, a, d, c]);
+        }
+    }
+}
+
 impl App {
     /// A frame's texture of the walk camera's own (walk_gl::sprite_texture).
     fn walk_tex(&self, g: &mut Gfx, o: &mut Objects, si: usize, i: usize) -> TextureId {
@@ -764,6 +793,17 @@ impl App {
         }
         let t = sprite_texture(g, &self.sprites[si].s.frame(i));
         o.tex.insert((si, i), t);
+        t
+    }
+
+    /// `walk_tex`, scaled up four times by xBRZ, which keeps the art's own edges and colours but rounds off its pixels.
+    fn walk_tex_smooth(&self, g: &mut Gfx, o: &mut Objects, si: usize, i: usize) -> TextureId {
+        if let Some(&t) = o.smooth.get(&(si, i)) {
+            return t;
+        }
+        let img = self.sprites[si].s.frame(i);
+        let t = if img.w * img.h <= 256 * 256 { sprite_texture(g, &sg_core::xbrz::scale(&img, 4)) } else { sprite_texture(g, &img) };
+        o.smooth.insert((si, i), t);
         t
     }
 
@@ -1018,7 +1058,7 @@ impl App {
         // people and small things stand where a tree or a building's picture may stand too (an animal at a cactus): they
         // are drawn a little towards the eye, in front, as the overhead view draws them over it
         let mut front = Lists::default();
-        let (mut blobs, mut solids) = (Vec::new(), Vec::new());
+        let (mut blobs, mut solids, mut shadows) = (Vec::new(), Vec::new(), Vec::new());
         let mut proxies: Vec<((f32, f32), Fit)> = Vec::new();
         let mut eased: HashMap<u32, (f32, f32)> = HashMap::new();
         let white = [1.0; 4];
@@ -1107,6 +1147,12 @@ impl App {
                         }
                         o.drawn += 1;
                         solids.extend(crate::walk_models::placed(m, p.facing, [x, ground, z]));
+                        // its shadow, soft, on the ground round its foot
+                        let (ox, oz) = turn(cx, cz);
+                        let (bx, bz) = if p.facing.rem_euclid(2) == 1 { (hz, hx) } else { (hx, hz) };
+                        if bx > 0.0 && bz > 0.0 {
+                            shadow_rect(self, (x + ox, z + oz), (bx, bz), 5.0 * M, 0.6, &mut shadows);
+                        }
                         continue;
                     }
                 }
@@ -1173,7 +1219,7 @@ impl App {
                         let k = if small { s * SMALL_OBJECT } else { s };
                         let iq = iso(sc.quarter);
                         let i = self.sprites[si].s.frame_index(self.prop_view(&p, si, sc.quarter), p.frame);
-                        let t = self.walk_tex(g, o, si, i);
+                        let t = if small { self.walk_tex(g, o, si, i) } else { self.walk_tex_smooth(g, o, si, i) };
                         if small {
                             let rect = (-ax * k, (w - ax) * k, ay * k, -(h - ay) * k);
                             card(cut.get(t), anchor, iq.r, iq.u, rect, false, 0.0, white);
@@ -1211,7 +1257,7 @@ impl App {
                 }
                 o.drawn += 1;
                 let i = self.sprites[si].s.frame_index(self.prop_view(&p, si, sc.quarter), p.frame);
-                let t = self.walk_tex(g, o, si, i);
+                let t = self.walk_tex_smooth(g, o, si, i);
                 let ph = place_hash(x, z);
                 let sway =
                     ((sc.time * (0.9 + ph * 0.5) + ph * std::f32::consts::TAU).sin() * 0.12 + (sc.time * 2.3 + ph * 3.0).sin() * 0.04) * M;
@@ -1282,6 +1328,7 @@ impl App {
         u.pull[3] = 0.0012;
         decals.draw(gpu, Pipe::Blend, &u.with_mode(mode::DECAL));
         gpu.tris(Pipe::Blend, g.white, &u.with_mode(mode::BLOB), &blobs);
+        gpu.tris(Pipe::Blend, g.white, &u.with_mode(mode::FLAT), &shadows);
         let mut uc = sc.u.with_mode(mode::CUTOUT);
         uc.zenith[3] = 0.5;
         cut.draw(gpu, Pipe::Solid, &uc);

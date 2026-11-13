@@ -178,6 +178,15 @@ float grain(float k, float dist) {
         // path, water's edge
         g += ((f.a - 0.5) * 0.24 + (f.b - 0.5) * 0.14) * near;
     }
+    // and at the feet the finest grain: blades a few centimetres across on the grasses, so the ground under the eye is
+    // crisp rather than a smooth wash of the art's colour
+    float feet = 1.0 - smoothstep(2.0 * M, 22.0 * M, dist);
+    if (feet > 0.0 && k < 7.5 && (k < 3.5 || k > 5.5)) {
+        float b1 = texture2D(detail, w / (0.55 * M)).r;
+        float b2 = texture2D(detail, w.yx / (0.31 * M) + vec2(0.37, 0.11)).g;
+        float amount = k > 2.5 && k < 3.5 ? 0.30 : (k > 0.5 && k < 2.5 ? 0.12 : 0.22);
+        g += ((b1 - 0.5) * 0.6 + (b2 - 0.5) * 0.4) * amount * feet;
+    }
     return 1.0 + g;
 }
 
