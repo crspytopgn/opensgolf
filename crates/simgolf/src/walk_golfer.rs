@@ -368,32 +368,33 @@ fn pose(act: Act, t: f32, time: f32, club_len: f32) -> Pose {
     }
 }
 
-/// A full swing's keys through its clip: (t, the top hand's place, the club's direction down the shaft, the shoulders'
+/// A full swing's keys through its clip (the game strikes the ball three quarters of the way through a swing or chip clip,
+/// golfer.rs, so impact is keyed there): (t, the top hand's place, the club's direction down the shaft, the shoulders'
 /// turn), in metres with x to the golfer's right, y up, z towards the ball; the target is on their left (-x).
 const SWING: [(f32, V, V, f32); 9] = [
     // at the ball, still
     (0.0, [-0.04, 0.84, 0.3], [0.04, -0.87, 0.48], 0.0),
-    (0.12, [-0.04, 0.84, 0.3], [0.04, -0.87, 0.48], 0.0),
+    (0.1, [-0.04, 0.84, 0.3], [0.04, -0.87, 0.48], 0.0),
     // the takeaway: hands back to the right hip, the club along the target line, toe up
-    (0.26, [0.3, 0.86, 0.3], [1.0, 0.12, -0.05], 0.55),
+    (0.3, [0.3, 0.86, 0.3], [1.0, 0.12, -0.05], 0.55),
     // halfway back: the wrists cocked, the club upright
-    (0.36, [0.42, 1.18, 0.14], [0.35, 1.0, -0.2], 1.0),
+    (0.45, [0.42, 1.18, 0.14], [0.35, 1.0, -0.2], 1.0),
     // the top: the hands over the right shoulder, the club across the back of the neck towards the target
-    (0.47, [0.26, 1.52, -0.04], [-1.0, -0.08, -0.3], 1.45),
+    (0.6, [0.26, 1.52, -0.04], [-1.0, -0.08, -0.3], 1.45),
     // the downswing: the club lagging behind the hands
-    (0.53, [0.34, 1.02, 0.22], [0.55, 0.95, -0.05], 0.75),
+    (0.7, [0.34, 1.02, 0.22], [0.55, 0.95, -0.05], 0.75),
     // impact: back at the ball, the hands a little ahead
-    (0.57, [-0.1, 0.84, 0.31], [0.1, -0.87, 0.47], 0.15),
+    (0.77, [-0.1, 0.84, 0.31], [0.1, -0.87, 0.47], 0.15),
     // through: the arms out towards the target, the club along the line
-    (0.66, [-0.4, 0.95, 0.28], [-1.0, 0.2, 0.05], -0.85),
+    (0.85, [-0.4, 0.95, 0.28], [-1.0, 0.2, 0.05], -0.85),
     // the finish: the hands high by the left ear, the club down the back, the chest to the target
-    (0.8, [-0.2, 1.48, 0.02], [0.65, -0.45, -0.62], -1.6),
+    (0.96, [-0.2, 1.48, 0.02], [0.65, -0.45, -0.62], -1.6),
 ];
 
 /// A chip's keys: the full swing's, back only to halfway and through only to the arms out along the line.
 fn chip_keys() -> [(f32, V, V, f32); 6] {
     let k = |i: usize, t: f32| (t, SWING[i].1, SWING[i].2, SWING[i].3);
-    [k(0, 0.0), k(1, 0.15), k(2, 0.32), k(3, 0.46), k(6, 0.58), k(7, 0.74)]
+    [k(0, 0.0), k(1, 0.15), k(2, 0.38), k(3, 0.58), k(6, 0.77), k(7, 0.93)]
 }
 
 /// The pose of a full swing (`reach` 1) or a chip (less) `t` of the way through its clip.
@@ -483,17 +484,35 @@ fn ball(out: &mut Vec<Vert>, c: V, r: V, col: [f32; 3]) {
     }
 }
 
-/// A golfer's body in metres, standing at the origin: x to their right, y up, z forward (`at_ball` acts: towards the
-/// ball, the target on their left). `t` is how far through the clip, `time` seconds for idle movement, `club` the club
-/// in hand (0..13, 13 the putter).
-pub fn body(look: &Look, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
-    let club_len = match club {
+/// Where the ball lies for a golfer at the ball (x to their right, z forward, metres): under the club's head at address.
+/// The game keeps the ball at the golfer's own place until it is struck, so the body is drawn back from it by this much.
+pub fn ball_spot(act: Act, club: i32, female: bool) -> [f32; 2] {
+    let a = match act {
+        Act::Putt | Act::Address { putt: true } => Act::Address { putt: true },
+        Act::Swing { reach } => Act::Swing { reach },
+        _ => Act::Address { putt: false },
+    };
+    let p = pose(a, 0.0, 0.0, club_length(club));
+    let Some((grip, shaft, l)) = p.club else { return [0.0, 0.6] };
+    let h = add(grip, mul(shaft, l));
+    let tall = if female { 0.94 } else { 1.0 };
+    [h[0] * tall, h[2] * tall]
+}
+
+fn club_length(club: i32) -> f32 {
+    match club {
         13 => 0.86,
         0 => 1.12,
         1..=3 => 1.05,
         _ => 0.96,
-    };
-    let p = pose(act, t, time, club_len);
+    }
+}
+
+/// A golfer's body in metres, standing at the origin: x to their right, y up, z forward (`at_ball` acts: towards the
+/// ball, the target on their left). `t` is how far through the clip, `time` seconds for idle movement, `club` the club
+/// in hand (0..13, 13 the putter).
+pub fn body(look: &Look, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
+    let p = pose(act, t, time, club_length(club));
     let mut out = Vec::with_capacity(4000);
     let o = &mut out;
     let up = [0.0, 1.0, 0.0];
@@ -670,7 +689,7 @@ mod tests {
                 }
             })
         };
-        let (address, top, finish) = (head(0.0), head(0.47), head(0.95));
+        let (address, top, finish) = (head(0.0), head(0.6), head(0.98));
         assert!(address[1] < 0.3, "at the ball {address:?}");
         // (at the top, across the back of the neck towards the target)
         assert!(top[1] > 1.3 && top[0] < 0.0 && top[2] < 0.0, "at the top {top:?}");

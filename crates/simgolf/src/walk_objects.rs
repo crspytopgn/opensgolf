@@ -1374,7 +1374,11 @@ impl App {
                     // a left-hander is the mirror image: the body built right-handed, its right and left swapped
                     let fl = if p.mirror && act.at_ball() { -1.0 } else { 1.0 };
                     let k = M * p.scale.max(0.1);
-                    let base = [x, ground + lift, z];
+                    // at the ball the golfer stands back from it (the game keeps the ball at the golfer's own place until it
+                    // is struck), so the club meets it
+                    let [sx, sz] = if act.at_ball() { crate::walk_golfer::ball_spot(act, club, of.female) } else { [0.0, 0.0] };
+                    let (bx, bz) = (x - (rt[0] * sx * fl + fwd[0] * sz) * k, z - (rt[1] * sx * fl + fwd[1] * sz) * k);
+                    let base = [bx, self.terrain.height_at(bx, bz) + lift, bz];
                     for q in v {
                         let (lx, ly, lz) = (q.pos[0] * fl, q.pos[1], q.pos[2]);
                         let mut w = q;
