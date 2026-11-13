@@ -40,6 +40,10 @@ Enhanced graphics and HD.
   tick to switch it on there and then, and a side list to jump to each group. Its *Feature guide* button opens the guide.
 - **Fixed (#176):** with *Right click puts the tool away* on, the elevation tools keep their right-click lower again;
   Space or Esc puts them away. Brushes and buildings still drop on a right click.
+- **Fixed (#181):** the 16th *Play vs. a pro* match pays out again: its holes are announced and its stake changes hands,
+  where it used to play for nothing.
+- **Translations (#164):** a language file can describe the Course Terrain tiles theme by theme
+  (`STR_TILE_<TILE>_DESC_<THEME>`), as the four themes' own files do; docs/TRANSLATING.md lists the keys.
 
 ## 0.7 (7 November 2026)
 
