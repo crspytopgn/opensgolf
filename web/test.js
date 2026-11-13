@@ -268,20 +268,22 @@ test("the edges a phone hides are the safe-area insets where they fall on the ca
     assert.deepStrictEqual(f.sgSafeInsets([40, 0, 0, 0], { left: 30, top: 0, width: 100, height: 100 }, 130, 100), [0.1, 0, 0, 0]);
 });
 
-test("the start page's dark palette is the same for the device's dark scheme and the theme button's Dark", () => {
-    const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
-    const block = re => {
-        const m = html.match(re);
-        assert.ok(m, "no block for " + re);
-        return m[1].replace(/\s+/g, " ").trim();
-    };
-    const device = block(/@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme="light"\]\) \{([^}]*)\}\s*\}/);
-    const button = block(/\n\s*:root\[data-theme="dark"\] \{([^}]*)\}/);
-    assert.ok(device.includes("--panel:"), device);
-    assert.strictEqual(button, device);
-    // and no other dark-only rules that the button's Dark would miss
-    assert.strictEqual(html.match(/prefers-color-scheme/g).length, 1);
-});
+for (const page of ["index.html", "guide.html"]) {
+    test(page + "'s dark palette is the same for the device's dark scheme and the theme button's Dark", () => {
+        const html = fs.readFileSync(path.join(__dirname, page), "utf8");
+        const block = re => {
+            const m = html.match(re);
+            assert.ok(m, "no block for " + re);
+            return m[1].replace(/\s+/g, " ").trim();
+        };
+        const device = block(/@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme="light"\]\) \{([^}]*)\}\s*\}/);
+        const button = block(/\n\s*:root\[data-theme="dark"\] \{([^}]*)\}/);
+        assert.ok(device.includes("--panel:"), device);
+        assert.strictEqual(button, device);
+        // and no other dark-only rules that the button's Dark would miss
+        assert.strictEqual(html.match(/prefers-color-scheme/g).length, 1);
+    });
+}
 
 test("the sound context sleeps while the game has its sound asleep, and only the game wakes it", () => {
     const act = f.sgSoundAction;

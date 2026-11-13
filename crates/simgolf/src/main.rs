@@ -91,6 +91,9 @@ mod playcount;
 mod player_panel;
 mod popup_ui;
 mod prefs_search;
+// the web site's feature guide's reference (web/guide.html), made and checked by its tests
+#[cfg(test)]
+mod guide;
 mod prefs_ui;
 mod pro_ui;
 mod profile_ui;
