@@ -649,9 +649,9 @@ fn grid(
     }
 }
 
-/// How much smaller than life the body is drawn below a cartoon's big head (the club with it).
-const BODY: f32 = 0.95;
-/// Below the hips, how much shorter still: a cartoon's stubby legs.
+/// How much smaller than life the body is drawn below the head (the club with it).
+const BODY: f32 = 0.88;
+/// Below the hips, how much shorter still.
 const LEGS: f32 = 0.93;
 /// Where the legs end, before they are shortened.
 const HIP_Y: f32 = 0.92;
@@ -812,13 +812,13 @@ pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
         tube(o, knee, add(ankle, [0.0, -0.02, 0.0]), 0.086 * g.sqrt(), 0.084, look.pants, hip_right, 0.92, 14);
         // leather shoes: a rounded upper on a darker sole, the toe a little long
         cloth(Cloth::Leather);
-        let toe = add(ankle, [s * 0.015, -0.04, 0.19]);
-        let heel = add(ankle, [0.0, -0.04, -0.06]);
+        let toe = add(ankle, [s * 0.015, -0.02, 0.19]);
+        let heel = add(ankle, [0.0, -0.02, -0.06]);
         tube(o, heel, toe, 0.06, 0.055, shoe, [0.0, 1.0, 0.0], 0.75, 12);
         ball(o, toe, [0.058, 0.045, 0.065], shoe);
         ball(o, heel, [0.058, 0.05, 0.05], shoe);
-        let drop = [0.0, -0.045, 0.0];
-        tube(o, add(heel, drop), add(toe, add(drop, [0.0, 0.0, 0.03])), 0.066, 0.066, sole, [0.0, 1.0, 0.0], 0.22, 10);
+        let drop = [0.0, -0.04, 0.0];
+        tube(o, add(heel, drop), add(toe, add(drop, [0.0, 0.0, 0.03])), 0.066, 0.066, sole, [1.0, 0.0, 0.0], 0.25, 10);
     }
     // the body: trousers to the belt, the shirt to the shoulders, wider than deep
     cloth(Cloth::Twill);
@@ -1126,13 +1126,13 @@ mod tests {
     }
 
     #[test]
-    fn a_standing_golfer_is_a_cartoons_height_on_the_ground() {
+    fn a_standing_golfer_is_a_persons_height_on_the_ground() {
         let v = body(&look(), Act::Stand, 0.0, 0.0, 0);
         assert!(v.len() % 3 == 0);
         let (lo, hi) = (v.iter().map(|p| p.pos[1]).fold(f32::MAX, f32::min), top(&v));
         assert!(lo.abs() < 0.04, "feet at {lo}");
-        // a cartoon's height: stubby legs under a big head
-        assert!((1.35..1.65).contains(&hi), "height {hi}");
+        // a person's height, the head a little big
+        assert!((1.55..1.8).contains(&hi), "height {hi}");
         let wide = v.iter().map(|p| p.pos[0].abs()).fold(0.0, f32::max);
         assert!(wide < 0.45, "wide {wide}");
     }
