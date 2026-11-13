@@ -8,6 +8,16 @@ Almost everything OpenSGolf adds to the original game is **off until you switch 
 unless you choose otherwise. Most of it is in Preferences: *Game options* holds the extras and presets, *Graphics* holds
 Enhanced graphics and HD.
 
+## 0.8 (in progress)
+
+**Highlights so far**
+
+- **A feature guide** on the website ([crspytopgn.github.io/opensgolf/guide.html](https://crspytopgn.github.io/opensgolf/guide.html)):
+  every feature OpenSGolf adds, whether it starts on, and exactly where to switch it on, with every option and key listed
+  from the game itself, so it keeps up with each new version. Linked from the start page.
+- **The launcher's Features tab:** every option of Preferences in one scrolling list, grouped, each with what it does and a
+  tick to switch it on there and then, and a side list to jump to each group. Its *Feature guide* button opens the guide.
+
 ## 0.7 (7 November 2026)
 
 **Highlights**

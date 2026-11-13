@@ -13,6 +13,8 @@ MQ=$(printf "%s" "$META" | python3 -c 'import json,sys; m=json.load(sys.stdin); 
 VERSION=$(printf "%s" "$META" | python3 -c 'import json,sys; m=json.load(sys.stdin); print([p["version"] for p in m["packages"] if p["name"]=="opensgolf"][0])')
 cp "$(dirname "$MQ")/js/gl.js" web/dist/
 cp web/index.html web/files.js web/opensgolf.js web/start-bg.jpg web/dist/
+# the feature guide (its option and key reference made from the game by crates/simgolf/src/guide.rs's test)
+cp web/guide.html web/dist/
 # the home-screen app and offline play (web/sw.js, web/manifest.webmanifest; the icons are the app icon, written by tools/make_icons.sh)
 cp web/sw.js web/manifest.webmanifest web/dist/
 mkdir -p web/dist/icons

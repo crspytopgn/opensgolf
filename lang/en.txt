@@ -1541,6 +1541,60 @@ STR_ENHANCED_BANNER                     :Graphics only: play is never changed.
 STR_ENHANCED_NATIVE_TEXT                : Sharp text at the screen's resolution
 STR_ENHANCED_SMOOTH_UI                  : Smooth interface art at any size
 STR_ENHANCED_WIDESCREEN                 : Widescreen: interface at the window's edges
+# what each Enhanced graphics option does (the launcher's Features tab, the web site's feature guide)
+STR_ENHANCED_DESC_NATIVE_TEXT           :Draws text from the fonts at your screen's real resolution, so it stays sharp at any window size. Layouts stay the original's.
+STR_ENHANCED_DESC_SMOOTH_UI             :Interface art, sprites and portraits scale smoothly, with clean edges and no shimmer when drawn small.
+STR_ENHANCED_DESC_WIDESCREEN            :On a wide window the course badge, dock, panels and buttons move out to the window's edges instead of sitting in a 4:3 box in the middle.
+STR_ENHANCED_DESC_TERRAIN_FILTER        :Anisotropic filtering keeps the course sharp towards the top of the screen. Desktop only.
+STR_ENHANCED_DESC_MSAA                  :4x multisampling smooths the edges of terrain, cliffs and lines. Desktop only.
+STR_ENHANCED_DESC_SMOOTH_CAMERA         :Continuous wheel and pinch zoom, animated quarter turns and gliding scrolls. The game's rules still use the original's three zoom levels.
+STR_ENHANCED_DESC_SMOOTH_MOTION         :Golfers, staff, carts, animals and balls move smoothly between the game's 11.5 ticks a second instead of jumping once a tick. Drawing only.
+STR_ENHANCED_DESC_PHOTO_MODE            :Lets the C key or the camera button open photo mode: hide the interface, frame the shot, add a look and a focus blur, and save a picture up to 4K.
+STR_ENHANCED_DESC_FRAME_CAP             :The most frames a second the game draws: 30, 60, 120, 144, 240 or no cap. Counts with Classic graphics too.
+STR_ENHANCED_DESC_VSYNC                 :Waits for the display's refresh, so the picture never tears. Takes effect from the next start; always on in a browser. Counts with Classic graphics too.
+STR_ENHANCED_DESC_PIXEL_PERFECT         :Scales the 800 x 600 picture by whole numbers only, so every art pixel is the same size, with bars round it. Also a line of Preferences > Graphics; counts with Classic graphics too.
+STR_ENHANCED_DESC_FX_SCALER             :Sprites and pictures drawn larger than their pixels go through a pixel-art scaler instead of a plain blur.
+STR_ENHANCED_DESC_FX_SCALER_MODE        :Which scaler: Sharp (crisp pixels), Edge-directed (smooths diagonals) or Smooth (follows the art's own edges; the strongest).
+STR_ENHANCED_DESC_FX_WATER              :Water gets moving waves, sky reflections, glints and foam along the shore, over the theme's own water art.
+STR_ENHANCED_DESC_FX_TERRAIN_LIGHT      :Per-pixel light, ambient occlusion in valleys and soft shadows of the hills on the ground.
+STR_ENHANCED_DESC_FX_SPRITE_SHADOWS     :Softens the edges of the art's own shadows under buildings, trees and people.
+STR_ENHANCED_DESC_FX_CAST_SHADOWS       :Buildings, trees and people cast their own outline along the sun onto the ground.
+STR_ENHANCED_DESC_FX_BALL_TRAIL         :A soft trail fades out behind a ball in the air.
+STR_ENHANCED_DESC_FX_BALL_IMPACTS       :A puff of sand in a bunker, rings and drops on water, a flick of grass where a ball comes down.
+STR_ENHANCED_DESC_FX_QUALITY            :Low, medium or high: the detail of the light map, the blurs and the shadows. Lower is quicker on slow machines.
+STR_ENHANCED_DESC_FX_GRASS              :Tiny tufts of grass standing up from the rough and swaying in the wind, at the closest zoom.
+STR_ENHANCED_DESC_FX_SHARPEN            :Contrast-adaptive sharpening brings out the art's own detail on big screens, without halos. Desktop only.
+STR_ENHANCED_DESC_FX_CROWDS             :Spectators round the greens and fairways of the holes in play during tournaments and championships, cheering now and then.
+STR_ENHANCED_DESC_FX_LIFE               :Flocks of birds crossing the sky, butterflies over flower beds in summer, leaves falling in autumn.
+STR_ENHANCED_DESC_FX_SKY                :A sky gradient beyond the property and below its cliff instead of the original's black.
+STR_ENHANCED_DESC_FX_TIME_OF_DAY        :Morning, midday, golden hour, sunset and a short blue dusk pass over the course.
+STR_ENHANCED_DESC_FX_DAY_LENGTH         :How long a day of light lasts with Time of day: short (one game month), normal (three) or long (six).
+STR_ENHANCED_DESC_FX_EVENING_LIGHTS     :With Time of day: lamps with pools of light and fireflies at dusk.
+STR_ENHANCED_DESC_FX_WINDOW_LIGHTS      :With Time of day: a warm light in the buildings' windows at night.
+STR_ENHANCED_DESC_FX_SPRINKLERS         :With Time of day: sprinklers watering the fairways and greens at first light.
+STR_ENHANCED_DESC_FX_CLOUDS             :Soft cloud shadows drift over the course and dim what is under them.
+STR_ENHANCED_DESC_FX_HAZE               :The far part of the view pales towards the horizon's colour, more when zoomed out.
+STR_ENHANCED_DESC_FX_REFLECTIONS        :Trees, buildings and golfers mirrored in the water, rippling, with sun glitter.
+STR_ENHANCED_DESC_FX_TILT_SHIFT         :Blurs the top and bottom of the screen for a miniature look.
+STR_ENHANCED_DESC_FX_GRADING            :Gentle contrast, vibrance and a tint for each theme, with slightly darker corners.
+STR_ENHANCED_DESC_FX_BLOOM              :The brightest parts (sparkle, white sand, highlights) glow a little.
+STR_ENHANCED_DESC_FX_RAIN               :Light rain on some days (the same days for a save), with greyer light and faint shadows. Looks only: see Weather that matters for rain that changes play.
+STR_ENHANCED_DESC_FX_AFTER_RAIN         :With Rain: wet, glossy ground and puddles during and after a rainy day, and now and then a rainbow.
+STR_ENHANCED_DESC_FX_LIGHTNING          :Flashes and distant flicker in heavy rain where the climate is wet; never in the desert.
+STR_ENHANCED_DESC_FX_HEAT               :On a desert course's hot summer days: bleached midday light, heat haze, and parched grass on the hottest days.
+STR_ENHANCED_DESC_FX_WINTER             :The first days of March on parkland and links courses: morning frost, snow showers instead of rain, a light dusting some mornings.
+STR_ENHANCED_DESC_FX_FROST              :Frost on cold spring and autumn mornings, melting by late morning.
+STR_ENHANCED_DESC_FX_MIST               :Mist pooling in hollows and over water, thick at dawn and gone by late morning.
+STR_ENHANCED_DESC_FX_WIND               :A wind for each day: trees, palms and grasses sway, flags fly downwind, and the rain and clouds follow it.
+STR_ENHANCED_DESC_FX_SEASONS            :Blossom and fresh greens in spring, autumn colours in September and October, dew on the grass.
+STR_ENHANCED_DESC_FX_WATER_COLOUR       :Lighter, more turquoise shallows and a deeper blue in the middle, from the theme's own water colour.
+STR_ENHANCED_DESC_FX_WAVES              :Soft waves lying across the wind, drifting downwind: glassy at dawn and dusk, choppy in a storm.
+STR_ENHANCED_DESC_FX_SHORELINE          :Water lapping in and out along the shore, with a wet band on the bank.
+STR_ENHANCED_DESC_FX_CAUSTICS           :Sunlight rippling in a web over the bottom of shallow water.
+STR_ENHANCED_DESC_FX_RAIN_RINGS         :With Rain: rings opening on the water where drops fall.
+STR_ENHANCED_DESC_FX_WATER_LIFE         :Reeds and lily pads at the edges of ponds, ducks and swans on the larger lakes, and now and then a jumping fish.
+STR_ENHANCED_DESC_FX_ICE                :With Winter: small ponds ice over in the late-winter cold snap, and larger water gets a rim of ice.
+STR_ENHANCED_DESC_FX_SPRAY              :Foam, drops and rings round fountains and at the foot of waterfalls.
 STR_ENHANCED_TERRAIN_FILTER             : Sharper course textures
 STR_ENHANCED_MSAA                       : Anti-aliasing
 STR_ENHANCED_SMOOTH_CAMERA              : Smooth camera: zoom, turns and panning
@@ -3621,7 +3675,7 @@ STR_EXTRAS_DESC_MOUSE_SWING             :Aim your pro as on a touch screen: a cl
 STR_MOUSE_SWING_HINT                    :Click to set the target, drag it to aim, drag the course to look round. Then click Swing.
 # Right click puts the tool away (OpenSGolf extras, extras.rs right_drop; main.rs right_click)
 STR_EXTRAS_RIGHT_DROP                   : Right click puts the tool away
-STR_EXTRAS_DESC_RIGHT_DROP              :A right click (B on a controller) drops the brush or tool in hand, as Space does, instead of the original's undo.
+STR_EXTRAS_DESC_RIGHT_DROP              :A right click (B on a controller) drops the brush or tool in hand, as Space does, instead of the original's undo. The elevation tools still lower the ground with a right click.
 # The interface at the screen's edges (OpenSGolf extras, extras.rs wide_ui; enhanced.rs widescreen)
 STR_EXTRAS_WIDE_UI                      : Interface at the screen's edges
 STR_EXTRAS_DESC_WIDE_UI                 :On a wide screen the dock, panels and money sit at the screen's edges (on by default; off keeps them in the 4:3 middle).
@@ -3651,6 +3705,12 @@ STR_HOLESTATS_FLY_OVER                  :Fly over
 STR_LAUNCHER_KICKER                     :The classic golf course builder, rebuilt
 STR_LAUNCHER_TAB_FILES                  :Game files
 STR_LAUNCHER_TAB_PLAY                   :How to play
+STR_LAUNCHER_TAB_FEATURES               :Features
+STR_FEATURES_GENERAL                    :General
+STR_FEATURES_GENERAL_BANNER             :The fixes for the original's bugs and the update check.
+STR_FEATURES_GRAPHICS_PAGE              :Graphics: {PAGE}
+STR_FEATURES_NEEDS_ENHANCED             :These need Enhanced graphics on: the first line of Graphics: Display, or Display & sound.
+STR_FEATURES_GRAPHICS                   :Graphics
 STR_LAUNCHER_TAB_DISPLAY                :Display & sound
 STR_LAUNCHER_TAB_NEWS                   :News & updates
 STR_LAUNCHER_PLAY                       :Play
@@ -3680,6 +3740,7 @@ STR_LAUNCHER_IN_USE                     :In use
 STR_LAUNCHER_NOT_HERE                   :Not offered on this device.
 # How to play (the choices are STR_WELCOME_*)
 STR_LAUNCHER_GAME_OPTIONS               :Game options...
+STR_LAUNCHER_GUIDE                      :Feature guide
 # Display & sound
 STR_LAUNCHER_DISPLAY                    :Display
 STR_LAUNCHER_WINDOW                     :Window

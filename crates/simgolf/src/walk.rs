@@ -14,8 +14,9 @@
 //!   and the sun's glints; and the land beyond the property, out to the theme's hills or down into the sea;
 //! * the sky (walk_gl.rs `sky_fs`): the theme's colours, the sun and drifting clouds, and a haze of the same colours over
 //!   everything with distance;
-//! * what stands on the ground (walk_objects.rs): buildings as solids with their own sprites projected onto them, trees and
-//!   people as cards, flags, tee markers and balls as small solids, shadows on the ground.
+//! * what stands on the ground (walk_objects.rs): buildings as modelled solids (walk_models.rs; one without a model as its
+//!   picture, upright), small objects as solids with their own sprites projected onto them, trees and people as cards,
+//!   flags, tee markers and balls as small solids, shadows on the ground.
 //!
 //! Nothing here runs without the switch, and nothing in the game's state changes: the walk only reads it, and leaving
 //! puts the overhead camera back where it was.
@@ -24,7 +25,7 @@
 //! (tiles and degrees) places it, `SG_WALK_FOLLOW=N` follows the golfer in slot N (`next`: whoever hits next) and
 //! `SG_WALK_SHOT=S` waits for their ball to have flown S seconds, `SG_WALK_BENCH=1` prints the frame times (with
 //! `SG_FX_BENCH`), `SG_WALK_ISO=Q` draws the scene through the overhead camera of quarter turn Q (there each building's
-//! solid must look exactly as its sprite does), `SG_WALK_CARDS=1` draws every object as its card, and `SG_WALK_DUMP=1`
+//! solid must look exactly as its sprite does), `SG_WALK_CARDS=1` draws every object as its card, `SG_WALK_NO_MODELS=1` draws buildings as though none had a model, `SG_WALK_FLAT_TREES=1` draws every tree as its upright picture, `SG_WALK_FLAT_PEOPLE=1` draws people flat (golfers as pictures, not 3D bodies), `SG_WALK_POSE=CLIP:T[:DEG]` puts every golfer in a clip's pose (turned DEG degrees, to see faces), `SG_WALK_NO_TOON=1` draws the models without the drawn look (outlines and bands of shade), `SG_WALK_NO_PORTRAITS=1` gives golfers their outfit's colours rather than their portrait's hair and skin, and `SG_WALK_DUMP=1`
 //! prints the fitted solids (`SG_WALK_DUMP_DIR` writes the frames fitted).
 use crate::app::{App, Screen};
 use crate::gfx::{Gfx, Mat4};
@@ -52,7 +53,7 @@ const LOOK: f32 = 0.25;
 /// The steepest look up or down, degrees.
 const MAX_PITCH: f32 = 75.0;
 /// Vertical field of view, degrees.
-const FOV: f32 = 60.0;
+pub(crate) const FOV: f32 = 60.0;
 /// The near plane (world units).
 const NEAR: f32 = 0.3 * METRE;
 /// The far plane: past the hills on the horizon.
