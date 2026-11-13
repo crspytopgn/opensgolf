@@ -136,6 +136,8 @@ impl App {
             crate::insight::LEGEND_H
         } else if self.comfort.staff_view && self.land.is_some() {
             crate::staffview_ui::LEGEND_H
+        } else if self.comfort.height_view {
+            crate::heightview_ui::LEGEND_H
         } else {
             0.0
         }

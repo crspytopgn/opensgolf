@@ -1037,6 +1037,8 @@ impl App {
         // the OpenSGolf extras' landing map (insight.rs): dots on the course, under the golfers' names
         if self.great_shot.is_none() {
             self.draw_landing_map(g, &s);
+            // the height map (heightview_ui.rs), the same way
+            self.draw_height_view(g, &s);
         }
         // the golfers' names and thoughts belong to the course, under the HUD
         self.draw_names(g, &s);

@@ -1702,6 +1702,7 @@ impl App {
     /// Whether one of the extras' legends is up at the top right, under the gauges (pathview_ui, staffview_ui, insight).
     fn right_legend_up(&self) -> bool {
         (self.comfort.staff_view && self.land.is_some())
+            || self.comfort.height_view
             || (self.xs.path_view && crate::extras::path_help())
             || (self.xs.insight.map && crate::extras::landing_map())
     }

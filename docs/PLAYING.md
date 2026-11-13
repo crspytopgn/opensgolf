@@ -1089,6 +1089,12 @@ The port's own keys, not in the original; nothing changes until you press them, 
   cyan Soda Vendors, grey Club Pros), and tints red every fairway, green and tee tile that no Groundskeeper's ring reaches:
   that is where the next one is wanted. A legend in the upper right counts the staff and the unkept tiles. Press Shift+A
   again to hide it. It only shows; nothing of the game changes. Test hook: `SG_STAFF_VIEW=1` shows it from the start.
+- **Height map (Shift+K)** tints the club's land by how high it stands: the usual ground (the commonest level) green,
+  each level lower bluer, each level higher through yellow and brown to white, so hills, slopes and hollows show at any
+  zoom. The legend in the upper right gives the lowest and highest tile and the tile under the pointer, in levels above
+  or below the usual ground. With the Landing map extra on, the Information menu has a Height map line too (for touch
+  screens). It shares the legend's place with Staff areas and the Landing map, so turning it on puts those away. It only
+  shows; nothing of the game changes. Test hook: `SG_HEIGHT_VIEW=1`.
 
 ## Camera bookmarks and the mouse
 

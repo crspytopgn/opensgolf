@@ -69,6 +69,7 @@ mod glass_ui;
 mod graphs;
 mod hd;
 mod hd_make;
+mod heightview_ui;
 mod history_ui;
 mod holemarks;
 mod homes_ui;
@@ -1709,6 +1710,10 @@ impl Stage {
         if std::env::var_os("SG_STAFF_VIEW").is_some() {
             app.comfort.staff_view = true;
         }
+        // SG_HEIGHT_VIEW=1 shows the height map (Shift+K, heightview_ui.rs), for stills
+        if std::env::var_os("SG_HEIGHT_VIEW").is_some() {
+            app.comfort.height_view = true;
+        }
         if let Some(f) = &o.save {
             if let Err(e) = app.terrain.save(f) {
                 eprintln!("error: {e}");
@@ -1901,6 +1906,7 @@ impl Stage {
             PopupKind::Info if line == tr("STR_MENU_INFO_HISTORY") => self.app.open_history(),
             PopupKind::Info if line == tr("STR_MENU_INFO_PATH_VIEW") => self.app.toggle_path_view(),
             PopupKind::Info if line == tr("STR_MENU_INFO_LANDING_MAP") => self.app.toggle_landing_map(),
+            PopupKind::Info if line == tr("STR_MENU_INFO_HEIGHT_VIEW") => self.app.toggle_height_view(),
             PopupKind::Info if line == tr("STR_MENU_INFO_HOLE_COMMENTS") => self.app.open_hole_comments(),
             PopupKind::Info if line == tr("STR_MENU_INFO_GRAPHS") => self.app.open_graphs(),
             PopupKind::Info => match k {
@@ -2828,6 +2834,7 @@ impl Stage {
                 KeyCode::F5 => app.quick_save(),
                 KeyCode::F9 => app.ask_quick_load(),
                 KeyCode::A => app.toggle_staff_view(),
+                KeyCode::K => app.toggle_height_view(),
                 // the insight extras (insight.rs): the landing map and comments by hole
                 KeyCode::D if extras::landing_map() => app.toggle_landing_map(),
                 KeyCode::I if extras::hole_comments() => app.open_hole_comments(),

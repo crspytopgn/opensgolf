@@ -2680,6 +2680,7 @@ STR_CTL_TAPE                            :Measuring tape
 STR_CTL_QUICK_SAVE                      :Quick save
 STR_CTL_QUICK_LOAD                      :Quick load
 STR_CTL_STAFF_VIEW                      :Staff areas off / on
+STR_CTL_HEIGHT_VIEW                     :Height map off / on
 STR_CTL_LANDING_MAP                     :Landing map off / on
 STR_CTL_HOLE_COMMENTS                   :Comments by hole
 STR_CTL_GRAPHS                          :History graphs
@@ -2879,6 +2880,7 @@ STR_MENU_INFO_PEOPLE                    : People
 STR_MENU_INFO_HISTORY                   : Message history
 STR_MENU_INFO_PATH_VIEW                 : Path view on / off
 STR_MENU_INFO_LANDING_MAP               : Landing map on / off
+STR_MENU_INFO_HEIGHT_VIEW               : Height map on / off
 STR_MENU_INFO_HOLE_COMMENTS             : Comments by hole
 STR_MENU_INFO_GRAPHS                    : History graphs
 # The message history
@@ -3082,6 +3084,8 @@ STR_KEYS_K_QUICK_LOAD                   :Shift+F9
 STR_KEYS_QUICK_LOAD                     :Quick load (asks first)
 STR_KEYS_K_STAFF_VIEW                   :Shift+A
 STR_KEYS_STAFF_VIEW                     :Staff areas: every employee's ring, and the course no groundskeeper reaches
+STR_KEYS_K_HEIGHT_VIEW                  :Shift+K
+STR_KEYS_HEIGHT_VIEW                    :Height map: the course tinted from its lowest ground to its highest
 STR_KEYS_K_VIEWS                        :Shift+F1 .. F4
 STR_KEYS_VIEWS                          :Camera bookmarks: back to a kept view (centre, zoom and turn)
 STR_KEYS_K_VIEW_KEEP                    :Ctrl+bookmark key
@@ -3108,6 +3112,13 @@ STR_STAFF_VIEW_PROS                     :Club pros: {COUNT}
 STR_STAFF_VIEW_BARE                     :Unkept fairway, green, tee: {COUNT} tiles
 STR_STAFF_VIEW_ON                       :Staff areas on: Shift+A hides them.
 STR_STAFF_VIEW_OFF                      :Staff areas off.
+STR_HEIGHT_VIEW_TITLE                   :Height map (Shift+K)
+STR_HEIGHT_VIEW_LOW                     :Lowest: {LEVEL}
+STR_HEIGHT_VIEW_HIGH                    :Highest: {LEVEL}
+STR_HEIGHT_VIEW_HERE                    :Under the pointer: {LEVEL} levels (green: the usual ground)
+STR_HEIGHT_VIEW_CLOSE                   :Shift+K or the Information menu hides it.
+STR_HEIGHT_VIEW_ON                      :Height map on: Shift+K hides it.
+STR_HEIGHT_VIEW_OFF                     :Height map off.
 # The course editor (editor.rs; the port's own): the title button, the editor box, heightmap import, saving scenarios
 STR_EDITOR_HM_NOT_PNG                   :This is not a PNG picture OpenSGolf can read (8 or 16 bits per channel, not interlaced).
 STR_EDITOR_TITLE_BUTTON                 :Course editor...
