@@ -383,6 +383,8 @@ impl App {
         // each terrain texture's size and de-featured copy, by its texture, and its average colour
         let mut known: HashMap<TextureId, (TextureId, f32)> = HashMap::new();
         let mut averages: HashMap<TextureId, [f32; 3]> = HashMap::new();
+        // a tee's colour leaves out its dark rim (walk_gl.rs `bright_average`)
+        let mut brights: HashMap<TextureId, [f32; 3]> = HashMap::new();
         // each category's colour, summed over its triangles' pictures (the near ground's evening, walk_gl.rs `art`)
         let mut cat_sum = [[0.0f32; 4]; 16];
         let mut pending = Vec::new();
@@ -422,6 +424,9 @@ impl App {
                                             if let Some(a) = crate::walk_gl::average_colour(&img) {
                                                 averages.insert(tex, a);
                                             }
+                                            if let Some(a) = crate::walk_gl::bright_average(&img) {
+                                                brights.insert(tex, a);
+                                            }
                                             c
                                         }
                                         None => tex,
@@ -433,7 +438,8 @@ impl App {
                                 let c = if self.terrain.type_at(x, y) == 17 { skirt_cat } else { category(t.tex_type, theme) };
                                 (tex, c)
                             };
-                            if let Some(a) = averages.get(&tex) {
+                            let pick = if c == cat::TEE { brights.get(&tex) } else { None };
+                            if let Some(a) = pick.or_else(|| averages.get(&tex)) {
                                 let e = &mut cat_sum[c as usize & 15];
                                 (e[0], e[1], e[2], e[3]) = (e[0] + a[0], e[1] + a[1], e[2] + a[2], e[3] + 1.0);
                             }

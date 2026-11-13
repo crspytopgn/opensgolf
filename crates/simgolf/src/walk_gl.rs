@@ -238,6 +238,9 @@ void main() {
         // (a tee's picture has a dark rim round its raised box, which round the eye standing on it would be a dark ring)
         bool tee = k > 5.5 && k < 6.5;
         vec4 c = art(uv, dist, cut ? 0.45 : 0.1, tee ? 0.85 : cut ? 0.15 : 0.5, color.rgb);
+        // a tee's rim is a bevel painted for the view from above: at eye level it is evened away at every distance, to
+        // the colour of its grass (its category colour leaves the rim out, walk_ground.rs `bright_average`)
+        if (tee) c = mix(texture2D(clean, uv), vec4(color.rgb, 1.0), 0.9);
         vec3 g = lit(c.rgb * grain(k, dist), nrm);
         if (shore > 0.5) {
             // the water drawn into these tiles' art, wherever it is
@@ -839,6 +842,25 @@ pub fn noise_image(size: usize, seed: u32) -> Rgba {
 }
 
 /// The average colour of a picture's opaque texels (0..1), None when it has none.
+/// The average colour of a picture's lighter half (by brightness): a tee's grass without the dark rim painted round it.
+pub fn bright_average(img: &Rgba) -> Option<[f32; 3]> {
+    let lum = |p: &[u8]| p[0] as u32 * 3 + p[1] as u32 * 6 + p[2] as u32;
+    let mut l: Vec<u32> = img.px.chunks_exact(4).filter(|p| p[3] > 127).map(lum).collect();
+    if l.is_empty() {
+        return None;
+    }
+    let mid = l.len() / 2;
+    let cut = *l.select_nth_unstable(mid).1;
+    let (mut s, mut n) = ([0.0f32; 3], 0.0f32);
+    for p in img.px.chunks_exact(4).filter(|p| p[3] > 127 && lum(p) >= cut) {
+        for k in 0..3 {
+            s[k] += p[k] as f32;
+        }
+        n += 1.0;
+    }
+    (n > 0.0).then(|| s.map(|v| v / n / 255.0))
+}
+
 pub fn average_colour(img: &Rgba) -> Option<[f32; 3]> {
     let (mut s, mut n) = ([0.0f32; 3], 0.0f32);
     for p in img.px.chunks_exact(4).filter(|p| p[3] > 127) {
