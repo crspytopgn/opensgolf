@@ -245,7 +245,7 @@ fn balloon_paint(design: usize, around: f32, up: f32) -> Rgb {
             let chevron = ((up - 0.55).abs() - (around * 32.0).fract() * 0.08).abs() < 0.035;
             if chevron {
                 [0.95, 0.97, 0.98]
-            } else if gore % 2 == 0 {
+            } else if gore.is_multiple_of(2) {
                 [0.10, 0.62, 0.66]
             } else {
                 [0.10, 0.26, 0.62]
@@ -255,7 +255,7 @@ fn balloon_paint(design: usize, around: f32, up: f32) -> Rgb {
         2 => {
             if (around * 16.0).fract() < 0.12 {
                 [0.92, 0.42, 0.78]
-            } else if gore % 2 == 0 {
+            } else if gore.is_multiple_of(2) {
                 [0.22, 0.30, 0.86]
             } else {
                 [0.46, 0.24, 0.80]
@@ -263,7 +263,7 @@ fn balloon_paint(design: usize, around: f32, up: f32) -> Rgb {
         }
         // red and yellow stripes
         _ => {
-            if gore % 2 == 0 {
+            if gore.is_multiple_of(2) {
                 [0.92, 0.16, 0.10]
             } else {
                 [0.99, 0.82, 0.16]
