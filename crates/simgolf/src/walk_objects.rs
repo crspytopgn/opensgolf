@@ -39,10 +39,9 @@ const TREE_SCALE: f32 = 0.42;
 const SMALL_SCALE: f32 = 0.4;
 /// The least fit for which a building keeps a roof (`raise_roof`).
 const RAISE_FIT: f32 = 0.78;
-/// The least fit for a building on more than one tile: only an outline no box comes near takes its card, which leans back
-/// across the tiles the building covers and reads from the ground as a flat picture. The Parkland clubhouse (octagonal
-/// wings round a cupola) fits at about 0.77, and at the old 0.78 stood as its card.
-const MIN_FIT_BUILDING: f32 = 0.72;
+/// The least fit for a building on more than one tile: a looser one (towers, cupolas, wings standing out of any box) would
+/// wear them smeared across its walls, and its card is drawn instead.
+const MIN_FIT_BUILDING: f32 = 0.78;
 /// A small object's size against the art's, when no solid fits it (a ball washer, benches).
 const SMALL_OBJECT: f32 = 0.5;
 /// The least fit (intersection over union) for which an object's solid is used rather than its card.
@@ -96,67 +95,6 @@ impl Iso {
 
 // ---- fitting a solid to a sprite's outline ---------------------------------------------------------------------------------
 
-/// A detached piece of a sprite's outline smaller than this share of its largest is left out of the outline a solid is
-/// fitted to (`Mask::new`).
-const STRAY: f32 = 0.08;
-/// The thinning (texels) that parts pieces joined by a neck.
-const NECK: i64 = 2;
-
-/// The opaque texels of a picture (alpha over half), less the small pieces standing apart from its body: the shrubs,
-/// trees, lamps and flower beds the art scatters round a building. They are no part of its walls, and fitted with them
-/// a solid has to reach out across the garden (the Parkland clubhouse fitted that way fell below the least fit and stood
-/// as a flat card). Pieces touch when their texels do, diagonals included.
-fn body(img: &Rgba) -> Vec<bool> {
-    let (w, h) = (img.w as usize, img.h as usize);
-    let full: Vec<bool> = img.px.chunks_exact(4).map(|p| p[3] > 127).collect();
-    // pieces joined to the body by a thin neck (a hedge along a terrace) are told apart on the outline thinned by NECK
-    let near = |m: &[bool], want: bool, i: usize, r: i64| {
-        let (x, y) = ((i % w) as i64, (i / w) as i64);
-        (-r..=r).all(|dy| {
-            (-r..=r).all(|dx| {
-                let (nx, ny) = (x + dx, y + dy);
-                let inside = nx >= 0 && ny >= 0 && nx < w as i64 && ny < h as i64;
-                (inside && m[ny as usize * w + nx as usize]) == want
-            })
-        })
-    };
-    let on: Vec<bool> = (0..w * h).map(|i| full[i] && near(&full, true, i, NECK)).collect();
-    let mut label = vec![0u32; w * h];
-    let mut sizes = vec![0u32];
-    let mut stack = Vec::new();
-    for start in 0..w * h {
-        if !on[start] || label[start] != 0 {
-            continue;
-        }
-        let id = sizes.len() as u32;
-        let mut n = 0;
-        label[start] = id;
-        stack.push(start);
-        while let Some(i) = stack.pop() {
-            n += 1;
-            let (x, y) = ((i % w) as i64, (i / w) as i64);
-            for dy in -1..=1 {
-                for dx in -1..=1 {
-                    let (nx, ny) = (x + dx, y + dy);
-                    if nx < 0 || ny < 0 || nx >= w as i64 || ny >= h as i64 {
-                        continue;
-                    }
-                    let j = ny as usize * w + nx as usize;
-                    if on[j] && label[j] == 0 {
-                        label[j] = id;
-                        stack.push(j);
-                    }
-                }
-            }
-        }
-        sizes.push(n);
-    }
-    let largest = sizes.iter().copied().max().unwrap_or(0) as f32;
-    let kept: Vec<bool> = label.iter().map(|&l| l != 0 && sizes[l as usize] as f32 >= largest * STRAY).collect();
-    // and grown back to the outline's own edge (further than it was thinned, so the outline's sharp corners come back)
-    (0..w * h).map(|i| full[i] && !near(&kept, false, i, 2 * NECK + 1)).collect()
-}
-
 /// A frame's opaque texels, column by column, for counting quickly how many fall in a span.
 pub struct Mask {
     pub w: usize,
@@ -174,11 +112,10 @@ impl Mask {
         let mut prefix = vec![0u32; w * (h + 1)];
         let mut total = 0;
         let mut bbox = (w, h, 0, 0);
-        let keep = body(img);
         for x in 0..w {
             let base = x * (h + 1);
             for y in 0..h {
-                let on = keep[y * w + x];
+                let on = img.px[(y * w + x) * 4 + 3] > 127;
                 prefix[base + y + 1] = prefix[base + y] + on as u32;
                 if on {
                     total += 1;
@@ -874,9 +811,7 @@ impl App {
         // a small thing only when the solid fits it well
         let big = half.is_some_and(|h| h > TILE_SIZE * 0.75);
         let fit = fit_proxy(&views, s, ax, ay, half).filter(|f| f.iou >= if big { MIN_FIT_BUILDING } else { MIN_FIT }).map(|f| {
-            if half.is_some() && (f.iou >= RAISE_FIT || big) {
-                // (a building of several tiles keeps a roof however loose its fit: under a flat top the art's roofs, the
-                // most of what the overhead view shows, would be projected down its walls)
+            if half.is_some() && f.iou >= RAISE_FIT {
                 raise_roof(f, &views, s, ax, ay)
             } else if f.iou < RAISE_FIT {
                 // a loose fit: towers, cupolas and the like stand out of the solid's outline, and a roof would wear them
