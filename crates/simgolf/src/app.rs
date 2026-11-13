@@ -2955,6 +2955,12 @@ impl App {
                         hs.mood_sum = mood_sum;
                     }
                 }
+                // the golfer profile's Rounds list (profile_ui.rs); a Course B round too
+                golf::Event::RoundDone { g, holes, strokes, par } => {
+                    if crate::extras::people() {
+                        self.keep_round(g, holes, strokes, par);
+                    }
+                }
                 golf::Event::Thought { g, id: 0x32, arg } => {
                     if crate::extras::people() {
                         self.keep_thought(g, 0x32, arg);

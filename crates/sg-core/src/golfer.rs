@@ -308,6 +308,9 @@ pub enum Event {
     },
     /// A golfer finished a hole (employees serving them note it): the hole, strokes taken, mood and fee paid.
     HoleDone { g: usize, hole: i32, strokes: i32, mood: i32, fee: i32 },
+    /// A golfer's round ended (`round_complete`): the holes played, the strokes and the par of those holes. Nothing of the
+    /// rules reads it; the port's golfer profile keeps it.
+    RoundDone { g: usize, holes: i32, strokes: i32, par: i32 },
     /// A remarkable shot (0x407e00, see `pro::Club::great_shot`): the golfer, the partner, the composed message, whether it
     /// was a bad one and the shot's replay points (map units and height). The game shows the great-shot SimFoto when the
     /// shot is on screen, else (for the player's pro only) posts the text to the ticker.
@@ -1578,6 +1581,7 @@ impl Club {
             points += 1;
         }
         points += c.oper[9];
+        self.out.push(Event::RoundDone { g, holes: h.clamp(0, 18), strokes: total, par: pars });
         let lvl = (self.member(g).level & 7) as i32;
         if self.g[g].kind == 0 && (1 << lvl) <= points && lvl < 5 {
             self.g[g].flags |= flag::UPGRADE;

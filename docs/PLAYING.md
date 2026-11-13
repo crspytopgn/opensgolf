@@ -901,7 +901,9 @@ compare pixel for pixel with the build before the extras).
 - **Golfer profile** (People's *Profile*, or the golfer card's *Profile* button): the portrait, the card's identity lines,
   the roster's record (rounds, best, handicap), the round in progress, the golfer's bio (the person record's own, which
   Customise's Update Bio edits; *Edit bio* or B types one here) and everything the golfer has said on the course this game,
-  newest first, good thoughts in green and bad ones in red (kept with the save, the last 60 per golfer).
+  newest first, good thoughts in green and bad ones in red (kept with the save, the last 60 per golfer). *Rounds* (or R)
+  turns that list into the golfer's rounds here, newest first: the date it ended, the score against the par of the holes
+  played, the holes and what the golfer spent (kept with the save, the last 40 per golfer); *Said* turns it back.
 - **Message history** (**Shift+M**, *Information, Message history*, or a click on the ticker): every ticker message with
   its date and its speaker's portrait or picture, and each golfer story line (speaker, story and line), newest first, the
   last thousand, saved with the game. A click on a message

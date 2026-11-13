@@ -680,7 +680,24 @@ pub struct Kept {
     /// Home sites placed while the home-site details are on (homes_ui.rs): what each cost and sold for.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub homes: Vec<crate::homes_ui::Sale>,
+    /// Each golfer's rounds here, by person record, newest last (profile_ui.rs), while the People extras are on.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub rounds: BTreeMap<i32, Vec<Round>>,
 }
+
+/// A round a golfer played here: when it ended, the holes played, strokes, their par and what the golfer spent.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Round {
+    pub tick: u32,
+    pub holes: u8,
+    pub strokes: u16,
+    pub par: u16,
+    #[serde(default)]
+    pub spent: i64,
+}
+
+/// The most rounds kept for one golfer (the oldest go first).
+pub const MAX_ROUNDS: usize = 40;
 
 impl Kept {
     pub fn is_empty(&self) -> bool {
@@ -692,6 +709,7 @@ impl Kept {
             && self.views.is_empty()
             && self.years.is_none()
             && self.homes.is_empty()
+            && self.rounds.is_empty()
     }
 
     pub fn push_message(&mut self, m: Message) {
@@ -979,6 +997,17 @@ impl crate::app::App {
                     }
                 }
                 self.open_profile(self.club.g[g].roster);
+                // SG_PROFILE_ROUNDS=1: the Rounds list, with the golfers' kept rounds
+                if std::env::var_os("SG_PROFILE_ROUNDS").is_some() {
+                    self.xs.profile.rounds = true;
+                    let r = self.club.g[g].roster;
+                    if !self.xs.kept.rounds.contains_key(&r) {
+                        if let Some((_, v)) = self.xs.kept.rounds.iter().next() {
+                            let v = v.clone();
+                            self.xs.kept.rounds.insert(r, v);
+                        }
+                    }
+                }
             }
             "tags" => {
                 // the pointer on the first golfer on screen, every frame
@@ -1040,6 +1069,26 @@ impl crate::app::App {
     /// Money a golfer slot has spent this round (dollars).
     pub fn spent_by(&self, g: usize) -> i64 {
         self.xs.spent.get(g).filter(|e| e.0 == self.club.g[g].roster).map(|e| e.1 * 100).unwrap_or(0)
+    }
+
+    /// A round a golfer finished, kept for the profile page's Rounds list.
+    pub fn keep_round(&mut self, g: usize, holes: i32, strokes: i32, par: i32) {
+        let roster = self.club.g[g].roster;
+        if roster < 0 || holes <= 0 {
+            return;
+        }
+        let r = Round {
+            tick: self.date(),
+            holes: holes as u8,
+            strokes: strokes.clamp(0, 999) as u16,
+            par: par.clamp(0, 999) as u16,
+            spent: self.spent_by(g),
+        };
+        let v = self.xs.kept.rounds.entry(roster).or_default();
+        v.push(r);
+        if v.len() > MAX_ROUNDS {
+            v.remove(0);
+        }
     }
 
     /// A thought a golfer had, kept for the profile page.

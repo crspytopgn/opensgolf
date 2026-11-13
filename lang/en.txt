@@ -2952,7 +2952,13 @@ STR_GPROFILE_NO_BIO                      :No bio yet: Edit bio writes one.
 STR_GPROFILE_EDIT_BIO                    :Edit bio
 STR_GPROFILE_SAID                        :What {GOLFER} has said
 STR_GPROFILE_NOTHING_SAID                :Nothing heard yet this game.
-STR_GPROFILE_HELP                        :L locate, C card, B edit bio, Up/Down scroll; Esc, Enter or a click outside the box goes back.
+STR_GPROFILE_ROUNDS                      :Rounds
+STR_GPROFILE_SAID_BUTTON                 :Said
+STR_GPROFILE_ROUNDS_HEAD                 :{GOLFER}'s rounds here ({COUNT})
+STR_GPROFILE_NO_ROUNDS                   :No round finished here yet this game.
+STR_GPROFILE_ROUND                       :{STROKES} ({VS}) over {HOLES} holes, spent {SPENT}
+STR_GPROFILE_EVEN                        :even
+STR_GPROFILE_HELP                        :L locate, C card, B edit bio, R rounds, Up/Down scroll; Esc, Enter or a click outside the box goes back.
 STR_RENAME_EMPLOYEE                     :Rename the employee:
 STR_RENAME_BIO                          :The golfer's bio:
 STR_RENAME_HOLE                         :Name this hole (empty for its own name):
