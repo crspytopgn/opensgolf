@@ -597,6 +597,8 @@ pub struct Objects {
     fits: HashMap<(usize, [usize; 4], i32), Option<Fit>>,
     info: HashMap<(usize, usize), FrameInfo>,
     person_scale: HashMap<usize, f32>,
+    /// The buildings' models (walk_models.rs) by kind and theme, built once.
+    models: HashMap<(usize, usize), Option<Vec<Vert>>>,
     /// A moving prop's shown place (x, z) by its identity, eased between the simulation's ticks.
     eased: HashMap<u32, (f32, f32)>,
     /// The trees beyond the property (built with the ground, `walk_far_trees`).
@@ -846,6 +848,21 @@ impl App {
         k
     }
 
+    /// The land objects' kinds by their footprint's centre.
+    fn walk_kinds(&self) -> Vec<((f32, f32), usize)> {
+        let Some(land) = &self.land else { return Vec::new() };
+        land.objects
+            .iter()
+            .filter(|o| o.kind >= 0)
+            .map(|o| {
+                let size = sg_core::data::buildings().get(o.kind as usize).map(|b| b.1).unwrap_or(1).max(1);
+                let (cx, cz) = self.terrain.tile_centre(o.a, o.b);
+                let off = (size - 1) as f32 * TILE_SIZE * 0.5;
+                ((cx + off, cz + off), o.kind as usize)
+            })
+            .collect()
+    }
+
     /// The land objects' footprints: half their size in tiles (world units) by their ground point.
     fn walk_footprints(&self) -> Vec<((f32, f32), f32)> {
         let Some(land) = &self.land else { return Vec::new() };
@@ -990,6 +1007,8 @@ impl App {
         }
         let foot = self.walk_footprints();
         let half_at = |x: f32, z: f32| foot.iter().find(|((fx, fz), _)| (fx - x).abs() < 1.0 && (fz - z).abs() < 1.0).map(|f| f.1);
+        let kinds = self.walk_kinds();
+        let kind_at = |x: f32, z: f32| kinds.iter().find(|((fx, fz), _)| (fx - x).abs() < 1.0 && (fz - z).abs() < 1.0).map(|f| f.1);
         let eye = sc.eye;
         let up = [0.0, 1.0, 0.0];
         let right = [sc.right[0], 0.0, sc.right[1]];
@@ -1059,6 +1078,25 @@ impl App {
             }
             let anchor = [x, ground + p.lift, z];
             if p.object {
+                // a building with a model of its own is drawn as that (walk_models.rs)
+                if let Some(kind) = kind_at(x, z) {
+                    let theme = self.theme;
+                    let model = o.models.entry((kind, theme)).or_insert_with(|| crate::walk_models::model(kind, theme));
+                    if let (Some(m), Some((hx, hz))) = (model.as_ref(), crate::walk_models::model_half(kind)) {
+                        let r = hx.max(hz) * 1.5;
+                        if dist < near_obstacle {
+                            let (bx, bz) = if p.facing.rem_euclid(2) == 1 { (hz, hx) } else { (hx, hz) };
+                            o.obstacles.push(Obstacle::Box { cx: x, cz: z, hx: bx, hz: bz });
+                        }
+                        if !sphere_visible(&sc.planes, [x, ground, z], r) {
+                            o.culled += 1;
+                            continue;
+                        }
+                        o.drawn += 1;
+                        solids.extend(crate::walk_models::placed(m, p.facing, [x, ground, z]));
+                        continue;
+                    }
+                }
                 let half = half_at(x, z);
                 let frames = [0, 1, 2, 3].map(|q| self.sprites[si].s.frame_index(self.prop_view(&p, si, q), 0));
                 let layer = proxies.iter().find(|((px, pz), _)| (px - x).abs() < 0.5 && (pz - z).abs() < 0.5).map(|f| f.1);

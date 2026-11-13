@@ -121,6 +121,7 @@ mod views;
 mod walk;
 mod walk_gl;
 mod walk_ground;
+mod walk_models;
 mod walk_objects;
 mod welcome;
 mod wild_ui;
