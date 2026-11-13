@@ -84,7 +84,7 @@ When OpenSGolf starts it first shows its **launcher** (the port's own screen, no
 the browser version's start page: the sky with the gold *OpenSGolf* heading, the green tabs and the glossy buttons. It is
 drawn by the game from shapes and its own free fonts, so it looks the same with or without your SimGolf files and shows
 none of the original's art. It fits any window, from a phone held sideways to a 4K screen, and works with the mouse, a
-finger (a tap is a click) and a controller (the stick moves the pointer, A clicks, Start plays). Four tabs:
+finger (a tap is a click) and a controller (the stick moves the pointer, A clicks, Start plays). Five tabs:
 
 - **Game files**: what is in use and what was found (e.g. *Your SimGolf files: all art and 320 sounds*, or *Free
   graphics* with *No SimGolf files were found on this device*), then two choices: **Use my SimGolf files...** (the same
@@ -95,6 +95,16 @@ finger (a tap is a click) and a controller (the stick moves the pointer, A click
 - **How to play**: the four choices of *How would you like to play?* (*The original game*, *Original + helpers*,
   *OpenSGolf*, *Custom*; see below), the one in use marked. A choice is put in use exactly as Game options puts it;
   *Custom* opens Game options when you have no mix of your own yet, and *Game options...* opens it at any time.
+- **Features**: every option OpenSGolf adds in one list that scrolls (the mouse wheel, a drag with the mouse or a
+  finger, the Up, Down, PageUp, PageDown, Home and End keys, with a scroll bar at the right), in groups: *General* (the
+  bug fixes and the update check), the pages of Game options (*Gameplay*, *Sandbox*, *Looks*, *Info*, *Saves*,
+  *Controls*), then the pages of the Enhanced graphics settings, starting with Enhanced graphics' own switch. Each group
+  has a heading saying what it changes; each line has its tick (or, for a setting with choices, its value, stepped by a
+  click) and what it does. A click (a tap that does not drag) puts the change in use at once, saved as Preferences
+  saves it. On the left, a button for each section (the Enhanced graphics pages are one, *Graphics*) scrolls to it,
+  the one in view marked (on a window too short for them, the list has the room alone), and **Feature guide** opens
+  the website's guide to every feature, with where each one is in Preferences. The lines are Preferences' own (the list *Search options...* finds in), so a new option
+  appears here by itself.
 - **Display & sound**: *Window* or *Full screen* and the window's size (on a computer: kept for the next start, as F11
   and Alt+Enter now are too), *Classic*, *Enhanced* and *HD* graphics (HD only once you have made an HD pack; as
   Preferences > Graphics, Enhanced and HD can be on together, Classic is both off), the text size, *Sound* on or off
@@ -116,7 +126,7 @@ asks first, as the Preferences line does). On a new player's first start it take
 to play?* box, and after an update it opens on its News tab in place of the *What's new* box; both are recorded as shown.
 
 It never shows in scripted runs (`--png`, `--time`, `--screen`), nor when the game starts on a saved game. Test hooks for
-stills: `--screen launcher` or `SG_LAUNCHER=1` show it (nothing is written), `SG_LAUNCHER_TAB=files|play|display|news`
+stills: `--screen launcher` or `SG_LAUNCHER=1` show it (nothing is written), `SG_LAUNCHER_TAB=files|play|features|display|news`
 picks the tab, and `SG_LAUNCHER_FILES=mine:320` shows the game files as your own with 320 sounds
 (`BIN --game DIR --screen launcher --size 844x390 --png out.png`).
 

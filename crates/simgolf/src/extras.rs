@@ -481,6 +481,13 @@ pub fn saved() -> Settings {
     from_json(&settings_json()[SETTINGS_KEY])
 }
 
+/// The ticks a new player has once settings.json exists (the update check, the interface at the screen's edges and edge
+/// scrolling on): for the web site's feature guide (guide.rs).
+#[cfg(test)]
+pub(crate) fn new_player() -> Settings {
+    from_json(&serde_json::Value::Null)
+}
+
 /// The ticks in settings.json's "ui_extras" value: a tick missing there reads as off (`Settings::default`), except that
 /// autosave, save pictures and sharing, which came after the People screen, follow its tick in ticks saved before them.
 fn from_json(v: &serde_json::Value) -> Settings {

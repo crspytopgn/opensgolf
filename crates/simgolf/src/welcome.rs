@@ -35,6 +35,8 @@ use std::cell::RefCell;
 
 /// The changelog (box B's See everything that's new, Preferences > More > What's new...).
 pub const CHANGELOG_URL: &str = "https://github.com/crspytopgn/opensgolf/blob/main/CHANGELOG.md";
+/// The website's feature guide (web/guide.html): every OpenSGolf feature, where it is and whether it starts on.
+pub const GUIDE_URL: &str = "https://crspytopgn.github.io/opensgolf/guide.html";
 /// settings.json's keys: "welcome_shown" is false from a new player's first start until the first box has shown (a
 /// player who quits before it is still new next time), true after; "last_version_seen" the minor version last shown.
 pub const WELCOME_KEY: &str = "welcome_shown";
@@ -462,6 +464,15 @@ impl App {
             #[cfg(not(target_arch = "wasm32"))]
             miniquad::window::clipboard_set(CHANGELOG_URL);
             self.show_toast(&trf("STR_SUPPORT_NO_BROWSER", &[("URL", &CHANGELOG_URL)]));
+        }
+    }
+
+    /// Opens the feature guide in the browser (the launcher's How to play tab), or copies its address where there is none.
+    pub fn open_guide(&mut self) {
+        if !crate::bugreport::open_link(GUIDE_URL) {
+            #[cfg(not(target_arch = "wasm32"))]
+            miniquad::window::clipboard_set(GUIDE_URL);
+            self.show_toast(&trf("STR_SUPPORT_NO_BROWSER", &[("URL", &GUIDE_URL)]));
         }
     }
 

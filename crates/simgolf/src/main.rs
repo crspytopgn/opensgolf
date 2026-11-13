@@ -91,6 +91,9 @@ mod playcount;
 mod player_panel;
 mod popup_ui;
 mod prefs_search;
+// the web site's feature guide's reference (web/guide.html), made and checked by its tests
+#[cfg(test)]
+mod guide;
 mod prefs_ui;
 mod pro_ui;
 mod profile_ui;
@@ -2093,6 +2096,14 @@ impl Stage {
                 }
             }
             Hit::GameOptions => self.app.open_popup(popup_ui::PopupKind::Extras),
+            // a line of Features: the option ticked or stepped as Preferences' Search does it, and put in use at once
+            Hit::Feature(i) => {
+                let mut p = self.app.current_prefs();
+                if let Some(row) = launcher::feature_rows(&p, !self.app.on_free_set()).get(i) {
+                    prefs_search::toggle(row.hit, &mut p);
+                    self.apply_prefs(&p);
+                }
+            }
             #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
             Hit::Fullscreen(on) => {
                 if on != self.fullscreen {
@@ -3755,7 +3766,12 @@ impl EventHandler for Stage {
     }
 
     fn mouse_wheel_event(&mut self, _x: f32, y: f32) {
-        if self.walk_shown() || self.app.launcher.is_some() && self.app.screen != Screen::Popup {
+        // the launcher's Features list scrolls (y: notches, up positive)
+        if self.app.launcher.is_some() && self.app.screen != Screen::Popup {
+            self.app.launcher_scroll(-y * launcher::WHEEL_STEP);
+            return;
+        }
+        if self.walk_shown() {
             return;
         }
         if self.app.photo.is_some() {
@@ -4100,7 +4116,13 @@ impl EventHandler for Stage {
             self.photo_button(false, button, x, y);
             return;
         }
+        // the launcher's Features list: a press that did not drag is a click on its line
         if self.app.launcher.is_some() && self.app.screen != Screen::Popup {
+            if button == MouseButton::Left {
+                if let Some(h) = self.app.launcher_release(x, y) {
+                    self.launcher_act(h);
+                }
+            }
             return;
         }
         // the Right-drag panning extra: a right button that did not drag is the original's right click
