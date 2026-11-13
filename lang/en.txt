@@ -53,6 +53,12 @@ STR_FILES_AUTOSAVE                      :autosave ({NAME})
 STR_FILES_AUTOSAVE_2                    :autosave (Latest, one before)
 STR_FILES_AUTOSAVE_3                    :autosave (Latest, two before)
 STR_FILES_QUICK                         :quick save
+STR_FILES_BACKUP                        :{NAME} (backup {N})
+STR_FILES_AGE_NOW                       :just now
+STR_FILES_AGE_MIN                       :{N} min ago
+STR_FILES_AGE_HOURS                     :{N} hours ago
+STR_FILES_AGE_YESTERDAY                 :yesterday
+STR_FILES_AGE_DAYS                      :{N} days ago
 STR_FILES_LOAD                          :Load
 STR_FILES_CANCEL                        :Cancel
 STR_FILES_DELETE                        :Delete
@@ -793,6 +799,7 @@ STR_TOAST_CANCEL_ROUND                  :Are you sure you want to cancel this ro
 STR_TOAST_SPEED_NORMAL                  :Normal speed
 STR_TOAST_SPEED_FAST                    :Fast (x2)
 STR_TOAST_SPEED_FASTEST                 :Fastest (x4)
+STR_TOAST_SPEED_X8                      :Top speed (x8)
 STR_TOAST_HOLE_NEEDS_TEE_GREEN          :A new hole needs a tee and a green
 
 # Why an item cannot go on a tile (the building tool, 0x41f34e)
@@ -2454,7 +2461,7 @@ STR_KEYS_HEAD_TIME                      :Time
 STR_KEYS_K_PAUSE                        :Shift+P
 STR_KEYS_PAUSE                          :Pause / go on
 STR_KEYS_K_SPEED                        :[ / ]
-STR_KEYS_SPEED                          :Game speed slower / faster (normal, x2, x4)
+STR_KEYS_SPEED                          :Game speed slower / faster (normal, x2, x4, x8)
 STR_KEYS_HEAD_BUILD                     :Building the course
 STR_KEYS_K_GREEN                        :g
 STR_KEYS_GREEN                          :Green tool; again: tee tool
@@ -3541,6 +3548,10 @@ STR_EXTRAS_DESC_HOME_LABELS_HOVER       :A celebrity's name shows over a home si
 # The Hole flyover (OpenSGolf extras, showcase.rs; docs/PLAYING.md)
 STR_EXTRAS_HOLE_FLYOVER                 : Hole flyover: fly down a hole from its Hole Stats
 STR_EXTRAS_DESC_HOLE_FLYOVER            :Hole Stats gets a Fly over button: the camera flies from the tee down the hole to the green, then back. A key or a click ends it.
+STR_EXTRAS_PAUSE_AIM                    : Pause while you aim your pro
+STR_EXTRAS_DESC_PAUSE_AIM               :The game stands still while your pro waits for your shot, in tournaments too, and goes on as you swing.
+STR_EXTRAS_SAVE_NEWEST                  : Saves newest first, with dates and backups
+STR_EXTRAS_DESC_SAVE_NEWEST             :Load Previous Game lists your saves newest first with when each was saved, and saving over a game keeps its last three versions as backups.
 STR_HOLESTATS_FLY_OVER                  :Fly over
 
 # The launcher (the port's own, launcher.rs; docs/PLAYING.md "The launcher"): the screen before the title menu. Its tabs,

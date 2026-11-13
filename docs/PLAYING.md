@@ -808,7 +808,7 @@ Test hooks: `--edit "M:7"` opens the search box (`SG_PREFS_SEARCH="words"` types
 ## In-game interface (dock, panels, advisor, stories)
 
 The lower left of the course screen now shows the game's own dock art (Interface/3mainLowerLeft.pcx). The three big round buttons open panels along the bottom: **Build Course** (terrain brushes, paths, raise and lower, each with its cost), **Add Buildings** (the amenities for the theme) and **People** (click to hire, right click to fire a club pro, ranger, groundskeeper or soda vendor). Click an item, then click the map. On a Mac, Ctrl+click is a right click (in the app and in the browser), as is a two-finger click on a trackpad with *Secondary click* on. The small buttons zoom, rotate, open the course report, pause, and save the course. The keys are the original's (its F8 screen lists them): g f r s t w p b pick the green/tee, fairway, rough, sand, trees, water, path and bench tools (v the ravine), e the elevation tools, = and - raise and lower the ground under the pointer (Tab steps the elevation brush), h opens the hole being built; z and x zoom between the original's three levels, PageUp and Home turn the view a quarter (0 turns it back), the arrows scroll four tiles, 1 to 9 and Shift+1 to 9 jump to holes 1 to 18; Space drops the tool (and with the Info page's *right click puts the tool away* extra, so does a right click or a
-controller's B; otherwise a right click is the original's undo, which twice on a tee or green takes the hole away); Shift+P pause, Shift+T trees, Shift+N names, Shift+R routing map, Shift+W world map, Shift+J begin a tournament, Shift+C save the course for championship play, Shift+S and Shift+L save and load. The original has no game speed control; the port's own ] speeds it up (normal, x2, x4) and [ slows it down, each stopping at the end (a controller's Y and the touch button cycle). With Enhanced graphics on, the port's own c (a key the original leaves unused) opens photo mode (see *Photo mode* below).
+controller's B; otherwise a right click is the original's undo, which twice on a tee or green takes the hole away); Shift+P pause, Shift+T trees, Shift+N names, Shift+R routing map, Shift+W world map, Shift+J begin a tournament, Shift+C save the course for championship play, Shift+S and Shift+L save and load. The original has no game speed control; the port's own ] speeds it up (normal, x2, x4, x8) and [ slows it down, each stopping at the end (a controller's Y and the touch button cycle). With Enhanced graphics on, the port's own c (a key the original leaves unused) opens photo mode (see *Photo mode* below).
 
 System Functions → Preferences → *Controls and keys...* (the port's own screen) lists every key the game takes, grouped:
 moving around the course, time, building, holes and messages, reports and maps, your pro and the golfers, saving and
@@ -933,6 +933,11 @@ compare pixel for pixel with the build before the extras).
   course, a course code file or the original's `.sve`) and *Export this save...* (a copy of the selected save where you
   choose; the browser downloads it). Dropping such a file on the window works too. See "Saved games: where they are,
   backups and imports". Up to 0.4.9 these came with Course sharing: settings saved then follow its tick.
+- **Saves newest first, with dates and backups**: Load Previous Game lists your saved games newest first, each with how
+  long ago it was saved ("5 min ago", "yesterday", then the date). Saving over a game keeps the one that was there as a
+  backup, up to three of each, in `Saved Games/Backups` (`My Club~1.sgs` is the newest); they are listed at the foot of
+  the Load list as *My Club (backup 1)* and load as a game of their own, so saving one never replaces the original. When
+  each save was made is kept in `Saved Games/saves.json`. Autosaves keep their own three and are not backed up.
 - **Landing map** (**Shift+D**, or *Information, Landing map on / off*): where the golfers' shots on a hole come to rest,
   as small dots on the course for the hole under the pointer (or the last one pointed at, or the one Hole Stats showed
   last): white the tee shots, yellow the second shots, orange the third, red the fourth and later, with a fainter pip
@@ -987,6 +992,9 @@ compare pixel for pixel with the build before the extras).
   warns about debt at the end of the year (the year-end report follows when the game goes on), or the cash goes below
   zero (not in Sandbox Mode). The news is where the original puts it, on the ticker or the report; *Paused for big news*
   under the Paused caption. Unpause as usual (Shift+P or the dock's pause button).
+- **Pause while you aim your pro** (off; the presets leave it as you set it): the club stands still while your pro waits
+  for your shot, in a tournament too, and goes on the moment you swing. Building with your pro on the course is not
+  held up: the pause is only for the shot.
 - **Check for updates when the game starts** (a tick of Preferences > More, not in the extras box; on from 0.6, and the presets leave
   it as you set it: it goes online, which is yours to choose): the title menu's *Check for updates* (see *The title menu*), once in the background when the game
   starts. It says nothing unless a newer version is out; then a box offers **Update now**, **Skip this version** (that

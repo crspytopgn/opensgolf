@@ -937,7 +937,7 @@ impl Stage {
             self.app.centre_on_pro();
             return;
         }
-        // the speed's one button cycles normal, x2 and x4 (the keys step and stop: App::step_speed)
+        // the speed's one button cycles normal, x2, x4 and x8 (the keys step and stop: App::step_speed)
         if b == Btn::Speed {
             self.app.cycle_speed();
             return;
@@ -1444,12 +1444,13 @@ fn shaded(g: &mut Gfx, ink: [f32; 4], draw: impl Fn(&mut Gfx, f32, f32, [f32; 4]
     draw(g, 0.0, 0.0, ink);
 }
 
-/// Speed: one, two or three play arrows for normal, x2 and x4.
+/// Speed: one to four play arrows for normal, x2, x4 and x8.
 fn icon_speed(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, speed: u8, ink: [f32; 4]) {
     let n = match speed {
         1 => 1,
         2 => 2,
-        _ => 3,
+        4 => 3,
+        _ => 4,
     };
     let h = r * 0.42;
     let w = r * 0.38;

@@ -1274,11 +1274,15 @@ impl App {
         Some((msg, boxed))
     }
 
-    /// The port's own game speed one step faster or slower (normal, x2, x4), stopping at either end; says the speed.
+    /// The port's own game speed one step faster or slower (normal, x2, x4, x8), stopping at either end; says the speed.
+    /// x8 is for passing long stretches (a winter, the months before a tournament); how fast it really goes depends on
+    /// the machine, as the simulation's ticks are all still run.
     pub fn step_speed(&mut self, faster: bool) {
         let s = match (self.speed, faster) {
             (1, true) => 2,
-            (_, true) => 4,
+            (2, true) => 4,
+            (_, true) => 8,
+            (8, false) => 4,
             (4, false) => 2,
             (_, false) => 1,
         };
@@ -1286,11 +1290,12 @@ impl App {
         self.say_speed();
     }
 
-    /// The game speed's single button (a controller's Y, the touch button): normal, x2, x4, then normal again.
+    /// The game speed's single button (a controller's Y, the touch button): normal, x2, x4, x8, then normal again.
     pub fn cycle_speed(&mut self) {
         let s = match self.speed {
             1 => 2,
             2 => 4,
+            4 => 8,
             _ => 1,
         };
         self.act(sg_core::action::Action::Speed(s));
@@ -1301,7 +1306,8 @@ impl App {
         let name = match self.speed {
             1 => tr("STR_TOAST_SPEED_NORMAL"),
             2 => tr("STR_TOAST_SPEED_FAST"),
-            _ => tr("STR_TOAST_SPEED_FASTEST"),
+            4 => tr("STR_TOAST_SPEED_FASTEST"),
+            _ => tr("STR_TOAST_SPEED_X8"),
         };
         self.show_toast(name);
     }
@@ -3334,7 +3340,15 @@ impl App {
     /// Saves the whole game.
     pub fn save_game(&self, path: &Path) -> Result<(), String> {
         let out = self.save_bytes(6)?;
+        // the Saves newest first extra (backups.rs): the game saved over is kept as a backup, and the time is recorded
+        let dated = crate::extras::save_newest() && path.parent() == Some(crate::files_ui::saved_games_dir().as_path());
+        if dated {
+            crate::backups::keep_backup(path);
+        }
         if sg_core::fsutil::write_file(path, &out) {
+            if dated {
+                crate::backups::stamp(path, miniquad::date::now());
+            }
             self.fingerprint_note("save");
             // the save self-check reads the file back over the next frames (selfcheck.rs)
             self.selfcheck_after_save(&out);

@@ -135,6 +135,14 @@ pub struct Settings {
     pub home_labels_hover: bool,
     /// Hole Stats' Fly over button: a short camera flight down the hole (showcase.rs). Off by default.
     pub hole_flyover: bool,
+    /// The game stands still while the player's pro waits for a shot (main.rs `playing`; the port's own, players'
+    /// request). Off by default: in the original the club goes on while the pro is aimed.
+    #[serde(default)]
+    pub pause_aim: bool,
+    /// Load Previous Game lists the saves newest first with the date and time each was saved, and a save made over an
+    /// older one keeps that one as a backup (files_ui.rs, backups.rs). Off by default: the original lists them by name.
+    #[serde(default)]
+    pub save_newest: bool,
 }
 
 impl Settings {
@@ -174,6 +182,8 @@ impl Settings {
         edge_scroll: false,
         home_labels_hover: false,
         hole_flyover: true,
+        pause_aim: false,
+        save_newest: true,
     };
     pub const ALL_OFF: Settings = Settings {
         people: false,
@@ -206,6 +216,8 @@ impl Settings {
         edge_scroll: false,
         home_labels_hover: false,
         hole_flyover: false,
+        pause_aim: false,
+        save_newest: false,
     };
 
     /// The ticks as the Extras box's checkbox bits (in `UI_KEYS` order).
@@ -241,6 +253,8 @@ impl Settings {
             self.edge_scroll,
             self.home_labels_hover,
             self.hole_flyover,
+            self.pause_aim,
+            self.save_newest,
         ]
         .iter()
         .enumerate()
@@ -280,6 +294,8 @@ impl Settings {
             edge_scroll: on(27),
             home_labels_hover: on(28),
             hole_flyover: on(29),
+            pause_aim: on(30),
+            save_newest: on(31),
         }
     }
 
@@ -304,6 +320,7 @@ impl Settings {
             wide_ui: from.wide_ui,
             edge_scroll: from.edge_scroll,
             home_labels_hover: from.home_labels_hover,
+            pause_aim: from.pause_aim,
             ..*self
         }
     }
@@ -318,7 +335,7 @@ impl Default for Settings {
 
 /// The interface extras' lines on the Extras box's Interface page (extras_ui.rs), one tick per extra in `Settings::bits`
 /// order (text keys in lang/en.txt).
-pub const UI_KEYS: [&str; 30] = [
+pub const UI_KEYS: [&str; 32] = [
     "STR_EXTRAS_PEOPLE",
     "STR_EXTRAS_HISTORY",
     "STR_EXTRAS_NAME_TAGS",
@@ -349,6 +366,8 @@ pub const UI_KEYS: [&str; 30] = [
     "STR_EXTRAS_EDGE_SCROLL",
     "STR_EXTRAS_HOME_LABELS_HOVER",
     "STR_EXTRAS_HOLE_FLYOVER",
+    "STR_EXTRAS_PAUSE_AIM",
+    "STR_EXTRAS_SAVE_NEWEST",
 ];
 
 /// The update check's value when settings.json has none (`Settings::update_check`).
@@ -456,6 +475,14 @@ pub fn right_drop() -> bool {
 }
 pub fn hole_flyover() -> bool {
     settings().hole_flyover
+}
+/// Whether the game stands still while the pro waits for a shot (main.rs `playing`).
+pub fn pause_aim() -> bool {
+    settings().pause_aim
+}
+/// Whether the Load list is newest first with dates, and saves keep backups (files_ui.rs, backups.rs).
+pub fn save_newest() -> bool {
+    settings().save_newest
 }
 pub fn random_trees() -> bool {
     settings().random_trees
@@ -1208,7 +1235,7 @@ mod tests {
         let f = Settings { save_files: true, ..Settings::ALL_OFF };
         assert_eq!(f.bits(), 1 << 22);
         assert_eq!(Settings::from_bits(f.bits()), f);
-        assert_eq!(UI_KEYS.len(), 30);
+        assert_eq!(UI_KEYS.len(), 32);
     }
 
     #[test]

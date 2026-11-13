@@ -24,6 +24,7 @@ mod autorelease;
 mod autosave;
 #[cfg(all(not(target_arch = "wasm32"), feature = "net"))]
 mod autoupdate;
+mod backups;
 mod bugreport;
 mod build_tools;
 mod champ_ui;
@@ -3510,7 +3511,9 @@ impl EventHandler for Stage {
             && app.analysis.is_none()
             && app.simfoto.is_none_or(|f| f.frames < 2)
             && app.great_shot.is_none()
-            && app.launcher.is_none();
+            && app.launcher.is_none()
+            // the Pause while you aim extra: the club waits while the pro waits for the player's shot (not while building)
+            && !(extras::pause_aim() && !app.edit && app.club.pro_aiming().is_some());
         if playing {
             app.time += dt * app.speed.max(1) as f64 * perf::speed();
         }
