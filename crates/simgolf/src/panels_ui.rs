@@ -600,13 +600,24 @@ fn terrain_text(app: &App, theme: usize, name: &str) -> String {
     })
 }
 
-/// The language file's own description of a tile: its key with `_DESC` (TRANSLATING.md), when the file has one.
-fn desc_key(key: &'static str) -> Option<&'static str> {
+/// The theme names a language file adds to a tile's `_DESC` key for that theme's own description (TRANSLATING.md): the
+/// four theme files describe the shared tiles (Tees, Green, Sand trap, Fairway...) each in their own words (#164).
+const DESC_THEMES: [&str; 4] = ["PARKLANDS", "DESERT", "TROPICAL", "LINKS"];
+
+/// The language file's own description of a tile in a theme: its key with `_DESC_` and the theme's name
+/// (STR_TILE_TEES_DESC_LINKS), else its key with `_DESC` (STR_TILE_TEES_DESC, for every theme), when the file has one.
+fn desc_key(key: &'static str, theme: usize) -> Option<&'static str> {
     thread_local! {
-        static KEYS: std::cell::RefCell<std::collections::HashMap<&'static str, &'static str>> = Default::default();
+        static KEYS: std::cell::RefCell<std::collections::HashMap<(&'static str, usize), [&'static str; 2]>> =
+            Default::default();
     }
-    let d = KEYS.with(|m| *m.borrow_mut().entry(key).or_insert_with(|| Box::leak(format!("{key}_DESC").into_boxed_str())));
-    sg_core::lang::has(d).then_some(d)
+    let t = theme.min(3);
+    let [own, any] = KEYS.with(|m| {
+        *m.borrow_mut().entry((key, t)).or_insert_with(|| {
+            [Box::leak(format!("{key}_DESC_{}", DESC_THEMES[t]).into_boxed_str()), Box::leak(format!("{key}_DESC").into_boxed_str())]
+        })
+    });
+    [own, any].into_iter().find(|d| sg_core::lang::has(d))
 }
 
 /// The line after the one that reads "*" and `name` (without case), the description of that tile.
@@ -648,8 +659,9 @@ impl App {
         s.image_part(g, &self.hud.faces, x - 90.0, 391.0, 594.0 - 16.0 * (k - 1) as f32, 100.0, 16.0, 16.0);
         // 0x45b0d0: greedy lines of at most 16 * 8 pixels, the line height less 4 (at least 10) apart, while above y 584
         // the theme's text file names the tiles in English; a language file may give its own description as the tile's
-        // key with _DESC (STR_TILE_FIRM_FAIRWAY_DESC), as the theme's file is in English only (#164)
-        let text = match desc_key(key) {
+        // key with _DESC and the theme (STR_TILE_FIRM_FAIRWAY_DESC_LINKS) or with _DESC alone for every theme
+        // (STR_TILE_FIRM_FAIRWAY_DESC), as the theme's file is in English only (#164)
+        let text = match desc_key(key, theme) {
             Some(d) => sg_core::lang::tr(d).to_string(),
             None => terrain_text(self, theme, sg_core::lang::en(key)),
         };
@@ -1850,6 +1862,19 @@ mod tests {
                 assert!(crate::ui::F_MANUAL15.width(&title) <= 140.0, "{title}");
             }
         }
+    }
+
+    #[test]
+    fn a_theme_s_own_description_wins_over_the_shared_one() {
+        // a language file gives each theme its own words for a shared tile, else one text for all four (#164); the keys
+        // here are made up so the overlay touches no other test
+        let k: &'static str = "TEST_TILE_164";
+        assert_eq!(desc_key(k, 3), None);
+        sg_core::lang::load_overlay("TEST_TILE_164_DESC:all\nTEST_TILE_164_DESC_LINKS:links\n");
+        assert_eq!(desc_key(k, 3), Some("TEST_TILE_164_DESC_LINKS"));
+        assert_eq!(desc_key(k, 1), Some("TEST_TILE_164_DESC"));
+        assert_eq!(desc_key(k, 0), Some("TEST_TILE_164_DESC"));
+        assert_eq!(DESC_THEMES.len(), 4);
     }
 
     #[test]
