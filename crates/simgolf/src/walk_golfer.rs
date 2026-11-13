@@ -480,9 +480,36 @@ fn full_swing(reach: f32, t: f32, club_len: f32) -> Pose {
     }
 }
 
+thread_local! {
+    /// How finely the figure being built is divided (`Who::detail`).
+    static DETAIL: std::cell::Cell<f32> = const { std::cell::Cell::new(1.0) };
+}
+
+/// `n` divisions at the figure's detail for a part `size` times the size `n` is meant for: a small part (a pupil, a
+/// glint, a finger of the moustache) needs far fewer to look round, so it costs far less.
+fn sized(n: usize, least: usize, size: f32) -> usize {
+    let d = DETAIL.with(|d| d.get());
+    // far off, the fewest that still read as round at a few pixels
+    let least = if d < 0.3 { least.min(4) - 1 } else { least };
+    ((n as f32 * d * size.clamp(0.0, 1.0).sqrt()).round() as usize).max(least)
+}
+
+/// Whether the figure is drawn big enough on the screen for its small touches (a glint in the eye, the ends of the
+/// mouth) to show; far off they are left out.
+fn fine() -> bool {
+    DETAIL.with(|d| d.get()) >= 0.3
+}
+
+/// The detail a figure is built at for how tall it stands on the screen, in pixels: rounder the bigger it is drawn, so a
+/// golfer close up on a 4K screen is smooth and a distant one, or one on a small screen, costs little.
+pub fn detail_for(pixels: f32) -> f32 {
+    (pixels / 360.0).clamp(0.05, 1.6)
+}
+
 /// A tube from `a` to `b` (radii `ra`, `rb`), elliptical: `flat` times as deep (along `across` × the tube) as wide.
 #[allow(clippy::too_many_arguments)]
 fn tube(out: &mut Vec<Vert>, a: V, b: V, ra: f32, rb: f32, col: [f32; 3], across: V, flat: f32, sides: usize) {
+    let sides = sized(sides, 4, ra.max(rb) / 0.08);
     let ax = norm(sub(b, a));
     let mut e1 = sub(across, mul(ax, dot(across, ax)));
     if len(e1) < 1e-4 {
@@ -517,21 +544,13 @@ fn tube(out: &mut Vec<Vert>, a: V, b: V, ra: f32, rb: f32, col: [f32; 3], across
 
 /// A ball at `c`, its radii `r` along x, y and z.
 fn ball(out: &mut Vec<Vert>, c: V, r: V, col: [f32; 3]) {
-    let (seg, rings) = (14, 9);
-    let col = [col[0], col[1], col[2], 1.0];
-    let at = |i: usize, j: usize| {
+    let big = r[0].max(r[1]).max(r[2]) / 0.08;
+    let (seg, rings) = (sized(14, 6, big), sized(9, 4, big));
+    grid(out, seg, rings, true, true, col, |i, j| {
         let (th, ph) = (TAU * i as f32 / seg as f32, PI * j as f32 / rings as f32);
         let n = [ph.sin() * th.cos(), ph.cos(), ph.sin() * th.sin()];
-        let mut v = Vert::new(c[0] + n[0] * r[0], c[1] + n[1] * r[1], c[2] + n[2] * r[2], 0.0, 0.0).col(col);
-        v.normal = norm([n[0] / r[0], n[1] / r[1], n[2] / r[2]]);
-        v
-    };
-    for j in 0..rings {
-        for i in 0..seg {
-            let (a, b, cc, d) = (at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1));
-            out.extend([a, b, cc, a, cc, d]);
-        }
-    }
+        ([c[0] + n[0] * r[0], c[1] + n[1] * r[1], c[2] + n[2] * r[2]], norm([n[0] / r[0], n[1] / r[1], n[2] / r[2]]))
+    });
 }
 
 /// Part of an ellipsoid at `c` in the frame `ax` (right, up, forward) with radii `r` along them: from the top down to
@@ -539,21 +558,43 @@ fn ball(out: &mut Vec<Vert>, c: V, r: V, col: [f32; 3]) {
 /// head and what fits on it.
 #[allow(clippy::too_many_arguments)]
 fn shell(out: &mut Vec<Vert>, c: V, ax: [V; 3], r: V, ph0: f32, ph1: f32, th: (f32, f32), col: [f32; 3]) {
-    let (seg, rings) = (22, 12);
-    let col = [col[0], col[1], col[2], 1.0];
-    let at = |i: usize, j: usize| {
+    let big = r[0].max(r[1]).max(r[2]) / 0.16;
+    let (seg, rings) = (sized(20, 6, big), sized(11, 4, big));
+    grid(out, seg, rings, ph0 <= 1e-4, ph1 >= PI - 1e-4, col, |i, j| {
         let th = th.0 + (th.1 - th.0) * i as f32 / seg as f32;
         let ph = ph0 + (ph1 - ph0) * j as f32 / rings as f32;
         let n = [ph.sin() * th.cos(), ph.cos(), ph.sin() * th.sin()];
         let p = add(c, add(add(mul(ax[0], n[0] * r[0]), mul(ax[1], n[1] * r[1])), mul(ax[2], n[2] * r[2])));
-        let mut v = Vert::new(p[0], p[1], p[2], 0.0, 0.0).col(col);
-        v.normal = norm(add(add(mul(ax[0], n[0] / r[0]), mul(ax[1], n[1] / r[1])), mul(ax[2], n[2] / r[2])));
-        v
-    };
+        (p, norm(add(add(mul(ax[0], n[0] / r[0]), mul(ax[1], n[1] / r[1])), mul(ax[2], n[2] / r[2]))))
+    });
+}
+
+/// A surface from a (seg + 1) x (rings + 1) grid of points and normals, each worked out once; where the first or last
+/// row is a pole (`top`, `bottom`) its quads are single triangles.
+#[allow(clippy::too_many_arguments)]
+fn grid(out: &mut Vec<Vert>, seg: usize, rings: usize, top: bool, bottom: bool, col: [f32; 3], at: impl Fn(usize, usize) -> (V, V)) {
+    let col = [col[0], col[1], col[2], 1.0];
+    let w = seg + 1;
+    let pts: Vec<Vert> = (0..=rings)
+        .flat_map(|j| (0..=seg).map(move |i| (i, j)))
+        .map(|(i, j)| {
+            let (p, n) = at(i, j);
+            let mut v = Vert::new(p[0], p[1], p[2], 0.0, 0.0).col(col);
+            v.normal = n;
+            v
+        })
+        .collect();
+    out.reserve(seg * rings * 6);
     for j in 0..rings {
         for i in 0..seg {
-            let (a, b, cc, d) = (at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1));
-            out.extend([a, b, cc, a, cc, d]);
+            let (a, b, cc, d) = (pts[j * w + i], pts[j * w + i + 1], pts[(j + 1) * w + i + 1], pts[(j + 1) * w + i]);
+            if j == 0 && top {
+                out.extend([a, cc, d]);
+            } else if j + 1 == rings && bottom {
+                out.extend([a, b, cc]);
+            } else {
+                out.extend([a, b, cc, a, cc, d]);
+            }
         }
     }
 }
@@ -638,12 +679,14 @@ pub struct Who {
     /// The facial hair the golfer's own portrait shows, and its colour.
     pub beard: Beard,
     pub whiskers: [f32; 3],
+    /// How finely the figure is divided: 1 for a golfer about 360 pixels tall on the screen (`detail_for`).
+    pub detail: f32,
 }
 
 impl Who {
     #[cfg(test)]
     pub fn plain(look: Look) -> Who {
-        Who { look, height: 1.0, girth: 1.0, kind: 0, mood: 0, beard: Beard::None, whiskers: [0.3, 0.2, 0.1] }
+        Who { look, height: 1.0, girth: 1.0, kind: 0, mood: 0, beard: Beard::None, whiskers: [0.3, 0.2, 0.1], detail: 1.0 }
     }
 }
 
@@ -658,6 +701,7 @@ pub fn body(look: &Look, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
 /// in hand (0..13, 13 the putter). Drawn as a cartoon is: a big head with a face that shows the mood, big hands and
 /// feet, and the build of the golfer's own pictures.
 pub fn figure(who: &Who, act: Act, t: f32, time: f32, club: i32) -> Vec<Vert> {
+    DETAIL.with(|d| d.set(who.detail.clamp(0.2, 3.0)));
     let look = &who.look;
     let mut p = pose(act, t, time, club_length(club));
     // a club held at the side or dragged rests on the ground rather than through it
@@ -812,7 +856,9 @@ fn head(o: &mut Vec<Vert>, who: &Who, act: Act, neck: V, spine: V, face: V) {
         shell(o, e, ax, [0.034, 0.042, 0.022], 0.0, PI, full, white);
         let pupil = add(e, add(mul(face, 0.017), mul(side, sx * -0.004)));
         shell(o, pupil, ax, [0.017, 0.022, 0.009], 0.0, PI, full, dark);
-        shell(o, add(add(pupil, mul(face, 0.008)), add(mul(side, 0.006), mul(crown, 0.008))), ax, [0.005; 3], 0.0, PI, full, white);
+        if fine() {
+            shell(o, add(add(pupil, mul(face, 0.008)), add(mul(side, 0.006), mul(crown, 0.008))), ax, [0.005; 3], 0.0, PI, full, white);
+        }
         // the brows: raised when happy, down at the middle when cross, down at the outside when sad
         let tilt = if mood < -1.5 {
             -0.016
@@ -854,12 +900,15 @@ fn head(o: &mut Vec<Vert>, who: &Who, act: Act, neck: V, spine: V, face: V) {
         on(u * 0.08, -0.075 - bend, mouth_out)
     };
     let lip = [0.4, 0.1, 0.1];
-    for i in 0..8 {
-        let (u0, u1) = (i as f32 / 8.0 - 0.5, (i + 1) as f32 / 8.0 - 0.5);
+    let strokes = if fine() { 8 } else { 3 };
+    for i in 0..strokes {
+        let (u0, u1) = (i as f32 / strokes as f32 - 0.5, (i + 1) as f32 / strokes as f32 - 0.5);
         tube(o, mouth(u0), mouth(u1), 0.0085, 0.0085, lip, face, 0.8, 8);
     }
-    for u in [-0.5, 0.5] {
-        shell(o, mouth(u), ax, [0.0085; 3], 0.0, PI, full, lip);
+    if fine() {
+        for u in [-0.5, 0.5] {
+            shell(o, mouth(u), ax, [0.0085; 3], 0.0, PI, full, lip);
+        }
     }
     if kind == 0x60 {
         // the CEO's cigar, in the corner of the mouth
@@ -919,6 +968,27 @@ mod tests {
 
     fn top(v: &[Vert]) -> f32 {
         v.iter().map(|p| p.pos[1]).fold(f32::MIN, f32::max)
+    }
+
+    /// How long a figure takes to build, and how big it is, at each detail (cargo test --release -- --ignored cost).
+    #[test]
+    #[ignore]
+    fn cost() {
+        for d in [0.05f32, 0.15, 0.3, 0.6, 1.0, 1.6, 2.0] {
+            let who = Who { detail: d, beard: Beard::Full, ..Who::plain(look()) };
+            let n = 200;
+            let t0 = std::time::Instant::now();
+            let mut verts = 0;
+            for i in 0..n {
+                let mut v = figure(&who, Act::Swing { reach: 1.0 }, i as f32 / n as f32, 0.0, 4);
+                let mut ink = Vec::new();
+                crate::walk_toon::outline(&v, 0.01, &mut ink);
+                crate::walk_toon::cel(&mut v, [0.3, 0.8, 0.5]);
+                verts = v.len() + ink.len();
+            }
+            let us = t0.elapsed().as_secs_f64() * 1e6 / n as f64;
+            println!("detail {d}: {verts} vertices, {us:.0} us a golfer");
+        }
     }
 
     #[test]

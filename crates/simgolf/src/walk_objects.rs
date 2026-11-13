@@ -1421,7 +1421,10 @@ impl App {
                         look.hair = hair;
                     }
                     let (beard, whiskers) = face.map(|f| (f.2, f.3)).unwrap_or((crate::walk_golfer::Beard::None, look.hair));
-                    let who = crate::walk_golfer::Who { look, height, girth, kind, mood, beard, whiskers };
+                    // as finely made as the golfer is big on the screen (sc.u.info[2]: the focal length in pixels)
+                    let pixels = 1.5 * M * p.scale.max(0.1) * sc.u.info[2] / dist.max(1.0);
+                    let detail = crate::walk_golfer::detail_for(pixels);
+                    let who = crate::walk_golfer::Who { look, height, girth, kind, mood, beard, whiskers, detail };
                     let v = crate::walk_golfer::figure(&who, act, t, sc.time + ph * 10.0, club);
                     // facing: along the heading, or side on to it at the ball (the target on a right-hander's left)
                     let (hs, hc) = p.heading.to_radians().sin_cos();

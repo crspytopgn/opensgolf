@@ -53,7 +53,7 @@ const LOOK: f32 = 0.25;
 /// The steepest look up or down, degrees.
 const MAX_PITCH: f32 = 75.0;
 /// Vertical field of view, degrees.
-const FOV: f32 = 60.0;
+pub(crate) const FOV: f32 = 60.0;
 /// The near plane (world units).
 const NEAR: f32 = 0.3 * METRE;
 /// The far plane: past the hills on the horizon.
