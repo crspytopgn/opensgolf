@@ -8,15 +8,36 @@ Almost everything OpenSGolf adds to the original game is **off until you switch 
 unless you choose otherwise. Most of it is in Preferences: *Game options* holds the extras and presets, *Graphics* holds
 Enhanced graphics and HD.
 
-## 0.8 (in progress)
+## 0.8 (13 November 2026)
 
-**Highlights so far**
+**Highlights**
 
+- **The browser version installs as an app and plays offline:** add it to your home screen (or install it from the
+  browser's menu) and after the first visit it starts with no connection. Only one tab runs the game at a time, saving a
+  file on a phone opens the share sheet, and the game files can be given as a `.7z` too.
+- **Play upright on phones and tablets:** with *Play upright on phones and tablets* (an interface extra, off unless you
+  tick it) there is no "turn sideways" card and the game takes the whole tall screen, with the interface at its edges.
+- **Pause while you aim** (off unless you tick it): the club stands still while your pro waits for your shot.
+- **Saves newest first, with backups:** Load Previous Game lists saves newest first with how long ago each was made, and
+  saving over a game keeps the last 3 versions as backups. The title menu gets *Continue*, which loads your newest save.
+- **Challenges and the design lab** (an Info page tick, off by default): *Information, Challenges* offers six course
+  design aims, from a perfect par 3 to a cash turnaround, checked every month. Hole Stats' *Mark before* keeps a hole's
+  figures to compare with play since.
+- **Pull down eyesores and move the clubhouse** (two Sandbox extras, off by default): right-click (or long-press) a
+  water tower, radio mast or oil pump to demolish it for §10,000, or the clubhouse to move it somewhere else.
+- **Speed up to x8**, and a **height map** (Shift+K) that tints the land by height.
+- **More to read about your club:** a golfer's *Rounds* on their profile, club records and holes in one in Hole Stats,
+  a *Course review* page of what to look at next, and *What unlocks it* on locked buildings.
 - **A feature guide** on the website ([crspytopgn.github.io/opensgolf/guide.html](https://crspytopgn.github.io/opensgolf/guide.html)):
   every feature OpenSGolf adds, whether it starts on, and exactly where to switch it on, with every option and key listed
   from the game itself, so it keeps up with each new version. Linked from the start page.
 - **The launcher's Features tab:** every option of Preferences in one scrolling list, grouped, each with what it does and a
   tick to switch it on there and then, and a side list to jump to each group. Its *Feature guide* button opens the guide.
+- **A first look at the first-person view (experimental, desktop):** start the game with `--walk` and press F12 on the
+  course to walk it at a golfer's eye height, with 3D buildings for every theme, 3D trees and cartoon 3D golfers that
+  swing, putt and cheer. G follows the golfers and their shots. It is a preview and is in no menu yet.
+- **Fixed (#176):** with *Right click puts the tool away* on, the elevation tools keep their right-click lower again;
+  Space or Esc puts them away. Brushes and buildings still drop on a right click.
 
 ## 0.7 (7 November 2026)
 
