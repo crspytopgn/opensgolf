@@ -46,8 +46,14 @@ the same: an .iso or .cdr (picked as a .zip is, or inside a .zip), a .zip of the
 It reads the image a part at a time from the picked file (never whole: iPad Safari could not hold it with the game's
 files) and unpacks the installer there, with the same reading as iso.rs ported to the page (web/opensgolf.js, "the SimGolf
 CD in the browser"; the page unpacks before the game's WebAssembly starts), showing "Unpacking the CD: N of M files"; the
-files are the desktop import's byte for byte. A .dmg gets the message on making a .cdr; .7z and RAR archives are refused
-with a message (unpack them on a computer first).
+files are the desktop import's byte for byte. A .dmg gets the message on making a .cdr; RAR archives are refused with a
+message (unpack them on a computer first). **A .7z of the game folder** is read by the browser page (web/files.js
+`sgUn7z`, the port's own reader): folders packed with LZMA2 (7-Zip's default, including its multithreaded blocks), LZMA,
+Deflate, BZip2 or stored, behind 7-Zip's x86 filter (BCJ) or not, and packed headers. Files in a folder packed another
+way (PPMd, BCJ2, encrypted) are skipped and named in the summary, as a zip's are; 7-Zip's Ultra setting puts only the
+programs (which the game does not need) behind BCJ2, so such an archive still gives every game file. Each folder is
+unpacked whole, so a solid archive needs the memory of its game files at once. The desktop and Android imports do not
+read .7z yet.
 
 **Sounds the copy lacks.** The original's own sound plays wherever the player's copy has the clip; a clip it lacks or
 cannot decode (WAV in PCM, float, A-law, mu-law, MS or IMA ADPCM, GSM 6.10, MP2 or MP3, AIFF, or an .ogg, .mp3 or .mp2

@@ -1188,13 +1188,15 @@ async function sgLoadZip(file) {
         sgStatus("That disc image format cannot be read (only an .iso, or a Mac's .cdr). The SimGolf installation folder, or a .zip of it, works too.");
         return;
     }
-    // other archives, known by their first bytes: the page reads zips only
+    // other archives, known by their first bytes: a .7z is read here (web/files.js sgUn7z), RAR is not
     const head = new Uint8Array(await file.slice(0, 6).arrayBuffer());
-    const kind = head[0] === 0x37 && head[1] === 0x7a && head[2] === 0xbc && head[3] === 0xaf ? "a 7-Zip archive (.7z)"
-        : head[0] === 0x52 && head[1] === 0x61 && head[2] === 0x72 && head[3] === 0x21 ? "a RAR archive" : null;
-    if (kind) {
-        sgStatus("That is " + kind + ", which the browser cannot unpack. Unpack it on a computer (7-Zip, The Unarchiver) and " +
-            "pick the folder, or zip that folder and pick the .zip.");
+    if (sg7zIs(head)) {
+        await sgLoad7z(file);
+        return;
+    }
+    if (head[0] === 0x52 && head[1] === 0x61 && head[2] === 0x72 && head[3] === 0x21) {
+        sgStatus("That is a RAR archive, which the browser cannot unpack. Unpack it on a computer (7-Zip, The Unarchiver) and " +
+            "pick the folder, or pick a .zip or .7z of that folder.");
         return;
     }
     sgStatus("Opening " + file.name + "...");
@@ -1225,6 +1227,30 @@ async function sgLoadZip(file) {
     }
     // files it could not unpack are said in the summary over the game (sgFilesSummary), not in an alert, which Safari may
     // not show after the long unpacking; the game still starts (missing sounds are replaced by the free set's)
+    await sgUse(entries, skipped, stat);
+}
+
+// A .7z of the game folder: unpacked folder by folder (web/files.js sgUn7z), then used as a zip's files are.
+async function sgLoad7z(file) {
+    sgStatus("Opening " + file.name + "...");
+    sgProgress("Opening " + file.name, 0, 0);
+    const entries = [];
+    const skipped = [];
+    const stat = {};
+    try {
+        await sgUn7z(file, async (name, bytes, i, n) => {
+            entries.push([name, bytes]);
+            if (i % 10 === 0) sgProgress("Unpacking your game files", i + 1, n);
+            if (i % 50 === 0) {
+                sgStatus("Unpacking your game files: " + (i + 1) + " of " + n);
+                await new Promise(r => setTimeout(r, 0));
+            }
+        }, skipped, stat);
+    } catch (e) {
+        sgStatus("Could not read that .7z: " + e.message.replace(/^7z: /, "") +
+            (/memory|allocat/i.test(e.message) ? " (the browser ran out of memory)" : ""));
+        return;
+    }
     await sgUse(entries, skipped, stat);
 }
 

@@ -103,6 +103,32 @@ test("all the method zips unpack to the same files", async () => {
     }
 });
 
+// Unpacks a .7z (bytes) as the page does; returns { files, skipped, stat }. The archives were made with p7zip 16.02 from
+// bzip2.zip's files: `7z a -m0=lzma2`, `-m0=bcj -m1=lzma2:d=64k -mmt=2` (the filter and a dictionary small enough for
+// chunks with resets), `-m0=lzma -mhc=off` (a plain header) and `-m0=ppmd`.
+async function un7z(bytes) {
+    const files = {}, skipped = [], stat = {};
+    await f.sgUn7z(new Blob([bytes]), async (name, b) => { files[name] = b; }, skipped, stat);
+    return { files, skipped, stat };
+}
+
+test("the .7z archives unpack to the zip's files", async () => {
+    const want = (await unzip(fs.readFileSync(data + "bzip2.zip"))).files;
+    for (const file of ["game-lzma2.7z", "game-bcj.7z", "game-lzma.7z"]) {
+        const { files, skipped } = await un7z(fs.readFileSync(data + file));
+        assert.deepStrictEqual(skipped, [], file);
+        assert.deepStrictEqual(Object.keys(files).sort(), Object.keys(want).sort(), file);
+        for (const k of Object.keys(want)) assert.ok(Buffer.from(want[k]).equals(Buffer.from(files[k])), file + ": " + k);
+    }
+});
+
+test("a .7z folder packed a way the page cannot unpack is skipped with the method's name", async () => {
+    const { files, skipped } = await un7z(fs.readFileSync(data + "game-ppmd.7z"));
+    assert.deepStrictEqual(Object.keys(files), []);
+    assert.ok(skipped.length > 0 && skipped.every(s => s[1] === "PPMd is not supported"));
+    assert.ok(f.sg7zIs(fs.readFileSync(data + "game-lzma2.7z")) && !f.sg7zIs(fs.readFileSync(data + "bzip2.zip")));
+});
+
 test("a method the page does not know is skipped with its name", async () => {
     const z = zip([{ name: "SimGolf/Flics/a.fli", data: bytes("art") }, { name: "SimGolf/Sounds/x.wav", data: bytes("RIFF"), method: 93 }]);
     const { files, skipped } = await unzip(z);
