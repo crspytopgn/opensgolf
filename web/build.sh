@@ -12,7 +12,7 @@ META=$(cargo metadata --format-version 1)
 MQ=$(printf "%s" "$META" | python3 -c 'import json,sys; m=json.load(sys.stdin); print([p["manifest_path"] for p in m["packages"] if p["name"]=="miniquad"][0])')
 VERSION=$(printf "%s" "$META" | python3 -c 'import json,sys; m=json.load(sys.stdin); print([p["version"] for p in m["packages"] if p["name"]=="opensgolf"][0])')
 cp "$(dirname "$MQ")/js/gl.js" web/dist/
-cp web/index.html web/files.js web/opensgolf.js web/start-bg.jpg web/dist/
+cp web/index.html web/files.js web/opensgolf.js web/start-bg.jpg web/start-walk.jpg web/dist/
 # the feature guide (its option and key reference made from the game by crates/simgolf/src/guide.rs's test)
 cp web/guide.html web/dist/
 # the home-screen app and offline play (web/sw.js, web/manifest.webmanifest; the icons are the app icon, written by tools/make_icons.sh)
@@ -28,7 +28,7 @@ import hashlib, sys
 version = sys.argv[1]
 d = "web/dist/"
 h = hashlib.sha256()
-for f in ["opensgolf.wasm", "gl.js", "files.js", "opensgolf.js", "index.html", "start-bg.jpg", "sw.js", "manifest.webmanifest"]:
+for f in ["opensgolf.wasm", "gl.js", "files.js", "opensgolf.js", "index.html", "start-bg.jpg", "start-walk.jpg", "sw.js", "manifest.webmanifest"]:
     h.update(open(d + f, "rb").read())
 tag = version + "-" + h.hexdigest()[:10]
 def stamp(name, pairs):
@@ -41,10 +41,10 @@ def stamp(name, pairs):
 stamp("files.js", [('"%SG_VERSION%"', '"' + version + '"')])
 stamp("opensgolf.js", [('load("opensgolf.wasm")', 'load("opensgolf.wasm?v=' + tag + '")')])
 stamp("index.html", [('src="%s"' % f, 'src="%s?v=%s"' % (f, tag)) for f in ["gl.js", "files.js", "opensgolf.js"]] +
-    [('url("start-bg.jpg")', 'url("start-bg.jpg?v=%s")' % tag)])
+    [('url("%s")' % f, 'url("%s?v=%s")' % (f, tag)) for f in ["start-bg.jpg", "start-walk.jpg"]])
 # the service worker keeps this version's files under its own name, and keeps the start page's at once
 stamp("sw.js", [('"%SG_TAG%"', '"' + tag + '"'),
-    ('"%SG_SHELL%"', ", ".join('"%s?v=%s"' % (f, tag) for f in ["gl.js", "files.js", "opensgolf.js", "start-bg.jpg"]))])
+    ('"%SG_SHELL%"', ", ".join('"%s?v=%s"' % (f, tag) for f in ["gl.js", "files.js", "opensgolf.js", "start-bg.jpg", "start-walk.jpg"]))])
 print("web/dist: version " + version + ", files tagged " + tag)
 PY
 # the player's own art and HD packs (docs/HD.md) must never end up in the published folder
