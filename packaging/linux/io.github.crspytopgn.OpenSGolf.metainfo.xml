@@ -107,6 +107,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.8.3" date="2026-11-16">
+      <description>
+        <p>The first-person view (beta) draws landmarks as 3D models, shows the walls under raised ground on every side, shades slopes more softly and lowers water below its banks.</p>
+      </description>
+    </release>
     <release version="0.8.2" date="2026-11-15">
       <description>
         <p>The anonymous play-time count now goes to the project's own counter and can tell how long people play at a time.</p>

@@ -53,6 +53,10 @@ Enhanced graphics and HD.
   fairway's edge; the great-shot photo shown in first person; and the backtick key (`` ` ``) as well as F12, for Macs.
 - **0.8.2:** the anonymous play-time count goes to the project's own counter, with a random number made fresh at each
   start (never saved) so it can tell how long people play at a time; see docs/PLAYING.md, *Play-time count*.
+- **0.8.3:** the first-person view (now marked beta) draws the landmarks as 3D models (the lighthouses, standing stones,
+  windmills, towers, statues and more) instead of their pictures wrapped round boxes; the walls under raised tees, greens
+  and buildings show on every side and are lit, so nothing looks hollow or black underneath; slopes shade softly; and
+  water lies a little below its banks.
 
 ## 0.7 (7 November 2026)
 
