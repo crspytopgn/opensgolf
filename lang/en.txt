@@ -3626,7 +3626,7 @@ STR_WHATSNEW_DOUBLE                     : Double-click a save to load it
 STR_WHATSNEW_DOUBLE_NOTE                :Or double-tap it on a touch screen.
 STR_WHATSNEW_MORE07                     : And more
 STR_WHATSNEW_MORE07_NOTE                :Longer translations fit, replays in problem reports, controller fixes.
-STR_WHATSNEW_FIRSTPERSON                : Walk your course in first person
+STR_WHATSNEW_FIRSTPERSON                : Walk your course in first person (beta)
 STR_WHATSNEW_FIRSTPERSON_NOTE           :On a computer, F12 walks the course in 3D and G follows a golfer's shot.
 STR_WHATSNEW_WEBAPP                     : Play offline in the browser
 STR_WHATSNEW_WEBAPP_NOTE                :Add the web version to your home screen; it plays with no connection.
@@ -3697,7 +3697,7 @@ STR_EXTRAS_WIDE_UI                      : Interface at the screen's edges
 STR_EXTRAS_DESC_WIDE_UI                 :On a wide screen the dock, panels and money sit at the screen's edges (on by default; off keeps them in the 4:3 middle).
 STR_EXTRAS_PORTRAIT                     : Play upright on phones and tablets
 STR_EXTRAS_DESC_PORTRAIT                :A phone or tablet held upright plays on the whole tall screen, with the dock, panels and money at its edges, instead of asking you to turn it sideways.
-STR_EXTRAS_FIRST_PERSON                 : First-person view (F12 or `)
+STR_EXTRAS_FIRST_PERSON                 : First-person view (beta, F12 or `)
 STR_EXTRAS_DESC_FIRST_PERSON            :On a computer, F12 (or `, handy on a Mac) on the course walks it at a golfer's eye height in 3D: W A S D walk, a drag looks round, G follows a golfer's shot, F12, ` or Esc goes back.
 # Edge scrolling (OpenSGolf extras, extras.rs edge_scroll; main.rs edge_scroll)
 STR_EXTRAS_EDGE_SCROLL                  : Edge scrolling

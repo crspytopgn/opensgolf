@@ -133,6 +133,7 @@ mod walk;
 mod walk_gl;
 mod walk_golfer;
 mod walk_ground;
+mod walk_landmarks;
 mod walk_models;
 mod walk_objects;
 mod walk_relief;

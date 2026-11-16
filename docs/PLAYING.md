@@ -1474,9 +1474,12 @@ plays upright for the rest of the browser tab's session: the whole game in a 4:3
 black above and below (web/files.js `sgPortraitAsk`, `sgCanvasRect`). Only touch devices are asked (a coarse pointer, or
 an iPad); a desktop window, however tall, never is. The Android app is held in landscape by the system (either way up).
 
-**First-person view (F12)** (an interface extra on the Extras box's Looks page, off by default; on computers, not in
+**First-person view (beta, F12)** (an interface extra on the Extras box's Looks page, off by default; on computers, not in
 the browser or on Android; walk.rs): F12 on the course walks it at a golfer's eye height in a perspective view. Every
-building has a 3D model of the project's own in each theme (walk_models.rs), trees near the eye are solids built from
+building has a 3D model of the project's own in each theme (walk_models.rs), and so do most landmarks (the lighthouses,
+standing stones, windmills, towers, statues and the rest, walk_landmarks.rs; the few without one stand as their upright
+picture), the steps in the ground under tees, greens and buildings show their retaining walls on every side, open water
+lies a little below its banks, trees near the eye are solids built from
 their own pictures (walk_trees.rs), golfers within 220 m are jointed cartoon 3D figures coloured from their outfits and
 posed by what they are doing (walk_golfer.rs), and staff and residents are drawn in relief. W A S D or the arrows walk
 (Shift runs), a drag with a mouse button held looks round, G follows the golfers one after another (Shift+G back) and

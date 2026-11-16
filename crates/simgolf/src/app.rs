@@ -1565,7 +1565,7 @@ impl App {
         id
     }
 
-    fn theme_texture(&mut self, g: &mut Gfx, file: &str) -> Option<TextureId> {
+    pub(crate) fn theme_texture(&mut self, g: &mut Gfx, file: &str) -> Option<TextureId> {
         let p = self.game_path(&format!("Data/Textures/{}/{}", THEMES[self.theme], file));
         self.texture_for(g, &p)
     }
