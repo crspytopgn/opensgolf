@@ -43,27 +43,34 @@ fn save(e: &Extras) {
 // ---- the Extras box (Preferences > OpenSGolf extras) ------------------------------------------------------------------------
 
 /// The Extras box's pages (tabs along its top, drawn as the Enhanced graphics box's), sorted by the three classes of extra
-/// so the player sees at a glance which ticks touch the game: GAMEPLAY changes how the game plays (the Gameplay and
+/// so the player sees at a glance which ticks touch the game: GAMEPLAY changes how the game plays (the Gameplay, Club and
 /// Sandbox pages, each line tagged with how much), LOOKS changes only how it looks (the Looks page), HELPER shows
-/// information or saves effort (the Info, Saves and Controls pages); the last three leave play exactly as it is. Only the page a line
-/// is shown on follows this; the extras' bits, saves and settings keep their order.
-pub const PAGES: [&str; 6] = [
+/// information or saves effort (the Info, Play, Saves and Controls pages); the last four leave play exactly as it is. Within
+/// a class each page holds one topic: Gameplay the golfers and the rules of play, Club the staff, land and buildings,
+/// Sandbox the rule-bending ticks; Info what the club's screens show, Play the tools for holes, the pro and the game's
+/// speed, Saves the saved games, Controls the mouse, touch and keys and when the game pauses. Only the page a line is shown
+/// on follows this; the extras' bits, saves and settings keep their order.
+pub const PAGES: [&str; 8] = [
     "STR_EXTRAS_PAGE_GAMEPLAY",
+    "STR_EXTRAS_PAGE_CLUB",
     "STR_EXTRAS_PAGE_SANDBOX",
     "STR_EXTRAS_PAGE_LOOKS",
     "STR_EXTRAS_PAGE_INFO",
+    "STR_EXTRAS_PAGE_PLAY",
     "STR_EXTRAS_PAGE_SAVES",
     "STR_EXTRAS_PAGE_CONTROLS",
 ];
-/// The last page whose lines change how the game plays (Gameplay and Sandbox, before it): their lines carry a tag.
-const LAST_TAGGED_PAGE: u8 = 1;
+/// The last page whose lines change how the game plays (Gameplay, Club and Sandbox, before it): their lines carry a tag.
+const LAST_TAGGED_PAGE: u8 = 2;
 
 /// Each page's banner, the line under the tabs that says what its ticks change.
-pub const BANNERS: [&str; 6] = [
+pub const BANNERS: [&str; 8] = [
     "STR_EXTRAS_BANNER_GAMEPLAY",
+    "STR_EXTRAS_BANNER_CLUB",
     "STR_EXTRAS_BANNER_SANDBOX",
     "STR_EXTRAS_BANNER_LOOKS",
     "STR_EXTRAS_BANNER_INFO",
+    "STR_EXTRAS_BANNER_PLAY",
     "STR_EXTRAS_BANNER_SAVES",
     "STR_EXTRAS_BANNER_CONTROLS",
 ];
@@ -71,6 +78,16 @@ pub const BANNERS: [&str; 6] = [
 /// The hint shown where the description of the line under the pointer goes while there is none: on the tagged pages, what
 /// the tags mean too.
 const HINTS: [&str; 2] = ["STR_EXTRAS_HINT_TAGGED", "STR_EXTRAS_HINT_PLAIN"];
+
+/// Hole Stats' buttons of the OpenSGolf extras down its right side, in the order they stack (`App::side_button`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SideButton {
+    Flyover,
+    Lab,
+    Fit,
+    Practice,
+    Bounds,
+}
 
 /// What an option line of the Extras box is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -153,38 +170,45 @@ const RETIRED_DESERT_ART: usize = 23;
 /// The first-person view's interface extra bit (extras.rs `first_person`).
 pub const FIRST_PERSON: usize = 35;
 
-const PAGE_LINES: [&[ExtrasLine]; 6] = {
+const PAGE_LINES: [&[ExtrasLine]; 8] = {
     use sg_core::extras as x;
     use ExtrasLine::{Calendar, Game as G, Group, Ui as U};
-    // each page's lines in the order players are likeliest to want them, the experimental cut content last
+    // each page's lines in the order players are likeliest to want them, the experimental cut content last; no page more
+    // than ten (the box is drawn as tall as the longest)
     [
+        // the golfers and the rules of play: weather, more visitors, walk-ins, left-handed golfers, multiple tees, set par,
+        // hole boundaries, the second course, hardcore
         &[
             G(x::WEATHER),
             G(x::MORE_VISITORS),
+            G(x::WALK_INS),
             G(x::LEFTIES),
-            G(3), // higher staff limits
-            G(5), // set par
             G(x::TEES),
-            G(4), // animals
+            G(5), // set par
+            G(x::BOUNDS),
             G(x::SECOND_COURSE),
             G(2), // hardcore
-            G(CUT),
         ],
-        // unlock all, no new dandelions, freeze moods, the calendar (slower seasons, pause), keeping the commissioner's
-        // approval (moved here when the Gameplay page grew too long for the box), eyesore demolition, moving the clubhouse,
-        // the staff's reach on bigger maps
-        &[G(9), G(x::NO_WEEDS), G(8), Calendar, G(x::KEEP_LAND), G(x::DEMOLISH), G(x::MOVE_CLUBHOUSE), G(x::STAFF_REACH)],
+        // the staff, the land and the buildings: higher staff limits, the staff's reach on bigger maps, animals, keeping
+        // the commissioner's approval, eyesore demolition, moving the clubhouse, the cut content
+        &[G(3), G(x::STAFF_REACH), G(4), G(x::KEEP_LAND), G(x::DEMOLISH), G(x::MOVE_CLUBHOUSE), G(CUT)],
+        // unlock all, no new dandelions, freeze moods, the calendar (slower seasons, pause)
+        &[G(9), G(x::NO_WEEDS), G(8), Calendar],
         // the interface at the edges, path styles and lamps, random trees, Tab turns buildings (only the picture turns),
-        // home names on hover, the hole flyover, playing upright, the first-person view (computers only), staff names
-        &[U(26), G(x::PATHS), U(21), G(0), U(28), U(29), U(34), U(FIRST_PERSON), U(36)],
-        // People, extra reports, messages, home-site details, path help, unlock info, challenges and the design lab, design
-        // names
-        &[Group(0), Group(1), Group(2), U(19), U(4), U(32), U(33), U(37)],
+        // home names on hover, playing upright, the first-person view (computers only), staff names, the dark launcher
+        &[U(26), G(x::PATHS), U(21), G(0), U(28), U(34), U(FIRST_PERSON), U(36), U(45)],
+        // People, extra reports, messages, loan interest on its own line, home-site details, path help, unlock info,
+        // design names, editing what golfers say
+        &[Group(0), Group(1), Group(2), U(39), U(19), U(4), U(32), U(37), U(43)],
+        // the faster top speed, the hole flyover, showing a whole hole, practising a hole, challenges and the design lab,
+        // pausing while the pro aims
+        &[U(38), U(29), U(40), U(42), U(33), U(30)],
         // autosave, the Load list newest first (with backups), import and export saved games, sharing, save pictures
         &[U(5), U(31), U(22), U(7), U(6)],
-        // zoom towards the pointer, right click puts the tool away, drag to place, right-drag panning, mouse aim and swing
-        // (the three the controls presets set and the two that change what the original's mouse does), then the three pauses
-        &[U(14), U(25), U(15), U(20), U(27), U(24), U(8), U(9), U(30)],
+        // zoom towards the pointer, right click puts the tool away, drag to place, right-drag panning, edge scrolling, mouse
+        // aim and swing (the three the controls presets set and the two that change what the original's mouse does), redo,
+        // fine elevation by touch, then the two pauses
+        &[U(14), U(25), U(15), U(20), U(27), U(24), U(41), U(44), U(8), U(9)],
     ]
 };
 
@@ -239,7 +263,8 @@ pub fn tag(l: ExtrasLine) -> Option<Tag> {
                 || i == sg_core::extras::TEES
                 || i == sg_core::extras::DEMOLISH
                 || i == sg_core::extras::MOVE_CLUBHOUSE
-                || i == sg_core::extras::STAFF_REACH =>
+                || i == sg_core::extras::STAFF_REACH
+                || i == sg_core::extras::WALK_INS =>
         {
             Tag::Light
         }
@@ -275,6 +300,8 @@ const GAME_DESC: [&str; sg_core::extras::OPTION_KEYS.len()] = [
     "STR_EXTRAS_DESC_DEMOLISH",
     "STR_EXTRAS_DESC_MOVE_CLUBHOUSE",
     "STR_EXTRAS_DESC_STAFF_REACH",
+    "STR_EXTRAS_DESC_WALK_INS",
+    "STR_EXTRAS_DESC_BOUNDS",
 ];
 const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_PEOPLE",
@@ -315,6 +342,14 @@ const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_FIRST_PERSON",
     "STR_EXTRAS_DESC_STAFF_NAMES",
     "STR_EXTRAS_DESC_DESIGN_NAMES",
+    "STR_EXTRAS_DESC_FAST_SPEED",
+    "STR_EXTRAS_DESC_MONEY_SPLIT",
+    "STR_EXTRAS_DESC_FIT_HOLE",
+    "STR_EXTRAS_DESC_REDO",
+    "STR_EXTRAS_DESC_PRACTICE_HOLE",
+    "STR_EXTRAS_DESC_GOLFER_LINES",
+    "STR_EXTRAS_DESC_FINE_HEIGHT",
+    "STR_EXTRAS_DESC_DARK_MENUS",
 ];
 
 /// A line's description (what ticking it changes; for the preset line, what the preset in use is).
@@ -736,28 +771,68 @@ impl App {
         }
     }
 
+    /// Hole Stats' buttons of the OpenSGolf extras, stacked down its right side in this order, each only while its extra
+    /// is on and the hole is open: `shown` says whether `b` is up; the ones above it that are up push it down.
+    pub fn side_button(&self, b: SideButton, shown: bool) -> Option<Rect> {
+        if !shown {
+            return None;
+        }
+        let h = self.info.stats_hole.clamp(1, 18);
+        let open = self.club.holes[h].par != 0;
+        let a_hole = !self.hole_b();
+        let up = [
+            crate::extras::hole_flyover() && open,
+            crate::extras::challenges() && a_hole && open,
+            crate::extras::fit_hole() && a_hole && open,
+            crate::extras::practice_hole() && a_hole && open,
+            self.club.extras.bounds && a_hole && open,
+        ];
+        let n = up[..b as usize].iter().filter(|&&u| u).count();
+        Some(Rect::new(652.0, 36.0 + 26.0 * n as f32, 96.0, 22.0))
+    }
+
     /// The Hole flyover extra's button on Hole Stats (showcase.rs): only for an open hole.
     pub fn flyover_button(&self) -> Option<Rect> {
         let h = self.info.stats_hole.clamp(1, 18);
-        (crate::extras::hole_flyover() && self.club.holes[h].par != 0).then(|| Rect::new(652.0, 36.0, 96.0, 22.0))
+        self.side_button(SideButton::Flyover, crate::extras::hole_flyover() && self.club.holes[h].par != 0)
     }
 
-    /// Draws the Fly over button (lit under the pointer), in the par buttons' colours.
-    pub fn draw_flyover_button(&self, g: &mut crate::gfx::Gfx, s: &crate::ui::Screen) {
+    /// Show hole (fit.rs), Practise (practice.rs) and Boundary (bounds_ui.rs): Course A's open holes only.
+    pub fn fit_button(&self) -> Option<Rect> {
+        self.side_button(SideButton::Fit, crate::extras::fit_hole() && self.side_hole().is_some())
+    }
+    pub fn practice_button(&self) -> Option<Rect> {
+        self.side_button(SideButton::Practice, crate::extras::practice_hole() && self.side_hole().is_some())
+    }
+    pub fn bounds_button(&self) -> Option<Rect> {
+        self.side_button(SideButton::Bounds, self.club.extras.bounds && self.side_hole().is_some())
+    }
+
+    /// The hole Hole Stats shows, when it is one of Course A's open holes.
+    fn side_hole(&self) -> Option<usize> {
+        let h = self.info.stats_hole.clamp(1, 18);
+        (!self.hole_b() && self.club.holes[h].par != 0).then_some(h)
+    }
+
+    /// Draws one of Hole Stats' side buttons (lit under the pointer), in the par buttons' colours.
+    pub fn draw_side_button(&self, g: &mut crate::gfx::Gfx, s: &crate::ui::Screen, r: Option<Rect>, key: &'static str) {
         use crate::info_ui::c15;
-        let Some(r) = self.flyover_button() else { return };
+        let Some(r) = r else { return };
         let (px, py) = self.info.pointer;
         let lit = r.has(px, py);
         s.fill(g, r.x - 1.0, r.y - 1.0, r.w + 2.0, r.h + 2.0, c15(0x0000));
         s.fill(g, r.x, r.y, r.w, r.h, c15(if lit { 0x5ade } else { 0x3dd4 }));
-        s.text_centered(
-            g,
-            r.x + r.w * 0.5,
-            r.y + 16.0,
-            sg_core::lang::tr("STR_HOLESTATS_FLY_OVER"),
-            14.0,
-            c15(if lit { 0x7fff } else { 0x0000 }),
-        );
+        let t = sg_core::lang::tr(key);
+        let size = if t.chars().count() > 11 { 12.0 } else { 14.0 };
+        s.text_centered(g, r.x + r.w * 0.5, r.y + 16.0, t, size, c15(if lit { 0x7fff } else { 0x0000 }));
+    }
+
+    /// Draws the Fly over button, and the other extras' buttons under it.
+    pub fn draw_flyover_button(&self, g: &mut crate::gfx::Gfx, s: &crate::ui::Screen) {
+        self.draw_side_button(g, s, self.flyover_button(), "STR_HOLESTATS_FLY_OVER");
+        self.draw_side_button(g, s, self.fit_button(), "STR_HOLESTATS_SHOW_HOLE");
+        self.draw_side_button(g, s, self.practice_button(), "STR_HOLESTATS_PRACTISE");
+        self.draw_side_button(g, s, self.bounds_button(), "STR_HOLESTATS_BOUNDARY");
     }
 
     /// A click on Hole Stats: a par button asks to confirm the change (true), anything else is the original's close.
@@ -769,6 +844,23 @@ impl App {
         if self.flyover_button().is_some_and(|r| r.has(x, y)) {
             let h = self.info.stats_hole.clamp(1, 18);
             return self.start_flyover(h);
+        }
+        if self.fit_button().is_some_and(|r| r.has(x, y)) {
+            let h = self.info.stats_hole.clamp(1, 18);
+            self.screen = crate::app::Screen::Play;
+            return self.fit_hole(h);
+        }
+        if self.practice_button().is_some_and(|r| r.has(x, y)) {
+            let h = self.info.stats_hole.clamp(1, 18);
+            self.screen = crate::app::Screen::Play;
+            self.practice_hole(h);
+            return true;
+        }
+        if self.bounds_button().is_some_and(|r| r.has(x, y)) {
+            let h = self.info.stats_hole.clamp(1, 18);
+            self.screen = crate::app::Screen::Play;
+            self.open_bounds(h);
+            return true;
         }
         if self.lab_button().is_some_and(|r| r.has(x, y)) {
             self.lab_mark();
@@ -1026,7 +1118,7 @@ mod tests {
         }
         assert_eq!(PAGES.len(), PAGE_LINES.len());
         assert_eq!(BANNERS.len(), PAGES.len());
-        assert_eq!(page_lines(3).len(), 8, "the Info page's eight lines");
+        assert_eq!(page_lines(4).len(), 9, "the Info page's nine lines");
     }
 
     #[test]
@@ -1034,16 +1126,16 @@ mod tests {
         use sg_core::extras as x;
         for (p, lines) in PAGE_LINES.iter().enumerate() {
             for &l in lines.iter() {
-                assert_eq!(tag(l).is_some(), p <= 1, "{l:?} on page {p}");
+                assert_eq!(tag(l).is_some(), p <= 2, "{l:?} on page {p}");
                 assert_eq!(page_of(l), Some(p as u8));
             }
         }
         // looks: only the picture changes
         for l in [ExtrasLine::Game(0), ExtrasLine::Game(x::PATHS), ExtrasLine::Ui(21), ExtrasLine::Ui(26), ExtrasLine::Ui(28)] {
-            assert_eq!(page_of(l), Some(2), "{l:?}");
+            assert_eq!(page_of(l), Some(3), "{l:?}");
         }
         // animals cost money and lift moods: gameplay, a light touch
-        assert_eq!((page_of(ExtrasLine::Game(4)), tag(ExtrasLine::Game(4))), (Some(0), Some(Tag::Light)));
+        assert_eq!((page_of(ExtrasLine::Game(4)), tag(ExtrasLine::Game(4))), (Some(1), Some(Tag::Light)));
         assert_eq!(tag(ExtrasLine::Game(2)), Some(Tag::Big), "hardcore");
         assert_eq!(tag(ExtrasLine::Game(CUT)), Some(Tag::Experimental));
         assert_eq!(tag(ExtrasLine::Game(x::WEATHER)), Some(Tag::Noticeable));
@@ -1052,24 +1144,31 @@ mod tests {
         assert_eq!((page_of(ExtrasLine::Game(x::KEEP_LAND)), tag(ExtrasLine::Game(x::KEEP_LAND))), (Some(1), Some(Tag::Light)));
         assert_eq!((page_of(ExtrasLine::Game(x::SECOND_COURSE)), tag(ExtrasLine::Game(x::SECOND_COURSE))), (Some(0), Some(Tag::Big)));
         assert_eq!((page_of(ExtrasLine::Game(x::TEES)), tag(ExtrasLine::Game(x::TEES))), (Some(0), Some(Tag::Light)));
-        assert_eq!(page_of(ExtrasLine::Ui(5)), Some(4), "autosave");
-        // the Controls page holds the mouse ticks, the most wanted first, then the three pauses
-        assert_eq!(page_lines(5), [14, 25, 15, 20, 27, 24, 8, 9, 30].map(ExtrasLine::Ui));
+        assert_eq!(page_of(ExtrasLine::Ui(5)), Some(6), "autosave");
+        // the Controls page holds the mouse, touch and key ticks, the most wanted first, then two pauses
+        assert_eq!(page_lines(7), [14, 25, 15, 20, 27, 24, 41, 44, 8, 9].map(ExtrasLine::Ui));
         // the Saves page holds the saving and sharing ticks only, autosave first
-        assert_eq!(page_lines(4), [5, 31, 22, 7, 6].map(ExtrasLine::Ui));
+        assert_eq!(page_lines(6), [5, 31, 22, 7, 6].map(ExtrasLine::Ui));
+        // the Play page: the speed, the hole tools, the pro
+        assert_eq!(page_lines(5), [38, 29, 40, 42, 33, 30].map(ExtrasLine::Ui));
+        // walk-ins and hole boundaries are gameplay; walk-ins a light touch
+        assert_eq!((page_of(ExtrasLine::Game(x::WALK_INS)), tag(ExtrasLine::Game(x::WALK_INS))), (Some(0), Some(Tag::Light)));
+        assert_eq!((page_of(ExtrasLine::Game(x::BOUNDS)), tag(ExtrasLine::Game(x::BOUNDS))), (Some(0), Some(Tag::Noticeable)));
+        // no page longer than ten lines
+        assert!(PAGE_LINES.iter().all(|p| p.len() <= 10));
         // the most wanted first: weather on Gameplay, the interface at the edges on Looks; the experimental line last
         assert_eq!(page_lines(0)[0], ExtrasLine::Game(x::WEATHER));
-        assert_eq!(page_lines(2)[0], ExtrasLine::Ui(26));
-        assert_eq!(page_lines(0).last(), Some(&ExtrasLine::Game(CUT)));
+        assert_eq!(page_lines(3)[0], ExtrasLine::Ui(26));
+        assert_eq!(page_lines(1).last(), Some(&ExtrasLine::Game(CUT)));
         assert_eq!((page_of(ExtrasLine::Preset), tag(ExtrasLine::Preset)), (None, None));
         assert_eq!(page_of(ExtrasLine::Ui(UPDATE_CHECK)), None);
     }
 
     #[test]
     fn the_cut_content_shows_only_with_the_original_files() {
-        assert!(page_lines(0).contains(&ExtrasLine::Game(CUT)));
+        assert!(page_lines(1).contains(&ExtrasLine::Game(CUT)));
         show_cut_content(false);
-        assert!(!page_lines(0).contains(&ExtrasLine::Game(CUT)));
+        assert!(!page_lines(1).contains(&ExtrasLine::Game(CUT)));
         let n = popup_lines(0, &Extras::default(), &Settings::ALL_OFF).len();
         show_cut_content(true);
         // the box keeps its size either way (most_lines counts the hidden line)
@@ -1088,8 +1187,8 @@ mod tests {
         }
         // the foot shows the line's description (the box's option 0 is the preset line), or the page's hint with none
         let (e, ui) = (Extras::default(), Settings::ALL_OFF);
-        assert_eq!(foot_text(2, Some(2), &e, &ui), (sg_core::lang::tr("STR_EXTRAS_DESC_PATHS"), true));
-        assert_eq!(foot_text(2, Some(0), &e, &ui), (sg_core::lang::tr("STR_PRESET_DESC_ORIGINAL"), true));
+        assert_eq!(foot_text(3, Some(2), &e, &ui), (sg_core::lang::tr("STR_EXTRAS_DESC_PATHS"), true));
+        assert_eq!(foot_text(3, Some(0), &e, &ui), (sg_core::lang::tr("STR_PRESET_DESC_ORIGINAL"), true));
         assert_eq!(foot_text(0, Some(0), &Extras::OPENSGOLF, &Settings::HELPERS).0, sg_core::lang::tr("STR_PRESET_DESC_OPENSGOLF"));
         assert!(!foot_text(2, Some(10), &e, &ui).1);
         assert!(!foot_text(3, None, &e, &ui).1);
@@ -1120,13 +1219,23 @@ mod tests {
         assert_eq!(Preset::of(&Extras::default(), &none), Original);
         assert_eq!(Preset::of(&Extras::LOOKS, &Settings::HELPERS), Helpers);
         assert_eq!(Preset::of(&Extras::OPENSGOLF, &Settings::HELPERS), OpenSGolf);
-        // the OpenSGolf preset: helpers, looks, more staff, animals, weather, tees, the second course; nothing else
+        // the OpenSGolf preset: helpers, looks, more staff, animals, weather, tees, the second course, hole boundaries
+        // (nothing changes until an area is painted); nothing else
         let o = Extras::OPENSGOLF;
-        assert!(o.more_staff && o.animals && o.rotate && o.path_style == 1 && o.weather && o.tees && o.second_course);
+        assert!(o.more_staff && o.animals && o.rotate && o.path_style == 1 && o.weather && o.tees && o.second_course && o.bounds);
+        assert!(!o.walk_ins);
         assert!(!o.more_visitors && !o.hardcore && !o.lefties && !o.set_par && !o.cut_content && !o.keep_land);
         assert!(o.calendar() == 0 && !o.freeze_moods && !o.unlock_all && !o.no_weeds);
-        let fewer =
-            Extras { more_staff: false, animals: false, weather: false, tees: false, second_course: false, staff_reach: false, ..o };
+        let fewer = Extras {
+            more_staff: false,
+            animals: false,
+            weather: false,
+            tees: false,
+            second_course: false,
+            staff_reach: false,
+            bounds: false,
+            ..o
+        };
         assert_eq!(fewer, Extras::LOOKS);
         // the kept ticks (pauses, update check, controls presets) do not count
         let kept = Settings {

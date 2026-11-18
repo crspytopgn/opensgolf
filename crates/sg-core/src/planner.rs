@@ -1284,6 +1284,7 @@ pub fn aim_search(cl: &mut Club, c: &mut Course, rng: &mut ExeRng, g: usize) -> 
                     let mut valid = !(cl.g[g].flags & flag::PENALTY != 0 && (ca, cb) == prev)
                         && crate::course::inside(ca, cb)
                         && !c.oob(ca, cb)
+                        && !cl.outside_area(g, ca, cb)
                         && d <= maxr + 0x10
                         && (d >= maxr / 3 || d >= d_pin / 3 || cl.g[g].flags & flag::PENALTY != 0)
                         && (ca, cb) != (ba, bb)
@@ -1341,7 +1342,9 @@ pub fn aim_search(cl: &mut Club, c: &mut Course, rng: &mut ExeRng, g: usize) -> 
                             let (ea, eb) = (end.0 >> 10, end.1 >> 10);
                             let ef = flag_at(c, ea, eb);
                             let et = h_index_type(c, ea, eb);
-                            let end_h = if c.oob(ea, eb) || ef & 0x400 != 0 {
+                            // (Hole boundaries, an OpenSGolf extra: outside the hole's playing area rates as out of
+                            // bounds, sg_core::bounds)
+                            let end_h = if c.oob(ea, eb) || ef & 0x400 != 0 || cl.outside_area(g, ea, eb) {
                                 c.h(t::OUT)
                             } else {
                                 c.h(et)

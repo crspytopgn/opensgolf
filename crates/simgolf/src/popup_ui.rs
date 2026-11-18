@@ -155,6 +155,8 @@ impl Popup {
 /// The rows under the tabs the Enhanced graphics and Extras boxes keep for their banner: its own and a gap before the
 /// first option.
 pub const BANNER_LINES: usize = 2;
+/// A golfer's line as long as the person record keeps one (the Customise screen's 47, cust_ui).
+const SAYING_MOST: usize = 47;
 
 /// The banner's font: Manual SSi Bold 20 (0x519928), as the tabs and options.
 pub const BANNER_FONT: crate::ui::Fnt = crate::ui::F_MANUAL20;
@@ -1488,11 +1490,25 @@ impl App {
                             // the hole's record is the club's: an action (replay.rs); empty gives the original's name back
                             self.act(sg_core::action::Action::HoleName { hole: h, name: n });
                         }
-                        crate::extras::RenameFor::Bio(r) => {
+                        crate::extras::RenameFor::Bio(_) | crate::extras::RenameFor::Saying(..) => {
                             // the person's record is the club's: an action (replay.rs)
+                            let (r, row) = match what {
+                                crate::extras::RenameFor::Saying(r, row) => (r, Some(row)),
+                                crate::extras::RenameFor::Bio(r) => (r, None),
+                                _ => unreachable!(),
+                            };
                             let rec = r.max(0) as usize;
                             if let Some(mut p) = self.club.roster.get(rec).cloned() {
-                                p.bio = n;
+                                match row {
+                                    // an empty line gives the stock one back
+                                    Some(row) => {
+                                        if p.sayings.len() < sg_core::roster::SAYINGS {
+                                            p.sayings.resize(sg_core::roster::SAYINGS, String::new());
+                                        }
+                                        p.sayings[row] = n;
+                                    }
+                                    None => p.bio = n,
+                                }
                                 if let Ok(person) = serde_json::to_value(&p) {
                                     let fixed = (p.fixed & 7) as u8;
                                     self.act(sg_core::action::Action::Person { record: rec, person, slot: None, toggles: fixed });
@@ -1530,6 +1546,7 @@ impl App {
         // an employee's name as long as the course's, a bio as long as the person record keeps (500)
         let most = match self.xs.rename_for {
             Some(crate::extras::RenameFor::Bio(_)) => 500,
+            Some(crate::extras::RenameFor::Saying(..)) => SAYING_MOST,
             Some(crate::extras::RenameFor::Hole(_)) => 24,
             _ => 32,
         };
@@ -1555,6 +1572,7 @@ impl App {
             Some(crate::extras::RenameFor::Employee(_)) => tr("STR_RENAME_EMPLOYEE"),
             Some(crate::extras::RenameFor::Bio(_)) => tr("STR_RENAME_BIO"),
             Some(crate::extras::RenameFor::Hole(_)) => tr("STR_RENAME_HOLE"),
+            Some(crate::extras::RenameFor::Saying(..)) => tr("STR_RENAME_SAYING"),
             None => tr("STR_RENAME_COURSE"),
         };
         if free {

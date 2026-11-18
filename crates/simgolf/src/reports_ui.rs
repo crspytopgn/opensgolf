@@ -325,6 +325,8 @@ impl App {
     // ---- F4 ---------------------------------------------------------------------------------------------------------
 
     pub fn draw_finance(&mut self, g: &mut Gfx) {
+        /// How far below the total the Split interest extra's line sits.
+        const INTEREST_GAP: f32 = 20.0;
         let s = Ui::new(self.draw_w, self.draw_h);
         self.view = s.view;
         self.dim(g, &s);
@@ -341,12 +343,23 @@ impl App {
         // with bigger text (textsize.rs) each label and figure as big as its cell on the art holds, at most 115% (the rows
         // are 17 apart)
         let cell = |t: &str, w: f32| crate::textsize::fit(F_INFO14, 1.15, t, w);
+        // the Split interest extra (OpenSGolf extras), once the club has paid some interest: Maintenance is then the upkeep
+        // alone, the interest has a line of its own under the total, and the total is as before
+        let split = crate::extras::money_split() && self.econ.interest.iter().any(|&v| v != 0.0);
         for i in 0..sg_core::economy::LEDGER_COLUMNS {
-            let l = sg_core::economy::ledger_label(i);
+            let l = if split && i == sg_core::economy::LEDGER_MAINTENANCE {
+                tr("STR_FINANCE_UPKEEP")
+            } else {
+                sg_core::economy::ledger_label(i)
+            };
             s.put_centered(g, cell(l, 160.0), 98.0, 87.0 + 17.0 * i as f32, l, black());
         }
         let l = tr("STR_FINANCE_TOTAL");
         s.put_centered(g, cell(l, 160.0), 98.0, 87.0 + 136.0 + 7.0, l, black());
+        if split {
+            let l = tr("STR_FINANCE_INTEREST");
+            s.put_centered(g, cell(l, 160.0), 98.0, 87.0 + 136.0 + 7.0 + INTEREST_GAP, l, black());
+        }
         let last = self.econ.year_index().min(99);
         // eight columns fit the art (the exe draws a ninth off the screen)
         let first = last.saturating_sub(7);
@@ -354,10 +367,16 @@ impl App {
             let x = 75.0 * j as f32;
             let year = format!("{}", 2001 + y);
             s.put_centered(g, cell(&year, 70.0), x + 222.0, 60.0, &year, black());
-            let row = self.econ.ledger.get(y).copied().unwrap_or_default();
-            let mut total = 0.0;
+            let mut row = self.econ.ledger.get(y).copied().unwrap_or_default();
+            let total: f64 = row.iter().sum();
+            // the Split interest extra: the year's debt interest out of Maintenance, on a line of its own under the total
+            let interest = if split { self.econ.interest.get(y).copied().unwrap_or(0.0) } else { 0.0 };
+            row[sg_core::economy::LEDGER_MAINTENANCE] -= interest;
+            if interest != 0.0 {
+                let t = crate::screens_ui::digits(interest as i64);
+                s.put_right(g, cell(&t, 70.0), x + 256.0, 86.0 + 17.0 * 7.0 + 24.0 + INTEREST_GAP, &t, c15(0x6000));
+            }
             for (i, v) in row.iter().enumerate() {
-                total += v;
                 if *v != 0.0 {
                     let t = crate::screens_ui::digits(*v as i64);
                     let c = if *v < 0.0 { c15(0x6000) } else { black() };
@@ -1024,6 +1043,7 @@ impl App {
         let cash = self.econ.cash - if self.econ.sandbox { 0.0 } else { price };
         let tick = self.game_tick;
         let ledger = self.econ.ledger.clone();
+        let interest = self.econ.interest.clone();
         let c = self.club.clone();
         let bought = std::mem::take(&mut self.bought);
         self.world_move = false;
@@ -1034,6 +1054,7 @@ impl App {
         self.bought = bought;
         self.mark_bought(prop);
         self.econ.ledger = ledger;
+        self.econ.interest = interest;
         let y = self.econ.year_index();
         if let Some(row) = self.econ.ledger.get_mut(y) {
             row[sg_core::economy::LEDGER_OTHER] = cash;

@@ -64,6 +64,16 @@ Enhanced graphics and HD.
   The 3D golfers' faces are smooth, with no more lumpy cheeks and chin.
 - **0.8.5:** the browser version no longer starts on a black screen when Windows or the browser is scaled to 125%, and
   the Android app has its sound back (recent Android downloads were built without it, and without the update check).
+- **0.8.6 (not released yet):** new optional extras, all off by default. Hole Stats can **Show hole** (the whole hole
+  framed; the hole keys do the same), **Practise** (your pro plays just that hole, with a Mulligan to take a shot back,
+  and the ticker compares the score with the hole's average) and paint a hole's **Boundary** (*Hole boundaries*: golfers
+  aim inside it and a ball that stops outside is out of bounds). *Walk-ins* bring the odd non-member to a quiet first
+  tee. *Redo* (Ctrl+Y) puts back what Ctrl+Z took and undo keeps 100 steps. *Fine elevation on touch screens* picks a
+  corner with a tap and steps it with Raise and Lower buttons. The Financial Report can show *Loan interest on its own
+  line*, the speed can go to x16, a golfer's lines can be edited on their profile, and the launcher can be dark. Copy
+  report details adds the game's state and your last few actions. The Game options box gets two new pages, **Club**
+  (staff, land and buildings, moved off the Sandbox page) and **Play** (the hole tools, the pro and the speed), so each
+  page holds one topic.
 
 ## 0.7 (7 November 2026)
 

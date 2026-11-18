@@ -32,6 +32,9 @@ pub const MAX_URL: usize = 6000;
 /// Recent warnings and errors kept for a report.
 pub const KEEP: usize = 30;
 
+/// The player's own actions the copied details name (`App::report_game_line`).
+const RECENT_ACTIONS: usize = 8;
+
 /// The longest warning kept (a path in it can be long).
 const LINE_MAX: usize = 600;
 
@@ -293,9 +296,52 @@ impl App {
         )
     }
 
-    /// The box's Copy the details: the system line (and the platform) on the clipboard, said in a toast.
+    /// The game's state for a report: the date and tick, the speed, the screen, the holes open, the cash, the golfers on
+    /// the course and those waiting for the first tee, whether the pro is out, and the last few things the player did (the
+    /// replay log's own actions, by name).
+    pub fn report_game_line(&self) -> String {
+        let on_course = self.club.g.iter().take(sg_core::golfer::SLOTS).filter(|g| (1..=18).contains(&g.hole)).count();
+        let waiting = self.club.g.iter().take(sg_core::golfer::SLOTS).filter(|g| g.hole == 1 && g.strokes == 0).count();
+        let holes = self.club.holes.iter().skip(1).take(18).filter(|h| h.par != 0).count();
+        let recent: Vec<String> = self
+            .rec
+            .log
+            .as_ref()
+            .map(|l| {
+                let own: Vec<&sg_core::action::Entry> = l.entries.iter().filter(|e| !e.action.is_input()).collect();
+                own.iter()
+                    .rev()
+                    .take(RECENT_ACTIONS)
+                    .rev()
+                    .map(|e| {
+                        let a = serde_json::to_value(&e.action).ok();
+                        let name = match &a {
+                            Some(serde_json::Value::String(s)) => s.clone(),
+                            Some(serde_json::Value::Object(o)) => o.keys().next().cloned().unwrap_or_default(),
+                            _ => String::new(),
+                        };
+                        format!("{name}@{}", e.tick)
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        format!(
+            "game: date {} (tick {}); speed x{}; screen {:?}; holes {holes}; cash {}; golfers {on_course} on the course, {waiting} \
+             waiting; pro {}; last actions: {}",
+            self.date(),
+            self.game_tick,
+            self.speed.max(1),
+            self.screen,
+            self.econ.cash as i64,
+            if self.club.gary >= 0 { "out" } else { "in" },
+            if recent.is_empty() { "none".into() } else { recent.join(" ") }
+        )
+    }
+
+    /// The box's Copy the details: the system line (and the platform) and the game's state on the clipboard, said in a
+    /// toast.
     pub fn copy_report_details(&mut self, gl: &str) {
-        let text = format!("{} ({})", self.report_system_line(gl), platform_here());
+        let text = format!("{} ({}); {}", self.report_system_line(gl), platform_here(), self.report_game_line());
         miniquad::window::clipboard_set(&text);
         println!("report details copied: {text}");
         self.show_toast(tr("STR_BUGREPORT_COPIED"));

@@ -466,6 +466,21 @@ pub enum Action {
     /// A test hook of the scripted runs (the --edit items), as typed.
     #[serde(rename = "script")]
     Script(String),
+    /// Practise a hole (an OpenSGolf extra): the pro sent out to play hole `hole` alone.
+    #[serde(rename = "practice")]
+    Practice { hole: i32 },
+    /// A mulligan while practising a hole: the pro's last shot taken again.
+    #[serde(rename = "mulligan")]
+    Mulligan,
+    /// Redo (an OpenSGolf extra): the last click Ctrl+Z took back done again.
+    #[serde(rename = "redo")]
+    Redo,
+    /// Hole boundaries (an OpenSGolf extra): tile x, y put in hole `hole`'s playing area (`on`) or taken out.
+    #[serde(rename = "bound")]
+    Bound { hole: i32, x: i32, y: i32, on: bool },
+    /// Hole boundaries: hole `hole`'s playing area taken away.
+    #[serde(rename = "bound_clear")]
+    BoundClear { hole: i32 },
 }
 
 impl Action {

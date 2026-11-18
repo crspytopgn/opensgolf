@@ -290,6 +290,11 @@ impl App {
                 true
             }
             Action::Undo => self.undo_click_top(),
+            Action::Redo => self.redo_click_top(),
+            Action::Practice { hole } => self.practice_hole(*hole as usize),
+            Action::Mulligan => self.mulligan(),
+            Action::Bound { hole, x, y, on } => self.set_bound(*hole, *x, *y, *on),
+            Action::BoundClear { hole } => self.clear_bound(*hole),
             Action::Analysis { x, y, nearest } => {
                 self.start_analysis(Some((*x, *y)), *nearest);
                 true

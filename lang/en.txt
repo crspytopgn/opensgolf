@@ -801,7 +801,7 @@ STR_TOAST_CANCEL_ROUND                  :Are you sure you want to cancel this ro
 STR_TOAST_SPEED_NORMAL                  :Normal speed
 STR_TOAST_SPEED_FAST                    :Fast (x2)
 STR_TOAST_SPEED_FASTEST                 :Fastest (x4)
-STR_TOAST_SPEED_X8                      :Top speed (x8)
+STR_TOAST_SPEED_X8                      :Very fast (x8)
 STR_TOAST_HOLE_NEEDS_TEE_GREEN          :A new hole needs a tee and a green
 
 # Why an item cannot go on a tile (the building tool, 0x41f34e)
@@ -1397,18 +1397,22 @@ STR_EXTRAS_ANIMALS                      : Buyable animals
 STR_EXTRAS_SET_PAR                      : Set par: change a hole's par on its Hole Stats
 # The extras box's pages (tabs), by what their ticks change: how the game plays, relaxed play, the look, information, effort
 STR_EXTRAS_PAGE_GAMEPLAY                :Gameplay
+STR_EXTRAS_PAGE_CLUB                    :Club
 STR_EXTRAS_PAGE_SANDBOX                 :Sandbox
 STR_EXTRAS_PAGE_LOOKS                   :Looks
 STR_EXTRAS_PAGE_INFO                    :Info
+STR_EXTRAS_PAGE_PLAY                    :Play
 STR_EXTRAS_PAGE_SAVES                   :Saves
 STR_EXTRAS_PAGE_CONTROLS                :Controls
 # each page's banner under the tabs
-STR_EXTRAS_BANNER_GAMEPLAY              :Changes how the game plays.
+STR_EXTRAS_BANNER_GAMEPLAY              :Changes the golfers and the rules of play.
+STR_EXTRAS_BANNER_CLUB                  :Changes how you run the club: staff, land and buildings.
 STR_EXTRAS_BANNER_SANDBOX               :Bends the rules for relaxed play.
 STR_EXTRAS_BANNER_LOOKS                 :Changes how it looks. Play is unchanged.
 STR_EXTRAS_BANNER_INFO                  :Shows more about your club. Play is unchanged.
+STR_EXTRAS_BANNER_PLAY                  :Tools for your holes, your pro and the game's speed. Play is unchanged.
 STR_EXTRAS_BANNER_SAVES                 :Keeps, shows and shares your games. Play is unchanged.
-STR_EXTRAS_BANNER_CONTROLS              :Changes what the mouse does and when the game pauses. Play is unchanged.
+STR_EXTRAS_BANNER_CONTROLS              :Changes what the mouse, touch and keys do, and when the game pauses. Play is unchanged.
 # the pill at the right end of a gameplay or sandbox line: how much it changes the game
 STR_EXTRAS_TAG_LIGHT                    :Light touch
 STR_EXTRAS_TAG_NOTICEABLE               :Noticeable
@@ -3839,3 +3843,53 @@ STR_MENU_PREFS_LAUNCHER                 : Launcher...
 STR_PREFS_DESC_LAUNCHER                 :Shows the launcher again: your game files, how to play, display and sound, and what's new.
 STR_LAUNCHER_TIP_TITLE                  :Want the original sounds and music?
 STR_LAUNCHER_TIP                        :Use the SimGolf CD or its .iso, or a full installed copy: some downloaded copies leave the sounds out.
+
+########################################################################################################################
+# OpenSGolf extras added in 0.8.6
+########################################################################################################################
+STR_TOAST_SPEED_X16                     :Top speed (x16)
+STR_FINANCE_INTEREST                    :Loan interest
+STR_FINANCE_UPKEEP                      :Upkeep
+STR_HOLESTATS_SHOW_HOLE                 :Show hole
+STR_HOLESTATS_PRACTISE                  :Practise
+STR_HOLESTATS_BOUNDARY                  :Boundary
+STR_TOAST_PRACTICE_SKILLS_FIRST         :Your pro needs skills first: start a practice round from the Player panel once.
+STR_TOAST_PRACTICE_HOLE                 :{PRO} heads out to practise hole {HOLE}.
+STR_TOAST_MULLIGAN                      :Mulligan: take that shot again.
+STR_PRACTICE_LEVEL                      :level par
+STR_PRACTICE_UNDER                      :{N} under par
+STR_PRACTICE_OVER                       :{N} over par
+STR_PRACTICE_DONE                       :{PRO} practised hole {HOLE}: {STROKES} strokes on a par {PAR}, {AGAINST}. The hole's stroke average is {AVERAGE}.
+STR_TOAST_BOUNDS_BRUSH                  :Paint hole {HOLE}'s playing area. Shift takes tiles out, Delete clears it, Space puts the brush away.
+STR_TOAST_BOUNDS_CLEARED                :Hole {HOLE} has no boundary now.
+STR_BOUNDS_LEGEND                       :Hole {HOLE}'s playing area: {TILES} tiles
+STR_BOUNDS_HINT                         :Click or drag to add tiles, Shift to take them out, Delete to clear, Space when done
+STR_TOUCH_REDO                          :Redo
+STR_TOUCH_MULLIGAN                      :Mulligan
+STR_TOUCH_RAISE                         :Raise
+STR_TOUCH_LOWER                         :Lower
+STR_EXTRAS_WALK_INS                     : Walk-ins: visitors fill a quiet first tee
+STR_EXTRAS_DESC_WALK_INS                :When the queue at the first tee is short and no member is free to come, now and then a visitor turns up to play and pays the usual fees.
+STR_EXTRAS_BOUNDS                       : Hole boundaries and out of bounds
+STR_EXTRAS_DESC_BOUNDS                  :Hole Stats gets a Boundary brush to paint a hole's playing area. Golfers aim inside it, and a ball that stops outside is out of bounds: replayed with a penalty stroke.
+STR_EXTRAS_FAST_SPEED                   : Faster top speed (x16)
+STR_EXTRAS_DESC_FAST_SPEED              :The game speed goes on to x16 after x8, for skipping long stretches. How fast it really runs depends on your computer.
+STR_EXTRAS_MONEY_SPLIT                  : Loan interest on its own line
+STR_EXTRAS_DESC_MONEY_SPLIT             :The Financial Report shows the interest on your debt on a line of its own. Maintenance is then the upkeep alone; the total is the same.
+STR_EXTRAS_FIT_HOLE                     : Show a whole hole
+STR_EXTRAS_DESC_FIT_HOLE                :Hole Stats gets a Show hole button, and the hole keys (1 to 9, Shift for 10 to 18) frame the whole hole from tee to green.
+STR_EXTRAS_REDO                         : Redo, and a longer undo
+STR_EXTRAS_DESC_REDO                    :Ctrl+Y (or Ctrl+Shift+Z) does again what Ctrl+Z took back, and undo keeps your last 100 clicks instead of 30.
+STR_EXTRAS_PRACTICE_HOLE                : Practise a hole
+STR_EXTRAS_DESC_PRACTICE_HOLE           :Hole Stats gets a Practise button: your pro plays just that hole, with a Mulligan (Backspace) to take a shot again, and the pro's score is compared with the hole's average.
+STR_EXTRAS_GOLFER_LINES                 : Edit what golfers say
+STR_EXTRAS_DESC_GOLFER_LINES            :A golfer's profile page lets you change the golfer's lines: click one to type your own.
+STR_EXTRAS_FINE_HEIGHT                  : Fine elevation on touch screens
+STR_EXTRAS_DESC_FINE_HEIGHT             :With an elevation tool, a tap picks a corner and Raise and Lower buttons step it up or down, instead of a tap raising the ground at once.
+STR_EXTRAS_DARK_MENUS                   : Dark launcher
+STR_EXTRAS_DESC_DARK_MENUS              :The launcher in dark colours, as the web page looks with a dark theme. The game's own screens are unchanged.
+STR_TOAST_HEIGHT_PICKED                 :Corner picked: Raise and Lower step it.
+STR_GPROFILE_LINES                      :Lines
+STR_GPROFILE_LINES_HEAD                 :What {GOLFER} says: click a line to write the golfer's own
+STR_GPROFILE_HELP_LINES                 :L locate, C card, B edit bio, R rounds, S lines, Up/Down scroll; Esc, Enter or a click outside goes back.
+STR_RENAME_SAYING                       :The golfer's line (empty for the usual one)

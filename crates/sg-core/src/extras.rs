@@ -59,6 +59,11 @@
 //!   grows by half as much as the map's edge (`Extras::staff_reach_percent`: 124% on Large, 148% on Huge, 178% on Giant),
 //!   so a club on a big map is not left needing several times the staff. On the original's map nothing changes. The
 //!   port's own.
+//! * `walk_ins`: Walk-ins: when the queue at the first tee is short and no member is free to come, now and then a visitor
+//!   comes to play anyway, as any golfer does, and pays the same fees (`Club::walk_in`). The port's own.
+//! * `bounds`: Hole boundaries: the hole tool's Boundary paints each hole's playing area; the golfers aim inside it, and a
+//!   ball that comes to rest outside it is out of bounds: it is played again from where it was hit, a stroke added
+//!   (`Club::bounds`). A hole without a boundary plays as before. The port's own.
 //!
 //! Freeze happiness and Unlock all are named "Sandbox: ..." in the Extras box as they are what a sandbox player wants
 //! most, but each works in a normal game too. The Extras box shows Slower seasons and Pause the calendar as one line,
@@ -109,13 +114,21 @@ pub struct Extras {
     /// Staff reach grows with the map (`staff_reach_percent`). Saved only when on.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub staff_reach: bool,
+    /// Walk-ins: a visitor may join a short queue at the first tee when no member is free (`Club::walk_in`). Saved only
+    /// when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub walk_ins: bool,
+    /// Hole boundaries: each hole may have a playing area, and a ball that comes to rest outside it is played again from
+    /// where it was hit with a penalty stroke (`Club::bounds`). Saved only when on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub bounds: bool,
 }
 
 /// The options in the order the Extras box lists them (text keys of their lines). Option 6 has three values (a line with
 /// {VALUE}, `SPEED_KEYS`), the others are ticks; `Extras::option` and `Extras::set_option` read and set them by index.
 /// New options are appended so bits and saves keep working; the page each is shown on (Gameplay, Sandbox or Looks) is
 /// extras_ui.rs `PAGE_LINES`'s.
-pub const OPTION_KEYS: [&str; 21] = [
+pub const OPTION_KEYS: [&str; 23] = [
     "STR_EXTRAS_ROTATE",
     "STR_EXTRAS_CUT_CONTENT",
     "STR_EXTRAS_HARDCORE",
@@ -137,7 +150,15 @@ pub const OPTION_KEYS: [&str; 21] = [
     "STR_EXTRAS_DEMOLISH",
     "STR_EXTRAS_MOVE_CLUBHOUSE",
     "STR_EXTRAS_STAFF_REACH",
+    "STR_EXTRAS_WALK_INS",
+    "STR_EXTRAS_BOUNDS",
 ];
+
+/// The option of `OPTION_KEYS` that is Walk-ins.
+pub const WALK_INS: usize = 21;
+
+/// The option of `OPTION_KEYS` that is Hole boundaries.
+pub const BOUNDS: usize = 22;
 
 /// The option of `OPTION_KEYS` that is Higher staff limits (several values: `STAFF_KEYS`).
 pub const MORE_STAFF: usize = 3;
@@ -218,6 +239,8 @@ impl Extras {
         move_clubhouse: false,
         most_staff: false,
         staff_reach: false,
+        walk_ins: false,
+        bounds: false,
     };
 
     /// The extras of the "OpenSGolf" preset, the game with OpenSGolf's own additions: the looks, higher staff limits,
@@ -254,6 +277,10 @@ impl Extras {
         most_staff: false,
         // nothing changes on the original's map, and on a bigger one the staff keep up with it
         staff_reach: true,
+        // it brings golfers the original would not: not part of the preset
+        walk_ins: false,
+        // nothing changes until the player draws a hole's boundary
+        bounds: true,
     };
 
     /// Everything off (the original game).
@@ -265,7 +292,7 @@ impl Extras {
     /// calendar speed takes two (bits 6 and 7), so the ticks after it sit one bit further on (8 to 12), Path styles and lamps
     /// takes three (13 to 15), More visitors is bit 16, Sandbox: no new dandelions bit 17, Keep the land offer bit 18,
     /// Second course bit 19 and Multiple tees bit 20, Eyesore demolition bit 21, Move the clubhouse bit 22, the top step
-    /// of Higher staff limits bit 23 and Staff reach grows with the map bit 24. The first six keep the bits they always had.
+    /// of Higher staff limits bit 23 and Staff reach grows with the map bit 24, Walk-ins bit 25 and Hole boundaries bit 26. The first six keep the bits they always had.
     pub fn bits(&self) -> u32 {
         self.rotate as u32
             | (self.cut_content as u32) << 1
@@ -289,6 +316,8 @@ impl Extras {
             | (self.move_clubhouse as u32) << 22
             | (self.most_staff as u32) << 23
             | (self.staff_reach as u32) << 24
+            | (self.walk_ins as u32) << 25
+            | (self.bounds as u32) << 26
     }
 
     pub fn from_bits(b: u32) -> Extras {
@@ -315,6 +344,8 @@ impl Extras {
             move_clubhouse: b & 1 << 22 != 0,
             most_staff: b & 1 << 23 != 0,
             staff_reach: b & 1 << 24 != 0,
+            walk_ins: b & 1 << 25 != 0,
+            bounds: b & 1 << 26 != 0,
         }
     }
 
@@ -342,6 +373,8 @@ impl Extras {
             DEMOLISH => self.demolish as u8,
             MOVE_CLUBHOUSE => self.move_clubhouse as u8,
             STAFF_REACH => self.staff_reach as u8,
+            WALK_INS => self.walk_ins as u8,
+            BOUNDS => self.bounds as u8,
             _ => 0,
         }
     }
@@ -374,6 +407,8 @@ impl Extras {
             DEMOLISH => self.demolish = on,
             MOVE_CLUBHOUSE => self.move_clubhouse = on,
             STAFF_REACH => self.staff_reach = on,
+            WALK_INS => self.walk_ins = on,
+            BOUNDS => self.bounds = on,
             _ => {}
         }
     }

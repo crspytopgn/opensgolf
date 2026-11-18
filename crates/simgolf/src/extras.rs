@@ -173,6 +173,34 @@ pub struct Settings {
     /// pointer (design_names.rs). Off by default: the original names none of them.
     #[serde(default)]
     pub design_names: bool,
+    /// The game speed goes on to x16 after x8 (`App::step_speed`). Off by default: the port's speeds stop at x8.
+    #[serde(default)]
+    pub fast_speed: bool,
+    /// The Financial Report shows loan interest on a line of its own instead of inside Maintenance (reports_ui.rs
+    /// `draw_finance`). Off by default: the original books interest with the upkeep.
+    #[serde(default)]
+    pub money_split: bool,
+    /// Hole Stats' Show hole button and a key frame a whole hole on the screen, tee to green (fit.rs). Off by default.
+    #[serde(default)]
+    pub fit_hole: bool,
+    /// Redo (Ctrl+Y, or Ctrl+Shift+Z) puts back what Ctrl+Z took away, and undo keeps 100 steps instead of 30 (undo.rs).
+    /// Off by default.
+    #[serde(default)]
+    pub redo: bool,
+    /// Hole Stats' Practise button sends the pro out to play that one hole, with a mulligan (practice.rs). Off by
+    /// default: the original's practice round is the whole course.
+    #[serde(default)]
+    pub practice_hole: bool,
+    /// A golfer's profile page can change what the golfer says (profile_ui.rs). Off by default.
+    #[serde(default)]
+    pub golfer_lines: bool,
+    /// On a touch screen the elevation tools pick a corner with a tap, and Raise and Lower buttons step it (touch.rs).
+    /// Off by default: a tap raises the ground at once, as a click does.
+    #[serde(default)]
+    pub fine_height: bool,
+    /// The port's own boxes and the launcher in dark colours (glass_ui.rs, launcher.rs). Off by default.
+    #[serde(default)]
+    pub dark_menus: bool,
 }
 
 impl Settings {
@@ -220,6 +248,14 @@ impl Settings {
         first_person: false,
         staff_names: true,
         design_names: true,
+        fast_speed: true,
+        money_split: true,
+        fit_hole: true,
+        redo: true,
+        practice_hole: true,
+        golfer_lines: true,
+        fine_height: false,
+        dark_menus: false,
     };
     pub const ALL_OFF: Settings = Settings {
         people: false,
@@ -260,6 +296,14 @@ impl Settings {
         first_person: false,
         staff_names: false,
         design_names: false,
+        fast_speed: false,
+        money_split: false,
+        fit_hole: false,
+        redo: false,
+        practice_hole: false,
+        golfer_lines: false,
+        fine_height: false,
+        dark_menus: false,
     };
 
     /// The ticks as the Extras box's checkbox bits (in `UI_KEYS` order).
@@ -303,6 +347,14 @@ impl Settings {
             self.first_person,
             self.staff_names,
             self.design_names,
+            self.fast_speed,
+            self.money_split,
+            self.fit_hole,
+            self.redo,
+            self.practice_hole,
+            self.golfer_lines,
+            self.fine_height,
+            self.dark_menus,
         ]
         .iter()
         .enumerate()
@@ -350,6 +402,14 @@ impl Settings {
             first_person: on(35),
             staff_names: on(36),
             design_names: on(37),
+            fast_speed: on(38),
+            money_split: on(39),
+            fit_hole: on(40),
+            redo: on(41),
+            practice_hole: on(42),
+            golfer_lines: on(43),
+            fine_height: on(44),
+            dark_menus: on(45),
         }
     }
 
@@ -377,6 +437,8 @@ impl Settings {
             edge_scroll: from.edge_scroll,
             home_labels_hover: from.home_labels_hover,
             pause_aim: from.pause_aim,
+            fine_height: from.fine_height,
+            dark_menus: from.dark_menus,
             ..*self
         }
     }
@@ -391,7 +453,7 @@ impl Default for Settings {
 
 /// The interface extras' lines on the Extras box's Interface page (extras_ui.rs), one tick per extra in `Settings::bits`
 /// order (text keys in lang/en.txt).
-pub const UI_KEYS: [&str; 38] = [
+pub const UI_KEYS: [&str; 46] = [
     "STR_EXTRAS_PEOPLE",
     "STR_EXTRAS_HISTORY",
     "STR_EXTRAS_NAME_TAGS",
@@ -430,6 +492,14 @@ pub const UI_KEYS: [&str; 38] = [
     "STR_EXTRAS_FIRST_PERSON",
     "STR_EXTRAS_STAFF_NAMES",
     "STR_EXTRAS_DESIGN_NAMES",
+    "STR_EXTRAS_FAST_SPEED",
+    "STR_EXTRAS_MONEY_SPLIT",
+    "STR_EXTRAS_FIT_HOLE",
+    "STR_EXTRAS_REDO",
+    "STR_EXTRAS_PRACTICE_HOLE",
+    "STR_EXTRAS_GOLFER_LINES",
+    "STR_EXTRAS_FINE_HEIGHT",
+    "STR_EXTRAS_DARK_MENUS",
 ];
 
 /// The update check's value when settings.json has none (`Settings::update_check`).
@@ -579,6 +649,38 @@ pub fn staff_names() -> bool {
 /// Whether benches, flower beds and scenic trees are named for what they are (design_names.rs).
 pub fn design_names() -> bool {
     settings().design_names
+}
+/// Whether the fast speed extra is ticked.
+pub fn fast_speed() -> bool {
+    settings().fast_speed
+}
+/// Whether the money split extra is ticked.
+pub fn money_split() -> bool {
+    settings().money_split
+}
+/// Whether the fit hole extra is ticked.
+pub fn fit_hole() -> bool {
+    settings().fit_hole
+}
+/// Whether the redo extra is ticked.
+pub fn redo() -> bool {
+    settings().redo
+}
+/// Whether the practice hole extra is ticked.
+pub fn practice_hole() -> bool {
+    settings().practice_hole
+}
+/// Whether the golfer lines extra is ticked.
+pub fn golfer_lines() -> bool {
+    settings().golfer_lines
+}
+/// Whether the fine height extra is ticked.
+pub fn fine_height() -> bool {
+    settings().fine_height
+}
+/// Whether the dark menus extra is ticked.
+pub fn dark_menus() -> bool {
+    settings().dark_menus
 }
 pub fn random_trees() -> bool {
     settings().random_trees
@@ -852,6 +954,9 @@ pub enum RenameFor {
     Bio(i32),
     /// A hole's own name (Hole Stats: a click on its title).
     Hole(usize),
+    /// One of a golfer's lines (the Edit what golfers say extra, profile_ui.rs): the person record and the Customise
+    /// table's row.
+    Saying(i32, usize),
 }
 
 /// The extras' state in the game (`App::xs`).
@@ -891,6 +996,12 @@ pub struct State {
     pub ticker_golfer: Option<i32>,
     /// The End of Year report shows the year in numbers (year_ui.rs), the page after the original's.
     pub year_page: bool,
+    /// The hole whose playing area the Hole boundaries brush paints (bounds_ui.rs).
+    pub bounds_hole: Option<usize>,
+    /// The hole the N: test hook frames on the first frame drawn, once the window has its size (fit.rs).
+    pub fit_pending: Option<usize>,
+    /// Fine elevation on a touch screen: the corner picked for the Raise and Lower buttons (touch.rs).
+    pub height_pick: Option<(i32, i32)>,
 }
 
 // ---- drawing pieces shared by the extras' screens ---------------------------------------------------------------------------
@@ -1100,6 +1211,10 @@ impl crate::app::App {
                     }
                 }
                 self.open_profile(self.club.g[g].roster);
+                // SG_PROFILE_LINES=1: the golfer's lines (the Edit what golfers say extra)
+                if std::env::var_os("SG_PROFILE_LINES").is_some() {
+                    self.xs.profile.lines = true;
+                }
                 // SG_PROFILE_ROUNDS=1: the Rounds list, with the golfers' kept rounds
                 if std::env::var_os("SG_PROFILE_ROUNDS").is_some() {
                     self.xs.profile.rounds = true;
@@ -1399,7 +1514,7 @@ mod tests {
         let f = Settings { save_files: true, ..Settings::ALL_OFF };
         assert_eq!(f.bits(), 1 << 22);
         assert_eq!(Settings::from_bits(f.bits()), f);
-        assert_eq!(UI_KEYS.len(), 38);
+        assert_eq!(UI_KEYS.len(), 46);
     }
 
     #[test]

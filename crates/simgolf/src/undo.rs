@@ -16,6 +16,17 @@ use std::hash::{Hash, Hasher};
 
 /// The most clicks the list keeps (the oldest go first).
 pub const MAX_STEPS: usize = 30;
+/// The most it keeps with the Redo extra (OpenSGolf extras).
+pub const MAX_STEPS_REDO: usize = 100;
+
+/// How many steps the list keeps now.
+fn max_steps() -> usize {
+    if crate::extras::redo() {
+        MAX_STEPS_REDO
+    } else {
+        MAX_STEPS
+    }
+}
 
 /// The ledger columns building books to: its costs and refunds, and a home site's lot sold or bought back. The others are
 /// the club's takings and bills, which go on while a drag lasts.
@@ -25,6 +36,8 @@ const BUILD_COLUMNS: [usize; 3] = [economy::LEDGER_HOME_SITES, economy::LEDGER_B
 pub struct Undo {
     /// What each click that changed the course changed, oldest first.
     steps: Vec<Step>,
+    /// The Redo extra: what each undo of a click changed, the last undone last; a new click empties it.
+    redo: Vec<Box<Click>>,
     /// The course as it was at the button's press, until it comes up.
     pending: Option<Box<Before>>,
 }
@@ -32,7 +45,13 @@ pub struct Undo {
 impl Undo {
     pub fn clear(&mut self) {
         self.steps.clear();
+        self.redo.clear();
         self.pending = None;
+    }
+
+    /// Whether there is an undo to do again (the touch Redo button shows only then, touch.rs).
+    pub fn can_redo(&self) -> bool {
+        !self.redo.is_empty()
     }
 
     /// Whether there is a click to undo (the touch Undo button shows only then, touch.rs).
@@ -49,7 +68,7 @@ impl Undo {
 
     fn push(&mut self, s: Step) {
         self.steps.push(s);
-        if self.steps.len() > MAX_STEPS {
+        while self.steps.len() > max_steps() {
             self.steps.remove(0);
         }
     }
@@ -301,9 +320,14 @@ impl App {
             self.act(sg_core::action::Action::UndoPress);
             return;
         }
-        let Some(land) = self.land.clone() else { return };
+        self.undo.pending = self.snapshot();
+    }
+
+    /// The course as it is now, to tell afterwards what changed (`diff`).
+    fn snapshot(&self) -> Option<Box<Before>> {
+        let land = self.land.clone()?;
         let t = &self.terrain;
-        self.undo.pending = Some(Box::new(Before {
+        Some(Box::new(Before {
             fingerprint: self.course_fingerprint(),
             terrain: [t.ty.clone(), t.variation.clone(), t.set.clone(), t.path_kind.clone()],
             corner: t.corner.clone(),
@@ -314,7 +338,7 @@ impl App {
             free_landmarks: self.club.free_landmarks,
             money: self.build_money(),
             floats: Vec::new(),
-        }));
+        }))
     }
 
     /// The button came up: what the click changed goes on the undo list when it changed the course.
@@ -325,9 +349,18 @@ impl App {
             return;
         }
         let Some(b) = self.undo.pending.take() else { return };
-        let Some(land) = self.land.as_ref() else { return };
+        if let Some(click) = self.diff(b) {
+            self.undo.push(Step::Click(Box::new(click)));
+            // a new click: what was undone before it can no longer be done again
+            self.undo.redo.clear();
+        }
+    }
+
+    /// What has changed since `b` was taken (None: nothing a building or terrain tool changes).
+    fn diff(&self, b: Box<Before>) -> Option<Click> {
+        let land = self.land.as_ref()?;
         if self.course_fingerprint() == b.fingerprint {
-            return;
+            return None;
         }
         let t = &self.terrain;
         let now = [&t.ty, &t.variation, &t.set, &t.path_kind];
@@ -354,7 +387,49 @@ impl App {
             money: std::array::from_fn(|k| money[k] - b.money[k]),
             floats: b.floats,
         };
-        self.undo.push(Step::Click(Box::new(click)));
+        Some(click)
+    }
+
+    /// Undoes click `c`, and with the Redo extra keeps what the undo changed, to do it again (`redo_step`).
+    fn undo_click_kept(&mut self, c: &Click) -> bool {
+        let before = if crate::extras::redo() { self.snapshot() } else { None };
+        if !self.undo_click(c) {
+            return false;
+        }
+        if let Some(b) = before {
+            if let Some(mut back) = self.diff(b) {
+                // the amounts float again, the other way, when it is done again
+                back.floats = c.floats.iter().map(|&(u, at)| (-u, at)).collect();
+                self.undo.redo.push(Box::new(back));
+            }
+        }
+        true
+    }
+
+    /// Ctrl+Y or Ctrl+Shift+Z (the Redo extra): the last click Ctrl+Z took back done again, money and all; it goes back on
+    /// the undo list. False with nothing to redo.
+    pub fn redo_step(&mut self) -> bool {
+        if !crate::extras::redo() || !self.undo.can_redo() {
+            return false;
+        }
+        if self.rec.depth_zero() {
+            return self.act(sg_core::action::Action::Redo);
+        }
+        self.redo_click_top()
+    }
+
+    /// The Redo action (replay.rs).
+    pub(crate) fn redo_click_top(&mut self) -> bool {
+        let Some(r) = self.undo.redo.pop() else { return false };
+        let before = self.snapshot();
+        if !self.undo_click(&r) {
+            return false;
+        }
+        if let Some(mut again) = before.and_then(|b| self.diff(b)) {
+            again.floats = r.floats.iter().map(|&(u, at)| (-u, at)).collect();
+            self.undo.push(Step::Click(Box::new(again)));
+        }
+        true
     }
 
     /// A step on the undo list made by something other than a click on the course (the course editor's heightmap and
@@ -376,7 +451,7 @@ impl App {
             return self.act(sg_core::action::Action::Undo);
         }
         match self.undo.steps.pop() {
-            Some(Step::Click(c)) => self.undo_click(&c),
+            Some(Step::Click(c)) => self.undo_click_kept(&c),
             Some(Step::Save(b)) => self.undo_save(g, b),
             None => false,
         }
@@ -474,7 +549,7 @@ impl App {
     /// course editor's step stays for `undo_step`).
     pub(crate) fn undo_click_top(&mut self) -> bool {
         match self.undo.steps.pop() {
-            Some(Step::Click(c)) => self.undo_click(&c),
+            Some(Step::Click(c)) => self.undo_click_kept(&c),
             Some(s) => {
                 self.undo.steps.push(s);
                 false

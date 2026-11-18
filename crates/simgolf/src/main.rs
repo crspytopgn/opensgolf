@@ -25,6 +25,7 @@ mod autosave;
 #[cfg(all(not(target_arch = "wasm32"), feature = "net"))]
 mod autoupdate;
 mod backups;
+mod bounds_ui;
 mod bugreport;
 mod build_tools;
 mod challenges;
@@ -46,6 +47,7 @@ mod extras;
 mod extras_ui;
 mod files_ui;
 mod fingerprint;
+mod fit;
 mod framerate;
 mod fx;
 mod fx_ball;
@@ -70,6 +72,7 @@ mod glass_ui;
 mod graphs;
 mod hd;
 mod hd_make;
+mod height_pick;
 mod heightview_ui;
 mod history_ui;
 mod holemarks;
@@ -96,6 +99,7 @@ mod playcount;
 mod player_panel;
 mod popup_ui;
 mod portrait;
+mod practice;
 mod prefs_search;
 // the web site's feature guide's reference (web/guide.html), made and checked by its tests
 mod design_names;
@@ -593,7 +597,16 @@ fn open_screen(app: &mut App, screen: Option<&str>) {
         }
         Some("comments") if app.ui_ok => app.screen = Screen::Comments,
         Some("histograph") if app.ui_ok => app.screen = Screen::Histograph,
-        Some("finance") if app.ui_ok => app.screen = Screen::Finance,
+        Some("finance") if app.ui_ok => {
+            app.screen = Screen::Finance;
+            // test hook: SG_INTEREST=DOLLARS books that much debt interest to this year (the Split interest extra)
+            if let Some(v) = std::env::var("SG_INTEREST").ok().and_then(|v| v.parse::<f64>().ok()) {
+                let y = app.econ.year_index();
+                app.econ.book(sg_core::economy::LEDGER_MAINTENANCE, -v);
+                app.econ.interest.resize(y + 1, 0.0);
+                app.econ.interest[y] -= v;
+            }
+        }
         Some("routing") if app.ui_ok => {
             // SG_ROUTE_TAB picks the tab for a still: 0 routing, 1 employees, 2 aura, 3 home site value
             if let Some(t) = std::env::var("SG_ROUTE_TAB").ok().and_then(|t| t.parse::<usize>().ok()) {
@@ -1083,6 +1096,33 @@ fn apply_edit_spec(app: &mut App, spec: &str) {
                     println!("set par {}: {ok}", at(0));
                 } else {
                     app.ask_par(at(0));
+                }
+            }
+            b'N' => {
+                // test hook (N): Show a hole (fit.rs) frames hole H ("N:H"); "N:H,1" sends the pro out to practise it (practice.rs);
+                // "N:H,2,A,B[,A2,B2]" puts tiles A,B (to A2,B2) in hole H's playing area (bounds_ui.rs)
+                match at(1) {
+                    1 => {
+                        app.auto_aim = 1;
+                        if app.club.pro_skill[..12].iter().all(|&v| v == 0) {
+                            app.club.pro_skill[..12].fill(1);
+                        }
+                        let ok = app.practice_hole(at(0) as usize);
+                        println!("practice hole {} requested: {ok}, game flags {:#x}", at(0), app.club.game);
+                    }
+                    2 => {
+                        let (a2, b2) = if v.len() > 5 { (at(4), at(5)) } else { (at(2), at(3)) };
+                        for a in at(2).min(a2)..=at(2).max(a2) {
+                            for b in at(3).min(b2)..=at(3).max(b2) {
+                                app.set_bound(at(0), a, b, true);
+                            }
+                        }
+                        app.xs.bounds_hole = Some(at(0) as usize);
+                        app.xs.fit_pending = Some(at(0) as usize);
+                        app.tool = bounds_ui::TOOL;
+                        app.edit = true;
+                    }
+                    _ => app.xs.fit_pending = Some(at(0) as usize),
                 }
             }
             b'X' => {
@@ -2849,6 +2889,10 @@ impl Stage {
         if let Some(n) = hole_key {
             // 1..9 and their shifted symbols (! @ # $ % ^ & * () jump to holes 1..18
             let h = n + 1 + if shift { 9 } else { 0 };
+            // Show a hole (OpenSGolf extras, fit.rs): the whole hole framed instead
+            if extras::fit_hole() && app.fit_hole(h.min(18)) {
+                return;
+            }
             let hr = &app.club.holes[h.min(18)];
             if hr.par != 0 {
                 let (tx, ty) = (hr.back.0 * 1024 + 512, hr.back.1 * 1024 + 512);
@@ -3136,6 +3180,10 @@ impl Stage {
         } else {
             // with the effects' post-processing the course is drawn offscreen and composited before the interface (fx.rs)
             let post = fx::active() && app.fx_world_begin(&mut self.g, target);
+            // the N: test hook's Show hole, once the window has its size
+            if let Some(h) = app.xs.fit_pending.take() {
+                app.fit_hole(h);
+            }
             app.render_world(&mut self.g);
             if post {
                 app.fx_world_end(&mut self.g, target);
@@ -4305,6 +4353,26 @@ impl EventHandler for Stage {
         if k == KeyCode::V && (mods.ctrl || mods.logo) && extras::sharing() {
             self.app.paste_course();
             return;
+        }
+        // the Redo extra (undo.rs): Ctrl+Y or Ctrl+Shift+Z (Cmd on a Mac) does again what Ctrl+Z took back
+        let redo_key = (k == KeyCode::Y || (k == KeyCode::Z && mods.shift)) && (mods.ctrl || mods.logo);
+        if redo_key && extras::redo() && self.app.screen == Screen::Play && !self.editing {
+            if self.app.redo_step() {
+                self.app.ui_sound(0x18);
+            }
+            return;
+        }
+        // Practise a hole (practice.rs): Backspace takes the pro's last shot back; Hole boundaries (bounds_ui.rs): Delete
+        // takes the hole's area away while its brush is in hand
+        if k == KeyCode::Backspace && self.app.screen == Screen::Play && self.app.club.can_mulligan() && !self.app.typing() {
+            self.app.mulligan();
+            return;
+        }
+        if k == KeyCode::Delete && self.app.screen == Screen::Play && !self.app.typing() {
+            if let Some(h) = self.app.bounds_brush() {
+                self.app.clear_bound(h as i32);
+                return;
+            }
         }
         // the port's own: Ctrl+Z (Cmd+Z on a Mac) undoes the last click that changed the course (undo.rs)
         if k == KeyCode::Z && (mods.ctrl || mods.logo) && self.app.screen == Screen::Play && !self.editing {

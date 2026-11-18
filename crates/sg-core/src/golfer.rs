@@ -12,6 +12,8 @@ use crate::lang::{tr, trf};
 use crate::roster::Person;
 
 pub const SLOTS: usize = 152;
+/// The Walk-ins extra: one in this many arrivals that find no member free to come bring a golfer who is not a member.
+pub const WALK_IN_ODDS: i32 = 4;
 /// Hole records 0..=19; 1..18 are holes, 19 is the walk back to the clubhouse.
 pub const HOLE_RECORDS: usize = 20;
 
@@ -311,6 +313,9 @@ pub enum Event {
     /// A golfer's round ended (`round_complete`): the holes played, the strokes and the par of those holes. Nothing of the
     /// rules reads it; the port's golfer profile keeps it.
     RoundDone { g: usize, holes: i32, strokes: i32, par: i32 },
+    /// The pro has holed out on the hole he was practising (Practise a hole, `Club::practice_hole`): the hole, his strokes
+    /// and its par. His round ends there.
+    PracticeDone { hole: i32, strokes: i32, par: i32 },
     /// A remarkable shot (0x407e00, see `pro::Club::great_shot`): the golfer, the partner, the composed message, whether it
     /// was a bad one and the shot's replay points (map units and height). The game shows the great-shot SimFoto when the
     /// shot is on screen, else (for the player's pro only) posts the text to the ticker.
@@ -514,6 +519,16 @@ pub struct Club {
     /// Course A is always in place outside those moments.
     #[serde(skip)]
     pub(crate) b_shown: bool,
+    /// Practise a hole (simgolf's practice.rs, an OpenSGolf extra): the one hole the pro's practice round plays, or 0 for
+    /// the original's whole round; saved only while it is under way.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub practice_hole: i32,
+    /// The pro as he was before his last practice shot, for a mulligan (`Club::mulligan`); saved only while there is one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mulligan: Option<Box<Golfer>>,
+    /// Hole boundaries (sg_core::bounds, the Hole boundaries extra): each hole's playing area; saved only once one is drawn.
+    #[serde(default, skip_serializing_if = "crate::bounds::Bounds::is_empty")]
+    pub bounds: crate::bounds::Bounds,
 }
 
 impl Default for Club {
@@ -621,6 +636,9 @@ impl Club {
             land_kept: false,
             course_b: None,
             b_shown: false,
+            practice_hole: 0,
+            mulligan: None,
+            bounds: Default::default(),
         }
     }
 
@@ -1385,7 +1403,13 @@ impl Club {
             want = false;
         }
         if want && !tournament && self.holes[1].par != 0 {
-            let s = self.create(c, rng, true);
+            let mut s = self.create(c, rng, true);
+            // the Walk-ins extra (an OpenSGolf extra): with the first tee's queue short and no member free to come, now and
+            // then one of the town's golfers who is not a member comes to play anyway, for the usual green fee (one in four
+            // such ticks; no draw with the extra off)
+            if s == -1 && self.extras.walk_ins && queue < 2 && rng.below(WALK_IN_ODDS) == 0 {
+                s = self.create(c, rng, false);
+            }
             if s != -1 {
                 if crowd {
                     self.visitor_crowd(true);
@@ -1461,6 +1485,15 @@ impl Club {
         self.g[g].flags &= 0xfbdf_bbff;
         self.visitor_hurry(g);
         self.g[g].club = 0;
+        // Practise a hole (an OpenSGolf extra): the pro's round ends on the hole he came to practise, and the round is not
+        // counted as one (no round record); his partner finishes the hole and goes home as when a round is cancelled
+        if self.practice_hole != 0 && self.g[g].flags & flag::GARY != 0 {
+            self.out.push(Event::PracticeDone { hole: h, strokes, par: self.par(h) });
+            self.practice_hole = 0;
+            self.mulligan = None;
+            self.round_end(rng, g);
+            return;
+        }
         let last = h == 18 || self.par(h + 1) == 0;
         if self.game & game::TOURNAMENT == 0 && last {
             self.round_complete(c, g);
@@ -3386,7 +3419,9 @@ impl Club {
         }
         let first_thought = self.g[g].thoughts[0];
         let pin = self.holes[h].pin;
-        let hz = c.h(rt);
+        // Hole boundaries (an OpenSGolf extra, sg_core::bounds): outside the hole's playing area is out of bounds
+        let outside = self.outside_area(g, ra, rb);
+        let hz = if outside { c.h(t::OUT).max(1) } else { c.h(rt) };
         let mut penalty = false;
         if hz < 1 && !c.oob(ra, rb) {
             let gg = &self.g[g];
@@ -3449,7 +3484,7 @@ impl Club {
                     }
                     s += 0x200;
                 }
-            } else if c.oob(ra, rb) {
+            } else if c.oob(ra, rb) || outside {
                 penalty = true;
                 self.event(c, rng, g, 2, rt as i32);
                 let gg = &mut self.g[g];
@@ -3469,7 +3504,7 @@ impl Club {
                 }
             }
         }
-        if rt != t::WATER && !c.oob(ra, rb) {
+        if rt != t::WATER && !c.oob(ra, rb) && !outside {
             self.g[g].flags = (self.g[g].flags & !flag::PENALTY) | flag::TEED_OFF;
         }
         let gg = &self.g[g];
@@ -3808,6 +3843,36 @@ pub(crate) mod tests {
         club.holes[19].pin = (3, 22);
         club.next_hole = 2;
         (c, club)
+    }
+
+    #[test]
+    fn walk_ins_come_when_no_member_can() {
+        let waiting = |walk_ins: bool| {
+            let (mut c, mut club) = test_course();
+            let mut rng = ExeRng { state: 5 };
+            club.new_game(&mut rng);
+            // nobody is a member
+            for m in club.members.iter_mut() {
+                m.level &= !7;
+            }
+            club.extras.walk_ins = walk_ins;
+            let mut came = 0;
+            for _ in 0..200 {
+                let before = club.g.iter().take(SLOTS).filter(|g| g.hole == -1).count();
+                club.arrivals(&mut c, &mut rng);
+                came += club.g.iter().take(SLOTS).filter(|g| g.hole == -1).count().saturating_sub(before);
+                // send whoever waits away again, so the queue stays short
+                for g in club.g.iter_mut().take(SLOTS) {
+                    if g.hole == -1 {
+                        *g = Golfer::default();
+                    }
+                }
+            }
+            came
+        };
+        assert_eq!(waiting(false), 0, "the original's arrivals: members only");
+        let n = waiting(true);
+        assert!(n > 20 && n < 100, "about one in four tries: {n}");
     }
 
     #[test]

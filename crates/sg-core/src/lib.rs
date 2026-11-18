@@ -13,6 +13,7 @@ pub mod analysis;
 pub mod assets;
 pub mod bink;
 pub mod bodies;
+pub mod bounds;
 pub mod celebs;
 pub mod championship;
 pub mod cheats;

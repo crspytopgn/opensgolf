@@ -63,6 +63,11 @@ pub struct Economy {
     pub wages_paid: f64,
     /// One record per year since the start (index 0 is 2001 in the exe's report), in dollars per ledger column.
     pub ledger: Vec<[f64; LEDGER_COLUMNS]>,
+    /// The port's own: the debt interest of each year (dollars, negative), also inside that year's Maintenance column as
+    /// the original books it, so the Split interest extra can show it on a line of its own (simgolf's reports_ui.rs).
+    /// Saved only once some interest has been paid.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub interest: Vec<f64>,
     /// The club's extras (sg_core::extras), set by the game from the club record (where they are saved).
     #[serde(skip)]
     pub extras: crate::extras::Extras,
@@ -89,6 +94,7 @@ impl Default for Economy {
             staff: [0; STAFF_KINDS],
             wages_paid: 0.0,
             ledger: Vec::new(),
+            interest: Vec::new(),
             extras: Default::default(),
             free: false,
         }
@@ -344,6 +350,13 @@ impl Economy {
             let interest = (units * self.extras.interest_percent() as i64 / 100) as f64 * Self::UNIT;
             self.earn(interest);
             self.book(LEDGER_MAINTENANCE, interest);
+            if interest != 0.0 && !self.free {
+                let y = self.year_index();
+                if self.interest.len() <= y {
+                    self.interest.resize(y + 1, 0.0);
+                }
+                self.interest[y] += interest;
+            }
         }
         if cal.new_year(tick) {
             self.year_end();
@@ -473,6 +486,23 @@ mod tests {
         assert_eq!(e.cash, e.start_cash - 300.0);
         // the units go on the employee's total paid
         assert_eq!(paid, vec![3]);
+    }
+
+    #[test]
+    fn interest_is_kept_apart_as_well_as_in_maintenance() {
+        let mut e = Economy { start_cash: -10000.0, ..Default::default() };
+        e.init();
+        let mut rng = ExeRng::from_clock(1);
+        e.on_tick(1024, 0, 0, &[], &mut rng);
+        let y = e.year_index();
+        assert_eq!(e.interest.get(y).copied(), Some(-200.0));
+        assert_eq!(e.ledger[y][LEDGER_MAINTENANCE], -200.0);
+        // and nothing is kept for a club out of debt, so its saves are as before
+        let mut e = Economy::default();
+        e.init();
+        e.on_tick(1024, 0, 0, &[], &mut rng);
+        assert!(e.interest.is_empty());
+        assert!(!serde_json::to_string(&e).unwrap().contains("interest"));
     }
 
     #[test]

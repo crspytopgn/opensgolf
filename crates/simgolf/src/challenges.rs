@@ -347,7 +347,8 @@ impl App {
     /// Hole Stats' Mark before button: with the extra, for an open hole of Course A.
     pub fn lab_button(&self) -> Option<Rect> {
         let h = self.info.stats_hole.clamp(1, 18);
-        (crate::extras::challenges() && !self.hole_b() && self.club.holes[h].par != 0).then(|| Rect::new(652.0, 62.0, 96.0, 22.0))
+        let shown = crate::extras::challenges() && !self.hole_b() && self.club.holes[h].par != 0;
+        self.side_button(crate::extras_ui::SideButton::Lab, shown)
     }
 
     /// Keeps the hole's figures as they are now.

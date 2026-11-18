@@ -184,3 +184,11 @@ A coastal property's sea is laid down first, with the first tile of each row out
 after it; the first patch is always a wetland, and its random walk can reach the sea's edge and turn those tiles back into
 wetland or pond, so a strip of marsh stood past the map's edge (the reporter's Florida). With the setting that edge is out
 of bounds again at the end.
+
+## 16. An old tee spot closes its hole
+
+Painting over a tee tile takes its hole out of play until it is rebuilt (0x41fee2), and the exe finds the hole from the
+number the tile carries. A tee tile can still carry a hole's number after that hole's tee has gone elsewhere, and the exe
+then takes the hole's own back tee away and closes it, so tidying up the old spot closed a working hole. With the setting a
+tee tile that is neither the hole's back tee nor its forward tee is only plain ground again, and the hole stays as it is
+(`Club::paint_hole_tile`, crates/sg-core/src/holetool.rs).

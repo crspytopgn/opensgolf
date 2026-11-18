@@ -325,12 +325,35 @@ enum Btn {
     /// The original's Sound tick in one tap (Preferences' Sound; the port's own button):
     /// left of Message, under Undo. Hidden while a target is out (aiming or placing), when Place and Centre need the room.
     Mute,
+    /// Ctrl+Y (the Redo extra, undo.rs): left of Undo, while there is an undone click to put back.
+    Redo,
+    /// Backspace while the pro practises a hole (the Practise a hole extra, practice.rs): his last shot taken back. In Mute's
+    /// place, which is hidden while he aims.
+    Mulligan,
+    /// Fine elevation on touch screens (height_pick.rs): the picked corner up and down a notch. Left of Turn and Open hole,
+    /// where Place is only while a building is in hand.
+    Raise,
+    Lower,
 }
 /// The column's buttons: those before Swing.
 #[cfg(test)]
 const COLUMN: usize = 5;
-const BUTTONS: [Btn; 10] =
-    [Btn::Speed, Btn::Message, Btn::Turn, Btn::OpenHole, Btn::Showcase, Btn::Swing, Btn::Place, Btn::Centre, Btn::Undo, Btn::Mute];
+const BUTTONS: [Btn; 14] = [
+    Btn::Speed,
+    Btn::Message,
+    Btn::Turn,
+    Btn::OpenHole,
+    Btn::Showcase,
+    Btn::Swing,
+    Btn::Place,
+    Btn::Centre,
+    Btn::Undo,
+    Btn::Mute,
+    Btn::Redo,
+    Btn::Mulligan,
+    Btn::Raise,
+    Btn::Lower,
+];
 
 impl Btn {
     fn action(self) -> &'static str {
@@ -346,6 +369,8 @@ impl Btn {
             Btn::Undo => "",
             // the Sound tick (touch_button_press)
             Btn::Mute => "",
+            // Ctrl+Y and Backspace are not keys to set either (touch_button_press)
+            Btn::Redo | Btn::Mulligan | Btn::Raise | Btn::Lower => "",
         }
     }
     fn label(self) -> &'static str {
@@ -360,6 +385,10 @@ impl Btn {
             Btn::Centre => "STR_TOUCH_CENTRE",
             Btn::Undo => "STR_TOUCH_UNDO",
             Btn::Mute => "STR_TOUCH_SOUND",
+            Btn::Redo => "STR_TOUCH_REDO",
+            Btn::Mulligan => "STR_TOUCH_MULLIGAN",
+            Btn::Raise => "STR_TOUCH_RAISE",
+            Btn::Lower => "STR_TOUCH_LOWER",
         }
     }
 }
@@ -425,6 +454,18 @@ fn undo_centre(r: f32, right: f32) -> (f32, f32) {
 /// The Mute button's centre: to the left of Message (slot 1), under Undo.
 fn mute_centre(r: f32, right: f32) -> (f32, f32) {
     let (x, y) = button_centre(1, r, right);
+    (x - 2.0 * r - 14.0, y)
+}
+
+/// The Redo button's centre: to the left of Undo.
+fn redo_centre(r: f32, right: f32) -> (f32, f32) {
+    let (x, y) = undo_centre(r, right);
+    (x - 2.0 * r - 14.0, y)
+}
+
+/// The Raise and Lower buttons' centres: to the left of Turn (slot 2) and of Open hole (slot 3).
+fn step_centre(row: usize, r: f32, right: f32) -> (f32, f32) {
+    let (x, y) = button_centre(row, r, right);
     (x - 2.0 * r - 14.0, y)
 }
 
@@ -887,7 +928,10 @@ impl Stage {
             Btn::Place => (place_centre(r, right), big_radius(r)),
             Btn::Centre => (centre_centre(r, right), r),
             Btn::Undo => (undo_centre(r, right), r),
-            Btn::Mute => (mute_centre(r, right), r),
+            Btn::Mute | Btn::Mulligan => (mute_centre(r, right), r),
+            Btn::Redo => (redo_centre(r, right), r),
+            Btn::Raise => (step_centre(2, r, right), r),
+            Btn::Lower => (step_centre(3, r, right), r),
             _ => (button_centre(i, r, right), r),
         }
     }
@@ -966,6 +1010,22 @@ impl Stage {
             if !self.editing && self.app.undo_step(&mut self.g) {
                 self.app.ui_sound(0x18);
             }
+            return;
+        }
+        if b == Btn::Redo {
+            // as Ctrl+Y does
+            if !self.editing && self.app.redo_step() {
+                self.app.ui_sound(0x18);
+            }
+            return;
+        }
+        if matches!(b, Btn::Raise | Btn::Lower) {
+            self.app.height_step(if b == Btn::Raise { 1 } else { -1 });
+            return;
+        }
+        if b == Btn::Mulligan {
+            // as Backspace does
+            self.app.mulligan();
             return;
         }
         let i = crate::controls::action(b.action());
@@ -1303,7 +1363,11 @@ impl Stage {
                 Btn::Showcase => icon_film(g, &s, cx, cy, r, ink),
                 Btn::Place => icon_tick(g, &s, cx, cy, r, ink),
                 Btn::Centre => icon_centre(g, &s, cx, cy, r, ink),
-                Btn::Undo => icon_undo(g, &s, cx, cy, r, ink),
+                Btn::Undo => icon_undo(g, &s, cx, cy, r, ink, false),
+                Btn::Redo => icon_undo(g, &s, cx, cy, r, ink, true),
+                Btn::Mulligan => icon_mulligan(g, &s, cx, cy, r, ink),
+                Btn::Raise => icon_step(g, &s, cx, cy, r, ink, true),
+                Btn::Lower => icon_step(g, &s, cx, cy, r, ink, false),
                 Btn::Mute => icon_sound(g, &s, cx, cy, r, ink, self.app.mute),
                 // its name on its face: the one button that acts on the game, it says what it does
                 Btn::Swing => {
@@ -1532,13 +1596,15 @@ fn icon_turn(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4]) {
 }
 
 /// Undo: a hooked arrow pointing back to the left (the usual undo picture), so it does not read as Turn's arrow going round.
-fn icon_undo(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4]) {
+fn icon_undo(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4], mirror: bool) {
     let rad = r * 0.32;
     let w = r * 0.15;
     let (ox, oy, from, to) = (cx - r * 0.06, cy + r * 0.1, std::f32::consts::PI * 1.5, std::f32::consts::PI * 2.5);
+    // Redo's arrow is Undo's turned about the button's middle
+    let m = |(x, y): (f32, f32)| if mirror { (2.0 * cx - x, y) } else { (x, y) };
     shaded(g, ink, |g, dx, dy, c| {
         let n = 12;
-        let p = |a: f32, rr: f32| (ox + dx + rr * a.cos(), oy + dy + rr * a.sin());
+        let p = |a: f32, rr: f32| m((ox + dx + rr * a.cos(), oy + dy + rr * a.sin()));
         // the hook: round the right from the top to the bottom
         for k in 0..n {
             let a0 = from + (to - from) * k as f32 / n as f32;
@@ -1548,11 +1614,39 @@ fn icon_undo(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4]) {
         // a short tail back to the left along the bottom
         let (bx, by) = (ox + dx, oy + dy + rad);
         let tail = r * 0.28;
-        s.quad(g, [(bx - tail, by - w), (bx, by - w), (bx, by + w), (bx - tail, by + w)], c);
+        s.quad(g, [m((bx - tail, by - w)), m((bx, by - w)), m((bx, by + w)), m((bx - tail, by + w))], c);
         // the head at the top, pointing left
         let (tx, ty) = (ox + dx, oy + dy - rad);
         let (hw, len) = (w * 2.3, r * 0.36);
-        s.quad(g, [(tx, ty - hw), (tx, ty + hw), (tx - len, ty), (tx - len, ty)], c);
+        s.quad(g, [m((tx, ty - hw)), m((tx, ty + hw)), m((tx - len, ty)), m((tx - len, ty))], c);
+    });
+}
+
+/// Raise and Lower: a wide arrow head up or down.
+fn icon_step(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4], up: bool) {
+    let k = if up { -1.0 } else { 1.0 };
+    let (hw, hh, sw) = (r * 0.42, r * 0.3, r * 0.14);
+    shaded(g, ink, |g, dx, dy, c| {
+        let (x, y) = (cx + dx, cy + dy);
+        // the head
+        s.quad(g, [(x, y + k * hh * 1.1), (x + hw, y), (x - hw, y), (x, y + k * hh * 1.1)], c);
+        // the shaft
+        s.quad(g, [(x - sw, y), (x + sw, y), (x + sw, y - k * hh * 1.1), (x - sw, y - k * hh * 1.1)], c);
+    });
+}
+
+/// Mulligan: Undo's arrow over a ball, the shot taken back.
+fn icon_mulligan(g: &mut Gfx, s: &Ui, cx: f32, cy: f32, r: f32, ink: [f32; 4]) {
+    icon_undo(g, s, cx, cy - r * 0.08, r * 0.85, ink, false);
+    let (bx, by, br) = (cx - r * 0.34, cy + r * 0.42, r * 0.14);
+    shaded(g, ink, |g, dx, dy, c| {
+        let n = 10;
+        for k in 0..n {
+            let a0 = std::f32::consts::TAU * k as f32 / n as f32;
+            let a1 = std::f32::consts::TAU * (k + 1) as f32 / n as f32;
+            let (x, y) = (bx + dx, by + dy);
+            s.quad(g, [(x, y), (x + br * a0.cos(), y + br * a0.sin()), (x + br * a1.cos(), y + br * a1.sin()), (x, y)], c);
+        }
     });
 }
 
@@ -1694,6 +1788,10 @@ impl App {
             Btn::Undo => self.undo.can_undo() && (self.edit || matches!(self.panel, 1 | 2)),
             // out of the way of Place and Centre while a target is out
             Btn::Mute => self.touch_target_for().is_none(),
+            Btn::Redo => crate::extras::redo() && self.undo.can_redo() && (self.edit || matches!(self.panel, 1 | 2)),
+            // in Mute's place, which a target out hides
+            Btn::Mulligan => self.touch_target_for().is_some() && self.club.can_mulligan(),
+            Btn::Raise | Btn::Lower => self.height_picked().is_some(),
             // shown on their own terms (Stage::button_shown)
             Btn::Swing | Btn::Place | Btn::Centre => false,
         }

@@ -1039,6 +1039,9 @@ impl App {
             self.draw_landing_map(g, &s);
             // the height map (heightview_ui.rs), the same way
             self.draw_height_view(g, &s);
+            // the Hole boundaries brush's area (bounds_ui.rs)
+            self.draw_bounds_view(g, &s);
+            self.draw_height_pick(g, &s);
         }
         // the golfers' names and thoughts belong to the course, under the HUD
         self.draw_names(g, &s);

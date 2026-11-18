@@ -502,143 +502,60 @@ earlier run made); `--screen hd-make` opens the line's question, `--screen hd-re
 Preferences (System Functions, Preferences) has a **Game options...** line. It opens a box of optional changes,
 all off unless you tick them. Its first line is **Preset: Original / Original + helpers / OpenSGolf / Custom** (a click
 steps to the next, as the Game box does; it says Custom whenever the ticks are no preset, and the foot of the box
-describes the preset in use while the pointer is on it). Below it the options are sorted by kind on five pages (tabs
-along its top; a click on a tab, Left and Right or Tab turn them). A banner under the tabs says what the page's ticks do:
+describes the preset in use while the pointer is on it). Below it the options are sorted by kind on eight pages (tabs
+along its top; a click on a tab, Left and Right or Tab turn them), one topic each. A banner under the tabs says what the
+page's ticks do:
 
-- **Gameplay** (gameplay): "Changes how the game plays." (below)
-- **Sandbox** (gameplay): "Bends the rules for relaxed play." (the calendar, the sandbox switches and keep the land offer, below)
-- **Looks** (looks): "Changes how it looks. Play is unchanged." (path styles and lamps, Tab turns buildings, random
-  trees, home names only under the pointer, below)
-- **Info** (helpers): "Shows more about your club. Play is unchanged." Five lines, each ticking a group of the helpers
-  described under *OpenSGolf extras* further down: **People screen, name tags and live scorecards**; **Extra reports**
-  (landing map, comments by hole, history graphs, the year in numbers, tabs over the reports); **Message history and
-  clickable ticker**; **Path help**; **Home-site details**. A grouped line ticks or unticks its members together; if only
+- **Gameplay** (gameplay): "Changes the golfers and the rules of play." (weather, more visitors, walk-ins, left-handed
+  golfers, multiple tees, set par, hole boundaries, the second course, hardcore economy; below)
+- **Club** (gameplay): "Changes how you run the club: staff, land and buildings." (higher staff limits, staff reach,
+  buyable animals, keep the land offer, eyesore demolition, moving the clubhouse, the cut content; below)
+- **Sandbox** (gameplay): "Bends the rules for relaxed play." (unlock all, no new dandelions, freeze golfer happiness,
+  the calendar; below)
+- **Looks** (looks): "Changes how it looks. Play is unchanged." (the interface at the screen's edges, path styles and
+  lamps, random trees, Tab turns buildings, home names only under the pointer, playing upright, the first-person view,
+  staff names, the dark launcher; below)
+- **Info** (helpers): "Shows more about your club. Play is unchanged." Three lines that each tick a group of the
+  helpers described under *OpenSGolf extras* further down (**People screen, name tags and live scorecards**; **Extra
+  reports**: landing map, comments by hole, history graphs, the year in numbers, tabs over the reports; **Message history
+  and clickable ticker**), then **Loan interest on its own line**, **Home-site details**, **Path help**, **What unlocks
+  it**, **Design names** and **Edit what golfers say**. A grouped line ticks or unticks its members together; if only
   some of them are on (ticks saved by an older version, or Shift+H's tags), it says *(some on)* and a click turns them all
   on. Each member keeps its own tick in settings.json, so older versions read them as before.
-- **Saves** (saves): "Keeps, shows and shares your games. Play is unchanged." (autosave, save pictures, course sharing,
-  import and export saved games)
-- **Controls** (controls): "Changes what the mouse does and when the game pauses. Play is unchanged." (the three ticks
-  the Change keys' *Original* and *Modern controls* presets set: drag to place, zoom towards the pointer, right-drag
-  panning; *Aim and swing with the mouse as by touch*, see *Mouse aim and swing* below; *Right click puts the tool
-  away*; *Edge scrolling*, on by default: in full screen the pointer on the screen's very edge scrolls the view one tile
-  along its diagonal every 87 ms, at every zoom, as in the original; then the two pauses). Until 0.6.0 the Saves and
-  Controls lines were one Helpers page. However it is moved, the view's centre stays on the map, as in the original
+- **Play** (helpers): "Tools for your holes, your pro and the game's speed. Play is unchanged." (the faster top speed,
+  the hole flyover, showing a whole hole, practising a hole, challenges and the design lab, pausing while you aim)
+- **Saves** (saves): "Keeps, shows and shares your games. Play is unchanged." (autosave, saves newest first, import and
+  export saved games, course sharing, save pictures)
+- **Controls** (controls): "Changes what the mouse, touch and keys do, and when the game pauses. Play is unchanged." (the
+  three ticks the Change keys' *Original* and *Modern controls* presets set: drag to place, zoom towards the pointer,
+  right-drag panning; *Right click puts the tool away*; *Edge scrolling*, on by default: in full screen the pointer on
+  the screen's very edge scrolls the view one tile along its diagonal every 87 ms, at every zoom, as in the original;
+  *Aim and swing with the mouse as by touch*, see *Mouse aim and swing* below; *Redo, and a longer undo*; *Fine elevation
+  on touch screens*; then the two pauses). However it is moved, the view's centre stays on the map, as in the original
   (#138).
+
+Until 0.6.0 the Saves and Controls lines were one Helpers page. In 0.8.6 the old Sandbox page, which also held the club's
+land and building ticks, was split into Club and Sandbox, and the hole tools moved from Looks and Info to Play.
 
 *Check for updates when the game starts* and *Fix the original game's bugs* are ticks of Preferences > More, not in this
 box (see *The title menu* and docs/FIXES.md).
 
-Each line on the Gameplay and Sandbox pages carries a coloured tag at its right end saying how much it changes the game:
-green **Light touch** (buyable animals, left-handed golfers, keep the land offer, multiple tees), amber **Noticeable** (higher staff limits, set par, weather
-that matters, more visitors, the calendar), red **Big change** (hardcore economy, second course, freeze golfer happiness, unlock all) or
+Each line on the Gameplay, Club and Sandbox pages carries a coloured tag at its right end saying how much it changes the game:
+green **Light touch** (walk-ins, left-handed golfers, multiple tees, staff reach, buyable animals, keep the land offer,
+eyesore demolition, moving the clubhouse), amber **Noticeable** (weather that matters, more visitors, set par, hole
+boundaries, higher staff limits, no new dandelions, the calendar), red **Big change** (hardcore economy, second course,
+freeze golfer happiness, unlock all) or
 slate **Experimental** (the cut content). The foot of the box describes the line under the pointer in a sentence (on a
 touch screen the line last tapped); with none, it says how to read the box. Preferences > More > Search lists every option with
 its place and tag ("Game options > Gameplay · Noticeable: Weather that matters..."), and typing a tag's words (*big change*) finds the
-options so tagged. With every extra off the game plays exactly as the original. What you tick on the Gameplay, Sandbox
-and Looks pages in a game applies to that game only and is saved with it (a save made with everything off is unchanged);
+options so tagged. With every extra off the game plays exactly as the original. What you tick on the Gameplay, Club,
+Sandbox and Looks pages in a game applies to that game only and is saved with it (a save made with everything off is unchanged);
 new games start with what is ticked on the title screens (the box opened from the title menu, or the Game box of Select
 Difficulty; kept in settings.json under `extras`), so a sandbox game's ticks do not carry over into the next game (#137).
 Which page a line is on changes nothing of the ticks, saves or settings.
 
 On the **Gameplay** page:
 
-- **Cut content: unused landmarks (decoration only).** *(Experimental)* Only listed when you play with your own SimGolf
-  files (the art is theirs; on the free base set the line is hidden, and a game that has it on keeps it, harmlessly).
-  Fourteen pieces of art that are in the game files but that the original never loads (docs/CUT_CONTENT.md) can be
-  placed as landmarks: press the Landmark button on the Amenities panel, and press it again
-  to switch between your own landmarks, the cut ones and (with the next extra) the animals. Each costs $6,000 (the port's
-  price), golfers enjoy the sight as they enjoy a landmark's (and the course planner treats them as features), but they
-  have none of the four landmark powers. They stay for good, as landmarks do.
-- **Hardcore economy.** *(Big change)* Tighter money and choosier golfers: by default wages 150%, hole maintenance 200%, land (the
-  property and tracts) 150%, debt interest 5% a month, at most $600 per golfer per hole in fees, every bad moment costs a
-  golfer one more mood step, and at most 12 employees. The numbers are data/economy.toml's `hardcore_*` fields (docs/MODDING.md).
-- **Higher staff limits: off / up to 40 / up to 100.** *(Noticeable)* A click steps it: the club may have 40 employees
-  instead of the original's 20, or 100 for a very big club (data/economy.toml's `staff_limit_high` and `staff_limit_most`,
-  each at most 100; the original keeps its walkers in 64 records, so it never passes 63). A map larger than the
-  original's already allows more on its own (in proportion to its area, up to 63). The OpenSGolf preset uses 40.
-- **Buyable animals.** *(Light touch)* The landmark strip gets a page of the theme's animals (elk and cranes in Parkland, snakes, gila
-  monsters and road runners in the Desert, flamingos, crocodiles, snakes and ducks in the Tropics, elk, sheep and ducks on
-  the Links). A click on open ground of your course buys a pair (leader and young, $2,000) that drops in as wild animals do
-  and then keeps within about three tiles of where it was set down; bought animals never wander off for good. Golfers who
-  glance at a tile next to one enjoy the sight (the scenic thought, +1 mood, as a landmark's sight gives), and scaring one
-  is the same as scaring a wild one. Up to 32 pairs. The Preferences' "Ambient animals" tick hides and stops them, as it
-  does the wild ones.
-- **Set par.** *(Noticeable)* The game gives each hole its par from its length when it opens, and sometimes judges a hole too hard or
-  too easy for it. With this on, Hole Stats (click a hole on the Course Report) shows **-** and **+** buttons beside the
-  par (or press minus and plus there); after a confirmation the hole's par is one less or one more, from 2 to 6. A par you
-  set is shown in blue and counts everywhere par does: golfers' scores and their moods over them, birdies and eagles, the
-  hole's hard and easy marks and its name, the reports and the best rounds. It is saved with the game and moves with the
-  hole on the Routing screen. Rebuilding the hole (painting over its tee or cup green and opening it again) gives it the
-  game's par anew, a tournament's checklist sets its own pars, and switching the extra off puts every hole back to the
-  game's par. Pars cannot be changed during a tournament.
-- **Second course: 18 more holes.** *(Big change)* The original stops at 18 holes. With this on, once your 18 holes
-  are open a small **Course A | Course B** switch appears over the top left of the Build Course panel. Click it to put the
-  hole tools on Course B: tees and greens then build holes B1 to B18 on the same property, in the usual way (paint a tee and
-  a green, press H or click the new cup green to open the hole), for up to 36 holes in all. The switch also picks which
-  course the Course Report and Hole Stats show (their titles say COURSE B), and clicking a Course B flag opens its Hole
-  Stats. Each pair of golfers that arrives plays one course, its holes in order: Course B when its first tee is free and
-  it has fewer golfers out than Course A (or Course A's first tee is busy), else Course A. Members, green fees, food,
-  drink, maintenance and the rest work as before, on both courses. Kept to Course A, as the original has it: the SGA
-  evaluation, tournaments, championships, the club's and holes' ratings, Top 100 and Top 18 holes, the Best Scores and
-  course record, the year-end report and the other reports of the original, the extra reports (comments by hole, landing
-  map, history graphs), Set par, the Routing screen, the building unlocks, rank and accomplishments that come with new
-  holes, and the player's pro. Special visitors (the commissioner, the CEO, the heiress, famous pros) play Course A. A
-  golfer's card shows a Course B round against Course B's pars. A member's last-round card and hole marks are one set,
-  whichever course was played last. Course B is saved with the game only once it has been started, so a game without it
-  saves exactly as before; switching the extra off stops new pairs going to Course B and hides the switch, while golfers
-  already out there finish their round and its holes stay on the land.
-- **Multiple tees: forward and middle tees.** *(Light touch)* Real courses have several tee boxes so that a hole plays
-  shorter for weaker golfers. With this on, a hole may have a **forward tee** and a **middle tee** besides its own tee
-  (the back tee). With the Tees tool in hand, **Tab** steps the tool from *the next hole's tee* (the original's tool) to
-  *forward tee* and *middle tee* and back (the ticker says which). Pointing at the course then names the tee, and where it
-  may go, the hole it would belong to, with a line from that hole's cup and the yards. A click paints a one-tile tee there
-  at the usual price, booked to that hole's building cost. A forward or middle tee goes on open ground (not a tee or a
-  green) of an open hole, or of the hole being built once it has its tee and cup: nearer the cup than the hole's own tee,
-  within 6 tiles of the line from that tee to the cup (the nearest such hole takes it), the forward tee nearer the cup than
-  the middle one. A hole has at most one of each; to move one, paint over it with any brush and place it again (as the
-  original moves a tee), which takes only that tee away: the hole stays open. The tees are drawn with the game's own tee
-  arrow, pointing to the cup, and its own tee markers, red on the forward tee and white on the middle one. With *Second
-  course* on, the tees go to the holes of the course the Build Course panel's **Course A | Course B** switch shows, so
-  Course B's holes may have them too.
-
-  Ordinary golfers tee off by skill: a golfer's level (the game's own 0 to 2 for each golfer, which on Normal and harder
-  adds to his driving distance) plus one for each of the Length, Accuracy and Imagination classes he has beyond the first.
-  Skill 0 or 1 plays the forward tee, 2 the middle tee, 3 and up the back tee, so a person always plays the same tee.
-  Without a forward tee its golfers play the middle tee, and without a middle tee
-  the back tee, on Course B as on Course A. Touring pros, VIPs, famous challengers and your own pro always play the back tee, and so does everyone in
-  a tournament. The hole itself is still the back tee's, as the original defines it: its length, its par, its Hole Stats,
-  its ratings, the Course Report and the SGA's rating are unchanged, and the statistics count every golfer's play as
-  before (a drive from the forward tee counts in the hole's driving figures). The tees are saved with the game; a game that
-  never places one saves exactly as before, and switching the extra off sends every golfer back to the back tee (the tee
-  tiles stay, and come back into play when it is switched on again).
-- **Eyesore demolition.** *(Light touch)* On harder properties the land comes with water towers, radio masts and oil
-  pumps that golfers dislike and the original never lets you remove. With this on, right-click one (on a touch screen,
-  long press it) and a box asks whether to pull it down for §10,000; Yes takes it away, frees its tiles for building and
-  painting, and books the cost to Build course. It works only on land the club owns, and only when the club can pay
-  (as with building, the price is not checked before the third hole is open). Switching the extra off leaves anything
-  already pulled down gone.
-- **Move the clubhouse.** *(Light touch)* The original leaves the clubhouse wherever the property put it. With this on,
-  right-click it (on a touch screen, long press it) and a box offers to move it for what a new clubhouse costs
-  (§20,000, plus clearing the new spot). Yes puts the clubhouse in the building tool: its see-through picture follows the
-  pointer, red where it will not fit, and a click on land the club owns puts it down there, turned as Tab sets it. The old
-  spot goes back to rough. Paths are not moved, so buildings joined only through the old spot show as unjoined until a path
-  reaches the new one; golfers already out finish their round, and the next pair starts from the new clubhouse. Not
-  during a tournament.
-- **Staff reach grows with the map.** *(Light touch; on the Sandbox page)* On a map larger than the original's (see
-  *Course size*), every employee covers more ground: the golfers a Club Pro, Ranger or Soda Vendor walks over to, the
-  weeds a Groundskeeper looks for, and the work ring drawn round them (moving one, Shift+A's staff areas) all grow by half
-  as much as the map's edge: 124% on Large, 148% on Huge, 178% on Giant. On the original's map nothing changes. In the
-  OpenSGolf preset.
-- **Left-handed golfers.** *(Light touch)* About one golfer in ten who arrives from now on is left-handed (decided by the game's own
-  random draws when the golfer is made, and kept with the saved game). A left-hander is drawn as the mirror image of a
-  right-hander while addressing the ball, swinging and following through, still facing the shot's target; walking,
-  waiting and everything else look as before. His shots bend the other way: his draw curves from left to right and his
-  fade from right to left, and his random hooks and slices are mirrored too, so the course's doglegs suit left- and
-  right-handers differently (the golfers' own shot planning knows it). Your pro gets a **Left-handed** tick under his
-  skills on Customise Golfer (the Player panel's Customize); with it his practice rounds and matches are played
-  left-handed, the aim line bending the left-hander's way for a draw or fade (the shot keys keep their names: D is still
-  his draw). Switching the extra off puts everyone back to right-handed; switching it on again brings the left-handers
-  back.
 - **Weather that matters (rain, snow, heat, storms).** *(Noticeable)* The weather Enhanced graphics draws is played too (it changes the
   balance a little; the *OpenSGolf* preset turns it on). Which days rain follows the property's climate
   (often in Ireland, Scotland and Wales, rarely in the desert), the same days whenever the game is loaded, and a day lasts
@@ -685,6 +602,131 @@ On the **Gameplay** page:
   Scores like anyone. They do not become members. How often they come, what they wait for and pay, and who they are, is
   in `data/visitors.toml`, which content packs can change and add to (docs/MODDING.md, section 3). Not part of the
   *OpenSGolf* preset, as their fees and crowds change the club's takings.
+- **Walk-ins: visitors fill a quiet first tee.** *(Light touch)* In the original only members come to play: when none
+  is free (all out on the course, or the club has too few), the first tee stands empty. With this on, when fewer than two
+  golfers are waiting and the game finds no member to send, one time in four a golfer from the town's roster who is not a
+  member comes anyway, plays and pays the usual green fee (and may apply for membership afterwards, as any visitor may).
+  The odds are `WALK_IN_ODDS` in sg-core's golfer.rs. With the extra off no draw is made, so a game plays exactly as
+  before.
+- **Left-handed golfers.** *(Light touch)* About one golfer in ten who arrives from now on is left-handed (decided by the game's own
+  random draws when the golfer is made, and kept with the saved game). A left-hander is drawn as the mirror image of a
+  right-hander while addressing the ball, swinging and following through, still facing the shot's target; walking,
+  waiting and everything else look as before. His shots bend the other way: his draw curves from left to right and his
+  fade from right to left, and his random hooks and slices are mirrored too, so the course's doglegs suit left- and
+  right-handers differently (the golfers' own shot planning knows it). Your pro gets a **Left-handed** tick under his
+  skills on Customise Golfer (the Player panel's Customize); with it his practice rounds and matches are played
+  left-handed, the aim line bending the left-hander's way for a draw or fade (the shot keys keep their names: D is still
+  his draw). Switching the extra off puts everyone back to right-handed; switching it on again brings the left-handers
+  back.
+- **Multiple tees: forward and middle tees.** *(Light touch)* Real courses have several tee boxes so that a hole plays
+  shorter for weaker golfers. With this on, a hole may have a **forward tee** and a **middle tee** besides its own tee
+  (the back tee). With the Tees tool in hand, **Tab** steps the tool from *the next hole's tee* (the original's tool) to
+  *forward tee* and *middle tee* and back (the ticker says which). Pointing at the course then names the tee, and where it
+  may go, the hole it would belong to, with a line from that hole's cup and the yards. A click paints a one-tile tee there
+  at the usual price, booked to that hole's building cost. A forward or middle tee goes on open ground (not a tee or a
+  green) of an open hole, or of the hole being built once it has its tee and cup: nearer the cup than the hole's own tee,
+  within 6 tiles of the line from that tee to the cup (the nearest such hole takes it), the forward tee nearer the cup than
+  the middle one. A hole has at most one of each; to move one, paint over it with any brush and place it again (as the
+  original moves a tee), which takes only that tee away: the hole stays open. The tees are drawn with the game's own tee
+  arrow, pointing to the cup, and its own tee markers, red on the forward tee and white on the middle one. With *Second
+  course* on, the tees go to the holes of the course the Build Course panel's **Course A | Course B** switch shows, so
+  Course B's holes may have them too.
+
+  Ordinary golfers tee off by skill: a golfer's level (the game's own 0 to 2 for each golfer, which on Normal and harder
+  adds to his driving distance) plus one for each of the Length, Accuracy and Imagination classes he has beyond the first.
+  Skill 0 or 1 plays the forward tee, 2 the middle tee, 3 and up the back tee, so a person always plays the same tee.
+  Without a forward tee its golfers play the middle tee, and without a middle tee
+  the back tee, on Course B as on Course A. Touring pros, VIPs, famous challengers and your own pro always play the back tee, and so does everyone in
+  a tournament. The hole itself is still the back tee's, as the original defines it: its length, its par, its Hole Stats,
+  its ratings, the Course Report and the SGA's rating are unchanged, and the statistics count every golfer's play as
+  before (a drive from the forward tee counts in the hole's driving figures). The tees are saved with the game; a game that
+  never places one saves exactly as before, and switching the extra off sends every golfer back to the back tee (the tee
+  tiles stay, and come back into play when it is switched on again).
+- **Set par.** *(Noticeable)* The game gives each hole its par from its length when it opens, and sometimes judges a hole too hard or
+  too easy for it. With this on, Hole Stats (click a hole on the Course Report) shows **-** and **+** buttons beside the
+  par (or press minus and plus there); after a confirmation the hole's par is one less or one more, from 2 to 6. A par you
+  set is shown in blue and counts everywhere par does: golfers' scores and their moods over them, birdies and eagles, the
+  hole's hard and easy marks and its name, the reports and the best rounds. It is saved with the game and moves with the
+  hole on the Routing screen. Rebuilding the hole (painting over its tee or cup green and opening it again) gives it the
+  game's par anew, a tournament's checklist sets its own pars, and switching the extra off puts every hole back to the
+  game's par. Pars cannot be changed during a tournament.
+- **Hole boundaries and out of bounds.** *(Noticeable; in the OpenSGolf preset, which changes nothing until an area is
+  painted)* In the original the only out of bounds is land the club does not own. With this on, Hole Stats gets a
+  **Boundary** button: it frames the hole and puts a brush in hand that paints the hole's playing area. A click or a drag
+  adds tiles (tinted green; the tees and green are ringed in yellow and, once there is an area, everything outside it is
+  dimmed), Shift (or a long press on a touch screen) takes them out, Delete clears the whole area, and Space, Esc or a
+  right click puts the brush down. Nothing is built and nothing is charged. A golfer playing that hole on Course A aims
+  only at spots inside the area (the shot planner rates a landing outside it as out of bounds), and a ball that comes to
+  rest outside it is out of bounds as unowned land is: back to where it was hit, with a stroke added. The hole's tees and
+  the tiles round its pin always count as inside, so a hole whose area leaves them out can still be played. A hole
+  without an area, a Course B hole and every hole with the extra off play as before. The areas are saved with the game
+  (`bounds` in the club); a game without one saves as before. Test hook: `--edit "N:H,2,A,B,A2,B2"` paints the
+  rectangle A,B to A2,B2 into hole H's area and puts the brush in hand.
+- **Second course: 18 more holes.** *(Big change)* The original stops at 18 holes. With this on, once your 18 holes
+  are open a small **Course A | Course B** switch appears over the top left of the Build Course panel. Click it to put the
+  hole tools on Course B: tees and greens then build holes B1 to B18 on the same property, in the usual way (paint a tee and
+  a green, press H or click the new cup green to open the hole), for up to 36 holes in all. The switch also picks which
+  course the Course Report and Hole Stats show (their titles say COURSE B), and clicking a Course B flag opens its Hole
+  Stats. Each pair of golfers that arrives plays one course, its holes in order: Course B when its first tee is free and
+  it has fewer golfers out than Course A (or Course A's first tee is busy), else Course A. Members, green fees, food,
+  drink, maintenance and the rest work as before, on both courses. Kept to Course A, as the original has it: the SGA
+  evaluation, tournaments, championships, the club's and holes' ratings, Top 100 and Top 18 holes, the Best Scores and
+  course record, the year-end report and the other reports of the original, the extra reports (comments by hole, landing
+  map, history graphs), Set par, the Routing screen, the building unlocks, rank and accomplishments that come with new
+  holes, and the player's pro. Special visitors (the commissioner, the CEO, the heiress, famous pros) play Course A. A
+  golfer's card shows a Course B round against Course B's pars. A member's last-round card and hole marks are one set,
+  whichever course was played last. Course B is saved with the game only once it has been started, so a game without it
+  saves exactly as before; switching the extra off stops new pairs going to Course B and hides the switch, while golfers
+  already out there finish their round and its holes stay on the land.
+- **Hardcore economy.** *(Big change)* Tighter money and choosier golfers: by default wages 150%, hole maintenance 200%, land (the
+  property and tracts) 150%, debt interest 5% a month, at most $600 per golfer per hole in fees, every bad moment costs a
+  golfer one more mood step, and at most 12 employees. The numbers are data/economy.toml's `hardcore_*` fields (docs/MODDING.md).
+
+On the **Club** page:
+
+- **Higher staff limits: off / up to 40 / up to 100.** *(Noticeable)* A click steps it: the club may have 40 employees
+  instead of the original's 20, or 100 for a very big club (data/economy.toml's `staff_limit_high` and `staff_limit_most`,
+  each at most 100; the original keeps its walkers in 64 records, so it never passes 63). A map larger than the
+  original's already allows more on its own (in proportion to its area, up to 63). The OpenSGolf preset uses 40.
+- **Staff reach grows with the map.** *(Light touch)* On a map larger than the original's (see
+  *Course size*), every employee covers more ground: the golfers a Club Pro, Ranger or Soda Vendor walks over to, the
+  weeds a Groundskeeper looks for, and the work ring drawn round them (moving one, Shift+A's staff areas) all grow by half
+  as much as the map's edge: 124% on Large, 148% on Huge, 178% on Giant. On the original's map nothing changes. In the
+  OpenSGolf preset.
+- **Buyable animals.** *(Light touch)* The landmark strip gets a page of the theme's animals (elk and cranes in Parkland, snakes, gila
+  monsters and road runners in the Desert, flamingos, crocodiles, snakes and ducks in the Tropics, elk, sheep and ducks on
+  the Links). A click on open ground of your course buys a pair (leader and young, $2,000) that drops in as wild animals do
+  and then keeps within about three tiles of where it was set down; bought animals never wander off for good. Golfers who
+  glance at a tile next to one enjoy the sight (the scenic thought, +1 mood, as a landmark's sight gives), and scaring one
+  is the same as scaring a wild one. Up to 32 pairs. The Preferences' "Ambient animals" tick hides and stops them, as it
+  does the wild ones.
+- **Keep the land offer: buy land when you like.** *(Light touch)* When the County commissioner enjoys his round and
+  approves an expansion, his approval waits until you buy land. Saying *No, I'm fine* to his question, closing it, or
+  leaving TRACTS FOR SALE without buying keeps it (the ticker says so), and the Information menu shows **Buy land
+  (approved)**, which opens TRACTS FOR SALE whenever you like. Buying a tract uses the approval; at most one waits, and it
+  is kept with the saved game. In the original the approval is gone once the question is answered, though the
+  commissioner comes back on a later visitor turn while your rating stays over his mark (he comes when the fun rating, or
+  the skill rating on Hard, is over (tracts bought + 2) x (difficulty + 2) x 50), and offers again if he enjoys that round.
+- **Eyesore demolition.** *(Light touch)* On harder properties the land comes with water towers, radio masts and oil
+  pumps that golfers dislike and the original never lets you remove. With this on, right-click one (on a touch screen,
+  long press it) and a box asks whether to pull it down for §10,000; Yes takes it away, frees its tiles for building and
+  painting, and books the cost to Build course. It works only on land the club owns, and only when the club can pay
+  (as with building, the price is not checked before the third hole is open). Switching the extra off leaves anything
+  already pulled down gone.
+- **Move the clubhouse.** *(Light touch)* The original leaves the clubhouse wherever the property put it. With this on,
+  right-click it (on a touch screen, long press it) and a box offers to move it for what a new clubhouse costs
+  (§20,000, plus clearing the new spot). Yes puts the clubhouse in the building tool: its see-through picture follows the
+  pointer, red where it will not fit, and a click on land the club owns puts it down there, turned as Tab sets it. The old
+  spot goes back to rough. Paths are not moved, so buildings joined only through the old spot show as unjoined until a path
+  reaches the new one; golfers already out finish their round, and the next pair starts from the new clubhouse. Not
+  during a tournament.
+- **Cut content: unused landmarks (decoration only).** *(Experimental)* Only listed when you play with your own SimGolf
+  files (the art is theirs; on the free base set the line is hidden, and a game that has it on keeps it, harmlessly).
+  Fourteen pieces of art that are in the game files but that the original never loads (docs/CUT_CONTENT.md) can be
+  placed as landmarks: press the Landmark button on the Amenities panel, and press it again
+  to switch between your own landmarks, the cut ones and (with the next extra) the animals. Each costs $6,000 (the port's
+  price), golfers enjoy the sight as they enjoy a landmark's (and the course planner treats them as features), but they
+  have none of the four landmark powers. They stay for good, as landmarks do.
 
 On the **Sandbox** page:
 
@@ -720,13 +762,6 @@ On the **Sandbox** page:
   what the course has not earned; landmarks the club owns stay.
 - **Sandbox: no new dandelions.** *(Noticeable)* Dandelions and other weeds stop spreading over the course and unhappy golfers no longer start them, so it stays
   clear without groundskeepers or the landmarks that keep weeds away. The ones already there stay until pulled.
-- **Keep the land offer: buy land when you like.** *(Light touch)* When the County commissioner enjoys his round and
-  approves an expansion, his approval waits until you buy land. Saying *No, I'm fine* to his question, closing it, or
-  leaving TRACTS FOR SALE without buying keeps it (the ticker says so), and the Information menu shows **Buy land
-  (approved)**, which opens TRACTS FOR SALE whenever you like. Buying a tract uses the approval; at most one waits, and it
-  is kept with the saved game. In the original the approval is gone once the question is answered, though the
-  commissioner comes back on a later visitor turn while your rating stays over his mark (he comes when the fun rating, or
-  the skill rating on Hard, is over (tracts bought + 2) x (difficulty + 2) x 50), and offers again if he enjoys that round.
 
 The "Sandbox:" switches and a stopped calendar are what a Sandbox Mode game (unlimited money) is most often wanted
 with, but each works in a normal game too.
@@ -766,6 +801,9 @@ On the **Looks** page:
   turns ("Name's" over "Home", a few seconds each). With this on the names stay hidden until the pointer is on a home site,
   and that lot's name shows for as long as the pointer stays there (at the closest zoom, as before). With a finger, which
   cannot hover, the names do not show. Kept as `home_labels_hover` under `ui_extras` in `settings.json`.
+- **Dark launcher** (off by default, and no preset sets it): the launcher in the dark colours the web page uses with a
+  dark theme (web/index.html's dark palette): the panel, its cards and their words. The gel buttons, tabs and the game's
+  own screens are unchanged. Kept as `dark_menus` under `ui_extras` in `settings.json`.
 - *Fix the desert's swapped Ravine and Brush art* (issue #89, 0.5.6 to 0.5.13) is gone: the pictures were the
   original's all along, and it was the port's names that were swapped (issue #117). In the desert theme (Las Vegas,
   Phoenix, Spain and the other desert properties) the original calls tile 10 (drawn with its Overgrowth textures, dry
@@ -791,8 +829,8 @@ data/visitors.toml (0..5 the touring pros, 6..13 the celebrities); `--edit "R:N"
 confirmation box; `R:N,1` sets it at once); `--edit "X:BITS"` sets the extras of the game being played; `--edit "T:x,y"`
 presses the Tab of the first extra with the pointer on tile x,y; `--edit "S:page[,design]"` opens the Amenities panel with the
 landmark tool on strip page 0 (own), 1 (cut) or 2 (animals); `--edit "b:x,y,4,t"` places landmark type t (19..32 the cut ones,
-100 + kind an animal pair); `--edit "M:6"` opens the extras box (`M:6,P` on page P: 0 Gameplay, 1 Sandbox, 2
-Looks, 3 Info, 4 Saves, 5 Controls; `SG_POPUP_MOUSE="x,y"` leaves the pointer on the box there, so the foot shows that line's
+100 + kind an animal pair); `--edit "M:6"` opens the extras box (`M:6,P` on page P: 0 Gameplay, 1 Club, 2
+Sandbox, 3 Looks, 4 Info, 5 Play, 6 Saves, 7 Controls; `SG_POPUP_MOUSE="x,y"` leaves the pointer on the box there, so the foot shows that line's
 description: at 800 x 600 the preset line is at y 138 and a page's first option at y 282). Path styles and lamps: the style is bits 13 to 15 of `--extras` and `X:` (8192 times 1 original paths, 2
 brick, 3 gravel, 4 dark stone, 5 boardwalk), `--edit "S:3"` opens the lamp page, `--edit "b:x,y,4,200"` places a lamp post
 on tile x,y, and `SG_FX_HOUR=0.95` (night) lights the lanterns for stills.
@@ -910,7 +948,7 @@ names). They only add a screen, a tag, a strip, a button or a save: helpers (and
 Ravine and Brush art, the hole flyover), none of them
 changes how the game plays. A new player starts with them off; the *Original + helpers* and *OpenSGolf* presets turn
 them on in one click (the two pauses and the three controls ticks excepted, which stay as you set them), and System
-Functions, Preferences, *Game options...* ticks them on its Info, Saves and Controls pages (the Info page by groups) and
+Functions, Preferences, *Game options...* ticks them on its Info, Play, Saves and Controls pages (the Info page partly by groups) and
 Looks page (kept in `settings.json` under `ui_extras`, one tick each; a tick missing there reads as off, and so do they
 all when settings.json has no `ui_extras` at all, as in settings from before the extras or written only by other
 screens), and `--no-extras` turns them all off for one run. With every tick off the game draws and plays exactly as before (the stills of every report, panel and menu
@@ -1020,7 +1058,31 @@ compare pixel for pixel with the build before the extras).
   what the other helpers already know: buildings off the paths, tees with no path near them, fairway, green and tee
   tiles no groundskeeper reaches, holes golfers find dull (fun factor under 40%) and each hole's commonest complaint this
   year. Each line has a green OK when all is well or a red ! when there is something to do. It only reads the game.
-- **Challenges and the design lab** (an Info page tick, off by default): *Information, Challenges* lists six aims to
+- **Loan interest on its own line** (an Info page tick; off, on in the helper presets): the Financial Report's
+  Maintenance row includes the 2% a month interest on debt, as in the original. With this on that row is **Upkeep**, the
+  upkeep alone, and a **Loan interest** row under the total shows the interest. The total is the same. Interest is kept
+  apart from when this version first books it: interest paid before that (in a game from an older version) stays in
+  Upkeep for its year, and until the club has paid any the report is the original's.
+- **Edit what golfers say** (an Info page tick; off, on in the helper presets): a golfer's profile gets a **Lines**
+  button (or S) that lists the twenty lines of the Customise screen's table (the signature saying, a good shot, a tree
+  hit and so on): the golfer's own in navy, the usual one in grey. A click on one opens a prompt to write the golfer's own
+  (up to 47 letters, as the person record keeps); an empty line gives the usual one back. It is the same line Customise
+  Golfer edits, saved with the game.
+- **Faster top speed** (a Play page tick; off, on in the helper presets): ] and the touch Speed button go on to **x16**
+  after x8. How fast the game really runs at x16 depends on the computer.
+- **Show a whole hole** (a Play page tick; off, on in the helper presets): Hole Stats gets a **Show hole** button, and
+  the hole keys (1 to 9, Shift for 10 to 18) frame the whole hole on the screen, tees, yardage markers and green, in the
+  part over the dock's panel, instead of the original's jump that only centres the camera between the back tee and the
+  pin. With Classic graphics the zoom is the closest of the original's three levels that holds the hole; with Enhanced
+  graphics' smooth camera it is the zoom that just holds it. Test hook: `--edit "N:H"` frames hole H on the first frame.
+- **Practise a hole** (a Play page tick; off, on in the helper presets): Hole Stats gets a **Practise** button that
+  sends your pro and a partner out to play just that hole, starting on its tee; you aim the shots as in a practice round.
+  While he practises, **Backspace** (or the touch Mulligan button) takes his last shot back: he and his ball return to
+  where it was hit from and the stroke comes off, to play it again (only the last shot, while he waits for the next).
+  When he holes out the ticker gives his score against par next to the hole's stroke average, and Hole Stats can send
+  him out again. Nothing goes in the round records. His skills must be handed out first (start a practice round from
+  the Player panel once). Test hook: `--edit "N:H,1"` sends him out on hole H with the shots aimed at the pin.
+- **Challenges and the design lab** (a Play page tick, off by default): *Information, Challenges* lists six aims to
   take on. Click one (or press 1 to 6) to take it on and again to give it up. *Perfect par 3*: a par 3 rated Outstanding
   (fun 60% or more). *Signature par 5*: a par 5 of 500 yards or more rated Outstanding that golfers average 6 or less
   on. *Tough but fair*: a hole golfers average a stroke or more over par on and still rate Very good (40%). *Balanced
@@ -1060,7 +1122,7 @@ compare pixel for pixel with the build before the extras).
   warns about debt at the end of the year (the year-end report follows when the game goes on), or the cash goes below
   zero (not in Sandbox Mode). The news is where the original puts it, on the ticker or the report; *Paused for big news*
   under the Paused caption. Unpause as usual (Shift+P or the dock's pause button).
-- **Pause while you aim your pro** (off; the presets leave it as you set it): the club stands still while your pro waits
+- **Pause while you aim your pro** (on the Play page; off, and the presets leave it as you set it): the club stands still while your pro waits
   for your shot, in a tournament too, and goes on the moment you swing. Building with your pro on the course is not
   held up: the pause is only for the shot.
 - **Check for updates when the game starts** (a tick of Preferences > More, not in the extras box; on from 0.6, and the presets leave
@@ -1209,6 +1271,12 @@ its residents, as when it is demolished. In the course editor a heightmap import
 as a whole, as no time passes there. Up to 30 steps are kept; the list starts empty with each game and is not saved. On
 a phone or tablet the round **Undo** touch button does the same while you build. (The port's own; not in the original.)
 
+**Redo, and a longer undo** (an OpenSGolf extra on the Controls page, off by default; on in the helper presets):
+**Ctrl+Y** or **Ctrl+Shift+Z** (Cmd on a Mac) does again what Ctrl+Z last took back, money and all, and it goes back on
+the undo list; Ctrl+Z and Ctrl+Y can go back and forth through the steps. A new click that changes the course clears what
+there was to redo. With it on, undo keeps the last 100 steps instead of 30. On a touch screen a **Redo** button (Undo's
+arrow turned the other way) shows left of Undo while there is something to redo.
+
 Placing, removing and undoing (the right click's or Ctrl+Z) show what they cost or gave back over each tile, as in the
 original: "-400" in red for money paid, "+5,000" in green for money back, without the money sign, in the font and
 colours of the green fees' amounts. The amount sits still on its tile for about two seconds (also while the game is
@@ -1332,7 +1400,7 @@ changed every key does what it did before.
   (up to 24 letters; Enter keeps it, Esc leaves it as it was, an empty name gives the hole its own name back). The name
   shows wherever the game names the hole (Hole Stats, the Course Report, the pro's shots) with the hole's number after
   it, and is saved with the game. Test hook: `SG_HOLE_NAME=TEXT` with `--screen holestats`.
-* **Hole flyover** (an OpenSGolf extra on the Looks page, off by default; on in the *Original + helpers* and *OpenSGolf*
+* **Hole flyover** (an OpenSGolf extra on the Play page, off by default; on in the *Original + helpers* and *OpenSGolf*
   presets): Hole Stats (a click on an open hole's flag, or the Course Report) gets a *Fly over* button. It shows that one
   hole from the air: the interface goes and the camera glides from where it is to the back tee, down the hole over the
   fairway to the green, with the hole's number, par and length in a caption, and back to where it was; any key, click or
@@ -1528,7 +1596,12 @@ keys that have no button in the game: **Speed** (], normal, x2, x4: its arrows s
 message again), **Turn** (Tab; only while Tab turns something: a building or a green's look in hand, the Path styles
 extra's style with the Pathway tool, placed buildings with the Rotate extra) and **Open hole** (h; only once the hole being
 built has its tee and green). **Undo** (Ctrl+Z, a hooked arrow to the left of Speed) shows while you build (a tool in hand,
-or the Build Course or Add Buildings panel open) once there is a click to undo. A button acts when the finger lifts on it (slide off to let it be) and shows its name while
+or the Build Course or Add Buildings panel open) once there is a click to undo, and with the Redo extra **Redo** to its
+left once there is one to redo. While your pro practises a hole (the Practise a hole extra) **Mulligan** (Backspace,
+Undo's arrow over a ball) takes his last shot back, in the Sound button's place. With the *Fine elevation on touch
+screens* extra and an elevation tool in hand, a tap on the course picks a corner (ringed in gold) instead of raising it,
+and **Raise** and **Lower** (arrows up and down, left of Turn and Open hole) step that corner, or the Elevation panel
+tool's square or area, one notch a press, each press one Ctrl+Z; a mouse raises and lowers as before. A button acts when the finger lifts on it (slide off to let it be) and shows its name while
 pressed; it does what its action does whatever keys are set in Keyboard controls, and nothing under it is clicked. They
 step left of the Staff areas, Path view and Landing map legends while one is up, and are hidden with the interface (u),
 in photo mode and under any screen, box or name being typed. Naming a course or a save raises the

@@ -6,6 +6,10 @@
 //! Rounds button turns that list into the golfer's rounds here (extras.rs `Round`, kept as each round ends): when, the
 //! score against the par of the holes played, and what the golfer spent; Said turns it back.
 //!
+//! With the Edit what golfers say extra on, the Lines button turns the list into the golfer's lines, the Customise screen's
+//! twenty rows (the golfer's own line, or the stock one in grey), and a click on one opens a prompt to write the golfer's
+//! own; an empty line gives the stock one back.
+//!
 //! In the look of the port's other own screens (keys_ui). Keys: Up, Down, PageUp, PageDown and the wheel scroll what was
 //! said; L locates, C opens the card, B edits the bio; Esc, Enter, a right click or the OK tick go back.
 use crate::app::*;
@@ -36,7 +40,16 @@ fn button_rect(i: usize) -> Rect {
     Rect::new(BOX.x + 24.0 + 92.0 * i as f32, BUTTON_Y, 84.0, 20.0)
 }
 
-const BUTTONS: [&str; 4] = ["STR_PEOPLE_LOCATE", "STR_PEOPLE_CARD", "STR_GPROFILE_EDIT_BIO", "STR_GPROFILE_ROUNDS"];
+const BUTTONS: [&str; 5] = ["STR_PEOPLE_LOCATE", "STR_PEOPLE_CARD", "STR_GPROFILE_EDIT_BIO", "STR_GPROFILE_ROUNDS", "STR_GPROFILE_LINES"];
+
+/// The buttons shown: Lines only with the Edit what golfers say extra.
+fn buttons() -> usize {
+    if crate::extras::golfer_lines() {
+        BUTTONS.len()
+    } else {
+        BUTTONS.len() - 1
+    }
+}
 
 /// The page's state: the golfer's person record, the newest thing said shown at the top, and the screen to go back to.
 #[derive(Default)]
@@ -46,6 +59,8 @@ pub struct ProfileUi {
     pub back: Option<Screen>,
     /// The list shows the rounds here instead of what was said.
     pub rounds: bool,
+    /// The list shows the golfer's lines (the Edit what golfers say extra).
+    pub lines: bool,
 }
 
 impl App {
@@ -55,6 +70,7 @@ impl App {
         }
         self.xs.profile.roster = roster;
         self.xs.profile.off = 0;
+        self.xs.profile.lines = false;
         self.screen = Screen::Profile;
         self.hover = -1;
     }
@@ -67,7 +83,9 @@ impl App {
 
     fn profile_said_len(&self) -> usize {
         let r = &self.xs.profile.roster;
-        if self.xs.profile.rounds {
+        if self.lines_shown() {
+            sg_core::roster::SAYING_CODES.len()
+        } else if self.xs.profile.rounds {
             self.xs.kept.rounds.get(r).map(|v| v.len()).unwrap_or(0)
         } else {
             self.xs.kept.said.get(r).map(|v| v.len()).unwrap_or(0)
@@ -104,7 +122,12 @@ impl App {
                 }
             }
             3 => {
-                self.xs.profile.rounds = !self.xs.profile.rounds;
+                self.xs.profile.rounds = !self.xs.profile.rounds || self.xs.profile.lines;
+                self.xs.profile.lines = false;
+                self.xs.profile.off = 0;
+            }
+            4 => {
+                self.xs.profile.lines = !self.xs.profile.lines && crate::extras::golfer_lines();
                 self.xs.profile.off = 0;
             }
             _ => {
@@ -127,9 +150,49 @@ impl App {
         if DOWN.has(x, y) {
             return self.profile_scroll(3);
         }
-        if let Some(b) = (0..BUTTONS.len()).find(|&b| button_rect(b).has(x, y)) {
+        if let Some(b) = (0..buttons()).find(|&b| button_rect(b).has(x, y)) {
             self.profile_action(b);
+            return;
         }
+        // a click on one of the golfer's lines: a prompt to write the golfer's own
+        let r = self.xs.profile.roster;
+        if self.lines_shown() && (SAID_X - 116.0..UP.x).contains(&x) && y >= SAID_TOP + 2.0 && r >= 0 {
+            let row = self.xs.profile.off + ((y - SAID_TOP - 2.0) / LINE) as usize;
+            if row < sg_core::roster::SAYING_CODES.len() && (r as usize) < self.club.roster.len() && y < SAID_BOTTOM {
+                self.xs.rename_for = Some(RenameFor::Saying(r, row));
+                self.rename = Some(self.club.roster[r as usize].saying(row).unwrap_or("").to_string());
+            }
+        }
+    }
+
+    /// Whether the list shows the golfer's lines.
+    fn lines_shown(&self) -> bool {
+        self.xs.profile.lines && crate::extras::golfer_lines()
+    }
+
+    /// The golfer's lines: each Customise row's label and the golfer's own line, or the stock line in grey.
+    fn draw_profile_lines(&self, g: &mut Gfx, s: &Ui, r: i32, p: &sg_core::roster::Person) -> usize {
+        use sg_core::roster::{SAYING_CODES, SAYING_LABEL_KEYS};
+        let (navy, grey) = (c15(0x0018), c15(0x2d6b));
+        let gs = self.golfer_of(r).unwrap_or(0).min(sg_core::golfer::SLOTS - 1);
+        let rows = ((SAID_BOTTOM - SAID_TOP - 2.0) / LINE) as usize;
+        let mut shown = 0;
+        for row in self.xs.profile.off..SAYING_CODES.len() {
+            if shown >= rows {
+                break;
+            }
+            let y = SAID_TOP + 2.0 + LINE * shown as f32;
+            let label = format!("{}...", tr(SAYING_LABEL_KEYS[row]));
+            s.put(g, F_ARIAL10, BOX.x + 24.0, y + 3.0, &label, navy);
+            let (t, col) = match p.saying(row) {
+                Some(t) => (t.to_string(), navy),
+                None => (self.club.stock_thought(&self.course, SAYING_CODES[row], 0, gs, r.max(0) as usize).text, grey),
+            };
+            let t = wrap(F_MANUAL15, &t, SAID_W - 40.0).into_iter().next().unwrap_or_default();
+            s.put(g, F_MANUAL15, SAID_X + 40.0, y, &t, col);
+            shown += 1;
+        }
+        shown
     }
 
     pub fn profile_key(&mut self, k: miniquad::KeyCode) {
@@ -144,6 +207,7 @@ impl App {
             KeyCode::C => self.profile_action(1),
             KeyCode::B => self.profile_action(2),
             KeyCode::R => self.profile_action(3),
+            KeyCode::S if crate::extras::golfer_lines() => self.profile_action(4),
             _ => {}
         }
     }
@@ -214,7 +278,10 @@ impl App {
         }
         // what the golfer has said, or (Rounds) the rounds played here, newest first
         let rounds = self.xs.profile.rounds;
-        let head = if rounds {
+        let lines = self.lines_shown();
+        let head = if lines {
+            trf("STR_GPROFILE_LINES_HEAD", &[("GOLFER", &name)])
+        } else if rounds {
             let n = self.xs.kept.rounds.get(&r).map_or(0, |v| v.len());
             trf("STR_GPROFILE_ROUNDS_HEAD", &[("GOLFER", &name), ("COUNT", &n)])
         } else {
@@ -222,13 +289,15 @@ impl App {
         };
         s.put_shadowed(g, F_MANUAL15, BOX.x + 24.0, SAID_TOP - 20.0, &head, yellow, false);
         s.fill(g, BOX.x + 24.0, SAID_TOP - 3.0, UP.x - BOX.x - 32.0, 1.0, rgba(0.0, 0.0, 0.3, 0.4));
-        let said: Vec<crate::extras::Said> = if rounds {
+        let said: Vec<crate::extras::Said> = if lines {
+            Vec::new()
+        } else if rounds {
             let kept = self.xs.kept.rounds.get(&r).cloned().unwrap_or_default();
             kept.iter().map(|k| crate::extras::Said { tick: k.tick, text: Self::round_words(k), tone: 0 }).collect()
         } else {
             self.xs.kept.said.get(&r).cloned().unwrap_or_default()
         };
-        if said.is_empty() {
+        if said.is_empty() && !lines {
             let none = tr(if rounds { "STR_GPROFILE_NO_ROUNDS" } else { "STR_GPROFILE_NOTHING_SAID" });
             s.put(g, F_MANUAL15, SAID_X, SAID_TOP + 4.0, none, grey);
         }
@@ -253,19 +322,25 @@ impl App {
             y += h;
             shown += 1;
         }
+        let mut total = said.len();
+        if lines {
+            shown = self.draw_profile_lines(g, &s, r, &p);
+            total = sg_core::roster::SAYING_CODES.len();
+        }
         let (px, py) = self.info.pointer;
-        let (can_up, can_down) = (self.xs.profile.off > 0, self.xs.profile.off + shown < said.len());
+        let (can_up, can_down) = (self.xs.profile.off > 0, self.xs.profile.off + shown < total);
         for (b, up, ok) in [(UP, true, can_up), (DOWN, false, can_down)] {
             draw_button(g, &s, b, "", ok, b.has(px, py));
             draw_arrow(g, &s, b.x + b.w / 2.0, b.y + b.h / 2.0, up, if ok { navy } else { grey });
         }
-        for (b, label) in BUTTONS.iter().enumerate() {
+        for (b, label) in BUTTONS.iter().enumerate().take(buttons()) {
             let rr = button_rect(b);
             let ok = b >= 2 || slot.is_some();
-            let label = if b == 3 && self.xs.profile.rounds { "STR_GPROFILE_SAID_BUTTON" } else { label };
+            let label = if b == 3 && self.xs.profile.rounds && !lines { "STR_GPROFILE_SAID_BUTTON" } else { label };
             draw_button(g, &s, rr, tr(label), ok, rr.has(px, py));
         }
-        s.put(g, F_ARIAL10, BOX.x + 24.0, BOX.y + BOX.h - 24.0, tr("STR_GPROFILE_HELP"), navy);
+        let help = tr(if crate::extras::golfer_lines() { "STR_GPROFILE_HELP_LINES" } else { "STR_GPROFILE_HELP" });
+        s.put(g, F_ARIAL10, BOX.x + 24.0, BOX.y + BOX.h - 24.0, help, navy);
         if self.art.trans.tex.is_some() {
             let r = ok_tick();
             s.image_part(g, &self.art.trans, r.x, r.y, 350.0, 140.0, 50.0, 50.0);

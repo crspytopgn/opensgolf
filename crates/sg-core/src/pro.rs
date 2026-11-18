@@ -282,6 +282,14 @@ impl Club {
             g.field_ae = 0;
         }
         self.g[a].flags &= !flag::STORY;
+        // Practise a hole: the pair starts on that hole's tee instead of the first
+        if self.practice_hole > 0 && self.par(self.practice_hole) != 0 {
+            self.g[a].hole = self.practice_hole;
+            self.g[p].hole = self.practice_hole;
+        } else {
+            self.practice_hole = 0;
+        }
+        self.mulligan = None;
         let gp = &mut self.g[p];
         gp.flags &= !0x10_001c;
         gp.kind = 0x24;
@@ -349,11 +357,42 @@ impl Club {
         Some(AimPreview { x: px, y: py, distance: cd, club, max_range: maxr })
     }
 
+    /// Practise a hole (an OpenSGolf extra): asks for a practice round of hole `h` alone, as the panel's practice round is
+    /// asked for (`request_pro_round`). False when no round can start or the hole is not open.
+    pub fn request_practice_hole(&mut self, h: i32) -> bool {
+        if !(1..=18).contains(&h) || self.par(h) == 0 || !self.request_pro_round(false) {
+            return false;
+        }
+        self.practice_hole = h;
+        true
+    }
+
+    /// A mulligan while practising a hole: the pro back where he was before his last shot, ball and stroke count too, to
+    /// play it again. Only while he waits for the player's aim on the same hole.
+    pub fn mulligan(&mut self) -> bool {
+        let Some(g) = self.pro_aiming() else { return false };
+        let Some(was) = self.mulligan.take() else { return false };
+        if self.practice_hole == 0 || was.hole != self.g[g].hole {
+            return false;
+        }
+        self.g[g] = *was;
+        true
+    }
+
+    /// Whether a mulligan can be taken now (`mulligan`).
+    pub fn can_mulligan(&self) -> bool {
+        self.practice_hole != 0 && self.pro_aiming().is_some_and(|g| self.mulligan.as_ref().is_some_and(|m| m.hole == self.g[g].hole))
+    }
+
     /// A click while aiming (0x41f29d): the hovered tile becomes the aim and the pro swings next tick.
     pub fn commit_aim(&mut self) -> bool {
         let Some(g) = self.pro_aiming() else { return false };
         if self.aim_lock >= 1 {
             return false;
+        }
+        // practising a hole: the pro as he is before the shot, for a mulligan
+        if self.practice_hole != 0 {
+            self.mulligan = Some(Box::new(self.g[g].clone()));
         }
         self.g[g].aim_a = self.aim_tile.0;
         self.g[g].aim_b = self.aim_tile.1;
@@ -378,6 +417,8 @@ impl Club {
             }
         }
         self.gary = -1;
+        self.practice_hole = 0;
+        self.mulligan = None;
         true
     }
 

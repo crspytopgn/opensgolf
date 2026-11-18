@@ -351,12 +351,72 @@ fn pc(v: u32, a: f32) -> Col {
     [((v >> 16) & 255) as f32, ((v >> 8) & 255) as f32, (v & 255) as f32, a]
 }
 
-const INK: [f32; 4] = c(0x1c2a1f);
-const INK_SOFT: [f32; 4] = c(0x3d4f41);
 const GOLD: [f32; 4] = c(0xffd23f);
-const CARD_HEAD: [f32; 4] = c(0x1d6b2f);
 const WHITE: [f32; 4] = [1.0; 4];
 const PANEL: u32 = 0xf5f9ee;
+
+/// The Dark menus extra: the page's dark palette (web/index.html's dark scheme) for the panel, its cards and their ink.
+fn dark() -> bool {
+    crate::extras::dark_menus()
+}
+
+/// A colour of the light palette as the palette in use has it: with Dark menus, the dark scheme's counterpart (web/index.html
+/// :root[data-theme="dark"]); every other colour as it is.
+fn dk(v: u32) -> u32 {
+    if !dark() {
+        return v;
+    }
+    match v {
+        // the panel and its edge, the cards and fields (--panel, --panel-edge, --inset, --inset-lo, --line)
+        0xf5f9ee => 0x142019,
+        0xffffff => 0x1c2b21,
+        0xe3e8ec => 0x16241b,
+        0xb4c6ab | 0x7d8fa3 => 0x0a120d,
+        0xc8d6bf | 0xe3ebdc => 0x2f4636,
+        // the ink (--ink, --ink-soft, --link, --foot)
+        0x1c2a1f => 0xe9f2e6,
+        0x3d4f41 => 0xbfd0c2,
+        0x0b5aa8 => 0x8cc8ff,
+        0x59625c => 0xa9b6ad,
+        // the tip and the files' problem (--tip-bg, --tip-edge, --tip-ink)
+        0xfff4c2 => 0x3a2f0a,
+        0xd89a00 => 0xe0a800,
+        0x2b2100 => 0xfff1c2,
+        // the news box (--news-bg, --news-edge)
+        0xeef5fb => 0x15233a,
+        0x8fb3d6 => 0x3c5f8c,
+        // the backdrop (--bg1..3) and the masthead's sky
+        0x1f6b3f => 0x0f2a1b,
+        0x164a42 => 0x0b1d1f,
+        0x102a4f => 0x070f22,
+        0x1b5cae => 0x0c1838,
+        0x3a86d4 => 0x213a70,
+        0x8cc4ee => 0x4b5b8f,
+        v => v,
+    }
+}
+
+/// `c` through the palette in use.
+fn t(v: u32) -> [f32; 4] {
+    c(dk(v))
+}
+
+fn ink() -> [f32; 4] {
+    t(0x1c2a1f)
+}
+
+fn ink_soft() -> [f32; 4] {
+    t(0x3d4f41)
+}
+
+/// The cards' heads: the bars' green, gold on the dark panel (--card-head).
+fn card_head() -> [f32; 4] {
+    if dark() {
+        GOLD
+    } else {
+        c(0x1d6b2f)
+    }
+}
 
 // ---- the baked pieces --------------------------------------------------------------------------------------------------------
 
@@ -411,6 +471,8 @@ struct Spec {
     lo: (u32, f32),
     shadow: (u32, f32, f32, f32),
     ring: (u32, f32, f32),
+    /// Its colours go through the palette in use (`dk`): the panel's own pieces, not the gel buttons.
+    themed: bool,
 }
 
 const NO_SHADOW: (u32, f32, f32, f32) = (0, 0.0, 0.0, 0.0);
@@ -429,6 +491,7 @@ fn spec(k: Skin) -> Spec {
         lo,
         shadow: DROP,
         ring: NO_RING,
+        themed: false,
     };
     let flat = |fill: &'static [(f32, u32)], border: u32, bw: f32, r: f32, ring| Spec {
         stops: fill,
@@ -441,8 +504,24 @@ fn spec(k: Skin) -> Spec {
         lo: (0, 0.0),
         shadow: NO_SHADOW,
         ring,
+        themed: false,
     };
-    match k {
+    let themed = matches!(
+        k,
+        Skin::TabOn
+            | Skin::Mast
+            | Skin::Site
+            | Skin::Card
+            | Skin::Primary
+            | Skin::Summary
+            | Skin::Problem
+            | Skin::News
+            | Skin::Check
+            | Skin::Field
+            | Skin::Radio
+            | Skin::Tip
+    );
+    let sp = match k {
         Skin::Gold => gel(&[(0.0, 0xfff6c4), (0.45, 0xffe066), (0.52, 0xffcc1f), (1.0, 0xffd84a)], 0xa87400, 0.9, (0x965a00, 0.25)),
         Skin::Green => {
             gel(&[(0.0, 0x8fdc98), (0.22, 0x3d9e4e), (0.5, 0x1f7532), (0.52, 0x18672a), (1.0, 0x1f7632)], 0x0e4a1c, 0.6, (0x000000, 0.25))
@@ -475,10 +554,20 @@ fn spec(k: Skin) -> Spec {
         Skin::Radio => Spec { r: -1.0, ..spec(Skin::Check) },
         Skin::RadioOn => Spec { r: -1.0, ..spec(Skin::CheckOn) },
         Skin::Tip => Spec { hi: 0.5, ..flat(&[(0.0, 0xfff4c2)], 0xd89a00, 2.0, 10.0, NO_RING) },
-    }
+    };
+    Spec { themed, ..sp }
 }
 
 impl Spec {
+    /// A colour of the piece's in the palette in use.
+    fn tc(&self, v: u32) -> u32 {
+        if self.themed {
+            dk(v)
+        } else {
+            v
+        }
+    }
+
     /// The room round the piece its shadow and ring take, in units.
     fn margin(&self) -> f32 {
         let s = if self.shadow.1 > 0.0 { self.shadow.2 + self.shadow.3.abs() } else { 0.0 };
@@ -502,7 +591,7 @@ impl Spec {
     /// The colour at `t` down the gradient.
     fn at(&self, t: f32) -> Col {
         let s = self.stops;
-        let col = |v: u32| pc(v, 1.0);
+        let col = |v: u32| pc(self.tc(v), 1.0);
         if t <= s[0].0 {
             return col(s[0].1);
         }
@@ -550,11 +639,11 @@ fn bake(sp: &Spec, w: f32, h: f32, lit: bool) -> Canvas {
     let (rc, ra, rw) = sp.ring;
     if rw > 0.0 {
         let rw = rw * K;
-        cv.fill(all, |px, py| (shape(px, py, 0.0) - rw).max(-shape(px, py, 0.0)), |_, _| pc(rc, ra));
+        cv.fill(all, |px, py| (shape(px, py, 0.0) - rw).max(-shape(px, py, 0.0)), |_, _| pc(sp.tc(rc), ra));
     }
     let b = sp.bw * K;
     if b > 0.0 {
-        cv.fill(all, |px, py| shape(px, py, 0.0).max(-shape(px, py, b)), |_, _| pc(sp.border.0, sp.border.1));
+        cv.fill(all, |px, py| shape(px, py, 0.0).max(-shape(px, py, b)), |_, _| pc(sp.tc(sp.border.0), sp.border.1));
     }
     let white = pc(0xffffff, 1.0);
     let (lo, lo_a) = sp.lo;
@@ -917,8 +1006,8 @@ fn paint_art(a: Art) -> Canvas {
 }
 
 thread_local! {
-    /// The baked pieces made so far: the skins by (skin, height in quarter units, lit) and the pictures.
-    static SKINS: RefCell<HashMap<(Skin, u32, bool), Image>> = RefCell::new(HashMap::new());
+    /// The baked pieces made so far: the skins by (skin, height in quarter units, lit, Dark menus) and the pictures.
+    static SKINS: RefCell<HashMap<(Skin, u32, bool, bool), Image>> = RefCell::new(HashMap::new());
     static ARTS: RefCell<HashMap<Art, Image>> = RefCell::new(HashMap::new());
 }
 
@@ -933,7 +1022,7 @@ fn skin_image(g: &mut Gfx, k: Skin, h: f32, lit: bool) -> (Image, Spec) {
     let sp = spec(k);
     let key_h = if sp.sliced3() { (h * 4.0).round() as u32 } else { 0 };
     let im = SKINS.with(|m| {
-        *m.borrow_mut().entry((k, key_h, lit)).or_insert_with(|| {
+        *m.borrow_mut().entry((k, key_h, lit, dark())).or_insert_with(|| {
             let r = sp.radius(h);
             let cv = if sp.sliced3() { bake(&sp, 2.0 * r + 8.0, h, lit) } else { bake(&sp, 2.0 * r + 8.0, 2.0 * r + 8.0, lit) };
             texture(g, &cv)
@@ -1209,8 +1298,8 @@ pub fn layout(m: &Model, w: f32, h: f32, out: &mut Out) {
 /// The page's backdrop (#backdrop): deep green into navy, a soft light behind the panel, the dimples and the dark edges.
 fn backdrop(w: f32, h: f32, out: &mut Out) {
     let mid_y = h * 0.48;
-    out.gradient(Rect::new(0.0, 0.0, w, mid_y), c(0x1f6b3f), c(0x164a42));
-    out.gradient(Rect::new(0.0, mid_y, w, h - mid_y), c(0x164a42), c(0x102a4f));
+    out.gradient(Rect::new(0.0, 0.0, w, mid_y), t(0x1f6b3f), t(0x164a42));
+    out.gradient(Rect::new(0.0, mid_y, w, h - mid_y), t(0x164a42), t(0x102a4f));
     if out.dr.is_some() {
         out.art(Art::Blob, Rect::new(w / 2.0 - 540.0, 340.0 - 440.0, 1080.0, 880.0), ca(0x96e1a0, 0.5));
         let (tw, th) = (128.0, 112.0);
@@ -1304,7 +1393,7 @@ fn tabs(m: &Model, fr: &Frame, out: &mut Out) {
     let r = fr.tabs;
     out.gradient(Rect::new(r.x + 1.0, r.y, r.w - 2.0, r.h), c(0x2e7d3d), c(0x1b5f2b));
     out.fill(Rect::new(r.x + 1.0, r.y, r.w - 2.0, 1.0), c(0x5cb86b));
-    out.fill(Rect::new(r.x + 1.0, r.y + r.h - 3.0, r.w - 2.0, 3.0), c(PANEL));
+    out.fill(Rect::new(r.x + 1.0, r.y + r.h - 3.0, r.w - 2.0, 3.0), t(PANEL));
     let (gap, pad) = (3.0, 8.0);
     let n = Tab::ALL.len() as f32;
     let tw = (r.w - 2.0 * pad - gap * (n - 1.0)) / n;
@@ -1318,7 +1407,7 @@ fn tabs(m: &Model, fr: &Frame, out: &mut Out) {
         let label = tr(t.key());
         let ty = mid(f, tr_.y, r.h - 9.0);
         if on {
-            out.text_center(f, x + tw / 2.0, ty, tw - 12.0, label, INK);
+            out.text_center(f, x + tw / 2.0, ty, tw - 12.0, label, ink());
         } else {
             out.text_center(f, x + tw / 2.0, ty + 1.0, tw - 12.0, label, ca(0x000000, 0.45));
             out.text_center(f, x + tw / 2.0, ty, tw - 12.0, label, WHITE);
@@ -1330,7 +1419,7 @@ fn tabs(m: &Model, fr: &Frame, out: &mut Out) {
 /// The foot: the "Show this at start" tick and the big Play button.
 fn footer(m: &Model, fr: &Frame, out: &mut Out) {
     let r = fr.foot;
-    out.fill(Rect::new(r.x + 1.0, r.y, r.w - 2.0, 1.0), c(0xc8d6bf));
+    out.fill(Rect::new(r.x + 1.0, r.y, r.w - 2.0, 1.0), t(0xc8d6bf));
     out.gradient(Rect::new(r.x + 1.0, r.y + 1.0, r.w - 2.0, r.h - 14.0), ca(0x000000, 0.0), ca(0x000000, 0.03));
     let pad = if fr.compact { 10.0 } else { 16.0 };
     // Play: the page's main yellow button, with a ▶ drawn
@@ -1361,7 +1450,7 @@ fn footer(m: &Model, fr: &Frame, out: &mut Out) {
         out.line((bx + 5.5, by + 11.5), (bx + 9.5, by + 15.5), 2.6, WHITE);
         out.line((bx + 9.5, by + 15.5), (bx + 17.0, by + 6.5), 2.6, WHITE);
     }
-    out.text_fit(bf, bx + bs + 10.0, mid(bf, by, bs), room, tick, INK_SOFT);
+    out.text_fit(bf, bx + bs + 10.0, mid(bf, by, bs), room, tick, ink_soft());
     out.hit(Rect::new(bx - 4.0, r.y + 4.0, bs + 14.0 + lw, r.h - 8.0), Hit::ShowAtStart);
     // the support button beside Play, on every tab, where there is room
     let mut end = pr.x;
@@ -1384,7 +1473,7 @@ fn footer(m: &Model, fr: &Frame, out: &mut Out) {
         if room > 120.0 {
             let n = crate::extras::wrap(nf, note, room).len().min(2);
             let y = r.y + (r.h - (nf.px * 1.32).round() * n as f32) / 2.0;
-            out.note(nf, nx, y, room, 2, note, INK_SOFT);
+            out.note(nf, nx, y, room, 2, note, ink_soft());
         } else {
             out.squeeze("bring back");
         }
@@ -1464,11 +1553,11 @@ fn files_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
     );
     let tx = sr.x + 12.0 + ball + 12.0;
     let room = sr.x + sr.w - 14.0 - tx;
-    let ink = if m.files_problem { c(0x2b2100) } else { INK };
+    let ink = if m.files_problem { t(0x2b2100) } else { ink() };
     if two {
         let y = sr.y + (sh - lf.px - df.px * 1.32) / 2.0 - 1.0;
         out.text_fit(lf, tx, y, room, &m.files_line, ink);
-        out.text_fit(df, tx, y + lf.px + 4.0, room, &m.files_detail, if m.files_problem { ink } else { INK_SOFT });
+        out.text_fit(df, tx, y + lf.px + 4.0, room, &m.files_detail, if m.files_problem { ink } else { ink_soft() });
     } else {
         if !m.files_detail.is_empty() {
             out.squeeze("files detail");
@@ -1518,14 +1607,14 @@ fn files_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
             }
             tw = ar.x - 12.0 - (cr.x + pad);
         }
-        out.text_fit(tf, cr.x + pad, cr.y + pad - 2.0, tw, tr(title), CARD_HEAD);
+        out.text_fit(tf, cr.x + pad, cr.y + pad - 2.0, tw, tr(title), card_head());
         let ny = cr.y + pad + tf.px + 6.0;
         let room_lines = ((cr.y + cr.h - pad - bh - 8.0 - ny) / (nf.px * 1.32).round()).floor().max(0.0) as usize;
         let lines = room_lines.min(4);
         if lines == 0 {
             out.squeeze("card note");
         }
-        out.note(nf, cr.x + pad, ny, tw, lines, tr(note), INK_SOFT);
+        out.note(nf, cr.x + pad, ny, tw, lines, tr(note), ink_soft());
         let by = cr.y + cr.h - pad - bh;
         if in_use {
             // the choice in use: a green tag with a tick
@@ -1548,7 +1637,7 @@ fn files_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
             button(out, Skin::Sky, Rect::new(cr.x + pad, by, w, bh), bf, label, Some(Hit::Files(a)), true);
         } else {
             // nothing to choose here (Android with the player's files: the free graphics are not offered)
-            out.text_fit(nf, cr.x + pad, mid(nf, by, bh), tw, tr("STR_LAUNCHER_NOT_HERE"), INK_SOFT);
+            out.text_fit(nf, cr.x + pad, mid(nf, by, bh), tw, tr("STR_LAUNCHER_NOT_HERE"), ink_soft());
         }
     }
     if tip {
@@ -1561,7 +1650,7 @@ fn files_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
 fn sound_tip(r: Rect, compact: bool, out: &mut Out) {
     out.skin(Skin::Tip, r, false);
     // a loudspeaker
-    let ink = c(0x2b2100);
+    let ink = t(0x2b2100);
     let (x, cy) = (r.x + 16.0, r.y + r.h / 2.0);
     out.fill(Rect::new(x, cy - 4.0, 6.0, 8.0), ink);
     out.tri([(x + 4.0, cy - 4.0), (x + 13.0, cy - 10.0), (x + 13.0, cy + 10.0)], ink);
@@ -1595,7 +1684,7 @@ fn play_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
     let bw = button_w(bf, opts, 110.0, r.w * 0.4);
     let head_h = bh;
     button(out, Skin::Sky, Rect::new(r.x + r.w - bw, r.y, bw, bh), bf, opts, Some(Hit::GameOptions), true);
-    out.text_fit(hf, r.x, mid(hf, r.y, head_h), r.w - bw - 12.0, tr("STR_WELCOME_TITLE"), INK);
+    out.text_fit(hf, r.x, mid(hf, r.y, head_h), r.w - bw - 12.0, tr("STR_WELCOME_TITLE"), ink());
     let top = r.y + head_h + if compact { 8.0 } else { 12.0 };
     let cols = if r.w >= 520.0 { 2 } else { 1 };
     let rows = 4 / cols;
@@ -1609,7 +1698,7 @@ fn play_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
     let ch = ((if change { room - change_h } else { room }) / rows as f32).min(104.0);
     if change {
         let y = top + (ch + gap) * rows as f32 - gap + 10.0;
-        out.note(nf, r.x, y, r.w, 1, tr("STR_WELCOME_CHANGE"), INK_SOFT);
+        out.note(nf, r.x, y, r.w, 1, tr("STR_WELCOME_CHANGE"), ink_soft());
     }
     let tf = display(if compact { 16.0 } else { 18.0 });
     for (i, (p, line, note)) in crate::welcome::CHOICES.iter().enumerate() {
@@ -1631,13 +1720,13 @@ fn play_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
             out.skin(Skin::Radio, Rect::new(rx + 6.0, ry + 6.0, rd - 12.0, rd - 12.0), false);
         }
         let tx = rx + rd + 10.0;
-        out.text_fit(tf, tx, ry + (rd - tf.px) / 2.0 - 2.0, cr.x + cr.w - pad - tx, tr(line).trim(), if on { CARD_HEAD } else { INK });
+        out.text_fit(tf, tx, ry + (rd - tf.px) / 2.0 - 2.0, cr.x + cr.w - pad - tx, tr(line).trim(), if on { card_head() } else { ink() });
         let ny = ry + rd + 6.0;
         let lines = ((cr.y + cr.h - pad + 2.0 - ny) / (nf.px * 1.32).round()).floor().max(0.0) as usize;
         if lines == 0 {
             out.squeeze("preset note");
         }
-        out.note(nf, tx, ny, cr.x + cr.w - pad - tx, lines.min(3), tr(note), INK_SOFT);
+        out.note(nf, tx, ny, cr.x + cr.w - pad - tx, lines.min(3), tr(note), ink_soft());
         out.hit(cr, hit);
     }
 }
@@ -1699,7 +1788,7 @@ fn display_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
         out.skin(Skin::Card, Rect::new(x, r.y, colw, n * rh + (n - 1.0) * vgap + 2.0 * cp), false);
         for k in 1..n as usize {
             let y = r.y + cp + (rh + vgap) * k as f32 - vgap / 2.0;
-            out.fill(Rect::new(x + cp, y, colw - 2.0 * cp, 1.0), c(0xe3ebdc));
+            out.fill(Rect::new(x + cp, y, colw - 2.0 * cp, 1.0), t(0xe3ebdc));
         }
     }
     let lf = body(if compact { 13.0 } else { 14.0 });
@@ -1710,7 +1799,7 @@ fn display_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
         let y = r.y + cp + (rh + vgap) * row as f32;
         let colw = colw - 2.0 * cp;
         let lw = (colw * 0.34).clamp(90.0, 170.0);
-        out.text_fit(lf, x, mid(lf, y, rh), lw - 8.0, tr(label), INK);
+        out.text_fit(lf, x, mid(lf, y, rh), lw - 8.0, tr(label), ink());
         let cx = x + lw;
         let cw = colw - lw;
         let bh = (rh - 6.0).min(36.0);
@@ -1729,7 +1818,7 @@ fn display_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
                 let aw = bh;
                 let fr = Rect::new(cx + aw + 6.0, by, cw - 2.0 * aw - 12.0, bh);
                 out.skin_tint(Skin::Field, fr, false, if *enabled { WHITE } else { [1.0, 1.0, 1.0, 0.6] });
-                out.text_center(bf, fr.x + fr.w / 2.0, mid(bf, fr.y, bh), fr.w - 10.0, value, if *enabled { INK } else { INK_SOFT });
+                out.text_center(bf, fr.x + fr.w / 2.0, mid(bf, fr.y, bh), fr.w - 10.0, value, if *enabled { ink() } else { ink_soft() });
                 for (k, h) in [(0, prev), (1, next)] {
                     let ar = Rect::new(if k == 0 { cx } else { cx + cw - aw }, by, aw, bh);
                     button(out, Skin::Sky, ar, bf, "", Some(*h), *enabled);
@@ -1748,7 +1837,7 @@ fn display_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
     if note_h > 0.0 {
         let nf = body(12.0);
         let y = r.y + per as f32 * rh + (per - 1) as f32 * vgap + 2.0 * cp + 10.0;
-        out.note(nf, r.x + 2.0, y, r.w - 4.0, 2, tr("STR_LAUNCHER_DISPLAY_NOTE"), INK_SOFT);
+        out.note(nf, r.x + 2.0, y, r.w - 4.0, 2, tr("STR_LAUNCHER_DISPLAY_NOTE"), ink_soft());
     }
 }
 
@@ -1757,9 +1846,9 @@ fn news_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
     let hf = display(if compact { 18.0 } else { 22.0 });
     let sf = body(if compact { 12.0 } else { 14.0 });
     let head_h = if compact { 24.0 } else { 30.0 };
-    out.text(hf, r.x, mid(hf, r.y, head_h), &m.version, CARD_HEAD);
+    out.text(hf, r.x, mid(hf, r.y, head_h), &m.version, card_head());
     let vx = r.x + hf.width(&m.version) + 14.0;
-    out.text_fit(sf, vx, mid(sf, r.y, head_h) + 1.0, r.x + r.w - vx, &m.news_title, INK_SOFT);
+    out.text_fit(sf, vx, mid(sf, r.y, head_h) + 1.0, r.x + r.w - vx, &m.news_title, ink_soft());
     // the buttons, at the foot
     let bf = body(if compact { 12.0 } else { 14.0 });
     let bh = if compact { 32.0 } else { 40.0 };
@@ -1788,7 +1877,7 @@ fn news_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
     }
     // the highlights in the page's news box
     let top = r.y + head_h + if compact { 6.0 } else { 10.0 };
-    out.text_fit(sn, r.x, by - note_h + 1.0, r.w, tr("STR_LAUNCHER_SUPPORT_NOTE"), INK);
+    out.text_fit(sn, r.x, by - note_h + 1.0, r.w, tr("STR_LAUNCHER_SUPPORT_NOTE"), ink());
     let br = Rect::new(r.x, top, r.w, by - note_h - (if compact { 6.0 } else { 8.0 }) - top);
     out.skin(Skin::News, br, false);
     let n = m.highlights.len().max(1);
@@ -1809,10 +1898,10 @@ fn news_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
         // a gold bullet, as the page's news list
         let dot = 7.0;
         out.skin(Skin::Gold, Rect::new(x, y + (lf.px - dot) / 2.0 + 2.0, dot, dot), false);
-        out.text_fit(lf, x + dot + 8.0, y, cw - dot - 8.0, line.trim(), INK);
+        out.text_fit(lf, x + dot + 8.0, y, cw - dot - 8.0, line.trim(), ink());
         let lines = ((ih - lf.px - 6.0) / (nf.px * 1.32).round()).floor().max(0.0) as usize;
         if lines > 0 {
-            out.note(nf, x + dot + 8.0, y + lf.px + 3.0, cw - dot - 8.0, lines.min(2), note, INK_SOFT);
+            out.note(nf, x + dot + 8.0, y + lf.px + 3.0, cw - dot - 8.0, lines.min(2), note, ink_soft());
         }
     }
 }
@@ -1972,7 +2061,14 @@ fn features_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
             if out.lit(hit) && !on {
                 out.skin_tint(Skin::Summary, br, false, [1.0, 1.0, 1.0, 0.5]);
             }
-            out.text_fit(bf, br.x + 10.0, mid(bf, br.y, bh), br.w - 20.0, &m.features[*i].section_name, if on { CARD_HEAD } else { INK });
+            out.text_fit(
+                bf,
+                br.x + 10.0,
+                mid(bf, br.y, bh),
+                br.w - 20.0,
+                &m.features[*i].section_name,
+                if on { card_head() } else { ink() },
+            );
             out.hit(br, hit);
         }
     } else {
@@ -1999,8 +2095,8 @@ fn features_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
             continue;
         }
         let f = &m.features[i];
-        out.text_fit(hf, list.x, y + 4.0, lw, &f.group, CARD_HEAD);
-        out.text_fit(nf, list.x, y + 4.0 + hf.px + 4.0, lw, &f.banner, INK_SOFT);
+        out.text_fit(hf, list.x, y + 4.0, lw, &f.group, card_head());
+        out.text_fit(nf, list.x, y + 4.0 + hf.px + 4.0, lw, &f.banner, ink_soft());
     }
     for (i, f) in m.features.iter().enumerate() {
         let rr = Rect::new(list.x, list.y + ys[i] - scroll, lw, row_h);
@@ -2023,7 +2119,7 @@ fn features_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
                 let fh = 26.0_f32.min(row_h - 2.0 * pad);
                 let fr = Rect::new(right - fw, rr.y + (rr.h - fh) / 2.0, fw, fh);
                 out.skin(Skin::Field, fr, lit);
-                out.text_center(bf, fr.x + fw / 2.0, mid(bf, fr.y, fh), fw - 8.0, v, INK);
+                out.text_center(bf, fr.x + fw / 2.0, mid(bf, fr.y, fh), fw - 8.0, v, ink());
                 right = fr.x - 8.0;
             }
             // a tick: the box on the left
@@ -2044,9 +2140,9 @@ fn features_tab(m: &Model, r: Rect, compact: bool, out: &mut Out) {
             if f.desc.is_empty() { 0 } else { (((row_h - 2.0 * (pad - 2.0) - tf.px - 2.0) / pitch).floor().max(0.0) as usize).min(2) };
         let used = if lines == 0 { 0.0 } else { crate::extras::wrap(nf, &f.desc, w).len().clamp(1, lines) as f32 * pitch + 2.0 };
         let ny = rr.y + (rr.h - tf.px - used) / 2.0 - 1.0;
-        out.text_fit(tf, tx, ny, w, &f.name, INK);
+        out.text_fit(tf, tx, ny, w, &f.name, ink());
         if lines > 0 {
-            out.note_cut(nf, tx, ny + tf.px + 2.0, w, lines, &f.desc, INK_SOFT);
+            out.note_cut(nf, tx, ny + tf.px + 2.0, w, lines, &f.desc, ink_soft());
         }
         // the line answers only where it is in the list's room (its cut-off part is under the room's edge)
         let top = rr.y.max(list.y);

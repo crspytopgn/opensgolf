@@ -111,7 +111,13 @@ impl Club {
             let ku = k as usize;
             // (the hole of the course the tile belongs to: sg_core::second; Course A's without a Course B)
             self.on_tile_course(ku, a, b, |cl| {
-                if old == t::TEE {
+                // "Fix original bugs" (crate::fixes, docs/FIXES.md 16): a tee tile still numbered for a hole whose tees are
+                // elsewhere now (an old tee spot) is only plain ground again; the exe takes the hole's own back tee away
+                // and closes the hole
+                let stale = old == t::TEE && crate::fixes::on() && (a, b) != cl.holes[ku].back && (a, b) != cl.holes[ku].fwd;
+                if stale {
+                    c.flags[i] &= !f::LOW;
+                } else if old == t::TEE {
                     cl.next_hole = cl.next_hole.min(k);
                     let fwd = cl.holes[ku].fwd;
                     if (a, b) != fwd {
@@ -637,6 +643,31 @@ mod tests {
         assert!(cl.paint_hole_tile(&mut c, 10, 10, t::TEE, t::ROUGH, false));
         assert_eq!(cl.holes[1].par, 0);
         assert_eq!(cl.next_hole, 1);
+    }
+
+    #[test]
+    fn an_old_tee_spot_leaves_the_hole_open() {
+        let fixed = |on: bool| {
+            crate::fixes::set(on);
+            let mut cl = Club::default();
+            let mut c = course();
+            let mut rng = ExeRng::from_clock(1);
+            cl.paint_hole_tile(&mut c, 10, 10, t::FAIRWAY, t::TEE, false);
+            c.ty[idx(10, 10)] = t::TEE;
+            cl.paint_hole_tile(&mut c, 10, 25, t::FAIRWAY, t::GREEN, false);
+            c.ty[idx(10, 25)] = t::GREEN;
+            cl.layout(&mut c, &mut rng);
+            assert_eq!(cl.open_hole(&mut c), Some(1));
+            // a tee tile still numbered for hole 1 that is not its tee any more (where the tee stood before it was moved)
+            c.ty[idx(12, 12)] = t::TEE;
+            c.flags[idx(12, 12)] = 1;
+            assert!(cl.paint_hole_tile(&mut c, 12, 12, t::TEE, t::ROUGH, false));
+            let open = cl.holes[1].par != 0 && cl.holes[1].back == (10, 10) && cl.next_hole == 2;
+            crate::fixes::set(true);
+            (open, c.flags[idx(12, 12)] & f::LOW)
+        };
+        assert_eq!(fixed(true), (true, 0), "the fix: the hole stays open with its tee");
+        assert!(!fixed(false).0, "the exe closes the hole and forgets its tee");
     }
 
     #[test]

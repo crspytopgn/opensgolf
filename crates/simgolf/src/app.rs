@@ -1296,14 +1296,17 @@ impl App {
         Some((msg, boxed))
     }
 
-    /// The port's own game speed one step faster or slower (normal, x2, x4, x8), stopping at either end; says the speed.
-    /// x8 is for passing long stretches (a winter, the months before a tournament); how fast it really goes depends on
-    /// the machine, as the simulation's ticks are all still run.
+    /// The port's own game speed one step faster or slower (normal, x2, x4, x8, and x16 with the Faster speed extra),
+    /// stopping at either end; says the speed. x8 and x16 are for passing long stretches (a winter, the months before a
+    /// tournament); how fast they really go depends on the machine, as the simulation's ticks are all still run.
     pub fn step_speed(&mut self, faster: bool) {
+        let top = Self::top_speed();
         let s = match (self.speed, faster) {
             (1, true) => 2,
             (2, true) => 4,
-            (_, true) => 8,
+            (4, true) => 8,
+            (_, true) => top,
+            (16, false) => 8,
             (8, false) => 4,
             (4, false) => 2,
             (_, false) => 1,
@@ -1312,12 +1315,23 @@ impl App {
         self.say_speed();
     }
 
-    /// The game speed's single button (a controller's Y, the touch button): normal, x2, x4, x8, then normal again.
+    /// The fastest game speed: x8, or x16 with the Faster speed extra (OpenSGolf extras).
+    pub fn top_speed() -> u8 {
+        if crate::extras::fast_speed() {
+            16
+        } else {
+            8
+        }
+    }
+
+    /// The game speed's single button (a controller's Y, the touch button): normal, x2, x4, x8 (and x16 with the Faster
+    /// speed extra), then normal again.
     pub fn cycle_speed(&mut self) {
         let s = match self.speed {
             1 => 2,
             2 => 4,
             4 => 8,
+            8 if Self::top_speed() == 16 => 16,
             _ => 1,
         };
         self.act(sg_core::action::Action::Speed(s));
@@ -1329,7 +1343,8 @@ impl App {
             1 => tr("STR_TOAST_SPEED_NORMAL"),
             2 => tr("STR_TOAST_SPEED_FAST"),
             4 => tr("STR_TOAST_SPEED_FASTEST"),
-            _ => tr("STR_TOAST_SPEED_X8"),
+            8 => tr("STR_TOAST_SPEED_X8"),
+            _ => tr("STR_TOAST_SPEED_X16"),
         };
         self.show_toast(name);
     }
@@ -2980,6 +2995,8 @@ impl App {
                         hs.mood_sum = mood_sum;
                     }
                 }
+                // Practise a hole (practice.rs): the pro's score on the hole he practised
+                golf::Event::PracticeDone { hole, strokes, par } => self.practice_done(hole, strokes, par),
                 // the golfer profile's Rounds list (profile_ui.rs); a Course B round too
                 golf::Event::RoundDone { g, holes, strokes, par } => {
                     if crate::extras::people() {
@@ -4519,10 +4536,18 @@ impl App {
             2 => self.edit_path(a, b, lower),
             4 => self.edit_building(a, b, lower),
             5 => self.undo_tile(a, b),
+            // the Hole boundaries extra's brush (bounds_ui.rs)
+            crate::bounds_ui::TOOL => self.paint_bound(a, b, lower),
             _ if self.pstate.elev_tool == 3 && self.panel == 2 && self.pstate.alt => {
                 if !dragging {
                     let t = self.terrain.tile_of(self.hit_x, self.hit_z);
                     self.start_analysis(Some(t), true);
+                }
+            }
+            // Fine elevation on touch screens (height_pick.rs): a tap picks the corner, Raise and Lower step it
+            _ if self.fine_height_on() => {
+                if !dragging {
+                    self.pick_height(a, b);
                 }
             }
             _ => {
