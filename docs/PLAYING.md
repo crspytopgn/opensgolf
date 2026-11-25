@@ -1353,8 +1353,8 @@ photo (F10) are downloaded; saved games and the accomplishment snapshots stay in
 
 Content packs (mods, docs/MODDING.md): System Functions, Preferences, *Game files...*, *Content packs...* lists the installed packs; switch them on or off and order the mods there (Up and Down, or PageUp and PageDown on the picked row). The choices are saved in `settings.json` at once and take effect the next time the game starts. `--screen content` opens the screen for stills. *Save profile...* keeps the current choices under a name and *Profiles...* lists the saved ones to load (the choices then take effect at the next start) or delete. A game saved with other packs than the ones in use asks before it loads from *Load Previous Game*, in plain words ("This game was saved with the original SimGolf art; you're using the free graphics", or other add-ons; the packs' ids and versions go to the log): switch to the save's packs (the desktop game starts again on them and loads the save; on Android and in a browser restart or reload, then load it), load it anyway, or not load it (docs/MODDING.md 2).
 
-Scenarios (docs/MODDING.md 5): with a scenario pack installed, *Start New Game* first offers a free game (the original's
-way on: Select Difficulty, then a property) or one of the scenarios, each with its goals; a scenario that names no
+Scenarios (docs/MODDING.md 5): with a scenario pack installed, *Start New Game* (under *Single player*, in a build
+with multiplayer) offers a normal game (the original's way on: Select Difficulty, then a property) or one of the scenarios, each with its goals; a scenario that names no
 difficulty goes by way of Select Difficulty. Messages say when a goal is reached or missed and when the scenario is won or
 lost; *Information, Scenario Goals* (the menu's last line, shown when the game has goals) lists them. The Save dialog's
 *Export as scenario pack* button (or Tab) writes the game as a scenario pack into the save folder's `packs`, under the

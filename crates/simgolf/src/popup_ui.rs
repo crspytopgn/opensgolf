@@ -1616,6 +1616,7 @@ mod tests {
             languages: true,
             update_now: true,
             play_count: true,
+            multiplayer: true,
             played: 0,
             make_hd: Some(crate::hd_make::Offer::Make),
             remove_hd: true,

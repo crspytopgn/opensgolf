@@ -37,9 +37,12 @@ pub struct ScenarioState {
     pending: Vec<Hook>,
     /// Messages for the ticker, posted one at a time.
     messages: VecDeque<String>,
-    /// The scenario packs found (the Start New Game screen).
+    /// What the Start New Game screen shows: the first choice, or the rows of single player or of multiplayer.
+    pub mode: Mode,
+    /// The rows of the Start New Game screen for its mode: the scenario packs found (single player), or the online
+    /// rows (multiplayer).
     pub list: Vec<ScenarioEntry>,
-    /// The row picked on the Start New Game screen (0: a free game, then the scenarios).
+    /// The row picked on the Start New Game screen (single player: 0 is a normal game, then the scenarios).
     pub picked: usize,
     pub scroll: usize,
     /// A scenario waiting for the Select Difficulty screen (its scenario.toml names no difficulty).
@@ -48,6 +51,22 @@ pub struct ScenarioState {
     pub(crate) starting: Option<(String, Scenario)>,
     /// The cash a scenario starts with, taken by `start_game`.
     pub start_money: Option<i64>,
+}
+
+/// The page of the Start New Game screen: in a build with multiplayer it first asks single player or multiplayer
+/// (the port's own); a build without it shows the single player rows straight away.
+#[derive(Default, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Mode {
+    #[default]
+    Choose,
+    Single,
+    Multi,
+}
+
+/// The online rows (the weekly challenge, the shared clubs, the neighbours leagues) have ids that start with `*`:
+/// a pack id can't.
+pub fn is_online_row(id: &str) -> bool {
+    id.starts_with('*')
 }
 
 const ROWS: usize = 7;
@@ -119,16 +138,67 @@ impl App {
     }
 
     pub fn open_scenarios(&mut self) {
-        self.scen.list = find_scenarios(&self.content);
-        self.scen.picked = 0;
-        self.scen.scroll = 0;
-        self.scen.chosen = None;
+        self.set_scenarios_mode(if cfg!(feature = "multiplayer") { Mode::Choose } else { Mode::Single });
         self.screen = Screen::Scenarios;
         self.hover = -1;
     }
 
+    /// Shows a page of Start New Game (`open_scenarios` opens it on the first one).
+    pub fn set_scenarios_mode(&mut self, m: Mode) {
+        self.scen.mode = m;
+        self.scen.list = match m {
+            Mode::Choose => Vec::new(),
+            Mode::Single => find_scenarios(&self.content).into_iter().filter(|e| !is_online_row(&e.id)).collect(),
+            Mode::Multi => find_scenarios(&self.content).into_iter().filter(|e| is_online_row(&e.id)).collect(),
+        };
+        self.scen.picked = 0;
+        self.scen.scroll = 0;
+        self.scen.chosen = None;
+        self.hover = -1;
+    }
+
+    /// The rows before the list's: the normal game's on the single player page.
+    fn scenario_lead(&self) -> usize {
+        usize::from(self.scen.mode == Mode::Single)
+    }
+
+    /// The Multiplayer page's note shown in place of its rows until multiplayer is on (picking Multiplayer is the
+    /// player's yes: Continue turns it on; Preferences > More turns it off).
+    fn mp_notice(&self) -> bool {
+        #[cfg(feature = "multiplayer")]
+        if self.scen.mode == Mode::Multi {
+            return !crate::mp::settings::get().on;
+        }
+        false
+    }
+
     fn scenario_rows(&self) -> usize {
-        self.scen.list.len() + 1
+        if self.mp_notice() {
+            return 0;
+        }
+        match self.scen.mode {
+            Mode::Choose => 2,
+            _ => self.scen.list.len() + self.scenario_lead(),
+        }
+    }
+
+    /// Back (or Esc) on Start New Game: to the first choice from a page of it, else to the title.
+    fn scenarios_back(&mut self) {
+        if cfg!(feature = "multiplayer") && self.scen.mode != Mode::Choose {
+            let was = self.scen.mode;
+            self.set_scenarios_mode(Mode::Choose);
+            self.scen.picked = usize::from(was == Mode::Multi);
+        } else {
+            self.screen = Screen::Menu;
+        }
+    }
+
+    /// A normal game: on to Select Difficulty as in the original.
+    fn normal_game(&mut self) {
+        self.sandbox_choice = false;
+        self.title.champ_pending = false;
+        self.screen = Screen::Difficulty;
+        self.hover = -1;
     }
 
     /// A click on the Start New Game screen.
@@ -141,7 +211,12 @@ impl App {
             return self.scenario_go(g);
         }
         if back_button().has(x, y) {
-            self.screen = Screen::Menu;
+            return self.scenarios_back();
+        }
+        if self.mp_notice() {
+            if continue_button().has(x, y) {
+                self.scenario_go(g);
+            }
             return;
         }
         let n = self.scenario_rows();
@@ -178,7 +253,7 @@ impl App {
         }
         let n = self.scenario_rows();
         match k {
-            KeyCode::Escape => self.screen = Screen::Menu,
+            KeyCode::Escape => return self.scenarios_back(),
             KeyCode::Up => self.scen.picked = self.scen.picked.saturating_sub(1),
             KeyCode::Down => self.scen.picked = (self.scen.picked + 1).min(n - 1),
             KeyCode::Enter | KeyCode::KpEnter | KeyCode::Space => self.scenario_go(g),
@@ -194,14 +269,28 @@ impl App {
     /// Starts what is picked: a free game goes on to Select Difficulty as in the original; a scenario starts (by way of
     /// Select Difficulty when it names no difficulty).
     fn scenario_go(&mut self, g: &mut Gfx) {
-        let p = self.scen.picked;
-        if p == 0 {
-            self.sandbox_choice = false;
-            self.title.champ_pending = false;
-            self.screen = Screen::Difficulty;
-            self.hover = -1;
+        #[cfg(feature = "multiplayer")]
+        if self.mp_notice() {
+            crate::mp::settings::set_on(true);
             return;
         }
+        let p = self.scen.picked;
+        if self.scen.mode == Mode::Choose {
+            if p == 1 {
+                return self.set_scenarios_mode(Mode::Multi);
+            }
+            self.set_scenarios_mode(Mode::Single);
+            // nothing but the normal game to choose: straight on to it
+            if self.scen.list.is_empty() {
+                self.normal_game();
+            }
+            return;
+        }
+        let lead = self.scenario_lead();
+        if p < lead {
+            return self.normal_game();
+        }
+        let p = p - lead + 1;
         let Some(e) = self.scen.list.get(p - 1) else { return };
         let Ok(def) = &e.def else {
             self.ui_sound(0x18);
@@ -308,19 +397,43 @@ impl App {
         crate::info_ui::dim(g, &s);
         self.draw_info_frame(g, &s, BOX.x, BOX.y, BOX.w, BOX.h);
         let (white, grey, yellow, navy, red) = (c15(0x7fff), c15(0x6318), c15(0x7ff0), c15(0x0018), rgb(0.85, 0.1, 0.1));
-        s.put_shadowed(g, F_MANUAL20, 400.0, BOX.y + 14.0, tr("STR_SCENARIOS_TITLE"), yellow, true);
-        s.put(g, F_ARIAL10, BOX.x + 24.0, BOX.y + 40.0, tr("STR_SCENARIOS_HELP"), navy);
+        let (title, help) = match self.scen.mode {
+            Mode::Choose => ("STR_SCENARIOS_TITLE", "STR_SCENARIOS_CHOOSE_HELP"),
+            Mode::Single => ("STR_SCENARIOS_SINGLE", "STR_SCENARIOS_HELP"),
+            Mode::Multi if self.mp_notice() => ("STR_SCENARIOS_MULTI", "STR_SCENARIOS_MULTI_NOTICE_HELP"),
+            Mode::Multi => ("STR_SCENARIOS_MULTI", "STR_SCENARIOS_MULTI_HELP"),
+        };
+        s.put_shadowed(g, F_MANUAL20, 400.0, BOX.y + 14.0, tr(title), yellow, true);
+        s.put(g, F_ARIAL10, BOX.x + 24.0, BOX.y + 40.0, tr(help), navy);
+        let lead = self.scenario_lead();
         let (px, py) = self.info.pointer;
         let n = self.scenario_rows();
+        if self.mp_notice() {
+            let mut y = TOP + 8.0;
+            for l in crate::ui::wrap_text(tr("STR_SCENARIOS_MULTI_NOTICE"), 15.0, BOX.w - 60.0) {
+                s.put(g, F_MANUAL15, BOX.x + 24.0, y, &l, white);
+                y += 22.0;
+            }
+            let b = continue_button();
+            crate::glass_ui::button_fill(g, &s, b.x, b.y, b.w, b.h, b.has(px, py));
+            s.put_centered(g, F_ARIAL10, b.x + b.w / 2.0, b.y + 5.0, tr("STR_SCENARIOS_CONTINUE"), navy);
+        }
         for i in self.scen.scroll..n.min(self.scen.scroll + ROWS) {
             let y = TOP + (i - self.scen.scroll) as f32 * ROW_H;
             if self.scen.picked == i || Rect::new(BOX.x + 10.0, y, BOX.w - 20.0, ROW_H - 2.0).has(px, py) {
                 s.fill(g, BOX.x + 12.0, y, BOX.w - 24.0, ROW_H - 2.0, rgb(0.66, 0.66, 0.84));
             }
-            let (title, line, bad) = if i == 0 {
-                (tr("STR_SCENARIOS_FREE_GAME").to_string(), tr("STR_SCENARIOS_FREE_GAME_TEXT").to_string(), false)
+            let (title, line, bad) = if self.scen.mode == Mode::Choose {
+                let (t, l) = if i == 0 {
+                    ("STR_SCENARIOS_SINGLE", "STR_SCENARIOS_SINGLE_TEXT")
+                } else {
+                    ("STR_SCENARIOS_MULTI", "STR_SCENARIOS_MULTI_TEXT")
+                };
+                (tr(t).to_string(), tr(l).to_string(), false)
+            } else if i < lead {
+                (tr("STR_SCENARIOS_NORMAL_GAME").to_string(), tr("STR_SCENARIOS_NORMAL_GAME_TEXT").to_string(), false)
             } else {
-                let e = &self.scen.list[i - 1];
+                let e = &self.scen.list[i - lead];
                 match &e.def {
                     Ok(sc) => {
                         let line = scenario_summary(sc);
@@ -348,10 +461,10 @@ impl App {
         }
         // the picked scenario's description and goals
         let mut ty = below + 30.0;
-        let text = if self.scen.picked == 0 {
+        let text = if self.scen.mode == Mode::Choose || self.scen.picked < lead || self.mp_notice() {
             String::new()
         } else {
-            let e = &self.scen.list[self.scen.picked - 1];
+            let e = &self.scen.list[self.scen.picked - lead];
             match &e.def {
                 Ok(sc) => {
                     let goals: Vec<String> = sc.goals.iter().map(|g| g.text.clone()).collect();
@@ -697,6 +810,11 @@ impl App {
             }
         }
     }
+}
+
+/// The Multiplayer page's Continue, under its note.
+fn continue_button() -> Rect {
+    Rect::new(BOX.x + 24.0, TOP + 120.0, 140.0, 24.0)
 }
 
 fn back_button() -> Rect {

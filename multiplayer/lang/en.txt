@@ -30,8 +30,7 @@ STR_MP_RESULT_UNREADABLE                :The board's answer couldn't be read.
 # Weekly challenge: its page (mp/lobby.rs)
 STR_MP_WEEKLY_PLACE                     :{PLACE}, {DIFFICULTY}. Score: {MEASURE} at the end of {YEAR}.
 STR_MP_WEEKLY_SAME                      :Everyone gets the same land and start this week. Cheats keep a result off the board.
-STR_MP_ON_NOTE                          :Multiplayer is on: your nickname, a random player id and your result go to the board when 2001 ends.
-STR_MP_OFF_NOTE                         :Multiplayer is off. Turning it on sends your nickname, a random player id and your result when 2001 ends.
+STR_MP_ON_NOTE                          :Your nickname, a random player id and your result go to the board when 2001 ends.
 STR_MP_NOTHING_ELSE                     :Nothing else about you or your computer is sent.
 STR_MP_NICKNAME                         :Nickname
 STR_MP_NICKNAME_HINT                    :3 to 16 letters, digits, spaces, dots or dashes
@@ -39,8 +38,15 @@ STR_MP_NICKNAME_MADE                    :one is made for you
 STR_MP_GROUP                            :Friends' group
 STR_MP_GROUP_HINT                       :6 letters or digits, or empty for the public board
 STR_MP_GROUP_NONE                       :none
+STR_MP_COMPARE_FRIENDS                  :Compare with friends
 STR_MP_BOARD_TITLE                      :This week's board
 STR_MP_BOARD_TITLE_GROUP                :This week's board: group {GROUP}
+STR_MP_BOARD_TITLE_PAST                 :Board of week {WEEK}
+STR_MP_BOARD_TITLE_PAST_GROUP           :Board of week {WEEK}: group {GROUP}
+STR_MP_BOARD_EARLIER                    :Earlier week
+STR_MP_BOARD_LATER                      :Later week
+STR_MP_LAST_WEEK_WON                    :You won last week's challenge! See Start New Game > Multiplayer > Weekly challenge.
+STR_MP_LAST_WEEK_PLACE                  :You finished {PLACE} in last week's challenge.
 STR_MP_BOARD_LOADING                    :Loading the board...
 STR_MP_BOARD_EMPTY                      :No results yet this week: be the first.
 STR_MP_BOARD_YOU                        :You: {PLACE}. with {SCORE}
@@ -50,8 +56,6 @@ STR_MP_MEASURE_MEMBERS                  :Members
 STR_MP_MEASURE_SKILL                    :Skill
 STR_MP_BACK                             :Back
 STR_MP_PLAY                             :Play
-STR_MP_TURN_ON_AND_PLAY                 :Turn on and play
-STR_MP_TURN_OFF                         :Turn Multiplayer off
 
 # Shared clubs: the row and the page (mp/clubs_ui.rs)
 STR_MP_CLUBS                            :Shared clubs

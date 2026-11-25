@@ -158,7 +158,7 @@ be shared without any of EA's material. Translations are made in the open (plann
 **done** (crates/sg-core/src/scenario.rs, crates/simgolf/src/scenario_ui.rs). A scenario pack (`kind = "scenario"`) holds
 `scenario.toml`: the property (or a theme), the money, the difficulty, optionally a saved game to start from (its land,
 holes, buildings and date), the texts to show, and the goals. With a scenario pack installed, **Start New Game** first asks
-for a free game (the original's way on) or a scenario. The example that comes with the game does not count: with only
+for a normal game (the original's way on) or a scenario (in a build with multiplayer, under *Single player*). The example that comes with the game does not count: with only
 it, Start New Game goes straight on as in the original (the example still opens in the course editor's *Load scenario*
 and starts with `--scenario example-scenario-desert-challenge`). A scenario's goals are checked at each month start; a goal with
 `by_year` is missed when that year ends without it. A message says when a goal is reached or missed; when every goal is

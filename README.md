@@ -84,10 +84,11 @@ are in [docs/INSTALL.md](docs/INSTALL.md); how to play, keys and touch controls 
 
 ## Multiplayer (beta)
 
-New in 0.9: play SimGolf with other people. Open *Start New Game* and pick one of the new rows:
+New in 0.9: play SimGolf with other people. Open *Start New Game*, pick *Multiplayer*, then one of:
 
 - **Weekly challenge:** everyone gets the same property and start for the week and one score to beat at the end of
-  2001 (cash, fun, members or skill). Results go on a public weekly board, or a private one for your friends' group.
+  2001 (cash, fun, members or skill). Results go on a public weekly board (or a private one with *Compare with
+  friends*), and past weeks' boards stay there to look back on.
 - **Neighbours:** up to 4 friends each build their own course on a plot of the same land, at their own pace. A league
   table compares you until the end of 2002, and you can look round a neighbour's course. Share the league's code to
   invite them.
@@ -96,7 +97,8 @@ New in 0.9: play SimGolf with other people. Open *Start New Game* and pick one o
 
 ![The Weekly challenge and Neighbours pages, with the original SimGolf files](docs/images/multiplayer.jpg)
 
-Multiplayer is off until you turn it on. When it is on, the game sends a nickname, a random player id and your results
+Multiplayer is off until you pick it on Start New Game (and can be turned off again in Preferences > More). When it
+is on, the game sends a nickname, a random player id and your results
 (in a shared club, what you do in it), and nothing else about you or your computer.
 
 | | Weekly challenge | Neighbours | Shared clubs |

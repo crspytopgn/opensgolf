@@ -3,6 +3,12 @@
     {
       "date": "25 November 2026",
       "iso": "2026-11-25",
+      "title": "OpenSGolf 0.9.3: Single player or Multiplayer",
+      "text": "Start New Game now asks Single player or Multiplayer first, and the weekly challenge keeps past weeks' boards and tells you when you placed last week."
+    },
+    {
+      "date": "25 November 2026",
+      "iso": "2026-11-25",
       "title": "OpenSGolf 0.9.2: all of multiplayer in the browser",
       "text": "The weekly challenge, neighbours leagues and shared clubs now all work right here in the browser."
     },
@@ -10,7 +16,7 @@
       "date": "25 November 2026",
       "iso": "2026-11-25",
       "title": "OpenSGolf 0.9 released: multiplayer (beta)",
-      "text": "Play SimGolf with other people: a weekly challenge with a board, neighbours leagues where up to 4 friends run their own courses side by side, and shared clubs where up to 4 build one course together, live. Start New Game > Weekly challenge to turn it on."
+      "text": "Play SimGolf with other people: a weekly challenge with a board, neighbours leagues where up to 4 friends run their own courses side by side, and shared clubs where up to 4 build one course together, live. Start New Game > Multiplayer to play."
     },
     {
       "date": "13 November 2026",

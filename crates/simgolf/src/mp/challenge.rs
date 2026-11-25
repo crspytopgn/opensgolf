@@ -134,6 +134,16 @@ pub fn is_week_id(id: &str) -> bool {
         && (1..=53).contains(&id[6..].parse::<u32>().unwrap_or(0))
 }
 
+/// The week before a week id (challenge.js previousWeekId of a moment in it).
+pub fn previous_week(id: &str) -> String {
+    week_id((monday_of(id) - 7) * 86_400)
+}
+
+/// The week after a week id.
+pub fn next_week(id: &str) -> String {
+    week_id((monday_of(id) + 7) * 86_400)
+}
+
 /// Days since 1970-01-01 of a week id's Monday (challenge.js mondayOf).
 pub fn monday_of(id: &str) -> i64 {
     let year: i64 = id[0..4].parse().unwrap_or(1970);

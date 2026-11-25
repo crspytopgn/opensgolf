@@ -54,6 +54,9 @@ pub enum Line {
     Launcher,
     /// Count my play time (anonymous) (the port's own, playcount.rs; not in store builds)
     PlayCount,
+    /// Multiplayer (the port's own, mp/settings.rs; only in builds with multiplayer): picking Multiplayer on Start New
+    /// Game turns it on, and this tick turns it off again
+    Multiplayer,
 }
 
 /// What the boxes' lines depend on besides the settings.
@@ -68,6 +71,8 @@ pub struct Ctx {
     pub update_now: bool,
     /// This build has the play-time count (playcount.rs AVAILABLE).
     pub play_count: bool,
+    /// This build has multiplayer (the `multiplayer` feature).
+    pub multiplayer: bool,
     /// Seconds played on the course (support.rs's counter), shown under Support OpenSGolf.
     pub played: u64,
     /// What the Make HD graphics line offers (hd_make.rs; none on the free graphics).
@@ -108,6 +113,7 @@ pub fn items(kind: PopupKind, c: &Ctx) -> Vec<Line> {
             .chain(c.update_now.then_some(UpdateNow))
             .chain([Search, Report, Launcher, WhatsNew, Support, Discord])
             .chain(c.play_count.then_some(PlayCount))
+            .chain(c.multiplayer.then_some(Multiplayer))
             .collect(),
         _ => Vec::new(),
     }
@@ -168,6 +174,7 @@ pub fn label(l: Line, c: &Ctx, text: u32) -> String {
         WhatsNew => "STR_MENU_PREFS_WHATSNEW",
         Launcher => "STR_MENU_PREFS_LAUNCHER",
         PlayCount => "STR_MENU_PREFS_PLAYCOUNT",
+        Multiplayer => "STR_MENU_PREFS_MULTIPLAYER",
     };
     tr(key).to_string()
 }
@@ -195,7 +202,7 @@ pub fn lines(kind: PopupKind, c: &Ctx, text: u32) -> Vec<String> {
 /// A tick (kept in the box until its OK) rather than a line that does something at once.
 pub fn is_tick(l: Line) -> bool {
     use Line::*;
-    matches!(l, Thoughts | Advisor | Animals | Sound | Hd | Enhanced | PixelPerfect | FixBugs | UpdateCheck | PlayCount)
+    matches!(l, Thoughts | Advisor | Animals | Sound | Hd | Enhanced | PixelPerfect | FixBugs | UpdateCheck | PlayCount | Multiplayer)
 }
 
 /// A line that opens a box or screen, or does something there is no stepping back from (the files line, the update check):
@@ -240,6 +247,7 @@ pub fn desc_key(l: Line, c: &Ctx) -> Option<&'static str> {
         WhatsNew => "STR_PREFS_DESC_WHATSNEW",
         Launcher => "STR_PREFS_DESC_LAUNCHER",
         PlayCount => "STR_PREFS_DESC_PLAYCOUNT",
+        Multiplayer => "STR_PREFS_DESC_MULTIPLAYER",
     })
 }
 
@@ -269,7 +277,7 @@ pub fn place_key(l: Line) -> &'static str {
     match l {
         Hd | MakeHd | RemoveHd | Enhanced | PixelPerfect | EnhancedSettings => "STR_SEARCH_PLACE_GRAPHICS",
         Files | Content | Language => "STR_SEARCH_PLACE_FILES",
-        FixBugs | UpdateCheck | UpdateNow | Search | Report | Launcher | WhatsNew | Support | Discord | PlayCount => {
+        FixBugs | UpdateCheck | UpdateNow | Search | Report | Launcher | WhatsNew | Support | Discord | PlayCount | Multiplayer => {
             "STR_SEARCH_PLACE_MORE"
         }
         _ => "STR_SEARCH_PLACE_PREFS",
@@ -284,6 +292,7 @@ impl crate::app::App {
             languages: crate::language::available().len() > 1,
             update_now: crate::update::AVAILABLE,
             play_count: crate::playcount::AVAILABLE,
+            multiplayer: cfg!(feature = "multiplayer"),
             played: self.support.record.played.max(0.0) as u64,
             make_hd: self.hd_make_offer(),
             remove_hd: self.hd_remove_offer(),
@@ -304,6 +313,8 @@ impl crate::app::App {
             FixBugs => crate::enhanced::fix_bugs(),
             UpdateCheck => crate::extras::update_check(),
             PlayCount => self.playcount.on(),
+            #[cfg(feature = "multiplayer")]
+            Multiplayer => crate::mp::settings::get().on,
             _ => false,
         }
     }
@@ -332,6 +343,7 @@ mod tests {
         languages: true,
         update_now: true,
         play_count: true,
+        multiplayer: false,
         played: 0,
         make_hd: Some(crate::hd_make::Offer::Make),
         remove_hd: true,

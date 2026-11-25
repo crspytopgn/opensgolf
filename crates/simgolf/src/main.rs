@@ -2181,6 +2181,9 @@ impl Stage {
                 }
                 // the play-time count (playcount.rs; kept in settings.json)
                 Line::PlayCount => self.app.set_playcount(on),
+                // multiplayer (mp/settings.rs): picking Multiplayer on Start New Game turns it on
+                #[cfg(feature = "multiplayer")]
+                Line::Multiplayer => crate::mp::settings::set_on(on),
                 _ => {}
             }
         }

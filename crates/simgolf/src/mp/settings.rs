@@ -24,6 +24,9 @@ pub struct Settings {
     /// The neighbours leagues this player made or joined (id: the league's code), newest first.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub leagues: Vec<MyClub>,
+    /// The last week whose final place the player was told of when the game started (lobby.rs `last_week_note`).
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub told_week: String,
 }
 
 /// A private club the player knows.
@@ -111,6 +114,15 @@ pub fn with_player() -> Settings {
         save(s.clone());
     }
     s
+}
+
+/// Turns multiplayer on (with a player id: picking Multiplayer on Start New Game) or off (Preferences > More).
+pub fn set_on(on: bool) {
+    let mut s = if on { with_player() } else { get() };
+    if s.on != on {
+        s.on = on;
+        save(s);
+    }
 }
 
 pub fn is_player(p: &str) -> bool {

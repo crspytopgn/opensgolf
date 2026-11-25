@@ -1,0 +1,1 @@
+Start New Game now asks Single player or Multiplayer first, and the weekly challenge keeps past weeks' boards and tells you when you placed last week.

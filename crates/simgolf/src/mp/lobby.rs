@@ -21,7 +21,13 @@ const NICK: Rect = Rect { x: BOX.x + 200.0, y: BOX.y + 150.0, w: 220.0, h: 22.0 
 const GROUP: Rect = Rect { x: BOX.x + 200.0, y: BOX.y + 180.0, w: 220.0, h: 22.0 };
 const BACK: Rect = Rect { x: BOX.x + BOX.w - 330.0, y: BOX.y + BOX.h - 46.0, w: 100.0, h: 22.0 };
 const PLAY: Rect = Rect { x: BOX.x + BOX.w - 220.0, y: BOX.y + BOX.h - 46.0, w: 190.0, h: 22.0 };
-const OFF: Rect = Rect { x: BOX.x + 24.0, y: BOX.y + BOX.h - 46.0, w: 170.0, h: 22.0 };
+/// "Compare with friends", in place of the group's field until it is clicked (or a group is kept).
+const FRIENDS: Rect = Rect { x: BOX.x + 24.0, y: BOX.y + 180.0, w: 240.0, h: 22.0 };
+/// The board's week: earlier and later (past weeks keep their final boards).
+const EARLIER: Rect = Rect { x: BOX.x + BOX.w - 250.0, y: BOX.y + 232.0, w: 110.0, h: 20.0 };
+const LATER: Rect = Rect { x: BOX.x + BOX.w - 134.0, y: BOX.y + 232.0, w: 110.0, h: 20.0 };
+/// The first week with a board (multiplayer came out in it): no earlier one to show.
+pub const FIRST_WEEK: &str = "2026-W48";
 const BOARD_TOP: f32 = BOX.y + 262.0;
 /// Board rows shown.
 const ROWS: usize = 10;
@@ -59,11 +65,18 @@ struct Lobby {
     board: Board,
     /// The group code of the board shown (empty: the public one).
     board_group: String,
+    /// The group's field is shown (else "Compare with friends" in its place).
+    friends: bool,
+    /// The week of the board shown: this week's, or a past one's final board.
+    week: String,
 }
 
 thread_local! {
     static LOBBY: RefCell<Option<Lobby>> = const { RefCell::new(None) };
     static FETCH: RefCell<Option<crate::net::Request>> = const { RefCell::new(None) };
+    /// Last week's board asked for the player's place when the game starts: (the week, the request).
+    static LAST_WEEK: RefCell<Option<(String, crate::net::Request)>> = const { RefCell::new(None) };
+    static LAST_WEEK_ASKED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 fn lobby() -> Option<Lobby> {
@@ -144,7 +157,7 @@ pub fn allowed(f: Field, text: &str, c: char) -> bool {
 
 fn start_fetch(l: &Lobby) {
     let s = settings::get();
-    let mut url = format!("{}/board?c={}", rival::board_url(), l.challenge.id);
+    let mut url = format!("{}/board?c={}", rival::board_url(), l.week);
     let g = settings::group(&settings::Settings { group: l.group.clone(), ..Default::default() });
     if !g.is_empty() {
         url.push_str(&format!("&g={g}"));
@@ -159,8 +172,59 @@ fn start_fetch(l: &Lobby) {
     });
 }
 
-/// Each frame: the board's answer, once it is in.
-pub fn poll() {
+/// The note for the player's final place in a past week ("1st", "2nd", ...).
+pub fn place_text(place: i64) -> String {
+    let suffix = match (place % 10, place % 100) {
+        (1, p) if p != 11 => "st",
+        (2, p) if p != 12 => "nd",
+        (3, p) if p != 13 => "rd",
+        _ => "th",
+    };
+    format!("{place}{suffix}")
+}
+
+/// Once a session, with multiplayer on: asks last week's public board for the player's place (nothing when they
+/// weren't on it, or were told already).
+fn ask_last_week(now_s: i64) {
+    if LAST_WEEK_ASKED.with(|a| a.replace(true)) {
+        return;
+    }
+    let s = settings::get();
+    let week = super::challenge::previous_week(&super::challenge::week_id(now_s));
+    if !s.on || !settings::is_player(&s.player) || s.told_week == week || week.as_str() < FIRST_WEEK {
+        return;
+    }
+    let url = format!("{}/board?c={week}&p={}", rival::board_url(), s.player);
+    LAST_WEEK.with(|f| *f.borrow_mut() = Some((week, crate::net::get(&url, 64 * 1024))));
+}
+
+/// Last week's answer: the note to show ("You finished 3rd in last week's challenge."), once.
+fn poll_last_week() -> Option<String> {
+    let (week, reply) = LAST_WEEK.with(|f| {
+        let mut f = f.borrow_mut();
+        let (w, r) = f.as_mut()?;
+        let reply = r.poll()?;
+        let w = w.clone();
+        *f = None;
+        Some((w, reply))
+    })?;
+    let Board::Rows { me: Some((place, _)), .. } = read_board(&reply.ok()?) else { return None };
+    let mut s = settings::get();
+    s.told_week = week;
+    settings::save(s);
+    super::texts();
+    Some(if place == 1 { tr("STR_MP_LAST_WEEK_WON").to_string() } else { trf("STR_MP_LAST_WEEK_PLACE", &[("PLACE", &place_text(place))]) })
+}
+
+/// Each frame: the board's answer, once it is in; and the note of last week's place (returned once).
+pub fn poll(now_s: i64) -> Option<String> {
+    ask_last_week(now_s);
+    let note = poll_last_week();
+    poll_board();
+    note
+}
+
+fn poll_board() {
     let Some(reply) = FETCH.with(|f| {
         let mut f = f.borrow_mut();
         let r = f.as_mut()?.poll()?;
@@ -186,12 +250,14 @@ impl App {
         let s = settings::get();
         let l = Lobby {
             id: id.to_string(),
-            challenge: c,
             nick: s.nick.clone(),
             group: s.group.clone(),
             editing: None,
             board: Board::Loading,
             board_group: String::new(),
+            friends: !s.group.is_empty(),
+            week: c.id.clone(),
+            challenge: c,
         };
         LOBBY.with(|x| *x.borrow_mut() = Some(l.clone()));
         start_fetch(&l);
@@ -203,6 +269,14 @@ impl App {
         LOBBY.with(|x| *x.borrow_mut() = None);
         FETCH.with(|f| *f.borrow_mut() = None);
         self.hover = -1;
+    }
+
+    /// Shows a week's board (this week's, or a past week's final one).
+    fn show_board_week(&mut self, week: String) {
+        change(|l| l.week = week);
+        if let Some(l) = lobby() {
+            start_fetch(&l);
+        }
     }
 
     /// Keeps the typed nickname and group code (Multiplayer stays as it was).
@@ -236,33 +310,31 @@ impl App {
         self.start_rival(g, &l.id);
     }
 
-    fn lobby_turn_off(&mut self) {
-        let mut s = settings::get();
-        s.on = false;
-        settings::save(s);
-        self.close_rival_lobby();
-        // the row goes on being listed: it is how Multiplayer is turned on again
-    }
-
     /// A click while the page is open (false: it isn't).
     pub fn rival_lobby_click(&mut self, g: &mut Gfx, x: f32, y: f32) -> bool {
         if self.clubs_click(x, y) || self.leagues_click(g, x, y) {
             return true;
         }
         let Some(l) = lobby() else { return false };
-        if l.editing.is_some() && !NICK.has(x, y) && !GROUP.has(x, y) {
+        let group_hit = l.friends && GROUP.has(x, y);
+        if l.editing.is_some() && !NICK.has(x, y) && !group_hit {
             self.finish_editing();
         }
         if NICK.has(x, y) {
             change(|l| l.editing = Some(Field::Nick));
-        } else if GROUP.has(x, y) {
-            change(|l| l.editing = Some(Field::Group));
+        } else if group_hit || (!l.friends && FRIENDS.has(x, y)) {
+            change(|l| {
+                l.friends = true;
+                l.editing = Some(Field::Group);
+            });
         } else if PLAY.has(x, y) {
             self.lobby_play(g);
         } else if BACK.has(x, y) || !BOX.has(x, y) {
             self.close_rival_lobby();
-        } else if settings::get().on && OFF.has(x, y) {
-            self.lobby_turn_off();
+        } else if EARLIER.has(x, y) && l.week.as_str() > FIRST_WEEK {
+            self.show_board_week(super::challenge::previous_week(&l.week));
+        } else if LATER.has(x, y) && l.week != l.challenge.id {
+            self.show_board_week(super::challenge::next_week(&l.week));
         }
         true
     }
@@ -279,7 +351,7 @@ impl App {
                 let t = if l.editing == Some(Field::Nick) { &mut l.nick } else { &mut l.group };
                 t.pop();
             }),
-            (Some(Field::Nick), KeyCode::Tab) => {
+            (Some(Field::Nick), KeyCode::Tab) if l.friends => {
                 self.finish_editing();
                 change(|l| l.editing = Some(Field::Group));
             }
@@ -347,14 +419,25 @@ impl App {
             white,
         );
         s.put(g, f, x, BOX.y + 72.0, tr("STR_MP_WEEKLY_SAME"), white);
-        let on = settings::get().on;
-        let note = if on { tr("STR_MP_ON_NOTE") } else { tr("STR_MP_OFF_NOTE") };
-        s.put_fit(g, F_ARIAL10, x, BOX.y + 104.0, BOX.w - 48.0, note, navy);
+        s.put_fit(g, F_ARIAL10, x, BOX.y + 104.0, BOX.w - 48.0, tr("STR_MP_ON_NOTE"), navy);
         s.put_fit(g, F_ARIAL10, x, BOX.y + 118.0, BOX.w - 48.0, tr("STR_MP_NOTHING_ELSE"), navy);
-        for (label, r, text, field, hint) in [
+        if !l.friends {
+            let lit = FRIENDS.has(px, py);
+            s.put(g, f, x, FRIENDS.y + 2.0, tr("STR_MP_COMPARE_FRIENDS"), if lit { white } else { yellow });
+            s.fill(
+                g,
+                x,
+                FRIENDS.y + 19.0,
+                crate::ui::text_width(tr("STR_MP_COMPARE_FRIENDS"), 14.0),
+                1.0,
+                if lit { white } else { yellow },
+            );
+        }
+        let fields = [
             (tr("STR_MP_NICKNAME"), NICK, &l.nick, Field::Nick, tr("STR_MP_NICKNAME_HINT")),
             (tr("STR_MP_GROUP"), GROUP, &l.group, Field::Group, tr("STR_MP_GROUP_HINT")),
-        ] {
+        ];
+        for (label, r, text, field, hint) in fields.into_iter().take(if l.friends { 2 } else { 1 }) {
             let editing = l.editing == Some(field);
             s.put(g, f, x, r.y + 2.0, label, white);
             s.fill(g, r.x - 1.0, r.y - 1.0, r.w + 2.0, r.h + 2.0, c15(if editing { 0x7ff0 } else { 0x2d6b }));
@@ -378,8 +461,23 @@ impl App {
             s.put_fit(g, F_ARIAL10, r.x + r.w + 12.0, r.y + 6.0, BOX.x + BOX.w - 24.0 - (r.x + r.w + 12.0), hint, navy);
         }
         let grp = &l.board_group;
-        let title = if grp.is_empty() { tr("STR_MP_BOARD_TITLE").to_string() } else { trf("STR_MP_BOARD_TITLE_GROUP", &[("GROUP", grp)]) };
+        let past = l.week != c.id;
+        let title = match (past, grp.is_empty()) {
+            (false, true) => tr("STR_MP_BOARD_TITLE").to_string(),
+            (false, false) => trf("STR_MP_BOARD_TITLE_GROUP", &[("GROUP", grp)]),
+            (true, true) => trf("STR_MP_BOARD_TITLE_PAST", &[("WEEK", &l.week)]),
+            (true, false) => trf("STR_MP_BOARD_TITLE_PAST_GROUP", &[("WEEK", &l.week), ("GROUP", grp)]),
+        };
         s.put_shadowed(g, crate::ui::F_MANUAL15, x, BOARD_TOP - 26.0, &title, yellow, false);
+        // the week's own measure (a past week's may differ from this week's)
+        let shown = if past { super::challenge::challenge(&l.week) } else { c.clone() };
+        for (r, label, ok) in [(EARLIER, tr("STR_MP_BOARD_EARLIER"), l.week.as_str() > FIRST_WEEK), (LATER, tr("STR_MP_BOARD_LATER"), past)]
+        {
+            // (none before there is a past week to show)
+            if l.week.as_str() > FIRST_WEEK || past {
+                draw_button(g, &s, r, label, ok, ok && r.has(px, py));
+            }
+        }
         match &l.board {
             Board::Loading => s.put(g, f, x, BOARD_TOP, tr("STR_MP_BOARD_LOADING"), white),
             Board::Failed(e) => s.put_fit(g, f, x, BOARD_TOP, BOX.w - 48.0, &trf("STR_MP_BOARD_UNREACHABLE", &[("ERROR", e)]), white),
@@ -392,19 +490,16 @@ impl App {
                     let col = if r.mine { yellow } else { white };
                     s.put(g, f, x, y, &format!("{}.", r.place), col);
                     s.put(g, f, x + 40.0, y, &r.nick, col);
-                    s.put(g, f, x + 300.0, y, &score_text(c.measure, r.score), col);
+                    s.put(g, f, x + 300.0, y, &score_text(shown.measure, r.score), col);
                 }
                 if let Some((place, score)) = me {
                     let y = BOARD_TOP + ROWS as f32 * 18.0 + 4.0;
-                    s.put(g, f, x, y, &trf("STR_MP_BOARD_YOU", &[("PLACE", place), ("SCORE", &score_text(c.measure, *score))]), yellow);
+                    s.put(g, f, x, y, &trf("STR_MP_BOARD_YOU", &[("PLACE", place), ("SCORE", &score_text(shown.measure, *score))]), yellow);
                 }
             }
         }
         draw_button(g, &s, BACK, tr("STR_MP_BACK"), true, BACK.has(px, py));
-        draw_button(g, &s, PLAY, tr(if on { "STR_MP_PLAY" } else { "STR_MP_TURN_ON_AND_PLAY" }), true, PLAY.has(px, py));
-        if on {
-            draw_button(g, &s, OFF, tr("STR_MP_TURN_OFF"), true, OFF.has(px, py));
-        }
+        draw_button(g, &s, PLAY, tr("STR_MP_PLAY"), true, PLAY.has(px, py));
         g.flush();
         true
     }
@@ -413,6 +508,21 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn places_read_as_english_ordinals() {
+        let got: Vec<String> = [1, 2, 3, 4, 11, 12, 13, 21, 22, 101, 111].into_iter().map(place_text).collect();
+        assert_eq!(got, ["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "101st", "111th"]);
+    }
+
+    #[test]
+    fn weeks_step_back_and_on() {
+        use super::super::challenge::{next_week, previous_week};
+        assert_eq!(previous_week("2026-W48"), "2026-W47");
+        assert_eq!(previous_week("2027-W01"), "2026-W53");
+        assert_eq!(next_week("2026-W53"), "2027-W01");
+        assert_eq!(next_week(&previous_week("2026-W10")), "2026-W10");
+    }
 
     #[test]
     fn boards_read() {

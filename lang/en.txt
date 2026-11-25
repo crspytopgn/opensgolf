@@ -2858,9 +2858,18 @@ STR_NET_NOT_BUILT                       :{URL}: this version of the game was bui
 # Start New Game when scenario packs are installed. {PLACE} a property, {DIFFICULTY}, {MONEY} STR_SCENARIOS_MONEY or
 # nothing, {GOALS} a count
 STR_SCENARIOS_TITLE                     :Start New Game
-STR_SCENARIOS_HELP                      :Play a free game, or a scenario with goals to reach. Click twice (or press Enter) to start.
-STR_SCENARIOS_FREE_GAME                 :Free game
-STR_SCENARIOS_FREE_GAME_TEXT            :Choose the difficulty and a property, and play as long as you like.
+STR_SCENARIOS_CHOOSE_HELP               :Play on your own, or online with other players. Click twice (or press Enter) to go on.
+STR_SCENARIOS_SINGLE                    :Single player
+STR_SCENARIOS_SINGLE_TEXT               :A normal game on your own, or a scenario with goals to reach.
+STR_SCENARIOS_MULTI                     :Multiplayer
+STR_SCENARIOS_MULTI_TEXT                :Online: this week's challenge, shared clubs and neighbours leagues.
+STR_SCENARIOS_MULTI_HELP                :Play online with other players. Click twice (or press Enter) to open.
+STR_SCENARIOS_MULTI_NOTICE              :Multiplayer sends your nickname, a random player id and your results to the OpenSGolf server. Nothing else about you or your computer is sent. You can turn it off in Preferences > More.
+STR_SCENARIOS_CONTINUE                  :Continue
+STR_SCENARIOS_MULTI_NOTICE_HELP         :Before you play online, once:
+STR_SCENARIOS_HELP                      :Play a normal game, or a scenario with goals to reach. Click twice (or press Enter) to start.
+STR_SCENARIOS_NORMAL_GAME               :Normal game
+STR_SCENARIOS_NORMAL_GAME_TEXT          :Choose the difficulty and a property, and play as long as you like.
 STR_SCENARIOS_SUMMARY                   :{PLACE}, {DIFFICULTY}{MONEY}, {GOALS} goals
 STR_SCENARIOS_SUMMARY_ONE               :{PLACE}, {DIFFICULTY}{MONEY}, 1 goal
 STR_SCENARIOS_MONEY                     :, §{MONEY} to start
@@ -3679,6 +3688,8 @@ STR_PREFS_DESC_WHATSNEW                 :Shows what's new in this version. Try i
 STR_PLAYCOUNT_NOTICE                    :OpenSGolf counts anonymous play time (no personal data). Turn it off in Preferences > More.
 STR_MENU_PREFS_PLAYCOUNT                : Count my play time (anonymous)
 STR_PREFS_DESC_PLAYCOUNT                :Sends your play time anonymously, to the second: only your system and version, never names or saves.
+STR_MENU_PREFS_MULTIPLAYER              : Multiplayer
+STR_PREFS_DESC_MULTIPLAYER              :Picking Multiplayer on Start New Game turns this on. Untick it to stop sending your nickname, id and results.
 
 # Making HD graphics from the player's own files (the port's own, hd_make.rs; docs/HD.md)
 STR_PREFS_MAKE_HD                       : Make HD graphics from my SimGolf files (beta)...

@@ -34,6 +34,7 @@ fn pref_note(l: Line) -> Option<&'static str> {
         Line::Language => "When a translation is installed.",
         Line::UpdateNow => "Not in the browser, which is always the newest version.",
         Line::PlayCount => "Not in store builds.",
+        Line::Multiplayer => "Not in the F-Droid build.",
         _ => return None,
     })
 }
@@ -71,6 +72,7 @@ fn prefs_rows(out: &mut String) {
         languages: true,
         update_now: true,
         play_count: true,
+        multiplayer: true,
         played: 0,
         make_hd: Some(crate::hd_make::Offer::Make),
         remove_hd: true,
@@ -116,6 +118,7 @@ fn prefs_rows(out: &mut String) {
                 Line::FixBugs => on_off(e.fix_original_bugs),
                 Line::UpdateCheck => on_off(new_player_ui().update_check),
                 Line::PlayCount => on_off(true),
+                Line::Multiplayer => on_off(false),
                 Line::TextSize => pill(false, tr(crate::textsize::name_key(100))),
                 Line::Language => pill(false, "English"),
                 _ => "<span class=\"pill act\">Opens</span>".to_string(),

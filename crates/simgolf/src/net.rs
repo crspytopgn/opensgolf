@@ -215,6 +215,7 @@ fn remote(url: &str, _max: u64) -> Request {
 /// Starts POSTing `body` (application/octet-stream) to `url`; the reply is the answer's bytes. Multiplayer's
 /// Neighbours saves (mp/league.rs).
 #[cfg(all(not(target_arch = "wasm32"), feature = "net"))]
+#[cfg_attr(not(feature = "multiplayer"), allow(dead_code))]
 pub fn post(url: &str, body: Vec<u8>) -> Request {
     let (tx, rx) = std::sync::mpsc::channel();
     let url = url.to_string();

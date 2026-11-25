@@ -210,7 +210,11 @@ impl App {
 
     /// Each frame: the board's answer to a result sent.
     pub fn rival_poll(&mut self) {
-        super::lobby::poll();
+        if let Some(note) = super::lobby::poll(now_s()) {
+            println!("rival: {note}");
+            self.show_toast(&note);
+            self.toast_until = self.clock + 8.0;
+        }
         let Some(reply) = SENDING.with(|r| {
             let mut r = r.borrow_mut();
             let reply = r.as_mut()?.poll()?;

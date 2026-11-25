@@ -8,6 +8,16 @@ Almost everything OpenSGolf adds to the original game is **off until you switch 
 unless you choose otherwise. Most of it is in Preferences: *Game options* holds the extras and presets, *Graphics* holds
 Enhanced graphics and HD.
 
+## 0.9.3 (25 November 2026)
+
+- **Start New Game asks Single player or Multiplayer first.** Single player has the normal game (it was called "Free
+  game") and scenarios; Multiplayer has the weekly challenge, shared clubs and neighbours leagues.
+- Picking Multiplayer is how you turn it on: the first time, one note says what is sent, then Continue. *Preferences >
+  More > Multiplayer* turns it off again.
+- **Past weeks' boards:** the weekly challenge page can show earlier weeks' boards, and the game tells you when it starts
+  if you placed in last week's challenge.
+- The friends' group code is behind *Compare with friends* on the weekly challenge page.
+
 ## 0.9.2 (25 November 2026)
 
 - **Shared clubs in the browser:** all three multiplayer modes now work in the browser version.
