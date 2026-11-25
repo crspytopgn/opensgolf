@@ -17,6 +17,7 @@ Enhanced graphics and HD.
 - **Past weeks' boards:** the weekly challenge page can show earlier weeks' boards, and the game tells you when it starts
   if you placed in last week's challenge.
 - The friends' group code is behind *Compare with friends* on the weekly challenge page.
+- Fewer release downloads: 10 files instead of 16, with a table of which one you need.
 
 ## 0.9.2 (25 November 2026)
 
