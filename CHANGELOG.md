@@ -8,6 +8,11 @@ Almost everything OpenSGolf adds to the original game is **off until you switch 
 unless you choose otherwise. Most of it is in Preferences: *Game options* holds the extras and presets, *Graphics* holds
 Enhanced graphics and HD.
 
+## 0.9.1 (25 November 2026)
+
+- **Multiplayer in the browser:** the weekly challenge and neighbours leagues now work in the browser version too. Shared
+  clubs still need the desktop or Android game for now.
+
 ## 0.9 (25 November 2026)
 
 **Highlights**

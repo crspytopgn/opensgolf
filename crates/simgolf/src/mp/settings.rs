@@ -81,6 +81,19 @@ pub fn save(s: Settings) {
 }
 
 /// Some entropy for a new player id: the clock, and addresses that differ run to run.
+#[cfg(target_arch = "wasm32")]
+fn entropy() -> u128 {
+    #[link(wasm_import_module = "env")]
+    extern "C" {
+        /// 32 random bits from the browser (web/opensgolf.js).
+        fn sg_random() -> u32;
+    }
+    // SAFETY: no arguments
+    let r = |s: u32| u128::from(unsafe { sg_random() }) << s;
+    (r(0) | r(32) | r(64) | r(96)) ^ (miniquad::date::now() * 1e6) as u128
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 fn entropy() -> u128 {
     let t = (miniquad::date::now() * 1e6) as u128;
     let local = 0u8;

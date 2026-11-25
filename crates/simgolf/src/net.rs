@@ -30,6 +30,7 @@ enum Inner {
 #[link(wasm_import_module = "env")]
 extern "C" {
     fn sg_net_fetch(url: *const u8, len: usize) -> i32;
+    fn sg_net_post(url: *const u8, len: usize, body: *const u8, body_len: usize) -> i32;
     fn sg_net_status(id: i32) -> i32;
     fn sg_net_take(id: i32, dst: *mut u8);
     fn sg_net_error(id: i32, dst: *mut u8, cap: usize) -> i32;
@@ -208,6 +209,34 @@ fn remote(url: &str, _max: u64) -> Request {
 fn remote(url: &str, _max: u64) -> Request {
     // SAFETY: the page copies the address out of the wasm memory before returning.
     let id = unsafe { sg_net_fetch(url.as_ptr(), url.len()) };
+    Request { inner: Inner::Page(id) }
+}
+
+/// Starts POSTing `body` (application/octet-stream) to `url`; the reply is the answer's bytes. Multiplayer's
+/// Neighbours saves (mp/league.rs).
+#[cfg(all(not(target_arch = "wasm32"), feature = "net"))]
+pub fn post(url: &str, body: Vec<u8>) -> Request {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let url = url.to_string();
+    let spawned = std::thread::Builder::new().name(NET_THREAD.into()).spawn(move || {
+        let r = ureq::post(&url)
+            .header("Content-Type", "application/octet-stream")
+            .header("User-Agent", AGENT)
+            .send(&body[..])
+            .map_err(|e| format!("{url}: {e}"))
+            .and_then(|mut a| a.body_mut().read_to_vec().map_err(|e| format!("{url}: {e}")));
+        let _ = tx.send(r);
+    });
+    match spawned {
+        Ok(_) => Request { inner: Inner::Thread(rx) },
+        Err(e) => Request { inner: Inner::Done(Some(Err(e.to_string()))) },
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn post(url: &str, body: Vec<u8>) -> Request {
+    // SAFETY: the page copies the address and the body out of the wasm memory before returning.
+    let id = unsafe { sg_net_post(url.as_ptr(), url.len(), body.as_ptr(), body.len()) };
     Request { inner: Inner::Page(id) }
 }
 

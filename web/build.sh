@@ -4,7 +4,7 @@
 # web server (for example: python3 -m http.server -d web/dist) and open it in a browser.
 set -e
 cd "$(dirname "$0")/.."
-cargo build -p opensgolf --release --target wasm32-unknown-unknown --no-default-features
+cargo build -p opensgolf --release --target wasm32-unknown-unknown --no-default-features --features multiplayer
 rm -rf web/dist
 mkdir -p web/dist
 cp target/wasm32-unknown-unknown/release/opensgolf.wasm web/dist/

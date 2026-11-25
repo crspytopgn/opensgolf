@@ -312,6 +312,28 @@ miniquad_add_plugin({
                 });
             return id;
         };
+        // Multiplayer's Neighbours (crates/simgolf/src/mp/league.rs): a save POSTed to the board, polled like a download
+        env.sg_net_post = function (ptr, len, body, blen) {
+            const url = sgStr(ptr, len);
+            const data = new Uint8Array(wasm_memory.buffer, body, blen).slice();
+            const id = sgnet.next++;
+            const req = { status: -2, data: null, error: "" };
+            sgnet.reqs.set(id, req);
+            fetch(url, { method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: data })
+                .then(r => {
+                    if (!r.ok) throw new Error(url + ": HTTP " + r.status);
+                    return r.arrayBuffer();
+                })
+                .then(b => {
+                    req.data = new Uint8Array(b);
+                    req.status = req.data.length;
+                })
+                .catch(e => {
+                    req.error = String(e && e.message ? e.message : e);
+                    req.status = -1;
+                });
+            return id;
+        };
         env.sg_net_status = function (id) {
             const r = sgnet.reqs.get(id);
             return r ? r.status : -1;

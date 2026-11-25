@@ -232,27 +232,11 @@ enum Asked {
     Join,
 }
 
-/// An upload: the save's bytes POSTed on a thread (net.rs only GETs).
-struct Upload(std::sync::mpsc::Receiver<Result<(), String>>);
-
-fn post(url: String, body: Vec<u8>) -> Upload {
-    let (tx, rx) = std::sync::mpsc::channel();
-    let _ = std::thread::Builder::new().name(crate::net::NET_THREAD.into()).spawn(move || {
-        let r = ureq::post(&url)
-            .header("Content-Type", "application/octet-stream")
-            .send(&body[..])
-            .map(|_| ())
-            .map_err(|e| format!("{url}: {e}"));
-        let _ = tx.send(r);
-    });
-    Upload(rx)
-}
-
 thread_local! {
     static PAGE: RefCell<Option<Page>> = const { RefCell::new(None) };
     static ASK: RefCell<Option<(Asked, crate::net::Request)>> = const { RefCell::new(None) };
     static SENT: RefCell<Vec<crate::net::Request>> = const { RefCell::new(Vec::new()) };
-    static UPLOADS: RefCell<Vec<Upload>> = const { RefCell::new(Vec::new()) };
+    static UPLOADS: RefCell<Vec<crate::net::Request>> = const { RefCell::new(Vec::new()) };
     static VISITING: RefCell<Option<(String, String, crate::net::Request)>> = const { RefCell::new(None) };
 }
 
@@ -331,7 +315,7 @@ fn remember(code: &str, name: &str) {
 /// The month's numbers sent, at most one in flight each.
 fn poll_sent() {
     SENT.with(|s| s.borrow_mut().retain_mut(|r| r.poll().is_none()));
-    UPLOADS.with(|u| u.borrow_mut().retain(|u| u.0.try_recv().is_err()));
+    UPLOADS.with(|u| u.borrow_mut().retain_mut(|u| u.poll().is_none()));
 }
 
 impl App {
@@ -410,7 +394,7 @@ impl App {
         let Some(seat) = t.my_seat() else { return };
         let path = own_save_path(&t.league.code);
         self.close_leagues_page();
-        if path.exists() {
+        if sg_core::fsutil::exists(&path) {
             match self.load_game(g, &path) {
                 Ok(()) => return,
                 Err(e) => println!("league: {} could not be loaded ({e}): a new game", path.display()),
@@ -541,7 +525,7 @@ impl App {
             }
             if let Ok(bytes) = self.save_bytes(6) {
                 let url = format!("{}/leagues/{code}/save?p={}", server(), s.player);
-                UPLOADS.with(|u| u.borrow_mut().push(post(url, bytes)));
+                UPLOADS.with(|u| u.borrow_mut().push(crate::net::post(&url, bytes)));
             }
         }
         if f.year == END_YEAR + 1 && month % 8 == 0 {

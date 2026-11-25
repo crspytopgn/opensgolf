@@ -45,7 +45,8 @@ pub fn set(on: bool) {
 
 thread_local! {
     static LOCAL: Cell<u32> = Cell::new(
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.subsec_nanos() | 1).unwrap_or(1),
+        // (miniquad's clock: the standard library's has no time in a browser)
+        ((miniquad::date::now().fract() * 1e9) as u32) | 1,
     );
 }
 

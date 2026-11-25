@@ -107,6 +107,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.9.1" date="2026-11-25">
+      <description>
+        <p>The weekly challenge and neighbours leagues now work in the browser version too.</p>
+      </description>
+    </release>
     <release version="0.9.0" date="2026-11-25">
       <description>
         <p>Multiplayer (beta), off until you turn it on: a weekly challenge where everyone gets the same land and competes on a board; neighbours leagues, where up to 4 friends each run their own course on their own plot of one property and compare in a live table; and shared clubs, where up to 4 players build and run one course together, live.</p>
