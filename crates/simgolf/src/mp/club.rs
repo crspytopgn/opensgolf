@@ -103,6 +103,13 @@ pub fn server() -> String {
     super::rival::board_url()
 }
 
+/// A line for the log: the terminal, and the browser's console.
+fn say(line: &str) {
+    println!("{line}");
+    #[cfg(target_arch = "wasm32")]
+    crate::audio::log_console(line);
+}
+
 /// This computer's time in ms.
 fn now_ms() -> f64 {
     crate::app::now() * 1000.0
@@ -171,7 +178,19 @@ impl App {
                 self.undo.clear();
                 self.load_save_with(g, s, true).map(|_| self.log_restart())
             }
-            Some(g) => self.load_save(g, s),
+            // A shared game brings its course up to date only at a tick's start, so the load draws the meshes from the course
+            // it finds: a blank one of the club's size (the game before's may be another size), then again from the club's
+            // course once it is in.
+            Some(g) => {
+                {
+                    let _size = sg_core::mapsize::scoped(s.size);
+                    self.course = sg_core::course::Course::default();
+                }
+                self.load_save(g, s).map(|_| {
+                    self.fill_tile_corners();
+                    self.rebuild_batches(g);
+                })
+            }
             None => {
                 self.undo.clear();
                 self.editor = None;
@@ -275,7 +294,7 @@ impl App {
     pub fn club_leave(&mut self, why: &str) {
         let Some(l) = self.mp.live.take() else { return };
         drop(l);
-        println!("club: left ({why})");
+        say(&format!("club: left ({why})"));
         self.mp.session = None;
         super::lockstep::set(false);
         // the game's own clock goes on from here
@@ -333,7 +352,7 @@ impl App {
 
     /// Loads the club again from the room's save (the game fell out of step).
     fn club_reload(&mut self, why: &str) {
-        println!("club: loading again ({why})");
+        say(&format!("club: loading again ({why})"));
         if let Some(l) = self.mp.live.as_mut() {
             l.starting = false;
             l.reloads += 1;
@@ -349,8 +368,10 @@ impl App {
 
     pub(crate) fn club_frame_at(&mut self, mut g: Option<&mut Gfx>, ms: f64) {
         self.clubs_make_pending();
-        // back on the title menu: the club is left
-        if self.club_on() && self.screen == crate::app::Screen::Menu {
+        // back on the title menu once playing: the club is left (a club joined from the title menu's Start New Game is
+        // still on the menu until its save comes in)
+        let playing = self.mp.live.as_ref().is_some_and(|l| matches!(l.phase, Phase::Playing));
+        if playing && self.screen == crate::app::Screen::Menu {
             self.club_leave(tr("STR_MP_CLUB_LEFT"));
         }
         let Some(l) = self.mp.live.as_mut() else { return };
@@ -405,7 +426,7 @@ impl App {
                     return false;
                 }
                 l.retry_at = ms + 1000.0 * (1u32 << l.retries.min(5)) as f64;
-                println!("club: connection closed ({why}); trying again");
+                say(&format!("club: connection closed ({why}); trying again"));
                 return false;
             }
             Event::Msg(m) => return self.club_message(g, m, ms),
@@ -548,7 +569,7 @@ impl App {
             l.ask = None;
             match sent {
                 Ok((data, extra)) => l.send(&ToServer::Save { tick, data, extra }),
-                Err(e) => println!("club: no save for the room: {e}"),
+                Err(e) => say(&format!("club: no save for the room: {e}")),
             }
         }
         if tick.is_multiple_of(CHECK_EVERY) {

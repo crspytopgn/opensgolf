@@ -312,6 +312,67 @@ miniquad_add_plugin({
                 });
             return id;
         };
+        // Multiplayer's shared clubs (crates/simgolf/src/mp/conn.rs): the club's WebSocket. Messages come in as text and wait
+        // in a queue until the game takes them (each frame); what the game sends before the socket opens waits too.
+        const sgws = { next: 1, socks: new Map() };
+        env.sg_ws_open = function (ptr, len) {
+            const url = sgStr(ptr, len);
+            const id = sgws.next++;
+            const s = { ws: null, state: 0, inbox: [], outbox: [], reason: "" };
+            sgws.socks.set(id, s);
+            try {
+                s.ws = new WebSocket(url);
+                s.ws.onopen = function () {
+                    s.state = 1;
+                    for (const t of s.outbox) s.ws.send(t);
+                    s.outbox = [];
+                };
+                s.ws.onmessage = function (e) { if (typeof e.data === "string") s.inbox.push(enc.encode(e.data)); };
+                s.ws.onerror = function () { if (!s.reason) s.reason = "could not connect to " + url; };
+                s.ws.onclose = function (e) {
+                    s.state = 2;
+                    s.reason = e.reason || (s.reason || ("connection lost (" + e.code + ")"));
+                };
+            } catch (e) {
+                s.state = 2;
+                s.reason = String(e && e.message ? e.message : e);
+            }
+            return id;
+        };
+        env.sg_ws_send = function (id, ptr, len) {
+            const s = sgws.socks.get(id);
+            if (!s || s.state === 2) return;
+            const t = sgStr(ptr, len);
+            if (s.state === 1) s.ws.send(t); else s.outbox.push(t);
+        };
+        env.sg_ws_state = function (id) {
+            const s = sgws.socks.get(id);
+            // what came in before the close is handed over first
+            if (!s) return 2;
+            return s.state === 2 && s.inbox.length ? 1 : s.state;
+        };
+        env.sg_ws_next = function (id) {
+            const s = sgws.socks.get(id);
+            return s && s.inbox.length ? s.inbox[0].length : -1;
+        };
+        env.sg_ws_take = function (id, dst) {
+            const s = sgws.socks.get(id);
+            const m = s && s.inbox.shift();
+            if (m) new Uint8Array(wasm_memory.buffer, dst, m.length).set(m);
+        };
+        env.sg_ws_reason = function (id, dst, cap) {
+            const s = sgws.socks.get(id);
+            const b = enc.encode(s ? s.reason : "closed");
+            const n = Math.min(b.length, cap);
+            new Uint8Array(wasm_memory.buffer, dst, n).set(b.subarray(0, n));
+            return n;
+        };
+        env.sg_ws_close = function (id) {
+            const s = sgws.socks.get(id);
+            if (!s) return;
+            sgws.socks.delete(id);
+            try { if (s.ws && s.state !== 2) s.ws.close(1000); } catch (e) {}
+        };
         // Multiplayer's Neighbours (crates/simgolf/src/mp/league.rs): a save POSTed to the board, polled like a download
         env.sg_net_post = function (ptr, len, body, blen) {
             const url = sgStr(ptr, len);

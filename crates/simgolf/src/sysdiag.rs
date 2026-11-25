@@ -180,6 +180,15 @@ pub fn fatal(msg: &str) -> ! {
 /// On every desktop the panic (message, place, backtrace) is also written to `crash.txt` in the save folder (app.rs
 /// `save_dir`), as Android writes its own: a game started from Finder or a desktop menu has nowhere to show its standard
 /// error, so a player reporting a crash had nothing to send.
+/// The browser: a panic's message and place on the console (a player's report can quote it). Set once the game is
+/// running, after miniquad's own hook (which shows only where).
+#[cfg(target_arch = "wasm32")]
+pub fn install_web_panic_hook() {
+    std::panic::set_hook(Box::new(|info| {
+        crate::audio::log_console(&format!("OpenSGolf {} panicked: {info}", env!("CARGO_PKG_VERSION")));
+    }));
+}
+
 pub fn install_panic_hook() {
     #[cfg(not(any(target_arch = "wasm32", target_os = "android")))]
     {

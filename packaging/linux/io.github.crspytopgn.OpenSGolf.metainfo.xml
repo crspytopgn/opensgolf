@@ -107,6 +107,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.9.2" date="2026-11-25">
+      <description>
+        <p>Shared clubs now work in the browser version too. Joining a club from Start New Game no longer leaves it straight away, and joining a club on a bigger map than the last game no longer crashes.</p>
+      </description>
+    </release>
     <release version="0.9.1" date="2026-11-25">
       <description>
         <p>The weekly challenge and neighbours leagues now work in the browser version too.</p>

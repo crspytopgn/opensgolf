@@ -2,8 +2,8 @@
 //! the game never waits on the network. Messages go out as [`ToServer`] JSON and come back as [`ToGame`], read on the
 //! thread (a save can be large).
 //!
-//! Desktop and Android: tungstenite over rustls (the same TLS as the downloads, net.rs). The browser: not yet (its page
-//! has to open the socket; the club list says so).
+//! Desktop and Android: tungstenite over rustls (the same TLS as the downloads, net.rs). The browser: the page's own
+//! WebSocket (web/opensgolf.js sg_ws_*), polled each frame.
 
 use super::session::{ToGame, ToServer};
 
@@ -22,7 +22,11 @@ pub struct Conn {
     #[cfg(not(target_arch = "wasm32"))]
     rx: std::sync::mpsc::Receiver<Event>,
     #[cfg(target_arch = "wasm32")]
-    done: bool,
+    id: i32,
+    #[cfg(target_arch = "wasm32")]
+    opened: bool,
+    #[cfg(target_arch = "wasm32")]
+    closed: bool,
 }
 
 impl std::fmt::Debug for Conn {
@@ -135,19 +139,86 @@ fn run(url: &str, out: &std::sync::mpsc::Receiver<String>, inc: &std::sync::mpsc
 }
 
 #[cfg(target_arch = "wasm32")]
+#[link(wasm_import_module = "env")]
+extern "C" {
+    fn sg_ws_open(url: *const u8, len: usize) -> i32;
+    fn sg_ws_send(id: i32, text: *const u8, len: usize);
+    /// 0 connecting, 1 open, 2 closed.
+    fn sg_ws_state(id: i32) -> i32;
+    /// The next message's length in bytes, or -1 when none has come in.
+    fn sg_ws_next(id: i32) -> i32;
+    fn sg_ws_take(id: i32, dst: *mut u8);
+    fn sg_ws_reason(id: i32, dst: *mut u8, cap: usize) -> i32;
+    fn sg_ws_close(id: i32);
+}
+
+#[cfg(target_arch = "wasm32")]
 impl Conn {
-    pub fn open(_url: &str) -> Conn {
-        Conn { done: false }
+    /// Starts connecting to `url` (ws:// or wss://) through the page.
+    pub fn open(url: &str) -> Conn {
+        // SAFETY: the page copies the address out of the wasm memory before returning.
+        let id = unsafe { sg_ws_open(url.as_ptr(), url.len()) };
+        Conn { id, opened: false, closed: false }
     }
 
-    pub fn send(&self, _m: &ToServer) {}
-
-    pub fn poll(&mut self) -> Vec<Event> {
-        if std::mem::replace(&mut self.done, true) {
-            Vec::new()
-        } else {
-            vec![Event::Closed("shared clubs are not in the browser version yet".into())]
+    /// Queues a message (the page sends what was queued before the socket opened once it opens).
+    pub fn send(&self, m: &ToServer) {
+        if self.closed {
+            return;
         }
+        if let Ok(t) = serde_json::to_string(m) {
+            // SAFETY: as open
+            unsafe { sg_ws_send(self.id, t.as_ptr(), t.len()) };
+        }
+    }
+
+    /// Everything that has come in since the last call.
+    pub fn poll(&mut self) -> Vec<Event> {
+        let mut v = Vec::new();
+        if self.closed {
+            return v;
+        }
+        // SAFETY: each take copies into a buffer of the length the page gave.
+        let state = unsafe { sg_ws_state(self.id) };
+        if state >= 1 && !self.opened {
+            self.opened = true;
+            if state == 1 {
+                v.push(Event::Open);
+            }
+        }
+        loop {
+            let n = unsafe { sg_ws_next(self.id) };
+            if n < 0 {
+                break;
+            }
+            let mut buf = vec![0u8; n as usize];
+            unsafe { sg_ws_take(self.id, buf.as_mut_ptr()) };
+            match serde_json::from_slice::<ToGame>(&buf) {
+                Ok(m) => v.push(Event::Msg(m)),
+                Err(e) => {
+                    self.closed = true;
+                    unsafe { sg_ws_close(self.id) };
+                    v.push(Event::Closed(format!("a message this game can't read ({e}): update the game")));
+                    return v;
+                }
+            }
+        }
+        if state == 2 {
+            self.closed = true;
+            let mut buf = vec![0u8; 256];
+            let k = unsafe { sg_ws_reason(self.id, buf.as_mut_ptr(), buf.len()) }.clamp(0, 256) as usize;
+            let why = String::from_utf8_lossy(&buf[..k]).into_owned();
+            v.push(Event::Closed(if why.is_empty() { "closed".into() } else { why }));
+        }
+        v
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+impl Drop for Conn {
+    fn drop(&mut self) {
+        // SAFETY: the page forgets the socket (closing it if it is still open)
+        unsafe { sg_ws_close(self.id) };
     }
 }
 

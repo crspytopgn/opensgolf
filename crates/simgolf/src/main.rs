@@ -1472,6 +1472,8 @@ impl Stage {
 
         let mut mixer = Mixer::new(&app.game_path("Sounds"));
         mixer.add_dir("simsfx", &app.game_path("SimsFX"));
+        #[cfg(target_arch = "wasm32")]
+        sysdiag::install_web_panic_hook();
         audio::log(&format!("sound: looking in {} and {}", app.game_path("Sounds").display(), app.game_path("SimsFX").display()));
         // the free set's sounds stand in for a copy whose own cannot be played; the player is told once (sound_note)
         mixer.with_fallback();

@@ -1808,6 +1808,17 @@ impl App {
             return;
         }
         self.sync_course();
+        self.fill_tile_corners();
+    }
+
+    /// [`sync_tile_corners`] from the course as it is (a shared game syncs it only at a tick's start, so a club's save
+    /// loaded between ticks fills them once its course is in: mp/club.rs club_restore). None while the course is another
+    /// size's (the game before).
+    pub(crate) fn fill_tile_corners(&mut self) {
+        self.terrain.tile_corner.clear();
+        if self.land.is_none() || self.course.ty.len() != self.terrain.ty.len() || self.terrain.w != sg_core::course::n() {
+            return;
+        }
         let c = &self.course;
         let level = |a: i32, b: i32, k: i32| (c.corner(a, b, k) - sg_core::terrain::EXE_SEA).max(0) as i8;
         let mut out = Vec::with_capacity(self.terrain.ty.len());

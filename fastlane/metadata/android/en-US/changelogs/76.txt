@@ -1,0 +1,1 @@
+Shared clubs now work in the browser too. Joining a club from Start New Game no longer leaves it straight away, and joining a club on a bigger map no longer crashes.
