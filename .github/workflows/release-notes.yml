@@ -1,0 +1,58 @@
+# Redo an existing release's notes from today's CHANGELOG.md, by hand (Actions > Release notes > Run workflow): the
+# GitHub release page's text and/or a new post in the Discord #releases channel, made the same way as release.yml makes
+# them (tools/release_notes.py). The page keeps GitHub's list of changes ("What's Changed") below the new text, and no
+# release file is touched. Leave both boxes unticked to only print what would be written.
+name: Release notes
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release to redo, e.g. v0.9.5"
+        required: true
+      github:
+        description: "Rewrite the GitHub release page's notes"
+        type: boolean
+        default: false
+      discord:
+        description: "Post it again in Discord #releases"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make the notes
+        run: |
+          case "$VERSION" in v[0-9]*.[0-9]*) ;; *) echo "::error::version must look like v0.9.5"; exit 1;; esac
+          python3 tools/release_notes.py github "$VERSION" > notes.md
+          # keep GitHub's own list of the changes since the last release from the current page
+          gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" --json body -q .body > old.md
+          python3 - <<'PY' >> notes.md
+          import re
+          old = open("old.md", encoding="utf-8").read()
+          m = re.search(r"^## What's Changed.*|^\*\*Full Changelog\*\*.*", old, re.S | re.M)
+          if m:
+              print("\n" + m.group(0).strip())
+          PY
+          cat notes.md
+          python3 tools/release_notes.py discord "$VERSION" > payload.json
+          cat payload.json
+      - name: Rewrite the GitHub release notes
+        if: inputs.github
+        run: gh release edit "$VERSION" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
+      - name: Post to Discord
+        if: inputs.discord
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then echo "::error::DISCORD_RELEASE_WEBHOOK is not set"; exit 1; fi
+          curl -fsS -H "Content-Type: application/json" -A opensgolf-release --data @payload.json "$WEBHOOK" -o /dev/null -w "Discord answered %{http_code}\n"

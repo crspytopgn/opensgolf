@@ -72,7 +72,9 @@ channel's Edit Channel > Integrations > Webhooks, then *Copy Webhook URL* into t
 leaves a warning and posts nothing; a failed post never fails a release.
 
 - **DISCORD_RELEASE_WEBHOOK** (#releases): the `discord` job in `release.yml`, after the release is published, posts
-  "OpenSGolf X.Y.Z is out" with the minor version's highlights from `CHANGELOG.md` and the release's link.
+  "OpenSGolf X.Y.Z is out" with what changed in that version from `CHANGELOG.md` (a fix release's own section or line,
+  with a link to the minor version's highlights) and the release's link. *Actions > Release notes > Run workflow*
+  (`release-notes.yml`) can post an older release again, or rewrite its GitHub page's notes, from today's `CHANGELOG.md`.
 - **DISCORD_ISSUES_WEBHOOK** (#github-activity): `.github/workflows/discord-issues.yml` posts one line for a new issue,
   a reply from the project (owner, member or collaborator), and an issue closed or reopened: the number, title, who and
   a link, never the issue's or comment's text. Bots and pull requests are skipped.
@@ -82,5 +84,6 @@ F-Droid needs nothing: its bot reads the new tag (the recipe's `AutoUpdateMode`)
 ## What's new (CHANGELOG.md)
 
 Each minor version (0.6, 0.7, ...) has a section in `CHANGELOG.md`: its highlights in plain words, and its fix releases as
-short lines. Add to it with every release; the release workflow puts the version's section at the top of its GitHub release
+short lines (or, since 0.9.1, a `## 0.9.1 (date)` section of its own). Add to it with every release; the release
+workflow (`tools/release_notes.py`) puts the version's own changes, then its minor's highlights, at the top of its GitHub release
 page, and the README, the browser page and Preferences > More link to the file.

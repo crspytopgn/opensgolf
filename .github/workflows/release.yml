@@ -227,40 +227,13 @@ jobs:
           echo "signed with public key $(openssl pkey -inform DER -in "$key" -pubout -outform DER | tail -c 32 | od -An -tx1 | tr -d ' \n')"
           rm -f "$key"
           test "$(stat -c %s SHA256SUMS.sig)" = 64
-      - name: Release notes (this version's section of CHANGELOG.md)
-        # "## 0.6 (...)" up to the next "## ": the highlights of the minor version (a 0.6.x fix release shows them too),
-        # above GitHub's list of the changes since the last release
+      - name: Release notes (from CHANGELOG.md)
+        # which download to pick, then this version's own changes (a fix release's "## 0.9.5" section or its line under
+        # the minor's Fix releases) above the minor's highlights, then GitHub's list of the changes since the last release
+        # (tools/release_notes.py; release-notes.yml redoes an older release's notes)
         run: |
-          python3 - "$VERSION" <<'PY'
-          import re, sys
-          v = sys.argv[1].lstrip("v")
-          minor = ".".join(v.split(".")[:2])
-          text = open("src/CHANGELOG.md", encoding="utf-8").read()
-          m = re.search(r"^## " + re.escape(minor) + r" \(.*?(?=^## |\Z)", text, re.S | re.M)
-          body = m.group(0).strip() if m else ""
-          body = body.replace("](docs/", "](https://github.com/crspytopgn/opensgolf/blob/main/docs/")
-          # which file to pick, above the highlights (the file names never change: Update now and the stores use them)
-          d = "https://github.com/crspytopgn/opensgolf/releases/download/v" + v + "/"
-          table = (
-              "### Which download do I need?\n\n"
-              "| You have | Download |\n|---|---|\n"
-              f"| Windows PC | [opensgolf-windows.zip]({d}opensgolf-windows.zip) |\n"
-              f"| Windows on ARM (Snapdragon laptops) | [opensgolf-windows-arm64.zip]({d}opensgolf-windows-arm64.zip) |\n"
-              f"| Mac (Apple silicon or Intel) | [opensgolf-macos.zip]({d}opensgolf-macos.zip) |\n"
-              f"| Linux PC or Steam Deck | [opensgolf-linux-x86_64.AppImage]({d}opensgolf-linux-x86_64.AppImage) |\n"
-              f"| Linux on ARM (Raspberry Pi 4/5) | [opensgolf-linux-arm64.AppImage]({d}opensgolf-linux-arm64.AppImage) |\n"
-              f"| Android phone or tablet | [opensgolf-android.apk]({d}opensgolf-android.apk) |\n"
-              "| Just want to try it | [Play in your browser](https://crspytopgn.github.io/opensgolf/), nothing to install |\n\n"
-              "The Linux `.tar.gz` files are the same game as a plain folder, for when an AppImage won't start. "
-              "`SHA256SUMS` and `SHA256SUMS.sig` let the game's *Update now* check what it downloads; you don't need them. "
-              "Install help: [INSTALL.md](https://github.com/crspytopgn/opensgolf/blob/main/docs/INSTALL.md)\n\n"
-          )
-          body = table + body
-          body += "\n\nEverything, version by version: [CHANGELOG.md](https://github.com/crspytopgn/opensgolf/blob/main/CHANGELOG.md)\n"
-          body += "\nChat, help and bug reports: join the [OpenSGolf Discord](https://discord.gg/DVsBzGN4dC).\n"
-          open("release-notes.md", "w", encoding="utf-8").write(body)
-          print(body)
-          PY
+          python3 src/tools/release_notes.py github "$VERSION" src/CHANGELOG.md > release-notes.md
+          cat release-notes.md
       - uses: softprops/action-gh-release@v2
         with:
           body_path: release-notes.md
@@ -273,9 +246,10 @@ jobs:
           generate_release_notes: true
 
   discord:
-    # After the release: a post in the community Discord's #releases channel (the version, this minor's highlights from
-    # CHANGELOG.md and the release's link), through the webhook in the DISCORD_RELEASE_WEBHOOK secret. Without the secret
-    # it says so and does nothing; a failed post never fails the release, which is already published.
+    # After the release: a post in the community Discord's #releases channel (the version, what changed in it from
+    # CHANGELOG.md, for a fix release its own changes with a link to the minor's highlights, and the release's link),
+    # through the webhook in the DISCORD_RELEASE_WEBHOOK secret (tools/release_notes.py). Without the secret it says so
+    # and does nothing; a failed post never fails the release, which is already published.
     needs: publish
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -286,45 +260,8 @@ jobs:
           WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
         run: |
           if [ -z "$WEBHOOK" ]; then echo "::warning::DISCORD_RELEASE_WEBHOOK is not set: no Discord post (docs/RELEASING.md)"; exit 0; fi
-          python3 - "$VERSION" <<'PY'
-          import json, os, re, sys, urllib.request
-          v = sys.argv[1].lstrip("v")
-          minor = ".".join(v.split(".")[:2])
-          text = open("CHANGELOG.md", encoding="utf-8").read()
-          m = re.search(r"^## " + re.escape(minor) + r" \(.*?(?=^## |\Z)", text, re.S | re.M)
-          section = m.group(0) if m else ""
-          # the highlights' bullets (nested ones indented), each joined onto one line and kept short, links made absolute
-          items = []
-          for line in section.splitlines():
-              m2 = re.match(r"^( *)- (.*)", line)
-              if m2:
-                  items.append([len(m2.group(1)) > 0, m2.group(2)])
-              elif items and line.startswith(" ") and line.strip():
-                  items[-1][1] += " " + line.strip()
-              elif not line.strip() and items:
-                  pass
-          out = []
-          for nested, b in items:
-              b = re.sub(r"\]\((?!https?:)([^)]*)\)", r"](https://github.com/crspytopgn/opensgolf/blob/main/\1)", b)
-              if len(b) > 300:
-                  b = b[:297].rsplit(" ", 1)[0] + "…"
-              out.append(("    ◦ " if nested else "• ") + b)
-          url = f"https://github.com/crspytopgn/opensgolf/releases/tag/v{v}"
-          desc = "\n".join(out)
-          if len(desc) > 3500:
-              desc = desc[:3500].rsplit("\n", 1)[0] + "\n…"
-          if v.split(".")[2:] not in ([], ["0"]):
-              desc = f"An update to OpenSGolf {minor}. The {minor} highlights:\n\n" + desc
-          desc += f"\n\n**[Download and full notes]({url})** · the game's *Check for updates* finds it too."
-          payload = {
-              "username": "OpenSGolf Releases",
-              "allowed_mentions": {"parse": []},
-              "embeds": [{"title": f"OpenSGolf {v} is out", "url": url, "description": desc, "color": 0x2F8F4E}],
-          }
-          req = urllib.request.Request(os.environ["WEBHOOK"], json.dumps(payload).encode(), {"Content-Type": "application/json", "User-Agent": "opensgolf-release"})
-          with urllib.request.urlopen(req) as r:
-              print("Discord answered", r.status)
-          PY
+          python3 tools/release_notes.py discord "$VERSION" > payload.json
+          curl -fsS -H "Content-Type: application/json" -A opensgolf-release --data @payload.json "$WEBHOOK" -o /dev/null -w "Discord answered %{http_code}\n"
 
   stores:
     # After the release: the Homebrew cask (crspytopgn/homebrew-tap) and winget's manifest (microsoft/winget-pkgs) move to
