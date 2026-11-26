@@ -1548,6 +1548,8 @@ impl App {
         ) || (self.screen == Screen::Files && !self.title.over_game())
             // the support box over the title menu (support.rs)
             || self.popup_over_title()
+            // Mods... from the title menu (content.rs)
+            || (self.screen == Screen::Content && self.content.from_title)
     }
 
     pub fn start_ambience(&mut self) {

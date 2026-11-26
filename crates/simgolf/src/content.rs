@@ -60,6 +60,9 @@ pub struct ContentState {
     latest_asked: bool,
     /// The pack whose Remove was clicked once: a second click deletes it.
     pub removing: Option<String>,
+    /// Opened from the title menu's Mods... button: closing goes back to the title menu, and with changes made the screen
+    /// offers Restart now (no game in progress to lose).
+    pub from_title: bool,
 }
 
 impl ContentState {
@@ -234,6 +237,7 @@ enum Hit {
     More(bool),
     Remove(usize),
     FindMore,
+    Restart,
     Done,
 }
 
@@ -246,8 +250,68 @@ fn find_more_button() -> Rect {
     Rect::new(BOX.x + BOX.w - 200.0, BOX.y + BOX.h - 50.0, 116.0, 22.0)
 }
 
+/// Restart now, left of Find more: shown when the screen was opened from the title menu, the choices changed and this
+/// program can start itself again (not in a browser or on Android).
+fn restart_button() -> Rect {
+    Rect::new(BOX.x + BOX.w - 326.0, BOX.y + BOX.h - 50.0, 116.0, 22.0)
+}
+
+/// Whether this program can start itself again for Restart now.
+const CAN_RESTART: bool = cfg!(not(any(target_arch = "wasm32", target_os = "android")));
+
+/// The title menu's Mods... button's hover value (after welcome::DISCORD_HOVER).
+pub const TITLE_HOVER: i32 = 13;
+
+/// The title menu's Mods... button: in the top left row, after Launcher...
+pub fn title_button_rect(launcher: Rect) -> Rect {
+    let w = crate::ui::F_MANUAL15.width(tr("STR_MODS_TITLE_BUTTON")).max(80.0) + 24.0;
+    Rect::new(launcher.x + launcher.w + 8.0, 6.0, w, 24.0)
+}
+
 impl App {
+    /// The title menu's Mods... button: the Content screen over the title menu (closing it goes back there).
+    pub fn open_content_from_title(&mut self) {
+        self.open_content();
+        self.content.from_title = true;
+        self.hover = -1;
+    }
+
+    /// The title menu's Mods... button.
+    pub fn mods_button(&self) -> Rect {
+        title_button_rect(self.launcher_button())
+    }
+
+    /// Draws the title menu's Mods... button, in the Launcher... button's style.
+    pub fn draw_mods_button(&self, g: &mut Gfx, s: &Ui) {
+        use crate::ui::rgba;
+        let r = self.mods_button();
+        let lit = self.hover == TITLE_HOVER;
+        let label = tr("STR_MODS_TITLE_BUTTON");
+        if crate::glass_ui::active() {
+            crate::glass_ui::title_button(g, s, r.x, r.y, r.w, r.h, label, lit);
+            return;
+        }
+        s.fill(g, r.x - 1.0, r.y - 1.0, r.w + 2.0, r.h + 2.0, rgba(1.0, 1.0, 1.0, 0.85));
+        s.fill(g, r.x, r.y, r.w, r.h, if lit { rgba(0.13, 0.32, 0.55, 0.95) } else { rgba(0.08, 0.16, 0.32, 0.88) });
+        s.put_centered(g, F_MANUAL15, r.x + r.w / 2.0, r.y + 4.0, label, rgb(1.0, 1.0, if lit { 1.0 } else { 0.8 }));
+    }
+
+    /// Whether the Content screen offers Restart now.
+    fn content_restart_offered(&self) -> bool {
+        CAN_RESTART && self.content.from_title && self.content_changed()
+    }
+
+    /// Restart now: the program starts again on the packs chosen (only from the title menu: no game to lose).
+    fn content_restart(&mut self) {
+        println!("content: restarting on the packs chosen");
+        self.release_audio();
+        let e = crate::gamefiles::restart_with(tr("STR_CONTENT_RESTARTED"), None);
+        eprintln!("restart: {e}");
+        self.show_notice(tr("STR_GAME_FILES_RESTART"));
+    }
+
     pub fn open_content(&mut self) {
+        self.content.from_title = false;
         self.content.index = None;
         self.content.profiles = None;
         self.content.profile_name = None;
@@ -345,6 +409,9 @@ impl App {
         if FIND_MORE && find_more_button().has(x, y) {
             return Some(Hit::FindMore);
         }
+        if self.content_restart_offered() && restart_button().has(x, y) {
+            return Some(Hit::Restart);
+        }
         let n = self.content_rows();
         if n > ROWS {
             if Rect::new(BOX.x + 24.0, TOP + ROWS as f32 * ROW_H + 4.0, 80.0, 20.0).has(x, y) {
@@ -397,6 +464,7 @@ impl App {
         match hit {
             Some(Hit::Remove(i)) => self.content_remove(i),
             Some(Hit::FindMore) => self.open_content_index(),
+            Some(Hit::Restart) => self.content_restart(),
             Some(Hit::Done) => self.close_content(),
             Some(Hit::Toggle(i)) => self.content_toggle(i),
             Some(Hit::Up(i)) => self.content_move(i, true),
@@ -457,8 +525,13 @@ impl App {
     }
 
     fn close_content(&mut self) {
-        self.screen = Screen::Play;
         self.hover = -1;
+        self.content.index = None;
+        if std::mem::take(&mut self.content.from_title) {
+            self.screen = Screen::Menu;
+            return;
+        }
+        self.screen = Screen::Play;
         self.return_to_prefs();
     }
 
@@ -602,6 +675,15 @@ impl App {
             }
         }
         let n = plan.rows.len();
+        // no mods yet: under the rows, say where they come from
+        if !plan.rows.iter().any(|r| r.manifest.kind == Kind::Mod && r.pack.is_some()) {
+            let hint = if FIND_MORE { tr("STR_CONTENT_NO_MODS") } else { tr("STR_CONTENT_NO_MODS_OFFLINE") };
+            let mut hy = TOP + n.min(ROWS) as f32 * ROW_H + 12.0;
+            for l in crate::ui::wrap_text(hint, 10.0, BOX.w - 120.0).into_iter().take(3) {
+                s.put(g, F_ARIAL10, BOX.x + 54.0, hy, &l, navy);
+                hy += 12.0;
+            }
+        }
         let below = TOP + ROWS as f32 * ROW_H;
         if n > ROWS {
             let more = [
@@ -621,10 +703,16 @@ impl App {
             } else {
                 format!("{}  ({})", r.manifest.description, r.location)
             };
-            for l in crate::ui::wrap_text(&text, 10.0, BOX.w - 120.0).into_iter().take(3) {
+            // (clear of Restart now and Find more under it)
+            for l in crate::ui::wrap_text(&text, 10.0, BOX.w - 360.0).into_iter().take(4) {
                 s.put(g, F_ARIAL10, BOX.x + 24.0, ty, &l, navy);
                 ty += 12.0;
             }
+        }
+        if self.content_restart_offered() {
+            let b = restart_button();
+            crate::glass_ui::button_fill(g, &s, b.x, b.y, b.w, b.h, b.has(px, py));
+            s.put_centered(g, F_ARIAL10, b.x + b.w / 2.0, b.y + 5.0, tr("STR_CONTENT_RESTART_NOW"), navy);
         }
         let note = if changed { tr("STR_CONTENT_NOTE_CHANGED") } else { tr("STR_CONTENT_NOTE") };
         s.put(g, F_ARIAL10, BOX.x + 24.0, BOX.y + BOX.h - 26.0, note, if changed { red } else { navy });
@@ -708,6 +796,11 @@ impl App {
         self.index_poll();
     }
 
+    /// Whether Find more is reading the index or downloading a pack (a scripted still waits for it).
+    pub fn content_busy(&self) -> bool {
+        self.screen == Screen::Content && self.content.index.as_ref().is_some_and(|v| v.loading.is_some() || v.download.is_some())
+    }
+
     /// Looks at the requests in progress (each frame while the screen is open).
     pub fn index_poll(&mut self) {
         let Some(v) = self.content.index.as_mut() else { return };
@@ -738,6 +831,12 @@ impl App {
         }
         if let Some(l) = latest {
             self.content.latest = l;
+            // test hook: SG_INDEX_DOWNLOAD=ID downloads that pack as soon as the index is in (for stills of the result)
+            let want = std::env::var("SG_INDEX_DOWNLOAD").unwrap_or_default();
+            let k = self.content.index.as_ref().and_then(|v| v.offers.iter().position(|o| o.entry.id == want));
+            if let Some(k) = k {
+                return self.index_download(k);
+            }
         }
         let Some(v) = self.content.index.as_mut() else { return };
         let done = v.download.as_mut().and_then(|(k, r)| r.poll().map(|r| (*k, r)));
@@ -750,10 +849,17 @@ impl App {
             Ok(path) => {
                 println!("content index: installed {} {} as {}", offer.entry.id, offer.entry.version, path.display());
                 self.content.rediscover();
+                // a mod downloaded is a mod wanted: it is switched on (the player can switch it off in the list)
+                let on = offer.entry.kind == Kind::Mod && self.content_switch_on(&offer.entry.id);
                 let v = self.content.index.as_mut().expect("open");
                 v.offers.remove(k);
                 v.picked = None;
-                v.status = trf("STR_INDEX_INSTALLED", &[("PACK", &offer.entry.name), ("VERSION", &offer.entry.version)]);
+                let key = match offer.entry.kind {
+                    _ if on => "STR_INDEX_INSTALLED_ON",
+                    Kind::Scenario => "STR_INDEX_INSTALLED_SCENARIO",
+                    _ => "STR_INDEX_INSTALLED",
+                };
+                v.status = trf(key, &[("PACK", &offer.entry.name), ("VERSION", &offer.entry.version)]);
                 v.failed = false;
             }
             Err(e) => {
@@ -763,6 +869,15 @@ impl App {
                 v.failed = true;
             }
         }
+    }
+
+    /// Switches mod `id` on in the saved choices (true when it was found and is now on).
+    fn content_switch_on(&mut self, id: &str) -> bool {
+        let Some(m) = self.content.settings.mods.iter_mut().find(|m| m.id == id) else { return false };
+        m.enabled = true;
+        save_settings(&self.content.settings);
+        self.content.rediscover();
+        true
     }
 
     /// Downloads offer `k` (one at a time).
@@ -787,6 +902,9 @@ impl App {
         if find_more_button().has(x, y) {
             self.content.index = None;
             return;
+        }
+        if self.content_restart_offered() && restart_button().has(x, y) {
+            return self.content_restart();
         }
         let Some(v) = self.content.index.as_mut() else { return };
         let n = v.offers.len();
@@ -896,7 +1014,7 @@ impl App {
             lines.extend(crate::ui::wrap_text(&o.entry.description, 10.0, BOX.w - 120.0).into_iter().take(2).map(|l| (l, navy)));
         }
         lines.extend(
-            crate::ui::wrap_text(&v.status, 10.0, BOX.w - 120.0).into_iter().take(3).map(|l| (l, if v.failed { red } else { navy })),
+            crate::ui::wrap_text(&v.status, 10.0, BOX.w - 240.0).into_iter().take(3).map(|l| (l, if v.failed { red } else { navy })),
         );
         if let Some(p) = v.problems.first() {
             let more = if v.problems.len() > 1 { trf("STR_CONTENT_MORE", &[("N", &(v.problems.len() - 1))]) } else { String::new() };
@@ -910,6 +1028,11 @@ impl App {
         let b = find_more_button();
         crate::glass_ui::button_fill(g, &s, b.x, b.y, b.w, b.h, b.has(px, py));
         s.put_centered(g, F_ARIAL10, b.x + b.w / 2.0, b.y + 5.0, tr("STR_INDEX_BACK"), navy);
+        if self.content_restart_offered() {
+            let b = restart_button();
+            crate::glass_ui::button_fill(g, &s, b.x, b.y, b.w, b.h, b.has(px, py));
+            s.put_centered(g, F_ARIAL10, b.x + b.w / 2.0, b.y + 5.0, tr("STR_CONTENT_RESTART_NOW"), navy);
+        }
         if self.art.trans.tex.is_some() {
             s.image_part(g, &self.art.trans, BOX.x + BOX.w - 70.0, BOX.y + BOX.h - 58.0, 350.0, 140.0, 50.0, 50.0);
         }
