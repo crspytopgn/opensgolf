@@ -423,7 +423,12 @@ pub fn pack_check(dir: &Path, game: Option<&Path>) -> Report {
         r.errors.push("a base set cannot have scale > 1 (the engine reads its sizes from it): make it a mod".into());
     }
     // the art
-    let lower: BTreeSet<String> = files.iter().map(|f| f.to_lowercase()).collect();
+    // a WebP stands in for the PNG of the same name (the game indexes it under that name)
+    let as_png = |f: &str| match f.to_lowercase() {
+        l if l.ends_with(".webp") => format!("{}.png", &l[..l.len() - 5]),
+        l => l,
+    };
+    let lower: BTreeSet<String> = files.iter().map(|f| as_png(f)).collect();
     for f in &files {
         let low = f.to_lowercase();
         let Some(rel) = f.get(4..).filter(|_| low.starts_with("gfx/")) else {
@@ -445,10 +450,15 @@ pub fn pack_check(dir: &Path, game: Option<&Path>) -> Report {
             }
             continue;
         }
-        if !rlow.ends_with(".png") {
+        let webp = rlow.ends_with(".webp");
+        if webp && files.iter().any(|g| g.to_lowercase() == as_png(f)) {
+            r.warnings.push(format!("{f}: there is also a PNG of this name, which the game uses instead"));
+            continue;
+        }
+        if !rlow.ends_with(".png") && !webp {
             if scale > 1 && [".pcx", ".tga", ".bmp", ".flc"].iter().any(|e| rlow.ends_with(e)) {
                 r.errors.push(format!(
-                    "{f}: a pack with scale = {scale} takes its pictures and sprites as PNG only (this file would be ignored)"
+                    "{f}: a pack with scale = {scale} takes its pictures and sprites as PNG or WebP only (this file would be ignored)"
                 ));
             }
             continue;
@@ -461,11 +471,15 @@ pub fn pack_check(dir: &Path, game: Option<&Path>) -> Report {
             r.errors.push(format!("{f}: a reference picture of EA's art from the starter kit: it must not be in the pack"));
             continue;
         }
-        let Some(img) = sg_core::png::decode_png(&data) else {
-            r.errors.push(format!("{f}: not a PNG the game reads: save it as PNG, 8 bits per channel, RGBA, not interlaced"));
+        let Some(img) = (if webp { sg_core::png::decode_image(&data) } else { sg_core::png::decode_png(&data) }) else {
+            if webp {
+                r.errors.push(format!("{f}: not a WebP the game reads (a still WebP, lossy or lossless)"));
+            } else {
+                r.errors.push(format!("{f}: not a PNG the game reads: save it as PNG, 8 bits per channel, RGBA, not interlaced"));
+            }
             continue;
         };
-        if data.get(25) != Some(&6) {
+        if !webp && data.get(25) != Some(&6) {
             r.warnings.push(format!("{f}: not RGBA (the game reads it, but RGBA with an alpha channel is recommended)"));
         }
         // a mask or a hand-drawn variant goes with its sheet
@@ -593,6 +607,31 @@ mod tests {
         let r = pack_check(&d, None);
         assert!(r.errors.is_empty() && r.warnings.is_empty(), "{r:?}");
         assert_eq!(r.checked, 4);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    fn webp(w: u32, h: u32) -> Vec<u8> {
+        let mut out = Vec::new();
+        image_webp::WebPEncoder::new(&mut out).encode(&vec![0; (w * h * 4) as usize], w, h, image_webp::ColorType::Rgba8).unwrap();
+        out
+    }
+
+    #[test]
+    fn webp_pictures_pass_like_pngs() {
+        let d = tmp("webp");
+        put(&d, "pack.toml", TOML.as_bytes());
+        put(&d, "LICENSE", b"CC0 1.0 Universal");
+        put(&d, "gfx/Flics/Trees/WillowTree.webp", &webp(85 * 14 * 4, 78 * 4 * 4));
+        put(&d, "gfx/Flics/Trees/WillowTree.mask.webp", &webp(85 * 14 * 4, 78 * 4 * 4));
+        put(&d, "gfx/BLDG.webp", &webp(3200, 2400));
+        let r = pack_check(&d, None);
+        assert!(r.errors.is_empty() && r.warnings.is_empty(), "{r:?}");
+        assert_eq!(r.checked, 3);
+        put(&d, "gfx/BLDG.png", &png(3200, 2400));
+        put(&d, "gfx/Interface/Bad.webp", b"RIFF\0\0\0\0WEBPnot really");
+        let r = pack_check(&d, None);
+        assert!(r.warnings.iter().any(|w| w.contains("BLDG.webp: there is also a PNG")), "{r:?}");
+        assert!(r.errors.iter().any(|e| e.contains("Bad.webp: not a WebP")), "{r:?}");
         let _ = std::fs::remove_dir_all(&d);
     }
 
