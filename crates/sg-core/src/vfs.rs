@@ -5,7 +5,8 @@
 //! returned instead of the game folder's. Paths match case-insensitively; later layers (packs later in the load order) win.
 //! A picture may be replaced by a PNG of the same name (`Interface/BuildPanel.png` for `Interface/BuildPanel.pcx`) and a
 //! sound by an OGG (`Sounds/Applause.ogg` for `Sounds/Applause.wav`); the decoders recognise the replacement by its
-//! contents (crate::assets).
+//! contents (crate::assets). Any PNG under `gfx/` may be a WebP instead (`Interface/BuildPanel.webp`): it is indexed under
+//! the PNG's name, so every lookup that takes a PNG takes it too.
 //!
 //! A pack with `scale` > 1 (high-resolution art, crate::hires) keeps its pictures apart: only the high-resolution loaders
 //! read them at full size ([`art`]); every other read gets them scaled down to the original's size. A PNG sheet in place
@@ -112,15 +113,27 @@ impl Layer {
             let Some((top, rest)) = rel.split_once('/') else { continue };
             let top = top.to_lowercase();
             let Some((_, exts)) = OVERRIDE_DIRS.iter().find(|(d, _)| *d == top) else { continue };
-            let low = rest.to_lowercase();
-            if exts.iter().any(|e| low.ends_with(e)) {
-                if scale > 1 && top == "gfx" {
-                    if low.ends_with(".png") {
-                        art.insert(low, rel.clone());
+            let mut low = rest.to_lowercase();
+            // a WebP under gfx/ stands in for the PNG of the same name (the decoders tell them apart by their contents);
+            // when a pack has both, the PNG wins
+            let webp = top == "gfx" && low.ends_with(".webp");
+            if webp {
+                low = format!("{}.png", &low[..low.len() - 5]);
+            }
+            if webp || exts.iter().any(|e| low.ends_with(e)) {
+                let map = if scale > 1 && top == "gfx" {
+                    if !low.ends_with(".png") {
+                        continue;
                     }
-                    continue;
+                    &mut art
+                } else {
+                    &mut index
+                };
+                if webp {
+                    map.entry(low).or_insert_with(|| rel.clone());
+                } else {
+                    map.insert(low, rel.clone());
                 }
-                index.insert(low, rel.clone());
             }
         }
         Layer { id: id.to_string(), source, index, scale, art }
@@ -143,6 +156,11 @@ fn dir_index(layers: &[Layer]) -> HashMap<String, HashMap<String, (String, bool)
         for file in l.index.values() {
             // the path under the override folder, with the pack's spelling
             let Some((_, rest)) = file.split_once('/') else { continue };
+            // a WebP is listed under the PNG name it stands in for
+            let rest = match rest.len().checked_sub(5).filter(|&n| rest.is_char_boundary(n) && rest[n..].eq_ignore_ascii_case(".webp")) {
+                Some(n) => format!("{}.png", &rest[..n]),
+                None => rest.to_string(),
+            };
             let parts: Vec<&str> = rest.split('/').filter(|c| !c.is_empty()).collect();
             let mut dir = String::new();
             for (k, part) in parts.iter().enumerate() {
@@ -320,7 +338,7 @@ fn scaled_down(v: &Vfs, rel: &str, p: &Path, i: usize, file: &str) -> Option<Vec
 
 /// A pack's high-resolution picture or sprite sheet for a game file.
 pub struct Art {
-    /// The file's bytes (a PNG).
+    /// The file's bytes (a PNG or a WebP).
     pub data: Vec<u8>,
     /// How many times the original's size it is.
     pub scale: u32,
@@ -469,6 +487,50 @@ mod tests {
         assert_eq!(d[""]["font.ttf"], ("Font.TTF".to_string(), false));
         assert_eq!(d["themes/standard"]["story.txt"], ("Story.txt".to_string(), false));
         assert_eq!(d["interface"]["buildpanel.png"], ("BuildPanel.png".to_string(), false));
+    }
+
+    /// A lossless WebP of a w x h picture whose pixels are all `c`.
+    pub(crate) fn webp(w: u32, h: u32, c: [u8; 4]) -> Vec<u8> {
+        let px: Vec<u8> = (0..w * h).flat_map(|_| c).collect();
+        let mut out = Vec::new();
+        image_webp::WebPEncoder::new(&mut out).encode(&px, w, h, image_webp::ColorType::Rgba8).unwrap();
+        out
+    }
+
+    #[test]
+    fn a_webp_stands_in_for_a_png() {
+        let (w1, w2) = (webp(3, 2, [10, 20, 30, 255]), webp(2, 2, [1, 2, 3, 255]));
+        let a = layer(
+            "a",
+            &[
+                ("gfx/Interface/BuildPanel.WEBP", &w1),
+                ("gfx/Data/Textures/Parkland/grass.webp", &w2),
+                ("gfx/Interface/Both.png", b"png"),
+                ("gfx/Interface/Both.webp", &w2),
+                ("sfx/Sounds/x.webp", &w2),
+            ],
+        );
+        // indexed under the PNG's name, so it replaces a PCX, TGA or BMP like a PNG does
+        let (l, f) = find(std::slice::from_ref(&a), "interface/buildpanel.pcx").unwrap();
+        assert_eq!(f, "gfx/Interface/BuildPanel.WEBP");
+        let img = crate::assets::decode_pcx(&l.source.read(f).unwrap()).unwrap();
+        assert_eq!((img.w, img.h, &img.px[..4]), (3, 2, &[10, 20, 30, 255][..]));
+        let (l, f) = find(std::slice::from_ref(&a), "data/textures/parkland/grass.bmp").unwrap();
+        assert_eq!(crate::assets::decode_bmp(&l.source.read(f).unwrap()).map(|i| (i.w, i.h)), Ok((2, 2)));
+        assert_eq!(crate::assets::decode_tga(&l.source.read(f).unwrap()).map(|i| (i.w, i.h)), Ok((2, 2)));
+        assert_eq!(crate::assets::decode_pcx_indexed(&l.source.read(f).unwrap()).map(|i| (i.w, i.h)), Some((2, 2)));
+        // the PNG wins over a WebP of the same name; a WebP outside gfx/ is ignored
+        assert_eq!(a.index["interface/both.png"], "gfx/Interface/Both.png");
+        assert_eq!(a.index.len(), 3);
+        // listed under the PNG's name
+        let d = dir_index(&[a]);
+        assert_eq!(d["interface"]["buildpanel.png"], ("BuildPanel.png".to_string(), false));
+        // a high-resolution pack takes WebP pictures and sheets too
+        let hi = scaled("hi", 2, &[("gfx/Interface/Pic.webp", &w1), ("gfx/Flics/Trees/T.webp", &w2), ("gfx/Flics/Trees/T.mask.webp", &w2)]);
+        assert_eq!(hi.art.get("interface/pic.png").map(String::as_str), Some("gfx/Interface/Pic.webp"));
+        assert!(matches!(layer_hit(&hi, "flics/trees/t.flc"), Some(Hit::Sheet("gfx/Flics/Trees/T.webp"))));
+        assert_eq!(hi.art.get("flics/trees/t.mask.png").map(String::as_str), Some("gfx/Flics/Trees/T.mask.webp"));
+        assert_eq!(crate::hires::picture_size(&w1), Some((3, 2)));
     }
 
     fn png(w: u32, h: u32) -> Vec<u8> {
