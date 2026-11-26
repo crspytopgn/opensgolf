@@ -2,7 +2,8 @@
 //! whatever the game is doing, a tournament included (the year end ticks on through one), once the year-end report is
 //! closed, and the game waits under it. It says the score, whether it went on the board and its place there, and offers
 //! the board's top rows, going back to the title menu, or playing on (nothing more is sent, rival.rs sends only at the
-//! year's end). A result the board couldn't be reached for can be sent again from here.
+//! year's end). A result the board couldn't be reached for can be sent again from here. A result on the board can be
+//! shared: Share my result copies a line with the place, the score and the weekly challenge page's address.
 use super::challenge::Challenge;
 use super::{lobby, settings};
 use crate::app::{App, Screen};
@@ -62,6 +63,7 @@ type Layout = (Vec<String>, Vec<(String, bool)>, Rect, Vec<(Button, Rect)>);
 enum Button {
     Board,
     Again,
+    Share,
     Menu,
     Play,
 }
@@ -83,6 +85,26 @@ pub fn answer(body: &[u8]) -> Sent {
         (_, _, Some("update the game")) => Sent::Failed(tr("STR_MP_RESULT_UPDATE").into(), false),
         (_, _, Some(e)) => Sent::Failed(trf("STR_MP_RESULT_REFUSED", &[("ERROR", &e)]), false),
         _ => Sent::Failed(tr("STR_MP_RESULT_UNREADABLE").into(), true),
+    }
+}
+
+/// The weekly challenge's page on the website (web/weekly.html): this week's goal, its board and the earlier weeks'.
+pub const PAGE_URL: &str = "https://crspytopgn.github.io/opensgolf/weekly.html";
+
+/// Share my result's line: the place and score of a new best, the place alone when an earlier game's score stands, the
+/// score alone while the place isn't known.
+pub fn share_text(c: &Challenge, score: i64, sent: &Sent, place: Option<i64>) -> String {
+    let goal = super::rival::measure_text(c.measure);
+    let score = lobby::score_text(c.measure, score);
+    match (sent, place) {
+        (Sent::OnBoard, Some(p)) => trf(
+            "STR_MP_SHARE_PLACE_SCORE",
+            &[("PLACE", &lobby::place_text(p)), ("WEEK", &c.id), ("GOAL", &goal), ("SCORE", &score), ("URL", &PAGE_URL)],
+        ),
+        (_, Some(p)) => {
+            trf("STR_MP_SHARE_PLACE", &[("PLACE", &lobby::place_text(p)), ("WEEK", &c.id), ("GOAL", &goal), ("URL", &PAGE_URL)])
+        }
+        _ => trf("STR_MP_SHARE_SCORE", &[("WEEK", &c.id), ("GOAL", &goal), ("SCORE", &score), ("URL", &PAGE_URL)]),
     }
 }
 
@@ -207,8 +229,9 @@ impl App {
             Sent::OnBoard | Sent::NotBetter if !x.rows => Some(Button::Board),
             _ => None,
         };
-        let buttons: Vec<Button> = first.into_iter().chain([Button::Menu, Button::Play]).collect();
-        let (bw, gap) = (130.0, 10.0);
+        let share = matches!(x.sent, Sent::OnBoard | Sent::NotBetter).then_some(Button::Share);
+        let buttons: Vec<Button> = first.into_iter().chain(share).chain([Button::Menu, Button::Play]).collect();
+        let (bw, gap) = if buttons.len() > 3 { (98.0, 8.0) } else { (130.0, 10.0) };
         let n = buttons.len() as f32;
         let x0 = 400.0 - (n * bw + (n - 1.0) * gap) / 2.0;
         let placed =
@@ -255,6 +278,7 @@ impl App {
                 let label = match k {
                     Button::Board => tr("STR_MP_DONE_VIEW_BOARD"),
                     Button::Again => tr("STR_MP_DONE_AGAIN"),
+                    Button::Share => tr("STR_MP_DONE_SHARE"),
                     Button::Menu => tr("STR_MP_DONE_MENU"),
                     Button::Play => tr("STR_MP_DONE_PLAY_ON"),
                 };
@@ -295,6 +319,15 @@ impl App {
 
     fn done_button(&mut self, k: Button) {
         self.ui_sound(0x18);
+        if k == Button::Share {
+            let text =
+                DONE.with(|d| d.borrow().as_ref().map(|x| share_text(&x.challenge, x.score, &x.sent, x.board.as_ref().and_then(my_place))));
+            if let Some(text) = text {
+                miniquad::window::clipboard_set(&text);
+                self.show_toast(tr("STR_MP_SHARE_COPIED"));
+            }
+            return;
+        }
         let was_paused = DONE.with(|d| {
             let mut d = d.borrow_mut();
             let x = d.as_mut()?;
@@ -312,6 +345,7 @@ impl App {
                         x.request = Some(crate::net::get(u, 4096));
                     }
                 }
+                Button::Share => {}
                 Button::Menu | Button::Play => {
                     x.up = false;
                     return Some(x.was_paused);
@@ -339,6 +373,18 @@ mod tests {
         assert_eq!(answer(br#"{"ok":true,"better":false}"#), Sent::NotBetter);
         assert!(matches!(answer(br#"{"ok":false,"error":"cheats were on"}"#), Sent::Failed(_, false)));
         assert!(matches!(answer(b"<html>"), Sent::Failed(_, true)));
+    }
+
+    #[test]
+    fn the_shared_line_has_the_place_score_and_page() {
+        super::super::texts();
+        let c = super::super::challenge::challenge("2026-W49");
+        assert_eq!(
+            share_text(&c, 125_000, &Sent::OnBoard, Some(3)),
+            "I'm 3rd in OpenSGolf's weekly challenge 2026-W49 (the most cash) with $125,000. Can you beat it? https://crspytopgn.github.io/opensgolf/weekly.html"
+        );
+        assert!(share_text(&c, 1, &Sent::NotBetter, Some(2)).starts_with("I'm 2nd in OpenSGolf's weekly challenge 2026-W49"));
+        assert!(share_text(&c, 125_000, &Sent::OnBoard, None).starts_with("I scored $125,000 in"));
     }
 
     #[test]

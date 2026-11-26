@@ -2757,6 +2757,11 @@ impl Stage {
             if welcome::discord_button_rect().has(vx, vy) {
                 hit = welcome::DISCORD_HOVER;
             }
+            // the port's own: "This week's challenge" (mp/title.rs)
+            #[cfg(feature = "multiplayer")]
+            if mp::title::shown() && app.weekly_button().has(vx, vy) {
+                hit = mp::title::HOVER;
+            }
         } else {
             hit = app.world_hit(vx, vy);
         }
@@ -2837,6 +2842,8 @@ impl Stage {
                 launcher::TITLE_HOVER => app.open_launcher(false, false),
                 editor::EDITOR_HOVER => app.open_editor_start(),
                 welcome::DISCORD_HOVER => app.open_discord(),
+                #[cfg(feature = "multiplayer")]
+                mp::title::HOVER => app.open_weekly_from_title(),
                 _ => quit_game(app),
             }
         } else {

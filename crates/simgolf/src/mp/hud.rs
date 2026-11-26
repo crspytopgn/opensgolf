@@ -60,7 +60,7 @@ fn left_text(n: i32) -> String {
 }
 
 /// The goal in a few words ("highest fun").
-fn goal_text(m: Measure) -> &'static str {
+pub(super) fn goal_text(m: Measure) -> &'static str {
     match m {
         Measure::Cash => tr("STR_MP_HUD_GOAL_CASH"),
         Measure::Fun => tr("STR_MP_HUD_GOAL_FUN"),

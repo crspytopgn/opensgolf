@@ -296,7 +296,7 @@ test("the edges a phone hides are the safe-area insets where they fall on the ca
     assert.deepStrictEqual(f.sgSafeInsets([40, 0, 0, 0], { left: 30, top: 0, width: 100, height: 100 }, 130, 100), [0.1, 0, 0, 0]);
 });
 
-for (const page of ["index.html", "guide.html"]) {
+for (const page of ["index.html", "guide.html", "weekly.html"]) {
     test(page + "'s dark palette is the same for the device's dark scheme and the theme button's Dark", () => {
         const html = fs.readFileSync(path.join(__dirname, page), "utf8");
         const block = re => {

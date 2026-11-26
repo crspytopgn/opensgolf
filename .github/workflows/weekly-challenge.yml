@@ -1,0 +1,34 @@
+# The weekly challenge in the community Discord (tools/weekly_challenge.py): on Monday just after the new week starts
+# (weeks change at midnight UTC), this week's challenge and last week's top 3. The webhook is in the
+# DISCORD_CHALLENGE_WEBHOOK secret; without it the run says so and does nothing. Run it by hand (Actions > Weekly
+# challenge posts > Run workflow) to send the Monday post now, or a one-off "leaders so far" post.
+name: Weekly challenge posts
+
+on:
+  schedule:
+    - cron: "10 0 * * 1" # Monday 00:10 UTC: the new week
+  workflow_dispatch:
+    inputs:
+      post:
+        description: Which post
+        type: choice
+        options: [new, leaders]
+        default: new
+
+permissions: {}
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tools
+      - name: Post to Discord
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_CHALLENGE_WEBHOOK }}
+          POST: ${{ github.event_name == 'workflow_dispatch' && inputs.post || 'new' }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then echo "::warning::DISCORD_CHALLENGE_WEBHOOK is not set: no Discord post"; exit 0; fi
+          python3 tools/weekly_challenge.py "$POST" > payload.json
+          curl -fsS -H "Content-Type: application/json" -A opensgolf-weekly --data @payload.json "$WEBHOOK" -o /dev/null -w "Discord answered %{http_code}\n"

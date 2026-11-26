@@ -78,5 +78,8 @@ self.addEventListener("fetch", event => {
         event.respondWith(fetch(request).catch(() => caches.match(request, { ignoreSearch: true })));
         return;
     }
+    // the other pages (the feature guide, the weekly challenge's board) come from the network as usual: only the start
+    // page is kept for playing offline, and a visit to another page must never take its place
+    if (request.mode === "navigate" && !url.pathname.endsWith("/") && !url.pathname.endsWith("/index.html")) return;
     event.respondWith(sgIsPage(request, url) ? sgPage(request) : sgFile(request));
 });

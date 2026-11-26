@@ -15,6 +15,8 @@ cp "$(dirname "$MQ")/js/gl.js" web/dist/
 cp web/index.html web/files.js web/opensgolf.js web/start-bg.jpg web/start-walk.jpg web/dist/
 # the feature guide (its option and key reference made from the game by crates/simgolf/src/guide.rs's test)
 cp web/guide.html web/dist/
+# the weekly challenge's page and the board script it shares with the start page
+cp web/weekly.html web/weekly.js web/dist/
 # the home-screen app and offline play (web/sw.js, web/manifest.webmanifest; the icons are the app icon, written by tools/make_icons.sh)
 cp web/sw.js web/manifest.webmanifest web/dist/
 mkdir -p web/dist/icons
@@ -28,7 +30,7 @@ import hashlib, sys
 version = sys.argv[1]
 d = "web/dist/"
 h = hashlib.sha256()
-for f in ["opensgolf.wasm", "gl.js", "files.js", "opensgolf.js", "index.html", "start-bg.jpg", "start-walk.jpg", "sw.js", "manifest.webmanifest"]:
+for f in ["opensgolf.wasm", "gl.js", "files.js", "opensgolf.js", "weekly.js", "index.html", "start-bg.jpg", "start-walk.jpg", "sw.js", "manifest.webmanifest"]:
     h.update(open(d + f, "rb").read())
 tag = version + "-" + h.hexdigest()[:10]
 def stamp(name, pairs):
@@ -40,8 +42,9 @@ def stamp(name, pairs):
     open(d + name, "w", encoding="utf-8").write(s)
 stamp("files.js", [('"%SG_VERSION%"', '"' + version + '"')])
 stamp("opensgolf.js", [('load("opensgolf.wasm")', 'load("opensgolf.wasm?v=' + tag + '")')])
-stamp("index.html", [('src="%s"' % f, 'src="%s?v=%s"' % (f, tag)) for f in ["gl.js", "files.js", "opensgolf.js"]] +
+stamp("index.html", [('src="%s"' % f, 'src="%s?v=%s"' % (f, tag)) for f in ["gl.js", "files.js", "opensgolf.js", "weekly.js"]] +
     [('url("%s")' % f, 'url("%s?v=%s")' % (f, tag)) for f in ["start-bg.jpg", "start-walk.jpg"]])
+stamp("weekly.html", [('src="weekly.js"', 'src="weekly.js?v=%s"' % tag)])
 # the service worker keeps this version's files under its own name, and keeps the start page's at once
 stamp("sw.js", [('"%SG_TAG%"', '"' + tag + '"'),
     ('"%SG_SHELL%"', ", ".join('"%s?v=%s"' % (f, tag) for f in ["gl.js", "files.js", "opensgolf.js", "start-bg.jpg", "start-walk.jpg"]))])
