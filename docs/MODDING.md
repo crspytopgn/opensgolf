@@ -60,8 +60,8 @@ Later packs win. Every pack can:
 
 * **Override files** (**done**): any file under `gfx/`, `sfx/`, `music/`, `video/`, `text/` or `fonts/` replaces the game
   folder's file with the same relative path (case insensitive), e.g. `gfx/Interface/BuildPanel.png` replaces
-  `Interface/BuildPanel.pcx` and `sfx/Sounds/Applause.ogg` replaces `Sounds/Applause.wav`. PNG, PCX, TGA, BMP and FLC are
-  accepted for art; WAV and OGG for sound; `text/` takes the game folder's text and character files (TXT, DTA, CHR, GLF, PRO,
+  `Interface/BuildPanel.pcx` and `sfx/Sounds/Applause.ogg` replaces `Sounds/Applause.wav`. PNG, WebP, PCX, TGA, BMP and FLC
+  are accepted for art; WAV and OGG for sound; `text/` takes the game folder's text and character files (TXT, DTA, CHR, GLF, PRO,
   SVE) and `fonts/` its TrueType fonts. A pack's file that the game folder does not have is added to it: folder listings show
   it (stories, characters, heads and textures are found by listing folders), so a base set can stand in for a whole game
   folder.
@@ -282,7 +282,7 @@ packs must have a free licence and must not contain material from the original g
 | Licence (GPL-2.0-or-later) and name | done |
 | Text keys and `lang/en.txt` (original English text kept) | done: about 1,600 keys, translations by setting or `--lang` (docs/TRANSLATING.md) |
 | Pack loader, load order, file overrides (folders and .zip, desktop and browser) | done |
-| PNG for PCX/TGA/BMP art, OGG for WAV sound | done |
+| PNG or WebP for PCX/TGA/BMP art, OGG for WAV sound | done |
 | Data files for terrain, buildings, amenities, staff, properties, economy | done |
 | `sgtool dump-data` (the built-in tables as a template) | done |
 | Example mod (`packs/example-cheap-fairways`) | done |
@@ -348,7 +348,7 @@ my-pack/
 ```
 
 The path under `gfx/`, `sfx/`, `music/`, `video/`, `text/` and `fonts/` is the path in the game folder, matched without
-regard to case. The folders take these types: `gfx/` PNG, PCX, TGA, BMP, FLC; `sfx/` and `music/` WAV, OGG; `video/` BIK,
+regard to case. The folders take these types: `gfx/` PNG, WebP, PCX, TGA, BMP, FLC; `sfx/` and `music/` WAV, OGG; `video/` BIK,
 FLC; `text/` TXT, DTA, CHR, GLF, PRO, SVE; `fonts/` TTF. A file of
 another type is ignored. A PNG replaces the PCX, TGA or BMP of the same name and an OGG the WAV of the same name; a file
 with the original's own name and type wins over a replacement of another type in the same pack.
@@ -358,6 +358,14 @@ What to know about replacement art and sound:
 * PNG: 8 bits per channel, not interlaced (greyscale, RGB, palette, with or without alpha). Keep the original's size:
   the game cuts many pictures into parts at fixed places. Where the original uses magenta (255, 0, 255) as transparent,
   so does the replacement; PNG alpha works too.
+* WebP: anywhere a PNG goes under `gfx/` (pictures, terrain textures, sprite sheets and their masks and variants, in any
+  pack, also one with `scale` above 1), a still WebP of the same name may go instead: `gfx/Data/Textures/Parkland/grass.webp`
+  for `Data/Textures/Parkland/grass.bmp`. Lossy or lossless, with or without alpha. Lossy WebP at quality 90 to 95 makes a
+  texture pack several times smaller to download. Use lossless WebP for pictures with magenta transparency and for
+  palette art (the customise-golfer sheets, `Bodies/`, `Heads/`): lossy compression shifts colours slightly, so magenta
+  edges and palette colours would come out wrong. When a pack has a PNG and a WebP of the same name, the PNG is used.
+  Object art (`art = "art/house.webp"`, section 12) may be WebP too. WebP needs OpenSGolf 0.9.7 or newer: older versions
+  ignore the `.webp` files and draw what is under them.
 * Pictures the game reads as palette art (the customise-golfer sheets) take their palette from the PNG's first 256
   colours in the order they appear; more colours are mapped to the nearest of those. Palette files (`*.pcx` the sprites
   are recoloured with) must stay PCX.
@@ -619,13 +627,14 @@ license = "CC-BY-SA-4.0"
 scale = 4                      # 1 (default), 2 or 4; 4 is recommended
 ```
 
-* **Format:** PNG, 8 bits per channel, RGBA, not interlaced. Transparency is the alpha channel (soft edges are fine).
+* **Format:** PNG, 8 bits per channel, RGBA, not interlaced, or WebP (see above). Transparency is the alpha channel (soft
+  edges are fine).
 * **Naming:** each file goes under `gfx/` at the original's path with `.png`: `gfx/Interface/BuildPanel.png` for
   `Interface/BuildPanel.pcx`, `gfx/Data/Textures/Parkland/grass.png` for a terrain texture, `gfx/Flics/Trees/TreeMapleLarge.png`
   for `Flics/Trees/TreeMapleLarge.flc`. Names are not case-sensitive.
 * **Sizes:** every picture is exactly `scale` times the original's width and height. A file whose size does not fit is not
   used (the original, or the HD upscale, is drawn instead) and `sgtool pack-check` tells you what it should be.
-* In a pack with `scale` above 1 only PNGs are read under `gfx/`: a PCX, TGA, BMP or FLC there is ignored. The pictures
+* In a pack with `scale` above 1 only PNGs and WebPs are read under `gfx/`: a PCX, TGA, BMP or FLC there is ignored. The pictures
   under `Bodies/` and `Heads/` (recoloured from their palette indices) and the palette files (`*Pal*.pcx`) cannot be
   replaced at a higher resolution. A base set must have `scale = 1`.
 * Everything that reads a picture some other way than the game's picture loaders gets it scaled down to the original's
@@ -717,7 +726,7 @@ refund = 2000               # what taking it back gives
 upkeep = 0                  # a month, booked as Maintenance
 income = 0                  # a month, booked as Other income
 upgrade_price = 0           # for scripts that charge for a level
-art = "art/house.png"       # a PNG sheet: one row per view, one column per frame
+art = "art/house.png"       # a PNG (or WebP) sheet: one row per view, one column per frame
 views = 4                   # 1, or 4 (Tab turns it while placing)
 frames = 3                  # frames per view, 1 to 256
 levels = 3                  # frames are split into this many levels (a script sets the level: a bigger house)

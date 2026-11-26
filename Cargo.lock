@@ -1430,6 +1430,7 @@ name = "sgtool"
 version = "0.9.6"
 dependencies = [
  "ed25519-compact",
+ "image-webp",
  "sg-core",
 ]
 

@@ -67,12 +67,25 @@ pub fn is_png(d: &[u8]) -> bool {
     d.len() >= 8 && d[..8] == [0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]
 }
 
+/// True when the bytes are a WebP (a content pack may give any of its PNGs as a WebP instead, docs/MODDING.md).
+pub fn is_webp(d: &[u8]) -> bool {
+    d.len() >= 12 && &d[..4] == b"RIFF" && &d[8..12] == b"WEBP"
+}
+
+/// True when the bytes are a pack's replacement picture: a PNG or a WebP.
+pub fn is_pack_picture(d: &[u8]) -> bool {
+    is_png(d) || is_webp(d)
+}
+
 fn png_or_err(d: &[u8]) -> Result<Rgba, String> {
+    if is_webp(d) {
+        return crate::png::decode_image(d).ok_or_else(|| "unsupported WebP".to_string());
+    }
     crate::png::decode_png(d).ok_or_else(|| "unsupported PNG (8 bits per channel, not interlaced)".to_string())
 }
 
 pub fn decode_pcx(d: &[u8]) -> Result<Rgba, String> {
-    if is_png(d) {
+    if is_pack_picture(d) {
         return png_or_err(d);
     }
     if d.len() < 128 || d[0] != 10 || d[2] != 1 {
@@ -145,8 +158,8 @@ pub fn decode_pcx(d: &[u8]) -> Result<Rgba, String> {
 ///
 /// A PNG (a content pack's replacement) is turned into indices by [`index_colours`].
 pub fn decode_pcx_indexed(d: &[u8]) -> Option<Indexed> {
-    if is_png(d) {
-        return Some(index_colours(&crate::png::decode_png(d)?));
+    if is_pack_picture(d) {
+        return Some(index_colours(&crate::png::decode_image(d)?));
     }
     if d.len() < 128 + 769 || d[0] != 10 || d[2] != 1 || d[3] != 8 || d[65] != 1 {
         return None;
@@ -262,7 +275,7 @@ pub fn read_pcx_palette(d: &[u8]) -> Option<[u8; 768]> {
 
 // ---------------------------------------------------------------- TGA
 pub fn decode_tga(d: &[u8]) -> Result<Rgba, String> {
-    if is_png(d) {
+    if is_pack_picture(d) {
         return png_or_err(d);
     }
     if d.len() < 18 {
@@ -334,7 +347,7 @@ pub fn decode_tga(d: &[u8]) -> Result<Rgba, String> {
 
 // ---------------------------------------------------------------- BMP (uncompressed 8/24 bit)
 pub fn decode_bmp(d: &[u8]) -> Result<Rgba, String> {
-    if is_png(d) {
+    if is_pack_picture(d) {
         return png_or_err(d);
     }
     if d.len() < 54 || d[0] != b'B' || d[1] != b'M' {

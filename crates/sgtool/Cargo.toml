@@ -9,3 +9,7 @@ license.workspace = true
 sg-core = { path = "../sg-core" }
 # `sgtool update-keygen` (docs/RELEASING.md): a new key pair for signing releases
 ed25519-compact = { version = "2", default-features = false }
+
+[dev-dependencies]
+# WebP pictures for the pack-check tests
+image-webp = "0.2"
