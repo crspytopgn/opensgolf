@@ -8,6 +8,17 @@ Almost everything OpenSGolf adds to the original game is **off until you switch 
 unless you choose otherwise. Most of it is in Preferences: *Game options* holds the extras and presets, *Graphics* holds
 Enhanced graphics and HD.
 
+## 0.9.7 (26 November 2026)
+
+- **Mods on the menus:** a *Mods...* button on the title menu (beside *Launcher...*) and a *Mods...* line in
+  Preferences open the Mods and content packs screen: your installed packs, each switched on or off with a click.
+  *Find more...* there lists the packs on the community's content list (github.com/crspytopgn/opensgolf-content) to
+  download, and a mod you download is switched on at once. Opened from the title menu, *Restart now* starts the game
+  again with your choice (desktop).
+- Downloading packs no longer depends on the computer having curl: the game's own downloader refused every pack.
+- Content packs can use WebP pictures: any PNG under `gfx/` (textures, interface art, sprite sheets, object art) may be
+  a `.webp` of the same name, often several times smaller to download. `sgtool pack-check` reads them too.
+
 ## 0.9.6 (25 November 2026)
 
 - Each update's release page and its post in the Discord #releases channel now say what changed in that update, above

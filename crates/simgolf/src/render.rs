@@ -900,6 +900,8 @@ impl App {
         self.draw_files_button(g, &s);
         // and "Launcher..." beside it (launcher.rs)
         self.draw_launcher_button(g, &s);
+        // and "Mods..." beside that (content.rs)
+        self.draw_mods_button(g, &s);
         // and "Check for updates" (update.rs)
         self.draw_update_button(g, &s);
         // and "Continue" with the newest save under it (backups.rs)

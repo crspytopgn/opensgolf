@@ -125,7 +125,9 @@ fn fetch_rust(url: &str, max: u64, progress: &dyn Fn(u64, Option<u64>)) -> Resul
     if total.is_some_and(|t| t > max) {
         return Err(Failure::Final(sg_core::lang::trf("STR_NET_TOO_BIG", &[("URL", &url)])));
     }
-    let mut r = resp.body_mut().with_config().limit(max).reader();
+    // one byte over `max`: ureq refuses a body that reaches its limit, so a pack whose size the index gives exactly (the
+    // index's size is the most it accepts) failed here and only came in through the system's curl
+    let mut r = resp.body_mut().with_config().limit(max.saturating_add(1)).reader();
     let mut out = Vec::with_capacity(total.unwrap_or(0).min(max) as usize);
     let mut buf = vec![0u8; 1 << 16];
     loop {
@@ -134,6 +136,9 @@ fn fetch_rust(url: &str, max: u64, progress: &dyn Fn(u64, Option<u64>)) -> Resul
             break;
         }
         out.extend_from_slice(&buf[..n]);
+        if out.len() as u64 > max {
+            return Err(Failure::Final(sg_core::lang::trf("STR_NET_TOO_BIG", &[("URL", &url)])));
+        }
         progress(out.len() as u64, total);
     }
     if total.is_some_and(|t| t != out.len() as u64) {
