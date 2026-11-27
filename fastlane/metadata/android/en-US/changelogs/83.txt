@@ -1,0 +1,1 @@
+Weekly challenge: a button on the title menu with this week's goal and your place, and Share result when the year ends.

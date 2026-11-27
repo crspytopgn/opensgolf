@@ -8,6 +8,18 @@ Almost everything OpenSGolf adds to the original game is **off until you switch 
 unless you choose otherwise. Most of it is in Preferences: *Game options* holds the extras and presets, *Graphics* holds
 Enhanced graphics and HD.
 
+## 0.9.9 (27 November 2026)
+
+- **This week's challenge on the title menu:** a gold button in the top row shows the week's goal, the days left and,
+  once Multiplayer is on, your place on the board. One click opens the weekly challenge.
+- **Share result:** when the weekly challenge's year ends, *Share result* copies a line with your place, your score and
+  the link to the weekly challenge page, to paste anywhere.
+- **The weekly challenge page:** this week's goal, the live board and every earlier week's, at
+  [crspytopgn.github.io/opensgolf/weekly.html](https://crspytopgn.github.io/opensgolf/weekly.html). Each Monday at
+  midday (UK time) the new challenge and last week's top 3 are posted in the Discord.
+- The "you finished 3rd in last week's challenge" note at startup now also shows for players in the board's top 50,
+  winners included.
+
 ## 0.9.8 (27 November 2026)
 
 - Upgraded buildings now stand in the middle of their tiles. An upgrade is one tile larger, but the map placed it by
