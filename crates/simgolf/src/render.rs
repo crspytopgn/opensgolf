@@ -604,6 +604,30 @@ impl App {
 
 // ---- screens ------------------------------------------------------------------------------------------------------------------
 
+/// The title's bottom line: the version, then the time played once it is a minute or more.
+pub fn title_version_line(played: f64) -> String {
+    let v = trf("STR_TITLE_VERSION", &[("VERSION", &crate::update::VERSION)]);
+    let played = played.max(0.0) as u64;
+    if played < 60 {
+        return v;
+    }
+    format!("{v}  \u{b7}  {}", trf("STR_TITLE_PLAYED", &[("TIME", &crate::support::time_words(played))]))
+}
+
+/// The bottom line's room (`App::title_version_room`): the original title's trademark lines end at x 245; the free set's
+/// bottom left corner is bare.
+pub fn title_version_room(free: bool) -> (f32, f32) {
+    (if free { 16.0 } else { 252.0 }, crate::editor::title_button_rect().x - 10.0)
+}
+
+impl App {
+    /// The room of the title's bottom line (left and right edge): the middle of the bottom strip, right of the original
+    /// title's trademark lines and left of Course editor... (editor.rs), so neither is ever written over.
+    pub fn title_version_room(&self) -> (f32, f32) {
+        title_version_room(self.on_free_set())
+    }
+}
+
 /// Regions of the 800x600 title art (read off TitleBASE / TitleUnSel / TitleMO in the disc's Interface folder).
 pub const MENU_BTN: [Rect; 6] = [
     Rect::new(40.0, 25.0, 325.0, 120.0),
@@ -911,38 +935,20 @@ impl App {
         // and "This week's challenge" above it (mp/title.rs)
         #[cfg(feature = "multiplayer")]
         self.draw_weekly_button(g, &s);
-        // and the player's own time played (support.rs's counter; from a minute on): the free set's bottom left corner, the
-        // top middle on the original's title, clear of its trademark lines
-        let played = self.support.record.played.max(0.0) as u64;
-        if played >= 60 {
-            let t = trf("STR_TITLE_PLAYED", &[("TIME", &crate::support::time_words(played))]);
-            let f = crate::ui::F_MANUAL15;
-            if self.on_free_set() {
-                s.put(g, f, 9.0, 579.0, &t, rgba(0.0, 0.0, 0.0, 0.6));
-                s.put(g, f, 8.0, 578.0, &t, rgb(1.0, 1.0, 1.0));
-            } else {
-                // under the top row while "This week's challenge" sits in its middle (mp/title.rs)
-                #[cfg(feature = "multiplayer")]
-                let (x, y) = if crate::mp::title::shown() {
-                    let r = self.weekly_button();
-                    (r.x + r.w / 2.0, 34.0)
-                } else {
-                    (400.0, 8.0)
-                };
-                #[cfg(not(feature = "multiplayer"))]
-                let (x, y) = (400.0, 8.0);
-                s.put_centered(g, f, x, y, &t, crate::info_ui::c15(0x2108));
-            }
-        }
         // the port's own: the version, small at the bottom middle, under Play a Championship (the free set's light on a
-        // shadow, the original's in its dark title ink)
-        let v = trf("STR_TITLE_VERSION", &[("VERSION", &crate::update::VERSION)]);
+        // shadow, the original's in its dark title ink), and after it the player's own time played (support.rs's counter;
+        // from a minute on). Kept to the bottom strip so it never meets the port's buttons (title_layout tests).
+        let v = title_version_line(self.support.record.played);
         let f = crate::ui::F_MANUAL15;
-        if self.on_free_set() {
-            s.put_centered(g, f, 401.0, 583.0, &v, rgba(0.0, 0.0, 0.0, 0.6));
-            s.put_centered(g, f, 400.0, 582.0, &v, rgb(1.0, 1.0, 1.0));
+        let (l, r) = self.title_version_room();
+        let (cx, w) = ((l + r) / 2.0, r - l);
+        if self.draw_free_hint(g, &s) {
+            // the free graphics' hint has the line this run (gamefiles.rs)
+        } else if self.on_free_set() {
+            s.put_centered_fit(g, f, cx + 1.0, 583.0, w, &v, rgba(0.0, 0.0, 0.0, 0.6));
+            s.put_centered_fit(g, f, cx, 582.0, w, &v, rgb(1.0, 1.0, 1.0));
         } else {
-            s.put_centered(g, f, 400.0, 582.0, &v, crate::info_ui::c15(0x2108));
+            s.put_centered_fit(g, f, cx, 582.0, w, &v, crate::info_ui::c15(0x2108));
         }
         if !self.toast.is_empty() && self.clock < self.toast_until {
             // with bigger text (textsize.rs) the note grows up from the bottom, as wide as the screen at most
@@ -1255,6 +1261,56 @@ impl App {
         s.anchor(Anchor::Centre);
         if self.pstate.hire_open && self.panel == 3 && self.panel_art_ready() {
             self.draw_hire_dialog(g, s);
+        }
+    }
+}
+
+#[cfg(test)]
+mod title_layout_tests {
+    use super::*;
+
+    fn meets(a: &Rect, b: &Rect) -> bool {
+        a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+    }
+
+    /// The port's own title buttons, with the longest labels they show: they never meet each other, and the ones off the
+    /// top row never meet the title art's own buttons (MENU_BTN).
+    #[test]
+    fn the_port_buttons_never_overlap() {
+        let files = crate::gamefiles::files_button_rect("Use my SimGolf files...");
+        let launcher = crate::launcher::title_button_rect(Some("Use my SimGolf files..."));
+        let mods = crate::content::title_button_rect(launcher);
+        let update = crate::update::update_button_rect("Check for updates");
+        let long = "Continue Autosave (Quick Game) with a very long name (5 minutes ago)";
+        for (cont, with_update) in [(crate::backups::continue_rect(long), true), (crate::backups::continue_rect("Continue A (now)"), false)]
+        {
+            let editor = crate::editor::title_button_rect();
+            let discord = crate::welcome::discord_button_rect();
+            let mut all = vec![files, launcher, mods, cont, editor, discord];
+            if with_update {
+                all.push(update);
+            }
+            #[cfg(feature = "multiplayer")]
+            all.push(crate::mp::title::button_rect_between(mods.x + mods.w, if with_update { update.x } else { 792.0 }));
+            let (l, r) = title_version_room(false);
+            assert!(r - l >= 280.0, "the version line keeps room: {l}..{r}");
+            let (l, r) = title_version_room(true);
+            assert!(r - l >= 200.0, "the version line keeps room: {l}..{r}");
+            all.push(Rect::new(l, 580.0, r - l, 18.0));
+            for (i, a) in all.iter().enumerate() {
+                assert!(a.x >= 0.0 && a.x + a.w <= 800.0 && a.y >= 0.0 && a.y + a.h <= 600.0, "on screen: {i} {a:?}");
+                for (j, b) in all.iter().enumerate().skip(i + 1) {
+                    assert!(!meets(a, b), "{i} {a:?} meets {j} {b:?}");
+                }
+            }
+            // and the logo in the middle (its hover region, main.rs)
+            let logo = Rect::new(168.0, 198.0, 472.0, 176.0);
+            for b in [cont, editor, discord] {
+                assert!(!meets(&b, &logo), "{b:?} meets the logo");
+                for (k, m) in MENU_BTN.iter().enumerate() {
+                    assert!(!meets(&b, m), "{b:?} meets the title's button {k}");
+                }
+            }
         }
     }
 }

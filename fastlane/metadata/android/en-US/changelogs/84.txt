@@ -1,0 +1,1 @@
+Title menu: no button or text overlaps any more. The theme pack you chose is remembered at the next start (with Fix the original game's bugs on).
