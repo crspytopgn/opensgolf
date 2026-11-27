@@ -28,6 +28,7 @@ their code was read). Each entry says whether the port had the bug, why, and wha
 | 8 | Building upgrades look locked one unlock too early | yes | original | setting |
 | 9 | A new arrival overwrites a slow golfer still on the course | yes | original | setting |
 | 11 | A click on the zoomed-out Golfers panel list picks the wrong golfer | yes | original | setting |
+| 17 | The chosen theme pack is forgotten when the game starts again | yes | original | setting |
 | 10 | Other checks: sprite queue cap, more than 32 golfers drawn, full accomplishment history, Shift+T, Esc in Preferences and the world map, the ball's shadow | no | | |
 
 ## 1. Water above sea level (black triangles at waterfalls and on slopes)
@@ -192,3 +193,11 @@ number the tile carries. A tee tile can still carry a hole's number after that h
 then takes the hole's own back tee away and closes it, so tidying up the old spot closed a working hole. With the setting a
 tee tile that is neither the hole's back tee nor its forward tee is only plain ground again, and the hole stays as it is
 (`Club::paint_hole_tile`, crates/sg-core/src/holetool.rs).
+
+## 17. The theme pack is forgotten at the next start (#230)
+
+The original keeps the pack picked on Select a Theme Pack only until the game closes: the next start is back on
+Standard, so a pack of the player's own had to be picked again every time. With the setting the pick is kept in
+settings.json (`theme_pack`; picking Standard, or leaving the screen with a key, removes it) and comes back at the next
+start while its folder is still under Themes (`files_ui::remembered_theme_pack`, crates/simgolf/src/files_ui.rs). Stills
+(`--png`) and timed runs (`--time`) always start on Standard.
