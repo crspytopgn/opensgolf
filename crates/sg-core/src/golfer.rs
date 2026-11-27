@@ -1429,7 +1429,9 @@ impl Club {
     pub fn hole_end(&mut self, c: &mut Course, rng: &mut ExeRng, g: usize) {
         let h = self.g[g].hole;
         let hu = h.clamp(0, 19) as usize;
-        if self.g[g].kind == 0 {
+        // the Multiple tees extra: a round from a forward or middle tee is scored against the back tee's par, so it stays out
+        // of the histogram that decides the hole's type and its too hard and too easy marks (sg_core::extras `Tee`)
+        if self.g[g].kind == 0 && self.extra_tee_for(&self.g[g], h).is_none() {
             let s = clamp(self.g[g].strokes, 0, 9) as usize;
             let cls = (self.g[g].class & 0xf) as usize;
             if let Some(v) = self.holes[hu].hist.get_mut(s + cls * 11) {

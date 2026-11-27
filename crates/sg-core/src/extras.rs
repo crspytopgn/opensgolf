@@ -1621,3 +1621,44 @@ mod tee_tests {
         assert!(!other.contains("tees"));
     }
 }
+
+#[cfg(test)]
+mod tee_stats_tests {
+    use crate::course::{idx, t as ty, Course};
+    use crate::extras::Tee;
+    use crate::golfer::{Club, Golfer, Hole};
+    use crate::land::ExeRng;
+
+    #[test]
+    fn rounds_from_forward_and_middle_tees_stay_out_of_the_hole_type_scores() {
+        let mut club = Club::default();
+        club.holes[1] = Hole { par: 4, length: 500, back: (10, 10), fwd: (10, 10), pin: (10, 30), ..club.holes[1].clone() };
+        club.next_hole = 2;
+        let mut c = Course::default();
+        c.ty[idx(10, 10)] = ty::TEE;
+        c.ty[idx(10, 30)] = ty::GREEN;
+        c.flags[idx(10, 30)] |= crate::course::f::CUP | 1;
+        let mut rng = ExeRng { state: 7 };
+        let counted = |club: &Club| club.holes[1].hist.iter().sum::<i32>();
+        let play = |club: &mut Club, c: &mut Course, rng: &mut ExeRng, golfer: Golfer| {
+            club.g[0] = Golfer { hole: 1, strokes: 4, ..golfer };
+            club.hole_end(c, rng, 0);
+        };
+        let weak = Golfer { class: 3, level: 0, kind: 0, ..Default::default() };
+        let strong = Golfer { class: 7, level: 2, kind: 0, ..Default::default() };
+        // the extra off: every round counts, as in the original
+        play(&mut club, &mut c, &mut rng, weak.clone());
+        assert_eq!(counted(&club), 1);
+        club.extras.tees = true;
+        assert_eq!(club.place_extra_tee(&mut c, Tee::Forward, 10, 24, ty::ROUGH), Ok(1));
+        // the forward tee's golfer is left out, the back tee's still counts
+        play(&mut club, &mut c, &mut rng, weak.clone());
+        assert_eq!(counted(&club), 1);
+        play(&mut club, &mut c, &mut rng, strong);
+        assert_eq!(counted(&club), 2);
+        // in a tournament everybody plays the back tee, and counts
+        club.game |= crate::golfer::game::TOURNAMENT;
+        play(&mut club, &mut c, &mut rng, weak);
+        assert_eq!(counted(&club), 3);
+    }
+}
