@@ -92,6 +92,33 @@ test("boards: sorted, per group, the player's own place beyond the top rows, hid
   assert.equal(b.rows[0].nick, "Player 54");
 });
 
+test("boards: one place per nickname, whichever install sent it", async () => {
+  const db = memoryDb();
+  const send = async (player, nick, cash, s) => {
+    const t = new Date(NOW.getTime() + s * 1000);
+    await storeResult(db, readResult(body({ player, nick, facts: facts({ cash }) }), t), t);
+  };
+  const a1 = "aaaaaaaaaaaaaaa1", a2 = "aaaaaaaaaaaaaaa2", a3 = "aaaaaaaaaaaaaaa3", b = "bbbbbbbbbbbbbbbb";
+  await send(a1, "RuneAldoo", 300, 1);
+  await send(a2, "runealdoo", 500, 2); // another browser, other capitals: the same name
+  await send(a3, "RuneAldoo", 100, 3);
+  await send(b, "Vannes", 400, 4);
+  // two strangers who never typed a name may share the game's "Golfer 123": both stay
+  await send("ccccccccccccccc1", "Golfer 123", 50, 5);
+  await send("ccccccccccccccc2", "Golfer 123", 40, 6);
+  let r = await board(db, "2026-W47", "", a3);
+  assert.deepEqual(r.rows.map((x) => [x.nick, x.score, x.mine]),
+    [["runealdoo", 500, true], ["Vannes", 400, false], ["Golfer 123", 50, false], ["Golfer 123", 40, false]]);
+  assert.equal(r.me, null);
+  // the place beyond the shown rows counts each one once
+  r = await board(db, "2026-W47", "", "ccccccccccccccc2");
+  assert.deepEqual(r.rows.filter((x) => x.mine).map((x) => x.score), [40]);
+  // an admin hiding the best row brings back that name's next best
+  await hide(db, { challenge: "2026-W47", player: a2 }, NOW);
+  r = await board(db, "2026-W47", "", "");
+  assert.deepEqual(r.rows.slice(0, 2).map((x) => [x.nick, x.score]), [["Vannes", 400], ["RuneAldoo", 300]]);
+});
+
 test("admin needs the password", () => {
   const req = (auth) => new Request("https://x.test/admin", { headers: auth ? { Authorization: auth } : {} });
   const env = { ADMIN_PASSWORD: "secret" };
@@ -111,7 +138,7 @@ test("the Worker's routes", async () => {
   assert.deepEqual(await r.json(), { ok: true, better: true });
   r = await post(body({ challenge: wk, cheats: true }));
   assert.equal(r.status, 400);
-  const b64 = Buffer.from(JSON.stringify(body({ challenge: wk, player: "fedcba9876543210" }))).toString("base64url");
+  const b64 = Buffer.from(JSON.stringify(body({ challenge: wk, player: "fedcba9876543210", nick: "Someone" }))).toString("base64url");
   r = await call(`/result?d=${b64}`);
   assert.deepEqual(await r.json(), { ok: true, better: true });
   r = await call("/result?d=not-json");
