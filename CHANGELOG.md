@@ -17,6 +17,9 @@ Enhanced graphics and HD.
   too) is picked again at the next start, instead of going back to Standard.
 - With *Multiple tees*, golfers on a forward or middle tee no longer call their tee shot "pretty easy" when water lies
   within 3 tiles of its line, so they stop yawning at a shot and then drowning it.
+- With *Multiple tees*, rounds played from a forward or middle tee no longer count towards the hole's type (Breather,
+  Heroic and the rest) or its too hard and too easy marks. Played from a shorter tee, a hard dogleg used to end up a
+  Breather.
 - The weekly challenge board shows one place per nickname, its best.
 
 ## 0.9.9 (27 November 2026)

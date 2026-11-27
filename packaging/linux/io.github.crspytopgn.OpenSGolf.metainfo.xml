@@ -109,7 +109,7 @@
   <releases>
     <release version="0.9.10" date="2026-11-27">
       <description>
-        <p>Nothing on the title menu overlaps any more; the chosen theme pack is remembered at the next start; forward and middle tee golfers respect water near their tee shot.</p>
+        <p>Nothing on the title menu overlaps any more; the chosen theme pack is remembered at the next start; forward and middle tee golfers respect water near their tee shot, and their rounds no longer change a hole's type.</p>
       </description>
     </release>
     <release version="0.9.9" date="2026-11-27">
