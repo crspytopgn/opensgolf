@@ -1,7 +1,6 @@
 //! The game state and rules that sit above sg-core: the course and its scenery, the golfers on it, money, editing, the in-game
 //! panels and the story banner. Drawing lives in render.rs, input and the window in main.rs.
 use crate::gfx::{Gfx, Mesh, Vert};
-use crate::render::THEME_PACKS;
 use crate::ui::{money, Image};
 use miniquad::TextureId;
 use sg_core::action::Action;
@@ -470,12 +469,10 @@ pub fn is_save(data: &[u8]) -> bool {
 /// person is in it, else the person's stock head. What came over and what did not goes in `imported`.
 pub fn original_save(g: sg_core::sve::Game, game_dir: &Path) -> SaveGame {
     let _size = sg_core::mapsize::scoped(sg_core::mapsize::ORIGINAL);
-    let pack = THEME_PACKS
-        .iter()
-        .find(|p| p.replace(' ', "_").eq_ignore_ascii_case(&g.theme_pack.replace(' ', "_")))
-        .copied()
-        .unwrap_or("Standard")
-        .replace(' ', "_");
+    // the save's pack when its folder is there (a pack of the player's own too), else Standard
+    let pack = Some(g.theme_pack.replace(' ', "_"))
+        .filter(|p| !p.is_empty() && sg_core::fsutil::is_dir(&game_dir.join("Themes").join(p)))
+        .unwrap_or_else(|| "Standard".to_string());
     let mut club = g.club;
     let theirs = sg_core::roster::load(game_dir, &pack);
     for (i, p) in club.roster.iter_mut().enumerate() {
@@ -866,8 +863,9 @@ pub struct App {
     pub view: crate::ui::View,
     /// Button or card under the mouse, -1 none.
     pub hover: i32,
-    /// Chosen on the title screen; its text and golfers are not used yet.
-    pub theme_pack: usize,
+    /// The theme pack chosen on the title screen: its folder under Themes as on disk ("More_Stories"; any folder the player
+    /// made there counts, as in the original), empty for Standard.
+    pub theme_pack: String,
     pub reset_clock: bool,
     /// The property chooser was opened from Sandbox Mode.
     pub sandbox_choice: bool,
@@ -1203,7 +1201,7 @@ impl App {
             ui_ok: false,
             view: crate::ui::View::default(),
             hover: -1,
-            theme_pack: 0,
+            theme_pack: String::new(),
             reset_clock: false,
             sandbox_choice: false,
             editor: None,
@@ -2435,7 +2433,7 @@ impl App {
         let stories = std::mem::take(&mut self.club.stories);
         let celebrities = std::mem::take(&mut self.club.celebrities);
         let pros = std::mem::take(&mut self.club.pros);
-        let pack = THEME_PACKS.get(self.theme_pack).copied().unwrap_or("Standard").replace(' ', "_");
+        let pack = self.pack_folder();
         self.club = Club::new(if roster.is_empty() { sg_core::roster::load(&self.game_dir, &pack) } else { roster });
         self.club.stories = stories;
         self.club.celebrities = celebrities;
@@ -3506,7 +3504,7 @@ impl App {
             staff_tiles: self.staff_tiles.clone(),
             game_tick: self.game_tick,
             hole_stats: self.hole_stats.clone(),
-            theme_pack: THEME_PACKS.get(self.theme_pack).copied().unwrap_or("Standard").replace(' ', "_"),
+            theme_pack: self.pack_folder(),
             course_id: self.course_id,
             bought: self.bought.clone(),
             goals: self.scen.goals.clone(),
@@ -3568,9 +3566,7 @@ impl App {
         // the save's course size (older saves: the original's), before anything reads the map
         sg_core::mapsize::set(s.size);
         self.course_size = sg_core::mapsize::n();
-        if let Some(k) = THEME_PACKS.iter().position(|p| p.replace(' ', "_").eq_ignore_ascii_case(&s.theme_pack)) {
-            self.theme_pack = k;
-        }
+        self.theme_pack = s.theme_pack.clone();
         self.terrain = s.terrain;
         self.land = s.land;
         if let Some(l) = &self.land {
@@ -3608,7 +3604,7 @@ impl App {
         if self.club.roster.is_empty() {
             // a course made in the course editor (editor.rs) leaves the theme's people to the player's own files, as a
             // new game reads them (every game saved by the game itself has them)
-            let pack = THEME_PACKS.get(self.theme_pack).copied().unwrap_or("Standard").replace(' ', "_");
+            let pack = self.pack_folder();
             self.club.roster = sg_core::roster::load(&self.game_dir, &pack);
         }
         // (the scratch copy keeps the portraits' heads as saved, which are the live game's)
@@ -3693,10 +3689,24 @@ impl App {
         }
     }
 
+    /// The chosen theme pack's folder under Themes ("Standard" when none was chosen).
+    pub fn pack_folder(&self) -> String {
+        if self.theme_pack.is_empty() {
+            "Standard".to_string()
+        } else {
+            self.theme_pack.clone()
+        }
+    }
+
+    /// The chosen theme pack's name as the title screen shows it (the folder with spaces for underscores).
+    pub fn pack_label(&self) -> String {
+        self.pack_folder().replace('_', " ")
+    }
+
     /// Loads the theme pack's stories (every *.txt in its Themes folder, or the Standard folder's when it has none, listed in
     /// case-insensitive name order as the original's file system does), its celebrities and its pro golfers.
     pub fn load_story(&mut self) {
-        let pack = THEME_PACKS.get(self.theme_pack).copied().unwrap_or("Standard").replace(' ', "_");
+        let pack = self.pack_folder();
         let list = |dir: &Path| -> Vec<(String, String)> {
             let mut files: Vec<PathBuf> = sg_core::fsutil::list_dir(dir)
                 .into_iter()

@@ -625,7 +625,7 @@ impl App {
             }
             // a key leaves Theme Packs with the Standard pack
             Screen::Themes => {
-                self.theme_pack = 0;
+                self.theme_pack.clear();
                 self.screen = Screen::Menu;
                 self.hover = -1;
             }
@@ -741,18 +741,14 @@ impl App {
         match hit {
             0 => self.screen = Screen::Menu,
             1 => {
-                self.theme_pack = 0;
+                self.theme_pack.clear();
                 self.screen = Screen::Menu;
             }
             _ => {
                 let row = ((vy - 91.0) / 32.0).floor() as i32;
                 if vy >= 91.0 && vx > 72.0 && vx < 752.0 && row >= 0 {
                     if let Some((folder, _)) = self.title.themes.get(row as usize) {
-                        let label = folder.replace('_', " ");
-                        match crate::render::THEME_PACKS.iter().position(|p| p.eq_ignore_ascii_case(&label)) {
-                            Some(k) => self.theme_pack = k,
-                            None => self.ui_sound(0x18),
-                        }
+                        self.theme_pack = folder.clone();
                     }
                 }
             }
@@ -1181,11 +1177,11 @@ impl App {
         for (k, h) in THEME_HEADS.iter().enumerate() {
             top_c(s, g, 346.0 + 90.0 * k as f32, if k % 2 == 1 { 37.0 } else { 62.0 }, tr(h), 12.0, BLACK);
         }
-        let current = crate::render::THEME_PACKS.get(self.theme_pack).copied().unwrap_or("Standard");
+        let current = self.pack_label();
         for (i, (folder, has)) in self.title.themes.iter().take(13).enumerate() {
             let y = 92.0 + 32.0 * i as f32;
             let label = folder.replace('_', " ");
-            let cur = label.eq_ignore_ascii_case(current);
+            let cur = label.eq_ignore_ascii_case(&current);
             if cur {
                 s.image_part(g, &art.themes_mo, 72.0, y, 1.0, 33.0, 221.0, 31.0);
             }
@@ -1429,6 +1425,28 @@ mod tests {
         let before = w.clone();
         order_autosaves(&mut w);
         assert_eq!(w, before);
+    }
+
+    #[test]
+    fn a_theme_folder_of_the_player_s_own_can_be_chosen() {
+        let dir = std::env::temp_dir().join(format!("opensgolf-own-theme-{}", std::process::id()));
+        for f in ["Standard", "My_Theme", "Championship"] {
+            std::fs::create_dir_all(dir.join("Themes").join(f)).unwrap();
+        }
+        std::fs::write(dir.join("Themes/My_Theme/Story.txt"), b"x").unwrap();
+        let mut app = App::with_clock(dir.clone(), 1);
+        app.open_themes();
+        let names: Vec<&str> = app.title.themes.iter().map(|t| t.0.as_str()).collect();
+        assert_eq!(names, ["My_Theme", "Standard"]);
+        // a click on its row picks it, and the title screen and the game use its folder
+        app.themes_pointer(400.0, 91.0 + 10.0, true);
+        assert_eq!(app.theme_pack, "My_Theme");
+        assert_eq!(app.pack_folder(), "My_Theme");
+        assert_eq!(app.pack_label(), "My Theme");
+        // a key leaves with Standard
+        app.theme_pack.clear();
+        assert_eq!(app.pack_folder(), "Standard");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

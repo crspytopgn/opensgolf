@@ -234,7 +234,7 @@ impl App {
             }
         }
         if let Some(roster) = roster.filter(|r| !r.is_empty()) {
-            let pack = crate::render::THEME_PACKS.get(self.theme_pack).copied().unwrap_or("Standard").replace(' ', "_");
+            let pack = self.pack_folder();
             let own = sg_core::roster::load(&self.game_dir, &pack);
             self.club.roster = roster;
             for (p, o) in self.club.roster.iter_mut().zip(own.iter()) {
