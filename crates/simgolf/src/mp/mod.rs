@@ -15,6 +15,7 @@
 //! * [`rival`]: the weekly challenge in the game (a Start New Game row) and its result sent when 2001 ends.
 //! * [`session`]: a shared game's clock and the order of its actions, the game's side and the server's.
 //! * [`settings`]: the player's own settings.json key (on, id, nickname, group).
+//! * [`title`]: the title menu's "This week's challenge" button.
 //! * [`version`]: what two games, or a game and the server, must agree on before they play together.
 // parts the game does not call yet (the shared course comes next)
 #![allow(dead_code)]
@@ -34,6 +35,7 @@ pub mod result;
 pub mod rival;
 pub mod session;
 pub mod settings;
+pub mod title;
 pub mod version;
 
 /// The multiplayer text (multiplayer/lang/en.txt) joins the English table once.

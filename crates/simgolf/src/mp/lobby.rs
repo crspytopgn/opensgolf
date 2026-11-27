@@ -208,7 +208,9 @@ fn poll_last_week() -> Option<String> {
         *f = None;
         Some((w, reply))
     })?;
-    let Board::Rows { me: Some((place, _)), .. } = read_board(&reply.ok()?) else { return None };
+    // the player's row among the board's top ones, else the place the board told them
+    let Board::Rows { rows, me } = read_board(&reply.ok()?) else { return None };
+    let place = rows.iter().find(|r| r.mine).map(|r| r.place).or(me.map(|m| m.0))?;
     let mut s = settings::get();
     s.told_week = week;
     settings::save(s);

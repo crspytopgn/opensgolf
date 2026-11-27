@@ -126,6 +126,10 @@ test("the Worker's routes", async () => {
   assert.equal(r.status, 400);
   r = await call("/challenge");
   assert.equal((await r.json()).challenge.id, wk);
+  r = await call("/badge");
+  const badge = await r.json();
+  assert.equal(badge.schemaVersion, 1);
+  assert.match(badge.message, / · 2 playing$/);
   r = await call("/admin");
   assert.equal(r.status, 401);
   r = await call("/admin", { headers: { Authorization: `Basic ${btoa("x:secret")}` } });

@@ -908,6 +908,9 @@ impl App {
         self.draw_editor_button(g, &s);
         // and the big "Join us on Discord" (welcome.rs)
         self.draw_discord_button(g, &s);
+        // and "This week's challenge" above it (mp/title.rs)
+        #[cfg(feature = "multiplayer")]
+        self.draw_weekly_button(g, &s);
         // and the player's own time played (support.rs's counter; from a minute on): the free set's bottom left corner, the
         // top middle on the original's title, clear of its trademark lines
         let played = self.support.record.played.max(0.0) as u64;
@@ -918,7 +921,17 @@ impl App {
                 s.put(g, f, 9.0, 579.0, &t, rgba(0.0, 0.0, 0.0, 0.6));
                 s.put(g, f, 8.0, 578.0, &t, rgb(1.0, 1.0, 1.0));
             } else {
-                s.put_centered(g, f, 400.0, 8.0, &t, crate::info_ui::c15(0x2108));
+                // under the top row while "This week's challenge" sits in its middle (mp/title.rs)
+                #[cfg(feature = "multiplayer")]
+                let (x, y) = if crate::mp::title::shown() {
+                    let r = self.weekly_button();
+                    (r.x + r.w / 2.0, 34.0)
+                } else {
+                    (400.0, 8.0)
+                };
+                #[cfg(not(feature = "multiplayer"))]
+                let (x, y) = (400.0, 8.0);
+                s.put_centered(g, f, x, y, &t, crate::info_ui::c15(0x2108));
             }
         }
         // the port's own: the version, small at the bottom middle, under Play a Championship (the free set's light on a

@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1f6b3f">
+<meta name="description" content="This week's OpenSGolf challenge: the same land and start for everyone, one score to beat. The goal, the live board and past weeks.">
+<meta property="og:title" content="OpenSGolf weekly challenge">
+<meta property="og:description" content="Same land, same start, one score to beat. Can you top this week's board?">
+<title>OpenSGolf weekly challenge</title>
+<!--
+  The weekly challenge's page (the port's own, published beside the browser version by web/build.sh): this week's goal and
+  its live board, and every earlier week's, read from the multiplayer Worker by weekly.js. Share it as
+  https://crspytopgn.github.io/opensgolf/weekly.html (?c=2026-W48 opens a week, &g= a friends' group).
+-->
+<script>
+  // the colour theme picked with the start page's theme button (the same setting, so both pages follow it)
+  try { var t = localStorage.getItem("opensgolf-theme"); if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+</script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%232f8f4e'/%3E%3Crect x='30' y='12' width='3' height='34' fill='%23fff'/%3E%3Cpath d='M33 12l16 6-16 6z' fill='%23e8423b'/%3E%3Ccircle cx='24' cy='46' r='6' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap">
+<style>
+  /* the start page's look (web/index.html): a centred site panel on the green backdrop, glossy section bars */
+  :root {
+    --head: "Baloo 2", "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif;
+    --ui: Verdana, Tahoma, "DejaVu Sans", Geneva, sans-serif;
+    --bg1: #1f6b3f; --bg2: #164a42; --bg3: #102a4f;
+    --panel: #f5f9ee;
+    --ink: #1c2a1f;
+    --ink-soft: #3d4f41;
+    --inset: #ffffff;
+    --inset-hi: #ffffff;
+    --inset-lo: #b4c6ab;
+    --line: #c8d6bf;
+    --link: #0b5aa8;
+    --gold: #ffd23f;
+    --bar1: #3f9a4f; --bar2: #1d6b2f; --bar3: #155a25; --bar-edge: #0e4a1c;
+    --code-bg: #e8efe2; --code-ink: #1d3a1f;
+    --on-bg: #d7f0d4; --on-ink: #145a1e; --off-bg: #eceee9; --off-ink: #4c574e; --act-bg: #dfeaf8; --act-ink: #17406f;
+    --tag-bg: #fff1c9; --tag-ink: #6b4b00; --row-alt: #f6faf2; --target: #fff4c2;
+    --foot: #59625c;
+    --card-head: var(--bar2);
+    --mast-sky: linear-gradient(180deg, #1b5cae 0%, #3a86d4 60%, #8cc4ee 100%);
+    color-scheme: light;
+  }
+  /* the dark palette: the two blocks must stay the same (web/test.js checks) */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg1: #0f2a1b; --bg2: #0b1d1f; --bg3: #070f22;
+      --panel: #142019;
+      --ink: #e9f2e6;
+      --ink-soft: #bfd0c2;
+      --inset: #1c2b21;
+      --inset-hi: #2f4636;
+      --inset-lo: #0a120d;
+      --line: #2f4636;
+      --link: #8cc8ff;
+      --code-bg: #24382a; --code-ink: #d9f0d0;
+      --on-bg: #1f4a28; --on-ink: #c9f2c4; --off-bg: #2a332c; --off-ink: #c3cec5; --act-bg: #1d3352; --act-ink: #cfe2ff;
+      --tag-bg: #4a3a0c; --tag-ink: #ffe9a8; --row-alt: #18261d; --target: #3a2f0a;
+      --foot: #a9b6ad;
+      --card-head: var(--gold);
+      --mast-sky: linear-gradient(180deg, #0c1838 0%, #213a70 60%, #4b5b8f 100%);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg1: #0f2a1b; --bg2: #0b1d1f; --bg3: #070f22;
+    --panel: #142019;
+    --ink: #e9f2e6;
+    --ink-soft: #bfd0c2;
+    --inset: #1c2b21;
+    --inset-hi: #2f4636;
+    --inset-lo: #0a120d;
+    --line: #2f4636;
+    --link: #8cc8ff;
+    --code-bg: #24382a; --code-ink: #d9f0d0;
+    --on-bg: #1f4a28; --on-ink: #c9f2c4; --off-bg: #2a332c; --off-ink: #c3cec5; --act-bg: #1d3352; --act-ink: #cfe2ff;
+    --tag-bg: #4a3a0c; --tag-ink: #ffe9a8; --row-alt: #18261d; --target: #3a2f0a;
+    --foot: #a9b6ad;
+    --card-head: var(--gold);
+    --mast-sky: linear-gradient(180deg, #0c1838 0%, #213a70 60%, #4b5b8f 100%);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg3); scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body { margin: 0; min-height: 100vh; color: var(--ink); font: 14px/1.55 var(--ui);
+    background: linear-gradient(180deg, var(--bg1) 0%, var(--bg2) 48%, var(--bg3) 100%) fixed; }
+  a { color: var(--link); }
+  code, kbd { font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; background: var(--code-bg); color: var(--code-ink);
+    padding: 1px 5px; border-radius: 4px; }
+  kbd { border: 1px solid var(--line); border-bottom-width: 2px; white-space: nowrap; }
+  .site { max-width: 1000px; margin: 24px auto 40px; background: var(--panel); border: 1px solid #0d3b6e; border-radius: 14px;
+    box-shadow: 0 18px 50px rgba(5, 25, 60, 0.45); overflow: hidden; }
+  .mast { padding: 14px 22px 22px; color: #fff; background: var(--mast-sky); }
+  .toplinks { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+  .toplinks a, .toplinks button { font: bold 12px var(--ui); color: #fff; text-decoration: none; padding: 5px 10px; border-radius: 4px;
+    background: rgba(8, 36, 80, 0.55); border: 1px solid rgba(255, 255, 255, 0.35); min-height: 28px; display: inline-flex;
+    align-items: center; cursor: pointer; }
+  .toplinks a:hover, .toplinks button:hover { background: rgba(8, 36, 80, 0.8); }
+  h1 { margin: 0; font: 800 clamp(34px, 6vw, 50px)/1.05 var(--head); color: var(--gold);
+    text-shadow: 0 2px 0 #8a5a00, 0 3px 0 #6b4400, 0 4px 10px rgba(0, 20, 50, 0.6); }
+  h1 span { color: #fff; }
+  /* beside the title, index.html's picture: a course from above with the first-person view in its corner */
+  .mast { position: relative; }
+  .mast .shot { position: absolute; right: 26px; top: 64px; width: 250px; height: 156px; border: 4px solid #fff; border-radius: 14px;
+    transform: rotate(2.5deg); background: #0c2416 url("start-bg.jpg") 60% 35% / cover no-repeat;
+    box-shadow: 0 0 0 1px #1d6b2f, 0 8px 18px rgba(0, 20, 50, 0.45); }
+  .mast .shot .inset { position: absolute; right: -14px; bottom: -16px; width: 110px; height: 69px; border: 3px solid #fff; border-radius: 8px;
+    transform: rotate(-5deg); background: #0c2416 url("start-walk.jpg") center / cover no-repeat;
+    box-shadow: 0 0 0 1px #1d6b2f, 0 6px 14px rgba(0, 20, 50, 0.5); }
+  @media (max-width: 960px) { .mast .shot { display: none; } }
+  .mast p { margin: 8px 0 0; max-width: 640px; padding: 6px 10px; border-radius: 6px; background: rgba(8, 36, 80, 0.62);
+    border: 1px solid rgba(255, 255, 255, 0.25); }
+  main { padding: 18px 22px 8px; }
+  .bar { margin: 26px 0 12px; padding: 5px 12px 4px; border-radius: 10px; color: #fff; font: 700 21px/1.3 var(--head);
+    background: linear-gradient(180deg, var(--bar1) 0%, var(--bar2) 50%, var(--bar3) 51%, var(--bar2) 100%);
+    border: 1px solid var(--bar-edge); text-shadow: 0 1px 1px rgba(0, 0, 0, 0.45); scroll-margin-top: 10px; }
+  .intro { color: var(--ink-soft); margin: 0 0 10px; }
+  .toc { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px 16px; margin: 6px 0 0; padding: 12px 16px;
+    list-style: none; background: var(--inset); border: 1px solid var(--line); border-radius: 10px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin: 10px 0 0; color: var(--ink-soft); font-size: 13px; }
+  .feats { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
+  .feat { position: relative; background: var(--inset); border: 1px solid; border-color: var(--inset-lo) var(--inset-hi) var(--inset-hi) var(--inset-lo);
+    border-radius: 10px; padding: 12px 14px; scroll-margin-top: 10px; }
+  .feat h3 { margin: 0 0 4px; font: 700 18px/1.25 var(--head); color: var(--card-head); }
+  .feat .meta { margin: 0 0 6px; font-size: 12.5px; color: var(--ink-soft); }
+  .feat .meta b { color: var(--ink); }
+  .feat p { margin: 0 0 6px; }
+  .feat p:last-child { margin-bottom: 0; }
+  .feat[data-since]::after { content: "New in " attr(data-since); position: absolute; top: 10px; right: 10px; font: bold 11px var(--ui);
+    padding: 1px 7px; border-radius: 9px; background: #e8423b; color: #fff; }
+  .feat[data-since] h3 { padding-right: 82px; }
+  .feat:target, tr:target td { background: var(--target); }
+  .pill { display: inline-block; font: bold 11px/1.6 var(--ui); padding: 0 8px; border-radius: 9px; white-space: nowrap; }
+  .pill.on { background: var(--on-bg); color: var(--on-ink); }
+  .pill.off { background: var(--off-bg); color: var(--off-ink); }
+  .pill.act, .pill.kept { background: var(--act-bg); color: var(--act-ink); }
+  .tag { display: inline-block; font: bold 10.5px/1.6 var(--ui); padding: 0 7px; border-radius: 9px; background: var(--tag-bg); color: var(--tag-ink); }
+  .when { display: block; font-size: 12px; color: var(--ink-soft); font-style: italic; }
+  .where { display: block; font-size: 12px; color: var(--ink-soft); font-weight: normal; }
+  /* the reference */
+  .ref h3 { margin: 22px 0 6px; font: 700 20px/1.25 var(--head); color: var(--card-head); scroll-margin-top: 10px; }
+  .ref h4 { margin: 16px 0 6px; font: 700 16px/1.25 var(--head); scroll-margin-top: 10px; }
+  .ref h4 .banner { font: italic 12.5px var(--ui); color: var(--ink-soft); margin-left: 6px; }
+  .ref .lede { margin: 0 0 8px; color: var(--ink-soft); }
+  .tw { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--inset); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; vertical-align: top; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+  th { font-size: 12px; color: var(--ink-soft); background: var(--row-alt); white-space: nowrap; }
+  tbody tr:nth-child(even) td { background: var(--row-alt); }
+  tbody tr:last-child td { border-bottom: 0; }
+  td:first-child { min-width: 180px; }
+  td:nth-child(n+3) { white-space: nowrap; }
+  table.keys td:nth-child(2) { white-space: normal; }
+  #find { width: 100%; max-width: 420px; font: 14px var(--ui); padding: 8px 10px; border-radius: 8px; border: 1px solid var(--inset-lo);
+    background: var(--inset); color: var(--ink); }
+  .hidden { display: none !important; }
+  footer { padding: 14px 22px 20px; color: var(--foot); font-size: 12.5px; border-top: 1px solid var(--line); }
+  @media (max-width: 640px) {
+    .site { margin: 0; border-radius: 0; border: 0; }
+    .mast, main, footer { padding-left: 16px; padding-right: 16px; }
+  }
+  /* this page's own */
+  .now { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 14px; }
+  @media (max-width: 760px) { .now { grid-template-columns: minmax(0, 1fr); } }
+  .box { background: var(--inset); border: 1px solid; border-color: var(--inset-lo) var(--inset-hi) var(--inset-hi) var(--inset-lo);
+    border-radius: 10px; padding: 12px 14px; }
+  .box h3 { margin: 0 0 6px; font: 700 19px/1.25 var(--head); color: var(--card-head); }
+  .box p { margin: 0 0 6px; }
+  .goal { font-size: 16px; }
+  .left { display: inline-block; margin-top: 4px; font: bold 12px var(--ui); padding: 2px 9px; border-radius: 9px; background: var(--tag-bg); color: var(--tag-ink); }
+  .steps { margin: 6px 0 0; padding-left: 20px; }
+  .steps li { margin: 2px 0; }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .btn { display: inline-flex; align-items: center; min-height: 36px; padding: 6px 14px; border-radius: 8px; font: bold 14px var(--ui);
+    text-decoration: none; color: #fff; background: linear-gradient(180deg, #3f9a4f, #1d6b2f); border: 1px solid #0e4a1c; cursor: pointer; }
+  .btn.ghost { color: var(--ink); background: var(--inset); border-color: var(--inset-lo); }
+  td.place, th:first-child { min-width: 0; width: 4.5em; font-weight: bold; }
+  td:nth-child(2) { width: 55%; }
+  td.score { font-weight: bold; }
+  .weekpick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 8px; }
+  select { font: 14px var(--ui); padding: 6px 8px; border-radius: 8px; border: 1px solid var(--inset-lo); background: var(--inset); color: var(--ink); }
+  .muted { color: var(--ink-soft); }
+  #copied { margin-left: 4px; }
+</style>
+</head>
+<body>
+<div class="site">
+  <div class="mast">
+    <nav class="toplinks" aria-label="Links">
+      <a href="./">Play OpenSGolf</a>
+      <a href="guide.html#multiplayer">How multiplayer works</a>
+      <a href="https://github.com/crspytopgn/opensgolf/releases/latest">Downloads</a>
+      <a href="https://discord.gg/DVsBzGN4dC">Discord</a>
+      <button type="button" id="theme" aria-label="Colour theme">Theme: Auto</button>
+    </nav>
+    <div class="shot" role="img" aria-label="A course from above, and in the corner the first-person view of your pro walking in front of the clubhouse"><div class="inset"></div></div>
+    <h1>Weekly <span>challenge</span></h1>
+    <p>Every week everyone gets the same land and the same start, and one score to beat at the end of the first year.
+      A new challenge starts each Monday. Can you top the board?</p>
+  </div>
+
+  <main>
+    <h2 class="bar" id="this-week">This week<span id="weekid"></span></h2>
+    <div class="now">
+      <div class="box">
+        <h3>The goal</h3>
+        <div id="goal" class="goal"><p class="muted">Loading this week's challenge...</p></div>
+        <span class="left" id="left" hidden></span>
+        <ol class="steps">
+          <li>Open OpenSGolf: <a href="./">in your browser</a> or <a href="https://github.com/crspytopgn/opensgolf/releases/latest">downloaded</a>.</li>
+          <li>Start New Game, then <b>Multiplayer</b>, then <b>Weekly challenge</b>.</li>
+          <li>Play until the year ends: your score goes on the board.</li>
+        </ol>
+        <div class="btns">
+          <a class="btn" href="./">⛳ Play now in your browser</a>
+          <button type="button" class="btn ghost" id="share">🔗 Copy link</button><span id="copied" class="muted" role="status"></span>
+        </div>
+      </div>
+      <div class="box">
+        <h3>Leaders so far</h3>
+        <div class="tw"><table><thead><tr><th>Place</th><th>Player</th><th id="mhead">Score</th><th>Holes</th></tr></thead>
+          <tbody id="top"></tbody></table></div>
+        <p class="muted" id="topnote"></p>
+      </div>
+    </div>
+
+    <h2 class="bar" id="boards">Every week's board</h2>
+    <div class="weekpick">
+      <label for="week">Week</label> <select id="week"></select>
+      <span class="muted" id="weekgoal"></span>
+    </div>
+    <div class="tw"><table><thead><tr><th>Place</th><th>Player</th><th id="mhead2">Score</th><th>Holes</th></tr></thead>
+      <tbody id="rows"></tbody></table></div>
+    <p class="muted" id="rowsnote"></p>
+    <p class="muted">The board shows each player's best result of the week. Cheats, rule-changing extras and content packs
+      keep a result off it, and a friends' group (Compare with friends, in the game) has a board of its own.
+      Chat about the week in <a href="https://discord.gg/DVsBzGN4dC">the Discord</a>.</p>
+  </main>
+
+  <footer>
+    OpenSGolf is a free, open-source, fan-made game engine and is not affiliated with Firaxis, Maxis or Electronic Arts.
+  </footer>
+</div>
+<script src="weekly.js"></script>
+<script>
+  // the theme button: Auto (the device's scheme), Light and Dark in turn, kept as the start page keeps it
+  (function () {
+    var b = document.getElementById("theme"), root = document.documentElement;
+    function show() { var t = root.getAttribute("data-theme"); b.textContent = "Theme: " + (t === "light" ? "Light" : t === "dark" ? "Dark" : "Auto"); }
+    b.addEventListener("click", function () {
+      var t = root.getAttribute("data-theme"), next = t === "light" ? "dark" : t === "dark" ? null : "light";
+      if (next) root.setAttribute("data-theme", next); else root.removeAttribute("data-theme");
+      try { if (next) localStorage.setItem("opensgolf-theme", next); else localStorage.removeItem("opensgolf-theme"); } catch (e) {}
+      show();
+    });
+    show();
+  })();
+  // this week's goal and leaders, and the board of the week picked
+  (function () {
+    var now = new Date(), week = sgWeekId(now), params = new URLSearchParams(location.search);
+    var group = /^[0-9a-f]{8}$/.test(params.get("g") || "") ? params.get("g") : "";
+    var $ = function (id) { return document.getElementById(id); };
+    $("weekid").textContent = " (" + week + ")";
+    sgBoard(week, group).then(function (b) {
+      var c = b.challenge;
+      $("goal").innerHTML = sgDescribe(c).map(function (l) { return "<p>" + l + "</p>"; }).join("");
+      var left = sgTimeLeft(week, now);
+      if (left) { $("left").textContent = left + " left"; $("left").hidden = false; }
+      $("mhead").textContent = SG_MEASURES[c.measure];
+      sgFillRows($("top"), b, 10);
+      $("topnote").textContent = b.rows.length ? sgPlayers(b.rows.length) + " on the board" + (b.rows.length > 10 ? " (top 10 shown)." : ".")
+        : "No results yet this week: be the first!";
+    }).catch(function () {
+      $("goal").innerHTML = "<p class=\"muted\">The board can't be reached just now. Try again in a minute.</p>";
+    });
+    var pick = $("week");
+    sgWeeks(now).forEach(function (id) {
+      var o = document.createElement("option");
+      o.value = id; o.textContent = id === week ? id + " (this week)" : id;
+      pick.appendChild(o);
+    });
+    function show(id) {
+      $("rowsnote").textContent = "Loading...";
+      sgBoard(id, group).then(function (b) {
+        var c = b.challenge;
+        $("weekgoal").textContent = sgCap(c.theme) + ", " + c.difficulty + ": " + SG_GOALS[c.measure] + (SG_KINDS[c.kind] ? ". " + SG_KINDS[c.kind] : ".");
+        $("mhead2").textContent = SG_MEASURES[c.measure];
+        sgFillRows($("rows"), b, 0);
+        $("rowsnote").textContent = b.rows.length ? sgPlayers(b.rows.length) + "." : "Nobody played this week.";
+      }).catch(function () { $("rowsnote").textContent = "The board can't be reached just now."; });
+    }
+    var asked = params.get("c");
+    if (asked && sgWeeks(now).indexOf(asked) >= 0) pick.value = asked;
+    pick.addEventListener("change", function () { show(pick.value); });
+    show(pick.value);
+    $("share").addEventListener("click", function () {
+      var url = location.origin + location.pathname;
+      (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(function () {
+        $("copied").textContent = "Copied!";
+      }, function () { $("copied").textContent = url; });
+    });
+  })();
+</script>
+</body>
+</html>

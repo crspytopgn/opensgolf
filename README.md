@@ -3,6 +3,7 @@
 [![Release](https://img.shields.io/github/v/release/crspytopgn/opensgolf?label=release)](https://github.com/crspytopgn/opensgolf/releases/latest)
 [![Discord](https://img.shields.io/badge/Discord-join%20the%20community-5865F2?logo=discord&logoColor=white)](https://discord.gg/DVsBzGN4dC)
 [![Licence: GPL-2.0-or-later](https://img.shields.io/badge/licence-GPL--2.0--or--later-blue)](LICENSE)
+[![This week's challenge](https://img.shields.io/endpoint?url=https%3A%2F%2Fopensgolf-board.openmcm2-laps.workers.dev%2Fbadge)](https://crspytopgn.github.io/opensgolf/weekly.html)
 [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/crspytopgn)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-FF5E5B?logo=kofi&logoColor=white)](https://ko-fi.com/crspytopgn)
 [![Sponsor on GitHub](https://img.shields.io/badge/Sponsor-EA4AAA?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/crspytopgn)
@@ -17,6 +18,10 @@ have them, or its own free graphics and sound if you don't. It runs on Windows, 
 
 **New in 0.9: multiplayer (beta).** Weekly challenges, neighbours leagues and shared clubs where up to 4 people run one
 course together. [How to play together](#multiplayer-beta).
+
+**🏆 This week's challenge:** everyone gets the same land and the same start, and one score to beat. A new challenge
+starts every Monday. [See this week's goal and the live board](https://crspytopgn.github.io/opensgolf/weekly.html), then
+play it from *Start New Game > Multiplayer > Weekly challenge* (or [in your browser](https://crspytopgn.github.io/opensgolf/)).
 
 **Join the community on [Discord](https://discord.gg/DVsBzGN4dC)**: chat with other players, show off your course, get help installing and
 talk about what comes next.
@@ -88,7 +93,9 @@ New in 0.9: play SimGolf with other people. Open *Start New Game*, pick *Multipl
 
 - **Weekly challenge:** everyone gets the same property and start for the week and one score to beat at the end of
   2001 (cash, fun, members or skill). Results go on a public weekly board (or a private one with *Compare with
-  friends*), and past weeks' boards stay there to look back on.
+  friends*), and past weeks' boards stay there to look back on: see them on the
+  [weekly challenge page](https://crspytopgn.github.io/opensgolf/weekly.html). Each Monday at midday (UK time) the new challenge and last week's
+  top 3 are posted in the [Discord](https://discord.gg/DVsBzGN4dC).
 - **Neighbours:** up to 4 friends each build their own course on a plot of the same land, at their own pace. A league
   table compares you until the end of 2002, and you can look round a neighbour's course. Share the league's code to
   invite them.

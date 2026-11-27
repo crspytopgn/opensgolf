@@ -284,6 +284,15 @@ export default {
     if (url.pathname === "/challenge" && request.method === "GET") {
       return json({ ok: true, challenge: challenge(weekId(now)) }, 200, { "Cache-Control": "public, max-age=3600" });
     }
+    if (url.pathname === "/badge" && request.method === "GET") {
+      // this week's challenge as a shields.io endpoint badge (README.md): the goal, the land and how many are on the board
+      const c = challenge(weekId(now));
+      const n = (await board(env.DB, c.id, "", "")).rows.length;
+      const goal = { cash: "most cash", fun: "highest fun", members: "most members", skill: "highest skill" }[c.measure];
+      const who = n ? ` · ${n >= BOARD_SIZE ? `${BOARD_SIZE}+` : n} playing` : " · be the first";
+      return json({ schemaVersion: 1, label: "this week's challenge", message: `${goal} · ${c.theme}${who}`, color: "2f8f4e" },
+        200, { "Cache-Control": "public, max-age=600" });
+    }
     if (url.pathname === "/clubs" && request.method === "GET") {
       if (!env.CLUB) return json({ ok: false, error: "no shared clubs here" }, 404);
       return json({ ok: true, protocol: PROTOCOL, clubs: await clubs(env.DB, now) }, 200, { "Cache-Control": "no-store" });

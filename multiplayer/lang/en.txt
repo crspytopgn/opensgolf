@@ -31,6 +31,11 @@ STR_MP_DONE_KEPT_EXTRAS                 :Extras that change the rules were on, s
 STR_MP_DONE_KEPT_MODS                   :Content packs that change the game are on, so it isn't sent.
 STR_MP_DONE_VIEW_BOARD                  :View board
 STR_MP_DONE_AGAIN                       :Send again
+STR_MP_DONE_SHARE                       :Share result
+STR_MP_SHARE_PLACE_SCORE                :I'm {PLACE} in OpenSGolf's weekly challenge {WEEK} ({GOAL}) with {SCORE}. Can you beat it? {URL}
+STR_MP_SHARE_PLACE                      :I'm {PLACE} in OpenSGolf's weekly challenge {WEEK} ({GOAL}). Can you beat it? {URL}
+STR_MP_SHARE_SCORE                      :I scored {SCORE} in OpenSGolf's weekly challenge {WEEK} ({GOAL}). Can you beat it? {URL}
+STR_MP_SHARE_COPIED                     :Copied! Paste it anywhere to challenge your friends.
 STR_MP_DONE_MENU                        :Return to menu
 STR_MP_DONE_PLAY_ON                     :Keep playing
 STR_MP_DONE_PLAY_ON_NOTE                :Keep playing goes on with this club, but nothing more is sent.
@@ -173,3 +178,15 @@ STR_MP_CLUB_NOT_LOADED                  :The club's game could not be loaded: {E
 STR_MP_CLUB_BAD_SAVE                    :The club's save was not at its tick.
 STR_MP_CLUB_CAME                        :{NICK} joined the club.
 STR_MP_CLUB_WENT                        :{NICK} left the club.
+
+# The title menu's button (mp/title.rs)
+STR_MP_TITLE_BUTTON                     :This week's challenge
+STR_MP_TITLE_LINE                       :{TITLE}: {NOTE}
+STR_MP_TITLE_SHORT                      :Weekly
+STR_MP_TITLE_NOTE                       :{WHAT}, {LEFT}
+STR_MP_TITLE_PLACE                      :You're {PLACE} of {N}
+STR_MP_TITLE_PLACE_ONLY                 :You're {PLACE}
+STR_MP_TITLE_PLAYING                    :{GOAL}, {N} playing
+STR_MP_TITLE_GOAL                       :{GOAL}
+STR_MP_TITLE_DAYS                       :{N} days left
+STR_MP_TITLE_LAST_DAY                   :last day

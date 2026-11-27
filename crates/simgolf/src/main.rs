@@ -2763,6 +2763,11 @@ impl Stage {
             if app.mods_button().has(vx, vy) {
                 hit = content::TITLE_HOVER;
             }
+            // the port's own: "This week's challenge" (mp/title.rs)
+            #[cfg(feature = "multiplayer")]
+            if mp::title::shown() && app.weekly_button().has(vx, vy) {
+                hit = mp::title::HOVER;
+            }
         } else {
             hit = app.world_hit(vx, vy);
         }
@@ -2844,6 +2849,8 @@ impl Stage {
                 editor::EDITOR_HOVER => app.open_editor_start(),
                 welcome::DISCORD_HOVER => app.open_discord(),
                 content::TITLE_HOVER => app.open_content_from_title(),
+                #[cfg(feature = "multiplayer")]
+                mp::title::HOVER => app.open_weekly_from_title(),
                 _ => quit_game(app),
             }
         } else {

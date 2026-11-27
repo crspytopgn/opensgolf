@@ -236,6 +236,17 @@
   .cards { display: grid; gap: 12px; }
   .card.primary { border: 3px solid var(--frame); border-radius: 14px; box-shadow: 0 0 0 1px #1d6b2f, 0 6px 16px rgba(20, 60, 30, 0.18); }
   #again { border: 3px solid var(--frame); border-radius: 14px; }
+  /* the weekly challenge: its ribbon under the downloads and its box (weekly.js) */
+  .ribbon { display: inline-block; margin-top: 10px; padding: 6px 12px; border-radius: 8px; color: #2b1d00; text-decoration: none;
+    background: linear-gradient(180deg, #ffe680, var(--gold)); border: 1px solid #c99a00; font-size: 13px; box-shadow: 0 2px 6px rgba(0, 20, 50, 0.35); }
+  .ribbon[hidden] { display: none; }
+  .ribbon:hover u { text-decoration-thickness: 2px; }
+  .toplinks a.weekly { background: rgba(140, 100, 0, 0.7); }
+  .weekly-card { border: 3px solid var(--gold); }
+  .wk-table { width: 100%; border-collapse: collapse; }
+  .wk-table td { padding: 3px 6px; border-bottom: 1px solid var(--line); }
+  .wk-table td.place { width: 2.4em; } .wk-table td.score { font-weight: bold; text-align: right; }
+  .wk-table td:last-child { display: none; }
   .card .note { color: var(--ink-soft); font-size: 13px; }
   /* the sounds tip: it must be seen */
   .card .tip { position: relative; padding: 10px 12px 10px 48px; border: 2px solid var(--tip-edge); border-radius: 10px; color: var(--tip-ink);
@@ -543,6 +554,7 @@
   <div class="site" id="top">
     <div class="mast">
       <nav class="toplinks" aria-label="Links">
+        <a class="weekly" href="weekly.html">🏆 Weekly challenge</a>
         <a href="guide.html">Feature guide</a>
         <a href="https://github.com/crspytopgn/opensgolf#download">Downloads</a>
         <a href="https://github.com/crspytopgn/opensgolf">GitHub</a>
@@ -578,6 +590,7 @@
               <a href="https://github.com/crspytopgn/opensgolf/releases/latest">all downloads</a></span>
             <a class="whatsnew" href="https://github.com/crspytopgn/opensgolf/blob/main/CHANGELOG.md" target="_blank" rel="noopener">★ What's new</a>
           </div>
+          <a class="ribbon" id="wk-ribbon" href="#weekly" hidden>🏆 <b>This week's challenge:</b> <span id="wk-ribbon-text"></span> <u>See the board</u></a>
         </div>
         <div class="shot" role="img" aria-label="OpenSGolf: a course from above, and in the corner the first-person view of your pro walking in front of the clubhouse"><div class="inset"></div></div>
       </div>
@@ -594,6 +607,7 @@
     <nav class="tabs" aria-label="Sections">
       <a href="#top" class="on"><svg aria-hidden="true"><use href="#i-house"/></svg>Home</a>
       <a href="#play"><svg aria-hidden="true"><use href="#i-flag"/></svg>Play</a>
+      <a href="#weekly"><svg aria-hidden="true"><use href="#i-ball"/></svg>Weekly challenge</a>
       <a href="#saves"><svg aria-hidden="true"><use href="#i-disk"/></svg>Your saves</a>
       <a href="#packs"><svg aria-hidden="true"><use href="#i-box"/></svg>Packs</a>
       <a href="#about"><svg aria-hidden="true"><use href="#i-info"/></svg>About</a>
@@ -679,6 +693,27 @@
           <div id="status" role="status" aria-live="polite"></div>
           <p class="trouble" id="install" hidden><span id="installtext"></span> <button class="linkish" id="installbtn" hidden>Install OpenSGolf</button></p>
           <p class="trouble">Game stuck on its first picture? <button class="linkish" id="resetgfx" onclick="sgResetGraphics(); return false;">Reset graphics settings</button> (your saved games are kept)</p>
+        </section>
+
+        <section class="block" id="weekly">
+          <h2 class="bar"><svg aria-hidden="true"><use href="#i-ball"/></svg>This week's challenge<span id="wk-id"></span></h2>
+          <div class="cards">
+            <section class="card weekly-card">
+              <h2><span class="icon">🏆</span> Same land, same start, one score to beat</h2>
+              <div id="wk-goal"><p>Every week everyone plays the same new course land, and the best score at the end of the first
+                year tops the board. A new challenge starts each Monday.</p></div>
+              <p class="note">Start New Game, then <b>Multiplayer</b>, then <b>Weekly challenge</b>. <span id="wk-left"></span></p>
+              <div class="actions">
+                <a class="btn green" href="#play">⛳ Play it now</a>
+                <a class="btn ghost" href="weekly.html">Full board and past weeks</a>
+              </div>
+            </section>
+            <section class="card">
+              <h2><span class="icon">📊</span> Leaders so far</h2>
+              <table class="wk-table"><tbody id="wk-rows"></tbody></table>
+              <p class="note" id="wk-note">Loading the board...</p>
+            </section>
+          </div>
         </section>
 
         <section class="block">
@@ -923,6 +958,25 @@
 <script src="gl.js"></script>
 <script src="files.js"></script>
 <script src="opensgolf.js"></script>
+<script src="weekly.js"></script>
+<script>
+  // the "This week's challenge" box and the ribbon under the downloads (weekly.js); without a connection both stay as
+  // they are written (the box's own words, no ribbon)
+  (function () {
+    var now = new Date(), week = sgWeekId(now), $ = function (id) { return document.getElementById(id); };
+    $("wk-id").textContent = " (" + week + ")";
+    sgBoard(week, "").then(function (b) {
+      var c = b.challenge, left = sgTimeLeft(week, now);
+      $("wk-goal").innerHTML = sgDescribe(c).map(function (l) { return "<p>" + l + "</p>"; }).join("");
+      if (left) $("wk-left").textContent = left + " left this week.";
+      sgFillRows($("wk-rows"), b, 5);
+      $("wk-note").textContent = b.rows.length ? sgPlayers(b.rows.length) + " so far. Can you beat them?"
+        : "No results yet this week: be the first!";
+      $("wk-ribbon-text").textContent = SG_GOALS[c.measure] + ", " + c.theme + " land" + (b.rows.length ? ", " + sgPlayers(b.rows.length).replace(" players", "").replace(" player", "") + " playing." : ".");
+      $("wk-ribbon").hidden = false;
+    }).catch(function () { $("wk-note").textContent = "The board can't be reached just now."; });
+  })();
+</script>
 <script>
   // the download row: a button for the visitor's own system, the others beside it (without scripts, just the list)
   (() => {
