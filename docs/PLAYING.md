@@ -639,7 +639,9 @@ On the **Gameplay** page:
   the back tee, on Course B as on Course A. Touring pros, VIPs, famous challengers and your own pro always play the back tee, and so does everyone in
   a tournament. The hole itself is still the back tee's, as the original defines it: its length, its par, its Hole Stats,
   its ratings, the Course Report and the SGA's rating are unchanged, and the statistics count every golfer's play as
-  before (a drive from the forward tee counts in the hole's driving figures). The tees are saved with the game; a game that
+  before (a drive from the forward tee counts in the hole's driving figures). A golfer on a forward or middle tee does not
+  call his tee shot "pretty easy" when water lies within 3 tiles of its line (the original looks only along the line and
+  round the target, and these tees hold the least skilled golfers, who often then found that water). The tees are saved with the game; a game that
   never places one saves exactly as before, and switching the extra off sends every golfer back to the back tee (the tee
   tiles stay, and come back into play when it is switched on again).
 - **Set par.** *(Medium change)* The game gives each hole its par from its length when it opens, and sometimes judges a hole too hard or

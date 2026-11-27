@@ -740,6 +740,57 @@ fn near_adjust(cl: &mut Club, c: &Course, g: usize, lie: i32, dist: &mut i32) {
     }
 }
 
+/// How far (tiles) from the line of a forward or middle tee's tee shot water makes the shot look less than easy.
+pub const EXTRA_TEE_WATER_REACH: i64 = 3;
+
+/// The port's Multiple tees extra (sg_core::extras `Tee`): golfer g tees off from his hole's forward or middle tee and water
+/// lies within `EXTRA_TEE_WATER_REACH` tiles of the shot's line from the tee to its target (leaving out the first quarter
+/// of the line, by the tee). Such a shot does not look easy, so he does not yawn at it (the "pretty easy" thought, event 4);
+/// the original's test looks only along the line and round the target, and those tees hold the least skilled golfers,
+/// who then often found the water they had yawned at. False with the extra off, from the back tee and after the tee shot,
+/// so the original's behaviour is unchanged there.
+fn extra_tee_water(cl: &Club, c: &Course, g: usize, ball: (i32, i32), target: (i32, i32)) -> bool {
+    if !cl.extras.tees || cl.game & game::TOURNAMENT != 0 || cl.g[g].strokes != 0 {
+        return false;
+    }
+    let h = cl.g[g].hole;
+    if !(1..19).contains(&h) {
+        return false;
+    }
+    let hr = &cl.holes[h as usize];
+    if hr.front_tee != Some(ball) && hr.middle_tee != Some(ball) {
+        return false;
+    }
+    water_near_line(c, ball, target, EXTRA_TEE_WATER_REACH)
+}
+
+/// Whether a water tile lies within `reach` tiles of the line from tile `from` to tile `to`, past its first quarter.
+fn water_near_line(c: &Course, from: (i32, i32), to: (i32, i32), reach: i64) -> bool {
+    let (vx, vy) = ((to.0 - from.0) as i64, (to.1 - from.1) as i64);
+    let l = vx * vx + vy * vy;
+    if l == 0 {
+        return false;
+    }
+    let r = reach as i32;
+    for a in from.0.min(to.0) - r..=from.0.max(to.0) + r {
+        for b in from.1.min(to.1) - r..=from.1.max(to.1) + r {
+            if !crate::course::inside(a, b) || c.ty[(a * map_n() + b) as usize] != t::WATER {
+                continue;
+            }
+            let (wx, wy) = ((a - from.0) as i64, (b - from.1) as i64);
+            let p = (wx * vx + wy * vy).clamp(0, l);
+            if p * 4 < l {
+                continue;
+            }
+            let (dx, dy) = (wx * l - p * vx, wy * l - p * vy);
+            if dx * dx + dy * dy <= reach * reach * l * l {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 /// The golfer's thoughts while planning (scenery, the hole, hazards, the shot type).
 #[allow(clippy::too_many_arguments)]
 fn shot_thoughts(
@@ -798,7 +849,7 @@ fn shot_thoughts(
                                 let r = rng.below(4);
                                 r + diff * 2 < cl.g[g].rating
                             };
-                            if r4_fail || dist < 0x65 || hl > 0 || feature != 0 {
+                            if r4_fail || dist < 0x65 || hl > 0 || feature != 0 || extra_tee_water(cl, c, g, (ba, bb), (aa, ab)) {
                                 to_hazard_check = true;
                             } else {
                                 cl.event(c, rng, g, 4, 0x14);
@@ -1499,4 +1550,62 @@ pub fn aim_search(cl: &mut Club, c: &mut Course, rng: &mut ExeRng, g: usize) -> 
         cl.planner.mode = 0;
     }
     shape
+}
+
+#[cfg(test)]
+mod extra_tee_tests {
+    use super::*;
+    use crate::course::idx;
+    use crate::extras::Tee;
+    use crate::golfer::{Golfer, Hole};
+
+    /// Hole 1 from the back tee (10, 10) to the cup (10, 30), a forward tee at (10, 22), a pond at (13..=14, 26..=28)
+    /// beside the forward tee's line and a weak golfer (the forward tee's) standing on it for his tee shot.
+    fn setup() -> (Club, Course) {
+        let mut club = Club::default();
+        club.holes[1] = Hole { par: 4, length: 500, back: (10, 10), fwd: (10, 10), pin: (10, 30), ..club.holes[1].clone() };
+        club.next_hole = 2;
+        let mut c = Course::default();
+        c.ty[idx(10, 10)] = t::TEE;
+        c.ty[idx(10, 30)] = t::GREEN;
+        c.flags[idx(10, 30)] |= crate::course::f::CUP | 1;
+        for a in 13..=14 {
+            for b in 26..=28 {
+                c.ty[idx(a, b)] = t::WATER;
+            }
+        }
+        club.extras.tees = true;
+        assert_eq!(club.place_extra_tee(&mut c, Tee::Forward, 10, 22, t::ROUGH), Ok(1));
+        club.g[0] = Golfer { class: 3, level: 0, kind: 0, hole: 1, strokes: 0, ..Default::default() };
+        (club, c)
+    }
+
+    #[test]
+    fn water_beside_a_forward_tee_shot_stops_the_yawn() {
+        let (mut club, mut c) = setup();
+        assert!(extra_tee_water(&club, &c, 0, (10, 22), (10, 30)), "pond 3 tiles off the line");
+        // farther off the line, or by the tee only, it does not count
+        assert!(!water_near_line(&c, (10, 22), (10, 30), 2));
+        assert!(!water_near_line(&c, (10, 0), (10, 20), 3), "the pond is past the end of this line");
+        // only the tee shot, only from a forward or middle tee, only with the extra on and outside tournaments
+        club.g[0].strokes = 1;
+        assert!(!extra_tee_water(&club, &c, 0, (10, 22), (10, 30)));
+        club.g[0].strokes = 0;
+        assert!(!extra_tee_water(&club, &c, 0, (10, 10), (10, 30)), "the back tee keeps the original's test");
+        club.game |= game::TOURNAMENT;
+        assert!(!extra_tee_water(&club, &c, 0, (10, 22), (10, 30)));
+        club.game &= !game::TOURNAMENT;
+        club.extras.tees = false;
+        assert!(!extra_tee_water(&club, &c, 0, (10, 22), (10, 30)));
+        club.extras.tees = true;
+        assert_eq!(club.place_extra_tee(&mut c, Tee::Middle, 10, 16, t::ROUGH), Ok(1));
+        assert!(extra_tee_water(&club, &c, 0, (10, 16), (10, 30)), "the middle tee too");
+        // no water near: the original's test decides as before
+        for a in 13..=14 {
+            for b in 26..=28 {
+                c.ty[idx(a, b)] = t::ROUGH;
+            }
+        }
+        assert!(!extra_tee_water(&club, &c, 0, (10, 22), (10, 30)));
+    }
 }
