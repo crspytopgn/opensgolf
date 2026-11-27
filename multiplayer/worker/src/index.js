@@ -3,7 +3,7 @@
 // * POST /result: a player's result in this week's challenge (JSON, see readResult). Only their best of the week is kept.
 //   GET /result?d=<the same JSON, base64url> does the same, for the game's own HTTP client, which only GETs (net.rs).
 // * GET /board?c=<week>&g=<group>&p=<player>: the top 50 of a week's board (the public one, or a friends' group), and
-//   the asking player's own place.
+//   the asking player's own place. One place per nickname (board()).
 // * GET /clubs: the shared clubs' list. GET /clubs/new?d=<JSON, base64url> makes a club (newClub). GET /clubs/<id>/ws is
 //   a club's WebSocket, served by its Durable Object (club.js).
 // * Neighbours leagues (league.js): GET /leagues/new?d= makes one; GET /leagues/<code>?p=<player> is its table;
@@ -99,31 +99,46 @@ export async function storeResult(db, r, now) {
   return (res.meta && res.meta.changes) > 0;
 }
 
-/** A week's board: the top rows and, for `player`, their own row and place (1 = first). */
+/**
+ * Who a board row belongs to: one place per nickname (any capitals), so a person whose results came from several
+ * installs (another browser, a cleared save) is on the board once, with their best. A nickname an admin hid, or the
+ * game's own "Golfer 123" name (two strangers may share it), is told apart by the player id instead.
+ */
+const WHO = `CASE WHEN h.nick IS NOT NULL OR r.nick GLOB 'Golfer [0-9][0-9][0-9]' THEN 'p:' || r.player
+  ELSE 'n:' || lower(r.nick) END`;
+
+/** Each one's best visible row of a week's board (?1 the week, ?2 the group), with `who` and `hid`. */
+const BEST = `WITH v AS (
+    SELECT r.player, r.nick, h.nick IS NOT NULL AS hid, r.score, r.cash, r.fun, r.skill, r.members, r.holes, r.rank, r.at,
+      ${WHO} AS who
+    FROM results r LEFT JOIN hidden_nicks h ON h.nick = r.nick
+    WHERE r.challenge = ?1 AND r.grp = ?2 AND r.hidden = 0
+  ), best AS (
+    SELECT v.*, ROW_NUMBER() OVER (PARTITION BY who ORDER BY score DESC, at ASC) AS k FROM v
+  )`;
+
+/** A week's board: each one's best row, the top first, and for `player` their own place (1 = first). */
 export async function board(db, c, grp, player) {
   const { results } = await db.prepare(
-    `SELECT r.player, CASE WHEN h.nick IS NULL THEN r.nick ELSE '' END AS nick, r.score, r.cash, r.fun, r.skill,
-       r.members, r.holes, r.rank, r.at
-     FROM results r LEFT JOIN hidden_nicks h ON h.nick = r.nick
-     WHERE r.challenge = ?1 AND r.grp = ?2 AND r.hidden = 0
-     ORDER BY r.score DESC, r.at ASC LIMIT ?3`,
+    `${BEST} SELECT * FROM best WHERE k = 1 ORDER BY score DESC, at ASC LIMIT ?3`,
   ).bind(c, grp, BOARD_SIZE).all();
+  // the asking player's own place: their nickname's (or their own) best, wherever it came from
+  let who = null;
+  if (isPlayer(player)) {
+    const w = await db.prepare(`${BEST} SELECT who FROM v WHERE player = ?3`).bind(c, grp, player).first();
+    who = w ? w.who : null;
+  }
   const rows = results.map((r, i) => ({
-    place: i + 1, nick: r.nick || generatedNick(r.player), score: r.score, cash: r.cash, fun: r.fun, skill: r.skill,
-    members: r.members, holes: r.holes, rank: r.rank, mine: r.player === player,
+    place: i + 1, nick: r.hid ? generatedNick(r.player) : r.nick, score: r.score, cash: r.cash, fun: r.fun,
+    skill: r.skill, members: r.members, holes: r.holes, rank: r.rank, mine: who !== null && r.who === who,
   }));
   let me = null;
-  if (isPlayer(player) && !rows.some((r) => r.mine)) {
-    const mine = await db.prepare(
-      `SELECT score, at FROM results WHERE challenge = ?1 AND grp = ?2 AND player = ?3 AND hidden = 0`,
-    ).bind(c, grp, player).first();
-    if (mine) {
-      const ahead = await db.prepare(
-        `SELECT COUNT(*) AS n FROM results WHERE challenge = ?1 AND grp = ?2 AND hidden = 0
-           AND (score > ?3 OR (score = ?3 AND at < ?4))`,
-      ).bind(c, grp, mine.score, mine.at).first();
-      me = { place: ahead.n + 1, score: mine.score };
-    }
+  if (who !== null && !rows.some((r) => r.mine)) {
+    const mine = await db.prepare(`${BEST} SELECT score, at FROM best WHERE k = 1 AND who = ?3`).bind(c, grp, who).first();
+    const ahead = await db.prepare(
+      `${BEST} SELECT COUNT(*) AS n FROM best WHERE k = 1 AND (score > ?3 OR (score = ?3 AND at < ?4))`,
+    ).bind(c, grp, mine.score, mine.at).first();
+    me = { place: ahead.n + 1, score: mine.score };
   }
   return { challenge: challenge(c), rows, me };
 }

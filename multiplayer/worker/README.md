@@ -15,7 +15,9 @@ work in `multiplayer/`. Deployed at https://opensgolf-board.openmcm2-laps.worker
   `MIN_VERSION` variable, when set; otherwise the game is told to update. Only a player's best of the week is kept, so
   a worse result writes nothing.
 * `GET /board?c=<week>&g=<group>&p=<player>`: the top 50 and the asking player's own place. Without `p` the answer may be
-  cached for a minute.
+  cached for a minute. Each nickname (any capitals) has one place, its best, so one person sending from several installs
+  (another browser, a cleared save) can't fill the board; a hidden nickname, or the game's own "Golfer 123", counts by
+  player id instead.
 * `GET /admin` and `POST /admin/hide` (basic auth, any user name, the `ADMIN_PASSWORD` secret): the latest results, and
   hiding a result (`{challenge, player}`) or a nickname everywhere (`{nick}`; `show: true` undoes either). A hidden
   nickname shows as a generated one (`src/names.js`).
