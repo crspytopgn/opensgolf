@@ -8,6 +8,15 @@ Almost everything OpenSGolf adds to the original game is **off until you switch 
 unless you choose otherwise. Most of it is in Preferences: *Game options* holds the extras and presets, *Graphics* holds
 Enhanced graphics and HD.
 
+## 0.9.10 (27 November 2026)
+
+- **A tidier title menu:** nothing overlaps any more, with the original art or the free set, whatever buttons are
+  showing. *Continue* (with your newest save) now sits just under *Continue Saved Game*, and the time you have played is
+  on the bottom line after the version.
+- **The theme pack is remembered:** with *Fix the original game's bugs* on, the theme pack you chose (one of your own
+  too) is picked again at the next start, instead of going back to Standard.
+- The weekly challenge board shows one place per nickname, its best.
+
 ## 0.9.9 (27 November 2026)
 
 - **This week's challenge on the title menu:** a gold button in the top row shows the week's goal, the days left and,

@@ -910,17 +910,23 @@ impl App {
             s.fill(g, r.x, r.y, r.w, r.h, if lit { rgba(0.13, 0.32, 0.55, 0.95) } else { rgba(0.08, 0.16, 0.32, 0.88) });
             s.put_centered(g, crate::ui::F_MANUAL15, r.x + r.w / 2.0, r.y + 4.0, label, rgb(1.0, 1.0, if lit { 1.0 } else { 0.8 }));
         }
-        if self.free_hint {
-            let hint = tr("STR_GAME_FILES_HINT");
-            // after the Launcher... button beside it (launcher.rs)
-            let l = crate::launcher::title_button_rect(Some(label));
-            let x = l.x + l.w + 10.0;
-            let w = crate::ui::F_ARIAL10.width(hint) + 16.0;
-            // up to "Check for updates" at the top right (update.rs)
-            let end = self.update_button().map_or(790.0, |u| u.x - 6.0);
-            s.fill(g, x, r.y, w.min(end - x), r.h, rgba(1.0, 0.98, 0.85, 0.92));
-            s.put(g, crate::ui::F_ARIAL10, x + 8.0, r.y + 6.0, hint, rgb(0.1, 0.1, 0.2));
+    }
+
+    /// The once-only hint that the free graphics are in use, on the title's bottom line in place of the version (render.rs
+    /// `title_version_room`; the top row is full of buttons). False when there is none to show.
+    pub fn draw_free_hint(&self, g: &mut crate::gfx::Gfx, s: &crate::ui::Screen) -> bool {
+        use crate::ui::{rgb, rgba};
+        if !self.free_hint || self.files_option().is_none() {
+            return false;
         }
+        let hint = tr("STR_GAME_FILES_HINT");
+        let (l, r) = self.title_version_room();
+        let f = crate::ui::F_ARIAL10;
+        let w = (f.width(hint) + 16.0).min(r - l);
+        let x = (l + r - w) / 2.0;
+        s.fill(g, x, 578.0, w, 18.0, rgba(1.0, 0.98, 0.85, 0.92));
+        s.put_centered_fit(g, f, x + w / 2.0, 581.0, w - 12.0, hint, rgb(0.1, 0.1, 0.2));
+        true
     }
 }
 

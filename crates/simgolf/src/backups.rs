@@ -198,6 +198,17 @@ pub fn newest(dir: &Path) -> Option<(PathBuf, f64)> {
         .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
 }
 
+/// The widest the Continue button gets: clear of Start New Game (render.rs MENU_BTN[1] starts at 415).
+pub const CONTINUE_MAX_W: f32 = 340.0;
+
+/// The Continue button for a label (its text is cut to fit when longer): under Continue Saved Game, centred on its label,
+/// above the logo.
+pub fn continue_rect(label: &str) -> crate::render::Rect {
+    let w = (crate::ui::F_MANUAL15.width(label) + 24.0).clamp(144.0, CONTINUE_MAX_W);
+    // (between Continue Saved Game's region, which ends at 145, and the free set's logo tag at 169)
+    crate::render::Rect::new((182.0 - w / 2.0).max(8.0), 146.0, w, 22.0)
+}
+
 impl crate::app::App {
     /// The Continue button's save and label (None with the extra off or no dated save).
     pub fn continue_save(&self) -> Option<(PathBuf, String)> {
@@ -212,12 +223,11 @@ impl crate::app::App {
         Some((p, label))
     }
 
-    /// The Continue button's rectangle: under Check for updates at the top right (the update button's own size rule).
+    /// The Continue button's rectangle: just under Continue Saved Game, where both title pictures leave the background bare
+    /// (the top row is full; render.rs title_layout tests).
     pub fn continue_button(&self) -> Option<(crate::render::Rect, PathBuf, String)> {
         let (p, label) = self.continue_save()?;
-        let w = crate::ui::F_MANUAL15.width(&label).clamp(120.0, 420.0) + 24.0;
-        let y = if self.update_button().is_some() { 36.0 } else { 6.0 };
-        Some((crate::render::Rect::new(792.0 - w, y, w, 24.0), p, label))
+        Some((continue_rect(&label), p, label))
     }
 
     /// Draws the Continue button, in the update button's style.
@@ -235,7 +245,7 @@ impl crate::app::App {
             g,
             crate::ui::F_MANUAL15,
             r.x + r.w / 2.0,
-            r.y + 4.0,
+            r.y + 3.0,
             r.w - 12.0,
             &label,
             rgb(1.0, 1.0, if lit { 1.0 } else { 0.8 }),

@@ -107,6 +107,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.9.10" date="2026-11-27">
+      <description>
+        <p>Nothing on the title menu overlaps any more; the chosen theme pack is remembered at the next start.</p>
+      </description>
+    </release>
     <release version="0.9.9" date="2026-11-27">
       <description>
         <p>A This week's challenge button on the title menu, Share result when the weekly challenge ends, and a weekly challenge page on the website.</p>
