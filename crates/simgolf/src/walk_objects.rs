@@ -961,7 +961,7 @@ impl App {
             .iter()
             .filter(|o| o.kind >= 0)
             .map(|o| {
-                let size = sg_core::data::buildings().get(o.kind as usize).map(|b| b.1).unwrap_or(1).max(1);
+                let size = land.footprint_size(o).max(1);
                 let (cx, cz) = self.terrain.tile_centre(o.a, o.b);
                 let off = (size - 1) as f32 * TILE_SIZE * 0.5;
                 ((cx + off, cz + off), (o.kind as usize, (o.a * 7 + o.b * 13).rem_euclid(4) as usize))
@@ -976,7 +976,7 @@ impl App {
             .iter()
             .filter(|o| o.kind >= 0)
             .map(|o| {
-                let size = sg_core::data::buildings().get(o.kind as usize).map(|b| b.1).unwrap_or(1).max(1);
+                let size = land.footprint_size(o).max(1);
                 let (cx, cz) = self.terrain.tile_centre(o.a, o.b);
                 let off = (size - 1) as f32 * TILE_SIZE * 0.5;
                 ((cx + off, cz + off), size as f32 * TILE_SIZE * 0.5)

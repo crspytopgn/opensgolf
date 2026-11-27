@@ -2400,7 +2400,7 @@ impl Land {
         let on_object = self.flags[i] & flag::FOOTPRINT != 0;
         if on_object {
             if let Some(o) = self.objects.iter().position(|o| {
-                let s = crate::data::buildings().get(o.kind as usize).map(|b| b.1).unwrap_or(1);
+                let s = self.footprint_size(o);
                 o.kind >= 0 && (o.a..o.a + s).contains(&a) && (o.b..o.b + s).contains(&b)
             }) {
                 return Undone::Building(o);
