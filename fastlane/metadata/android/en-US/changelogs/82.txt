@@ -1,1 +1,1 @@
-Fixes: upgraded buildings stand in the middle of their tiles again, and a theme pack folder of your own can be chosen.
+Fixes: upgraded buildings stand in the middle of their tiles, and a theme pack folder of your own can be chosen.

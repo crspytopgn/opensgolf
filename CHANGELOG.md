@@ -10,7 +10,7 @@ Enhanced graphics and HD.
 
 ## 0.9.8 (27 November 2026)
 
-- Upgraded buildings stand in the middle of their tiles again. An upgrade is one tile larger, but the map placed it by
+- Upgraded buildings now stand in the middle of their tiles. An upgrade is one tile larger, but the map placed it by
   the smaller size, so it covered the path or building on one side and left a gap on the other.
 - *Select a Theme Pack* can now choose a theme folder of your own, not only the four that come with the game. Its stories
   and characters are used like any other pack's, and a save made with it loads with it (#230).
