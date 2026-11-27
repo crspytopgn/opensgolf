@@ -190,6 +190,45 @@ impl TitleScreens {
 }
 
 /// Where the Save dialog writes and Load Previous Game reads.
+/// settings.json's key for the theme pack chosen last (docs/FIXES.md 17).
+const THEME_PACK_KEY: &str = "theme_pack";
+
+/// At start up, with "Fix the original game's bugs" on: the theme pack chosen last, when its folder is still under Themes
+/// (the original went back to Standard each time the game started: docs/FIXES.md 17). Empty is Standard.
+pub fn remembered_theme_pack(save_dir: &Path, game_dir: &Path) -> String {
+    if !crate::enhanced::fix_bugs() {
+        return String::new();
+    }
+    let v = sg_core::fsutil::read_file(save_dir.join(crate::hd::SETTINGS_FILE))
+        .and_then(|d| serde_json::from_slice::<serde_json::Value>(&d).ok())
+        .unwrap_or_default();
+    v[THEME_PACK_KEY]
+        .as_str()
+        .filter(|p| !p.is_empty() && !p.contains(['/', '\\', '.']))
+        .filter(|p| sg_core::fsutil::is_dir(&sg_core::fsutil::resolve(game_dir, &format!("Themes/{p}"))))
+        .unwrap_or_default()
+        .to_string()
+}
+
+/// Keeps the chosen theme pack in settings.json for the next start (its other keys kept; Standard removes the key).
+fn remember_theme_pack(save_dir: &Path, pack: &str) {
+    let path = save_dir.join(crate::hd::SETTINGS_FILE);
+    let mut v = sg_core::fsutil::read_file(&path)
+        .and_then(|d| serde_json::from_slice::<serde_json::Value>(&d).ok())
+        .filter(|v| v.is_object())
+        .unwrap_or_else(|| serde_json::json!({}));
+    if pack.is_empty() {
+        if let Some(o) = v.as_object_mut() {
+            o.remove(THEME_PACK_KEY);
+        }
+    } else {
+        v[THEME_PACK_KEY] = serde_json::Value::from(pack);
+    }
+    if let Ok(t) = serde_json::to_string_pretty(&v) {
+        sg_core::fsutil::write_file(&path, t.as_bytes());
+    }
+}
+
 pub fn saved_games_dir() -> PathBuf {
     save_dir().join("Saved Games")
 }
@@ -409,6 +448,15 @@ impl App {
         self.hover = -1;
     }
 
+    /// Picks a theme pack on Select a Theme Pack (empty: Standard) and remembers it for the next start.
+    fn choose_theme_pack(&mut self, pack: String) {
+        // (unit tests leave the player's settings alone)
+        if !cfg!(test) {
+            remember_theme_pack(&crate::app::save_dir(), &pack);
+        }
+        self.theme_pack = pack;
+    }
+
     /// Select a Theme Pack (0x4725b0): the folders under Themes, without names holding a dot and without Championship.
     pub fn open_themes(&mut self) {
         let root = self.game_path("Themes");
@@ -625,7 +673,7 @@ impl App {
             }
             // a key leaves Theme Packs with the Standard pack
             Screen::Themes => {
-                self.theme_pack.clear();
+                self.choose_theme_pack(String::new());
                 self.screen = Screen::Menu;
                 self.hover = -1;
             }
@@ -741,14 +789,15 @@ impl App {
         match hit {
             0 => self.screen = Screen::Menu,
             1 => {
-                self.theme_pack.clear();
+                self.choose_theme_pack(String::new());
                 self.screen = Screen::Menu;
             }
             _ => {
                 let row = ((vy - 91.0) / 32.0).floor() as i32;
                 if vy >= 91.0 && vx > 72.0 && vx < 752.0 && row >= 0 {
                     if let Some((folder, _)) = self.title.themes.get(row as usize) {
-                        self.theme_pack = folder.clone();
+                        let folder = folder.clone();
+                        self.choose_theme_pack(folder);
                     }
                 }
             }
@@ -1446,6 +1495,20 @@ mod tests {
         // a key leaves with Standard
         app.theme_pack.clear();
         assert_eq!(app.pack_folder(), "Standard");
+        // the choice is kept for the next start, beside settings.json's other keys, while its folder is there
+        let save = dir.join("save");
+        std::fs::create_dir_all(&save).unwrap();
+        std::fs::write(save.join(crate::hd::SETTINGS_FILE), br#"{"wasd": true}"#).unwrap();
+        remember_theme_pack(&save, "My_Theme");
+        assert_eq!(remembered_theme_pack(&save, &dir), "My_Theme");
+        let kept: serde_json::Value = serde_json::from_slice(&std::fs::read(save.join(crate::hd::SETTINGS_FILE)).unwrap()).unwrap();
+        assert_eq!(kept["wasd"], true);
+        std::fs::remove_dir_all(dir.join("Themes/My_Theme")).unwrap();
+        assert_eq!(remembered_theme_pack(&save, &dir), "");
+        // Standard takes the key away
+        remember_theme_pack(&save, "");
+        let kept: serde_json::Value = serde_json::from_slice(&std::fs::read(save.join(crate::hd::SETTINGS_FILE)).unwrap()).unwrap();
+        assert!(kept.get(THEME_PACK_KEY).is_none());
         let _ = std::fs::remove_dir_all(&dir);
     }
 

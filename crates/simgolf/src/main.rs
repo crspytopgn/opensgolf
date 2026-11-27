@@ -1621,6 +1621,10 @@ impl Stage {
         extras::init(o.no_extras);
         // the player's keys (controls.rs)
         controls::init();
+        // the theme pack chosen last time (files_ui.rs; docs/FIXES.md 17), not in stills or tests
+        if o.png_out.is_none() && o.time == 0.0 {
+            app.theme_pack = files_ui::remembered_theme_pack(&app::save_dir(), &o.game_dir);
+        }
         // the support reminder's play time (support.rs)
         app.support = support::init();
         // the welcome boxes (welcome.rs): never in stills or tests (SG_WELCOME and SG_WHATSNEW force them)
