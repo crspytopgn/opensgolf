@@ -334,7 +334,7 @@ impl App {
 
     /// The theme pack folder (under Themes) characters are loaded from and saved to.
     fn cust_folder(&self) -> (String, PathBuf) {
-        let pack = crate::render::THEME_PACKS.get(self.theme_pack).copied().unwrap_or("Standard").replace(' ', "_");
+        let pack = self.pack_folder();
         let dir = self.game_path(&format!("Themes/{pack}"));
         (pack, dir)
     }
