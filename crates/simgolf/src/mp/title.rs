@@ -1,5 +1,5 @@
 //! The title menu's "This week's challenge" button (the port's own): gold, in the middle of the top row of the port's own
-//! buttons (between Launcher... and Check for updates, where both title pictures leave the background bare), it says the
+//! buttons (between Mods... and Check for updates, where both title pictures leave the background bare), it says the
 //! week's goal and the days left, and once Multiplayer is on, how many are on the board or the player's own place there (one look
 //! at the public board a session). A click opens Start New Game's Multiplayer page on the weekly challenge (its note
 //! first while Multiplayer is off: picking it is still the player's yes). A player who sent results and then turned
@@ -14,8 +14,8 @@ use crate::render::Rect;
 use sg_core::lang::{tr, trf};
 use std::cell::RefCell;
 
-/// The button's hover value (after welcome::DISCORD_HOVER).
-pub const HOVER: i32 = 13;
+/// The button's hover value (after content::TITLE_HOVER).
+pub const HOVER: i32 = 14;
 
 /// What the board said this session: the week, the players on it and the player's own place.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -46,7 +46,7 @@ const WIDTH: f32 = 330.0;
 /// The room it keeps from its neighbours in the row.
 const GAP: f32 = 10.0;
 
-/// The button in the room between `left` (Launcher...'s right edge) and `right` (Check for updates' left edge): centred
+/// The button in the room between `left` (Mods...'s right edge) and `right` (Check for updates' left edge): centred
 /// there, as tall as the row's other buttons.
 pub fn button_rect_between(left: f32, right: f32) -> Rect {
     let w = (right - left - 2.0 * GAP).min(WIDTH);
@@ -123,10 +123,29 @@ fn poll() {
     }
 }
 
+/// The button's line, the longest that `fits`: the full title, the short one, the short one without the days left, and
+/// last the short one cut with "...".
+pub fn fit_line(note: &str, fits: impl Fn(&str) -> bool) -> String {
+    super::texts();
+    fn line(title: &'static str, note: &str) -> String {
+        trf("STR_MP_TITLE_LINE", &[("TITLE", &tr(title)), ("NOTE", &note)])
+    }
+    let without_days = note.rsplit_once(", ").map_or(note, |(a, _)| a);
+    let tries = [line("STR_MP_TITLE_BUTTON", note), line("STR_MP_TITLE_SHORT", note), line("STR_MP_TITLE_SHORT", without_days)];
+    if let Some(t) = tries.iter().find(|t| fits(t)) {
+        return t.clone();
+    }
+    let mut t = tries[2].clone();
+    while !t.is_empty() && !fits(&format!("{t}...")) {
+        t.pop();
+    }
+    format!("{t}...")
+}
+
 impl App {
     /// The button's place in the title's top row.
     pub fn weekly_button(&self) -> Rect {
-        let l = self.launcher_button();
+        let l = self.mods_button();
         let right = self.update_button().map_or(792.0, |u| u.x);
         button_rect_between(l.x + l.w, right)
     }
@@ -152,9 +171,9 @@ impl App {
             s.fill(g, r.x, r.y, r.w, r.h, fill);
         }
         let ink = [0.24, 0.13, 0.0, 1.0];
-        let line =
-            trf("STR_MP_TITLE_LINE", &[("TITLE", &tr("STR_MP_TITLE_BUTTON")), ("NOTE", &note(&c, seen.as_ref(), days_left(&c.id, now)))]);
-        s.put_centered(g, F_MANUAL15, r.x + r.w / 2.0, r.y + 4.0, &crate::content::fit(&line, r.w - 12.0), ink);
+        let note = note(&c, seen.as_ref(), days_left(&c.id, now));
+        let line = fit_line(&note, |t| F_MANUAL15.width(t) <= r.w - 14.0);
+        s.put_centered(g, F_MANUAL15, r.x + r.w / 2.0, r.y + 4.0, &line, ink);
     }
 
     /// The button clicked: Start New Game's Multiplayer page, on the weekly challenge's own page once Multiplayer is on.
@@ -188,6 +207,15 @@ mod tests {
         assert_eq!(note(&c, Some(&(12, None)), 4), "Most cash, 12 playing, 4 days left");
         assert_eq!(note(&c, None, 1), "Most cash, last day");
         assert_eq!(note(&c, Some(&(60, Some(70))), 2), "You're 70th, 2 days left");
+    }
+
+    #[test]
+    fn the_line_shortens_to_fit() {
+        let n = "You're 2nd of 3, 4 days left";
+        assert_eq!(fit_line(n, |_| true), "This week's challenge: You're 2nd of 3, 4 days left");
+        assert_eq!(fit_line(n, |t| t.len() <= 40), "Weekly: You're 2nd of 3, 4 days left");
+        assert_eq!(fit_line(n, |t| t.len() <= 30), "Weekly: You're 2nd of 3");
+        assert_eq!(fit_line(n, |t| t.len() <= 12), "Weekly: Y...");
     }
 
     #[test]

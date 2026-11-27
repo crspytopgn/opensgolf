@@ -380,7 +380,7 @@ pub fn sheet_sprite(flc: &Path, pal: Option<&Path>, base: &Sprite) -> Option<Res
 
 fn build_sheet(flc: &Path, pal: Option<&Path>, base: &Sprite, art: &crate::vfs::Art) -> Result<(Sprite, SheetSprite), String> {
     let stem = art.rel.strip_suffix(".flc").unwrap_or(&art.rel).to_string();
-    let mut sheet = crate::png::decode_image(&art.data).ok_or("not a PNG this game reads (8 bits per channel, not interlaced)")?;
+    let mut sheet = crate::png::decode_image(&art.data).ok_or("not a PNG (8 bits per channel, not interlaced) or WebP this game reads")?;
     let json = match crate::vfs::layer_file(art.layer, &format!("{stem}.json")) {
         Some(d) => Some(SheetJson::parse(&String::from_utf8_lossy(&d)).map_err(|e| format!("{stem}.json: {e}"))?),
         None => None,
@@ -435,7 +435,7 @@ pub fn object_sprite(
     anchor: Option<[i32; 2]>,
     frame_ms: u32,
 ) -> Result<(Sprite, Option<SheetSprite>), String> {
-    let sheet = crate::png::decode_image(png).ok_or("not a PNG this game reads (8 bits per channel, not interlaced)")?;
+    let sheet = crate::png::decode_image(png).ok_or("not a PNG (8 bits per channel, not interlaced) or WebP this game reads")?;
     let (views, frames, scale) = (views.max(1), frames.max(1), scale.max(1));
     if sheet.w % (frames * scale) != 0 || sheet.h % (views * scale) != 0 {
         return Err(format!(

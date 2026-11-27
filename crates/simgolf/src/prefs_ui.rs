@@ -23,6 +23,8 @@ pub enum Line {
     Controls,
     TextSize,
     GameFiles,
+    /// Mods... (the port's own, content.rs): the Content screen, as Game files > Content packs... opens it
+    Mods,
     More,
     // Preferences > Graphics
     Hd,
@@ -100,7 +102,7 @@ pub fn is_prefs_box(kind: PopupKind) -> bool {
 pub fn items(kind: PopupKind, c: &Ctx) -> Vec<Line> {
     use Line::*;
     match kind {
-        PopupKind::Prefs => vec![Thoughts, Advisor, Animals, Sound, GameOptions, Graphics, Controls, TextSize, GameFiles, More],
+        PopupKind::Prefs => vec![Thoughts, Advisor, Animals, Sound, GameOptions, Graphics, Controls, TextSize, GameFiles, Mods, More],
         PopupKind::PrefsGraphics => [Hd]
             .into_iter()
             .chain(c.make_hd.map(|_| MakeHd))
@@ -144,6 +146,7 @@ pub fn label(l: Line, c: &Ctx, text: u32) -> String {
             return trf("STR_MENU_PREFS_TEXT_SIZE", &[("SIZE", &tr(crate::textsize::name_key(text)))]);
         }
         GameFiles => "STR_PREFS_GAME_FILES",
+        Mods => "STR_PREFS_MODS",
         More => "STR_PREFS_MORE",
         Hd => "STR_MENU_PREFS_HD",
         MakeHd => {
@@ -226,6 +229,7 @@ pub fn desc_key(l: Line, c: &Ctx) -> Option<&'static str> {
         Controls => "STR_PREFS_DESC_CONTROLS",
         TextSize => "STR_PREFS_DESC_TEXT_SIZE",
         GameFiles => "STR_PREFS_DESC_GAME_FILES",
+        Mods => "STR_PREFS_DESC_MODS",
         More => "STR_PREFS_DESC_MORE",
         Hd => "STR_PREFS_DESC_HD",
         MakeHd => "STR_PREFS_DESC_MAKE_HD",
@@ -353,7 +357,7 @@ mod tests {
     fn preferences_keeps_the_originals_four_first_then_the_divider() {
         let it = items(PopupKind::Prefs, &ALL);
         assert_eq!(it[..4], [Thoughts, Advisor, Animals, Sound]);
-        assert_eq!(it[4..], [GameOptions, Graphics, Controls, TextSize, GameFiles, More]);
+        assert_eq!(it[4..], [GameOptions, Graphics, Controls, TextSize, GameFiles, Mods, More]);
         let l = lines(PopupKind::Prefs, &ALL, 100);
         assert_eq!(l[0], tr("STR_MENU_PREFS_TITLE"));
         assert_eq!(
@@ -366,7 +370,7 @@ mod tests {
         assert_eq!(opts.len(), it.len());
         assert!(l[l.len() - FOOT_LINES..].iter().all(|s| s.is_empty()));
         // the original's four are the only ticks, each with no description of the port's
-        assert_eq!(plain_bits(&it), 0b11_1111_0000);
+        assert_eq!(plain_bits(&it), 0b111_1111_0000);
         assert!(it[..4].iter().all(|&l| desc_key(l, &ALL).is_none()));
         assert!(it[4..].iter().all(|&l| desc_key(l, &ALL).is_some()));
     }

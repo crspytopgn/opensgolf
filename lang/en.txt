@@ -1332,6 +1332,7 @@ STR_PREFS_GAME_OPTIONS                  : Game options...
 STR_PREFS_GRAPHICS                      : Graphics...
 STR_PREFS_CONTROLS                      : Controls and keys...
 STR_PREFS_GAME_FILES                    : Game files...
+STR_PREFS_MODS                          : Mods...
 STR_PREFS_MORE                          : More...
 STR_PREFS_GRAPHICS_TITLE                :Graphics
 STR_PREFS_FILES_TITLE                   :Game files
@@ -1353,6 +1354,7 @@ STR_PREFS_DESC_PIXEL_PERFECT            :Scales the picture only by whole steps 
 STR_PREFS_DESC_ENHANCED_SETTINGS        :Choose which Enhanced graphics options are on: display, effects, atmosphere, weather and water.
 STR_PREFS_DESC_FILES_MINE               :Switches to the art and sound of your own SimGolf instead of the free graphics. The game restarts.
 STR_PREFS_DESC_FILES_FREE               :Switches to OpenSGolf's free art and sound instead of your SimGolf files. The game restarts.
+STR_PREFS_DESC_MODS                     :Switch your mods on or off, or download more with Find more. Applies at the next start.
 STR_PREFS_DESC_CONTENT                  :Turn content packs (mods) on or off and set their order. Changes apply at the next start.
 STR_PREFS_DESC_LANGUAGE                 :Changes the game's language. Each click picks the next installed language.
 STR_PREFS_DESC_FIX_BUGS                 :Fixes bugs in the original game (docs/FIXES.md). On by default. Off: the game plays as it did in 2002, bugs included.
@@ -2443,7 +2445,7 @@ STR_ACCOMPLISHMENT_PAR_5                :1st Par 5 Hole
 ########################################################################################################################
 # Preferences > Content. {KIND} a pack kind, {BY} STR_CONTENT_BY or nothing, {LICENCE} STR_CONTENT_LICENCE or nothing,
 # {STATE} on, off, an error ...
-STR_CONTENT_TITLE                       :Content packs
+STR_CONTENT_TITLE                       :Mods and content packs
 STR_CONTENT_HELP                        :Base set first, then the mods in this order (later ones win), then the translation.
 STR_CONTENT_PACK_LINE                   :{KIND}{BY}{LICENCE}  -  {STATE}
 STR_CONTENT_BY                          : by {AUTHORS}
@@ -2471,6 +2473,10 @@ STR_CONTENT_NEXT                        :Next
 STR_CONTENT_NOTE                        :Changes are saved at once and take effect when you restart the game.
 STR_CONTENT_NOTE_CHANGED                :Your changes are saved. They take effect when you restart the game.
 STR_CONTENT_FIND_MORE                   :Find more...
+STR_CONTENT_NO_MODS                     :No mods installed yet. Click Find more... to see the mods and scenarios you can download, then switch them on here.
+STR_CONTENT_NO_MODS_OFFLINE             :No mods installed yet. Put a pack's folder or .zip in the packs folder of your save folder (docs/MODDING.md), then open this screen again.
+STR_CONTENT_RESTART_NOW                 :Restart now
+STR_CONTENT_RESTARTED                   :The game started again with the mods you chose.
 # Shown at start up when the game folder named with --game has no SimGolf files
 STR_CONTENT_NO_GAME_FILES               :No SimGolf files found in {DIR}: playing with the free OpenSGolf graphics.
 
@@ -2851,6 +2857,8 @@ STR_INDEX_DOWNLOAD                      :Download
 STR_INDEX_DOWNLOADING_BUTTON            :Downloading...
 STR_INDEX_DOWNLOADING                   :Downloading {PACK}...
 STR_INDEX_INSTALLED                     :{PACK} {VERSION} is installed. Switch it on in the list of packs; it takes effect when you restart the game.
+STR_INDEX_INSTALLED_ON                  :{PACK} {VERSION} is installed and switched on. Restart the game to play with it.
+STR_INDEX_INSTALLED_SCENARIO            :{PACK} {VERSION} is installed. Pick it from Start New Game after you restart the game.
 STR_INDEX_DOWNLOAD_FAILED               :{PACK} was not installed: {ERROR}
 STR_INDEX_PROBLEM                       :index: {PROBLEM}{MORE}
 STR_INDEX_BACK                          :Installed packs
@@ -3849,6 +3857,8 @@ STR_LAUNCHER_BRING_BACK                 :To open this again: Preferences > More 
 STR_LAUNCHER_NEWS_PILL                  :What's new
 STR_LAUNCHER_COFFEE                     :Buy me a coffee
 STR_LAUNCHER_TITLE_BUTTON               :Launcher...
+# The title menu's Mods... button (content.rs): the Content screen over the title menu
+STR_MODS_TITLE_BUTTON                   :Mods...
 # Game files: what is in use ({N} sounds of the player's own play; {DIR} a folder) and the two choices
 STR_LAUNCHER_FILES_MINE                 :Your SimGolf files: all art and {N} sounds
 STR_LAUNCHER_FILES_MINE_QUIET           :Your SimGolf files: all art (the free sounds play)

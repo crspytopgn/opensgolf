@@ -613,8 +613,6 @@ pub const MENU_BTN: [Rect; 6] = [
     Rect::new(285.0, 478.0, 285.0, 105.0),
     Rect::new(718.0, 528.0, 64.0, 64.0),
 ];
-/// The folders under Themes/ offered as theme packs (the exe leaves out Championship, which holds the championship files).
-pub const THEME_PACKS: [&str; 4] = ["Standard", "Firaxis", "More Stories", "The Sims"];
 /// The title menu's labels (0x420e.. and the menu's opening 0x40f5c0): Klepto ITC 18 (0x51a028) in 0x6318, centred on the
 /// label's point with the text's top 8 below it; "Start New Game" has the theme pack's name in brackets 24 further down.
 const MENU_LABEL_KEYS: [&str; 5] =
@@ -870,7 +868,7 @@ impl App {
         if let Some(lit) = self.title_mo_parts.get(self.hover.max(0) as usize).filter(|_| (0..6).contains(&self.hover)) {
             s.image(g, lit, 0.0, 0.0);
         }
-        let theme = format!("({})", THEME_PACKS.get(self.theme_pack).copied().unwrap_or("Standard"));
+        let theme = format!("({})", self.pack_label());
         if self.on_free_set() {
             // the free set's plates (tools/freeset_art/uititle.py): white labels with a drop, each fitted to its plate
             for (b, &(cx, cy, room, px)) in FREE_MENU_LABELS.iter().enumerate() {
@@ -900,6 +898,8 @@ impl App {
         self.draw_files_button(g, &s);
         // and "Launcher..." beside it (launcher.rs)
         self.draw_launcher_button(g, &s);
+        // and "Mods..." beside that (content.rs)
+        self.draw_mods_button(g, &s);
         // and "Check for updates" (update.rs)
         self.draw_update_button(g, &s);
         // and "Continue" with the newest save under it (backups.rs)

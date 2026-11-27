@@ -107,6 +107,16 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.9.8" date="2026-11-27">
+      <description>
+        <p>Upgraded buildings stand in the middle of their tiles; a theme pack folder of your own can be chosen.</p>
+      </description>
+    </release>
+    <release version="0.9.7" date="2026-11-26">
+      <description>
+        <p>A Mods button on the title menu and in Preferences to switch mods on or off and download more; content packs may use WebP pictures.</p>
+      </description>
+    </release>
     <release version="0.9.6" date="2026-11-25">
       <description>
         <p>Each update's release page and Discord post now say what changed in that update.</p>

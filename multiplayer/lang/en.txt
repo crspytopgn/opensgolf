@@ -182,6 +182,7 @@ STR_MP_CLUB_WENT                        :{NICK} left the club.
 # The title menu's button (mp/title.rs)
 STR_MP_TITLE_BUTTON                     :This week's challenge
 STR_MP_TITLE_LINE                       :{TITLE}: {NOTE}
+STR_MP_TITLE_SHORT                      :Weekly
 STR_MP_TITLE_NOTE                       :{WHAT}, {LEFT}
 STR_MP_TITLE_PLACE                      :You're {PLACE} of {N}
 STR_MP_TITLE_PLACE_ONLY                 :You're {PLACE}

@@ -94,7 +94,7 @@ New in 0.9: play SimGolf with other people. Open *Start New Game*, pick *Multipl
 - **Weekly challenge:** everyone gets the same property and start for the week and one score to beat at the end of
   2001 (cash, fun, members or skill). Results go on a public weekly board (or a private one with *Compare with
   friends*), and past weeks' boards stay there to look back on: see them on the
-  [weekly challenge page](https://crspytopgn.github.io/opensgolf/weekly.html). Each Monday's new challenge and last week's
+  [weekly challenge page](https://crspytopgn.github.io/opensgolf/weekly.html). Each Monday at midday (UK time) the new challenge and last week's
   top 3 are posted in the [Discord](https://discord.gg/DVsBzGN4dC).
 - **Neighbours:** up to 4 friends each build their own course on a plot of the same land, at their own pace. A league
   table compares you until the end of 2002, and you can look round a neighbour's course. Share the league's code to

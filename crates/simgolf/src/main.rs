@@ -1665,6 +1665,8 @@ impl Stage {
                     }
                     "difficulty" => app.screen = Screen::Difficulty,
                     "scenarios" => app.open_scenarios(),
+                    // Mods... from the title menu (content.rs)
+                    "content-title" => app.open_content_from_title(),
                     "land" => app.open_land_screen(),
                     // the launcher (launcher.rs), over the title menu
                     "launcher" => app.screen = Screen::Menu,
@@ -2359,7 +2361,7 @@ impl Stage {
                 let back = self.app.screen;
                 self.app.open_keys(back);
             }
-            Line::Content => {
+            Line::Content | Line::Mods => {
                 self.app.prefs_stack.push(from);
                 self.app.open_content();
             }
@@ -2757,6 +2759,10 @@ impl Stage {
             if welcome::discord_button_rect().has(vx, vy) {
                 hit = welcome::DISCORD_HOVER;
             }
+            // the port's own: "Mods..." (content.rs)
+            if app.mods_button().has(vx, vy) {
+                hit = content::TITLE_HOVER;
+            }
             // the port's own: "This week's challenge" (mp/title.rs)
             #[cfg(feature = "multiplayer")]
             if mp::title::shown() && app.weekly_button().has(vx, vy) {
@@ -2842,6 +2848,7 @@ impl Stage {
                 launcher::TITLE_HOVER => app.open_launcher(false, false),
                 editor::EDITOR_HOVER => app.open_editor_start(),
                 welcome::DISCORD_HOVER => app.open_discord(),
+                content::TITLE_HOVER => app.open_content_from_title(),
                 #[cfg(feature = "multiplayer")]
                 mp::title::HOVER => app.open_weekly_from_title(),
                 _ => quit_game(app),
@@ -3241,6 +3248,11 @@ impl Stage {
             app.draw_menu(&mut self.g);
             ui::set_face(None);
             app.draw_scenarios(&mut self.g);
+        } else if app.screen == Screen::Content && app.content.from_title && app.ui_ok {
+            // Mods... from the title menu (content.rs): the Content screen over the title menu
+            app.draw_menu(&mut self.g);
+            ui::set_face(None);
+            app.draw_content(&mut self.g);
         } else if self.walk.cam.is_some() && walk::walk_screen(app) {
             // the walk camera, a hidden test view (walk.rs): the course alone and a line of help
             walk::draw(app, &mut self.g, &mut self.walk);
@@ -3899,7 +3911,9 @@ impl EventHandler for Stage {
             let mp_wait = crate::mp::lockstep::test_waiting(&self.app);
             #[cfg(not(feature = "multiplayer"))]
             let mp_wait = false;
-            if self.frames >= 2 && !gamefiles::importing() && !mp_wait {
+            // (and Find more's index or download, for a while: content.rs)
+            let net_wait = self.app.content_busy() && self.frames < 900;
+            if self.frames >= 2 && !gamefiles::importing() && !mp_wait && !net_wait {
                 // SG_FX_BENCH=N: the frame time over N frames drawn offscreen (Classic or with the effects), for measuring
                 if let Some(n) = std::env::var("SG_FX_BENCH").ok().and_then(|v| v.parse::<u32>().ok()) {
                     self.bench(n.max(1));

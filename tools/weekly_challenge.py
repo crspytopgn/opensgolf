@@ -3,9 +3,10 @@
 
   weekly_challenge.py new      Monday: this week's challenge, and last week's top 3
   weekly_challenge.py leaders  this week's leaders so far (by hand only)
+  weekly_challenge.py test     one short line, to check the webhook works
   weekly_challenge.py text     this week's challenge as plain text (for Reddit or anywhere else)
 
-Prints a Discord webhook payload (JSON) for new and leaders. Everything comes from the multiplayer Worker's public
+Prints a Discord webhook payload (JSON) for new, leaders and test. Everything comes from the multiplayer Worker's public
 /board (OPENSGOLF_BOARD_URL overrides it), so the post always says what the game and the board say. Nicknames are shown
 as typed and never ping anyone.
 
@@ -157,6 +158,9 @@ def main():
         now = datetime.datetime.fromisoformat(os.environ["OPENSGOLF_NOW"]).replace(tzinfo=datetime.timezone.utc)
     if mode == "new":
         print(json.dumps(new_week(now)))
+    elif mode == "test":
+        print(json.dumps({"username": "OpenSGolf Weekly Challenge", "allowed_mentions": {"parse": []},
+                          "content": "✅ Connected. Each Monday at midday (UK time) the new weekly challenge and last week's top 3 will be posted here."}))
     elif mode == "leaders":
         print(json.dumps(leaders(now)))
     elif mode == "text":
