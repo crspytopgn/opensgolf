@@ -5468,7 +5468,10 @@ impl App {
                 }
                 continue;
             }
-            let size = sg_core::data::buildings().get(o.kind as usize).map(|b| b.1).unwrap_or(1);
+            // in the middle of the whole footprint: an upgraded building's is one tile larger (Land::footprint_size, the
+            // exe's 0x40df80), and its bigger art is drawn for that square, so the lot's own size put it half a tile up
+            // and left of its tiles
+            let size = land.footprint_size(o);
             let (cx, cz) = self.terrain.tile_centre(o.a, o.b);
             let off = (size - 1) as f32 * TILE_SIZE * 0.5;
             let (x, z) = (cx + off, cz + off);
