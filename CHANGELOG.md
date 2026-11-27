@@ -15,6 +15,8 @@ Enhanced graphics and HD.
   on the bottom line after the version.
 - **The theme pack is remembered:** with *Fix the original game's bugs* on, the theme pack you chose (one of your own
   too) is picked again at the next start, instead of going back to Standard.
+- With *Multiple tees*, golfers on a forward or middle tee no longer call their tee shot "pretty easy" when water lies
+  within 3 tiles of its line, so they stop yawning at a shot and then drowning it.
 - The weekly challenge board shows one place per nickname, its best.
 
 ## 0.9.9 (27 November 2026)
