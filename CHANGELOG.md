@@ -8,6 +8,17 @@ Almost everything OpenSGolf adds to the original game is **off until you switch 
 unless you choose otherwise. Most of it is in Preferences: *Game options* holds the extras and presets, *Graphics* holds
 Enhanced graphics and HD.
 
+## 0.9.11 (28 November 2026)
+
+- **Browser saves you can count on:** the browser version (on iPhone and iPad too) now keeps saves in the browser's
+  bigger store as well, so a full browser store no longer loses a save without a word. If a save can't be kept, the game
+  says so.
+- **Optional cloud saves for the browser version:** off unless you switch them on from the start page. A sync code
+  carries your saves between browsers and devices.
+- **The putting green looks as it should:** the hut sits on the lot's corner, with the flags round the green and, once
+  upgraded, the bridge, as in the build menu's picture.
+- Saves and save pictures are smaller.
+
 ## 0.9.10 (27 November 2026)
 
 - **A tidier title menu:** nothing overlaps any more, with the original art or the free set, whatever buttons are
