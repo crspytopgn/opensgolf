@@ -11,6 +11,10 @@ count", crates/simgolf/src/playcount.rs) and shows it on a password-protected pa
   taken (`play_hourly`, 900 s each). `s` is a random id made at each start (or `kept` for an older build's unsent marks,
   sent once as seconds); `n` the count's number in that run. Only the country Cloudflare reads from the address is kept,
   never the address.
+  Builds after 0.9.10 add `mc`, `ml` and `mw` to a play count when some of `t` was multiplayer: its seconds in a shared
+  club, a Neighbours league and the weekly challenge (each no more than `t`). Kept as `t` is, per run and mode (`run_mp`),
+  only the increase added to the hour (`mp_hourly`); part of the play time, not added to it. The Multiplayer section shows
+  them as hours per mode. These tables come from `schema.sql`: run it again (below) before deploying this.
 * `GET /` and `GET /api/stats`: the stats (basic auth, any user name, the `STATS_PASSWORD` secret). The Multiplayer section
   (`src/mp.js`) reads the multiplayer server's database (`multiplayer/worker`, its `activity`, `clubs`, `leagues` and `results`
   tables), bound as `BOARD`: counts only, never player ids, nicknames, club names or league codes. Players count on a day they

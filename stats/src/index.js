@@ -5,7 +5,8 @@
 //   whole seconds played in the run so far, sent every 5 minutes of play and when the game is left or quit (builds before
 //   the exact count sent play-15min/<platform> at each 15 minutes instead, still taken). `s` a random id the game makes at
 //   each start (or "kept" for play sent late, with no run); `n` the count's number in the run. Nothing else is kept: no
-//   address, only the country Cloudflare reads from it.
+//   address, only the country Cloudflare reads from it. Builds after 0.9.10 add `mc`, `ml` and `mw` to a play count: the
+//   seconds of `t` played in a shared club, a Neighbours league and the weekly challenge (MP_PARAMS).
 // * Every day (the cron in wrangler.toml), and on POST /admin/import: GoatCounter's counts from older builds, by hour.
 // * GET / (password): the stats page; GET /api/stats the same as JSON. Its Multiplayer section reads the multiplayer
 //   server's database (src/mp.js), bound as BOARD.
@@ -32,6 +33,9 @@ export const MARK = 900;
 /** Old builds' weekly play below this many hours, for [RETIRE_WEEKS] full weeks in a row: the import can be retired. */
 export const RETIRE_HOURS = 1;
 export const RETIRE_WEEKS = 3;
+
+/** A play count's multiplayer seconds: query parameter and mode (the same names as src/mp.js MODES). */
+export const MP_PARAMS = [["mc", "club"], ["ml", "league"], ["mw", "challenge"]];
 
 /** An event's parts, or null when it is not one of the game's. */
 export function parseEvent(e) {
@@ -78,8 +82,16 @@ export function readCount(url, country) {
     t = Number(tq);
     if (t > MAX_SECONDS) return null;
   }
+  // multiplayer seconds: part of `t`, so never more than it; a bad one is left out, the count still taken
+  const mp = {};
+  if (ev.kind === "seconds" && !kept) {
+    for (const [k, mode] of MP_PARAMS) {
+      const v = q.get(k) || "";
+      if (/^\d{1,7}$/.test(v) && Number(v) > 0 && Number(v) <= t) mp[mode] = Number(v);
+    }
+  }
   const c = typeof country === "string" && /^[A-Z0-9]{2}$/.test(country) ? country : "";
-  return { kind: ev.kind, platform: ev.platform, version, sid: kept ? null : s, n, t, country: c };
+  return { kind: ev.kind, platform: ev.platform, version, sid: kept ? null : s, n, t, country: c, mp };
 }
 
 /** Stores one count. A mark already counted for its run (a repeat) changes nothing; nor does a play time no higher than
@@ -122,12 +134,39 @@ export async function storeCount(db, c, now) {
       await secondsRow(0, added).run();
       await db.prepare(`UPDATE runs SET last_at = ?2 WHERE sid = ?1`).bind(c.sid, at).run();
     }
+    // the multiplayer seconds never cost the count itself (before schema.sql added their tables, say)
+    try {
+      for (const [mode, t] of Object.entries(c.mp || {})) await storeMp(db, c, hour, mode, t);
+    } catch (e) {
+      console.log("multiplayer seconds not stored:", String(e && e.message || e));
+    }
     return;
   }
   if (c.kind !== "play") return;
   const r = await db.prepare(`UPDATE runs SET beats = ?2, last_at = ?3 WHERE sid = ?1 AND beats < ?2`)
     .bind(c.sid, Math.max(1, c.n), at).run();
   if (r.meta && r.meta.changes > 0) await playRow(0).run();
+}
+
+/** A run's multiplayer seconds in `mode`: as with its play time, the highest seen is kept and only the increase added. */
+async function storeMp(db, c, hour, mode, t) {
+  const had = await db.prepare(`SELECT seconds FROM run_mp WHERE sid = ?1 AND mode = ?2`).bind(c.sid, mode).first();
+  let added = 0;
+  if (!had) {
+    const r = await db.prepare(`INSERT INTO run_mp (sid, mode, seconds) VALUES (?1, ?2, ?3) ON CONFLICT (sid, mode) DO NOTHING`)
+      .bind(c.sid, mode, t).run();
+    if (r.meta && r.meta.changes > 0) added = t;
+  } else if (t > had.seconds) {
+    const r = await db.prepare(`UPDATE run_mp SET seconds = ?3 WHERE sid = ?1 AND mode = ?2 AND seconds = ?4`)
+      .bind(c.sid, mode, t, had.seconds).run();
+    if (r.meta && r.meta.changes > 0) added = t - had.seconds;
+  }
+  if (added > 0) {
+    await db.prepare(
+      `INSERT INTO mp_hourly (hour, platform, version, mode, seconds) VALUES (?1, ?2, ?3, ?4, ?5)
+       ON CONFLICT (hour, platform, version, mode) DO UPDATE SET seconds = seconds + excluded.seconds`,
+    ).bind(hour, c.platform, c.version, mode, added).run();
+  }
 }
 
 // ---------------------------------------------------------------- GoatCounter import
@@ -342,9 +381,41 @@ export function cmpVersion(a, b) {
 
 // ---------------------------------------------------------------- the Worker
 
-/** The page's numbers: play time, and multiplayer from the BOARD database (src/mp.js) when it answers. */
+/** Multiplayer play time (builds after 0.9.10): hours in each mode, last 7 and 30 days and in all, and the share of all
+ * play in the last 7 days. */
+export async function mpPlay(db, now = new Date(), hours7d = 0) {
+  const h7 = new Date(now.getTime() - 7 * 86400e3).toISOString().slice(0, 13);
+  const h30 = new Date(now.getTime() - 30 * 86400e3).toISOString().slice(0, 13);
+  const rows = (await db.prepare(`
+    SELECT mode, SUM(seconds) AS s, SUM(CASE WHEN hour >= ?1 THEN seconds ELSE 0 END) AS s7,
+      SUM(CASE WHEN hour >= ?2 THEN seconds ELSE 0 END) AS s30, MIN(hour) AS first
+    FROM mp_hourly GROUP BY mode`).bind(h7, h30).all()).results || [];
+  const H = 3600;
+  const modes = MP_PARAMS.map(([, mode]) => {
+    const r = rows.find((x) => x.mode === mode) || {};
+    return { mode, hours: (r.s || 0) / H, hours_7d: (r.s7 || 0) / H, hours_30d: (r.s30 || 0) / H };
+  });
+  const firsts = rows.map((r) => r.first).filter(Boolean).sort();
+  const total7 = modes.reduce((a, m) => a + m.hours_7d, 0);
+  return {
+    since: firsts.length ? firsts[0] : null,
+    modes,
+    hours_7d: total7,
+    hours_30d: modes.reduce((a, m) => a + m.hours_30d, 0),
+    hours: modes.reduce((a, m) => a + m.hours, 0),
+    share_7d: hours7d > 0 ? total7 / hours7d : 0,
+  };
+}
+
+/** The page's numbers: play time, multiplayer play time, and multiplayer from the BOARD database (src/mp.js) when it
+ * answers. */
 export async function allStats(env, now = new Date()) {
   const s = await stats(env.DB, now);
+  try {
+    s.mp_play = await mpPlay(env.DB, now, s.totals.hours_7d);
+  } catch (e) {
+    s.mp_play = { error: String(e && e.message ? e.message : e).slice(0, 200) };
+  }
   try {
     s.mp = await mpStats(env.BOARD, now);
   } catch (e) {

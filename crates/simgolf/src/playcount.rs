@@ -5,7 +5,9 @@
 //! * `start/<platform>/<version>` once at start, e.g. `start/windows/0.6.0`;
 //! * `play/<platform>` with `t`, the whole seconds played in this run so far, every [`EVERY`] (5 minutes) of play, and
 //!   again whenever the game is left with time not yet sent: the window going to the background (or the app paused on
-//!   Android, the page hidden in the browser) and the game quitting.
+//!   Android, the page hidden in the browser) and the game quitting. When some of it was multiplayer, also `mc`, `ml`
+//!   and `mw`: how many of those seconds were in a shared club, a Neighbours league and the weekly challenge
+//!   ([`MP_MODES`]), each kept and only growing as `t` is.
 //!
 //! `t` only grows within a run, so the counter keeps the highest one it has seen for the run and adds only the increase:
 //! a count that is lost is made up by the next, and one that arrives twice adds nothing. That makes it exact to the second
@@ -83,6 +85,22 @@ pub struct RunTime {
     pub t: u64,
     /// The version that played it.
     pub v: String,
+    /// Of those, the seconds in each multiplayer mode ([`MP_MODES`]).
+    #[serde(skip_serializing_if = "no_mp")]
+    pub mp: [u64; 3],
+}
+
+/// The multiplayer modes whose seconds a play count carries, as their query parameters (stats/src/index.js MP_PARAMS):
+/// a shared club, a Neighbours league, the weekly challenge.
+pub const MP_MODES: [&str; 3] = ["mc", "ml", "mw"];
+
+fn no_mp(mp: &[u64; 3]) -> bool {
+    mp.iter().all(|&s| s == 0)
+}
+
+/// The multiplayer seconds `mp` (fractions) as sent with `t` seconds: whole, never more than `t`.
+pub fn mp_seconds(mp: [f64; 3], t: u64) -> [u64; 3] {
+    mp.map(|s| (s.max(0.0).floor() as u64).min(t))
 }
 
 /// What is kept in settings.json.
@@ -251,6 +269,8 @@ pub struct Count {
     pub n: u32,
     /// Seconds (play counts only).
     pub t: Option<u64>,
+    /// Of those, the multiplayer seconds ([`MP_MODES`]; play counts only).
+    pub mp: [u64; 3],
     /// What to take off the record when it gets through.
     pub ack: Option<Ack>,
 }
@@ -265,7 +285,8 @@ pub fn count_url(c: &Count, rnd: u64) -> String {
     #[cfg(target_arch = "wasm32")]
     let base = COUNT_URL;
     let t = c.t.map_or(String::new(), |t| format!("&t={t}"));
-    format!("{base}?e={e}&v={v}&s={s}&n={}{t}&rnd={rnd:x}", c.n)
+    let mp: String = MP_MODES.iter().zip(c.mp).filter(|(_, s)| *s > 0 && c.t.is_some()).map(|(k, s)| format!("&{k}={s}")).collect();
+    format!("{base}?e={e}&v={v}&s={s}&n={}{t}{mp}&rnd={rnd:x}", c.n)
 }
 
 /// The User-Agent of a count, e.g. "OpenSGolf/0.6.0 (linux)".
@@ -375,6 +396,10 @@ pub struct State {
     run: String,
     /// Play counts sent (or tried) in this run: the next one's number less one.
     marks: u32,
+    /// The support clock at the last frame: what it moved by since is this frame's play.
+    last_played: f64,
+    /// This run's seconds in each multiplayer mode ([`MP_MODES`]).
+    mp: [f64; 3],
 }
 
 impl Default for State {
@@ -390,6 +415,8 @@ impl Default for State {
             platform: String::new(),
             run: String::new(),
             marks: 0,
+            last_played: 0.0,
+            mp: [0.0; 3],
         }
     }
 }
@@ -463,6 +490,7 @@ pub fn init(played: f64, scripted: bool) -> State {
         record,
         base,
         at_start: played.max(0.0),
+        last_played: played.max(0.0),
         next: every,
         every,
         page_off: page_off(),
@@ -478,14 +506,17 @@ pub fn init(played: f64, scripted: bool) -> State {
     s.run = new_run_id();
     start_run(&mut s.record);
     let v = crate::update::VERSION.to_string();
-    let mut counts = vec![Count { event: start_event(&s.platform, &v), version: v.clone(), run: s.run.clone(), n: 0, t: None, ack: None }];
+    let mut counts =
+        vec![Count { event: start_event(&s.platform, &v), version: v.clone(), run: s.run.clone(), n: 0, t: None, mp: [0; 3], ack: None }];
     if s.record.kept_s > 0 {
         let k = s.record.kept_s;
-        counts.push(Count { event: play_event(&s.platform), version: v, run: KEPT_RUN.into(), n: 0, t: Some(k), ack: Some(Ack::Kept(k)) });
+        let ack = Some(Ack::Kept(k));
+        counts.push(Count { event: play_event(&s.platform), version: v, run: KEPT_RUN.into(), n: 0, t: Some(k), mp: [0; 3], ack });
     }
     for e in &s.record.earlier {
         let ack = Some(Ack::Run(e.run.clone(), e.t));
-        counts.push(Count { event: play_event(&s.platform), version: e.v.clone(), run: e.run.clone(), n: 0, t: Some(e.t), ack });
+        let (version, run, mp) = (e.v.clone(), e.run.clone(), e.mp.map(|x| x.min(e.t)));
+        counts.push(Count { event: play_event(&s.platform), version, run, n: 0, t: Some(e.t), mp, ack });
     }
     // the browser never hears back: its earlier runs go once, now (each is safe to send again: it adds nothing twice)
     if cfg!(target_arch = "wasm32") {
@@ -510,7 +541,8 @@ impl State {
         self.sent = t;
         self.marks += 1;
         let v = crate::update::VERSION.to_string();
-        self.record.last = Some(RunTime { run: self.run.clone(), t, v: v.clone() });
+        let mp = mp_seconds(self.mp, t);
+        self.record.last = Some(RunTime { run: self.run.clone(), t, v: v.clone(), mp });
         if mode == Mode::Send {
             save(&self.record);
         }
@@ -520,6 +552,7 @@ impl State {
             run: self.run.clone(),
             n: self.marks,
             t: Some(t),
+            mp,
             ack: Some(Ack::Run(self.run.clone(), t)),
         };
         self.dispatch(vec![c], wait);
@@ -610,11 +643,19 @@ impl crate::app::App {
     /// Once a frame, after the play time is counted: a count at each 5 minutes of play, what got through taken off the
     /// record, and the one-time notice the first time the course is played.
     pub fn playcount_frame(&mut self) {
+        let played = self.support.record.played;
+        // this frame's play, counted to the multiplayer mode being played (if any)
+        let dt = played - self.playcount.last_played;
+        self.playcount.last_played = played;
         let mode = self.playcount.mode();
         if matches!(mode, Mode::Off | Mode::Quiet) {
             return;
         }
-        let played = self.support.record.played;
+        if dt > 0.0 {
+            if let Some(i) = self.playcount_mp_mode() {
+                self.playcount.mp[i] += dt;
+            }
+        }
         let p = &mut self.playcount;
         let acks = take_acks();
         if apply_acks(&mut p.record, &acks) && mode == Mode::Send {
@@ -625,7 +666,8 @@ impl crate::app::App {
             p.send_play(t, false);
         } else if !p.run.is_empty() && t >= p.record.last.as_ref().map_or(p.sent, |l| l.t) + CHECKPOINT_S {
             // between counts the seconds are only written down, for the next start should this run be killed
-            p.record.last = Some(RunTime { run: p.run.clone(), t, v: crate::update::VERSION.to_string() });
+            let mp = mp_seconds(p.mp, t);
+            p.record.last = Some(RunTime { run: p.run.clone(), t, v: crate::update::VERSION.to_string(), mp });
             if mode == Mode::Send {
                 save(&p.record);
             }
@@ -640,6 +682,25 @@ impl crate::app::App {
             }
             self.show_toast(sg_core::lang::tr("STR_PLAYCOUNT_NOTICE"));
         }
+    }
+
+    /// The multiplayer mode being played, as its place in [`MP_MODES`]: a shared club, a Neighbours league's plot, the
+    /// weekly challenge; none in single player (or a build without multiplayer).
+    pub fn playcount_mp_mode(&self) -> Option<usize> {
+        #[cfg(feature = "multiplayer")]
+        {
+            let scenario = self.scen.goals.scenario.as_deref();
+            if self.club_on() {
+                return Some(0);
+            }
+            if crate::mp::league::league_of(scenario).is_some() {
+                return Some(1);
+            }
+            if scenario.and_then(|s| s.strip_prefix(crate::mp::rival::ID_PREFIX)).is_some_and(crate::mp::challenge::is_week_id) {
+                return Some(2);
+            }
+        }
+        None
     }
 
     /// The game is left (the window to the background, the app paused, the page hidden): the seconds played since the
@@ -792,14 +853,14 @@ mod tests {
             off: true,
             noticed: true,
             pending: 4,
-            last: Some(RunTime { run: "0123abcd".into(), t: 9, v: "1.0.0".into() }),
+            last: Some(RunTime { run: "0123abcd".into(), t: 9, v: "1.0.0".into(), ..Default::default() }),
             ..Default::default()
         });
         assert_eq!(r, Record { off: true, noticed: true, ..Default::default() });
         // damaged runs are dropped, long ones held to a week
-        let bad = RunTime { run: "NOT HEX".into(), t: 5, v: "x".into() };
-        let none = RunTime { run: "0123abcd".into(), t: 0, v: "x".into() };
-        let long = RunTime { run: "0123abcd".into(), t: u64::MAX, v: "x".into() };
+        let bad = RunTime { run: "NOT HEX".into(), t: 5, v: "x".into(), ..Default::default() };
+        let none = RunTime { run: "0123abcd".into(), t: 0, v: "x".into(), ..Default::default() };
+        let long = RunTime { run: "0123abcd".into(), t: u64::MAX, v: "x".into(), ..Default::default() };
         let r = tidy(Record { earlier: vec![bad.clone(), none, long], last: Some(bad), ..Default::default() });
         assert_eq!(r.earlier.len(), 1);
         assert_eq!(r.earlier[0].t, MAX_S);
@@ -808,7 +869,7 @@ mod tests {
 
     #[test]
     fn a_runs_last_count_is_sent_again_until_it_gets_through() {
-        let rt = |run: &str, t| RunTime { run: run.into(), t, v: "0.8.8".into() };
+        let rt = |run: &str, t| RunTime { run: run.into(), t, v: "0.8.8".into(), ..Default::default() };
         let mut r = Record { last: Some(rt("aaaaaaaa", 937)), ..Default::default() };
         // the next start: the last run's count is to be sent again
         start_run(&mut r);
@@ -867,7 +928,8 @@ mod tests {
         assert_eq!(play_event("macos-arm64"), "play/macos-arm64");
         assert_eq!(query_value("start/linux/0.6.0-rc1+x"), "start%2Flinux%2F0.6.0-rc1%2Bx");
         assert_eq!(user_agent("0.6.0", "linux"), "OpenSGolf/0.6.0 (linux)");
-        let c = |run: &str, n, t| Count { event: "play/linux".into(), version: "0.8.8".into(), run: run.into(), n, t, ack: None };
+        let c =
+            |run: &str, n, t| Count { event: "play/linux".into(), version: "0.8.8".into(), run: run.into(), n, t, mp: [0; 3], ack: None };
         #[cfg(not(opensgolf_store))]
         {
             assert_eq!(
@@ -875,6 +937,10 @@ mod tests {
                 format!("{COUNT_URL}?e=play%2Flinux&v=0.8.8&s=00ff00ff00ff00ff&n=3&t=937&rnd=ff")
             );
             assert!(count_url(&c(KEPT_RUN, 0, Some(1800)), 1).contains("&s=kept&n=0&t=1800&"));
+            // the multiplayer seconds, only those played, only with play counts
+            let mp = Count { mp: [300, 0, 120], ..c("00ff00ff00ff00ff", 3, Some(937)) };
+            assert!(count_url(&mp, 1).contains("&t=937&mc=300&mw=120&rnd="));
+            assert!(!count_url(&Count { mp: [5, 5, 5], ..c("00ff00ff", 0, None) }, 1).contains("&mc="));
             assert!(!count_url(&Count { event: start_event("linux", "0.8.8"), ..c("00ff00ff", 0, None) }, 1).contains("&t="));
         }
         // a run id is 16 hex digits (the counter takes 8 to 32), different each run
@@ -883,5 +949,48 @@ mod tests {
         assert_eq!(a.len(), 16);
         assert!(a.bytes().all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
         assert_ne!(a, b);
+    }
+
+    #[test]
+    fn multiplayer_seconds_are_part_of_the_runs_and_kept_with_it() {
+        assert_eq!(mp_seconds([299.9, 0.0, 1e9], 600), [299, 0, 600], "whole seconds, never more than the run's");
+        assert_eq!(mp_seconds([-3.0, 0.0, 0.0], 600), [0, 0, 0]);
+        // kept in settings.json only when there are some, and older settings read as none
+        let r = RunTime { run: "0123abcd".into(), t: 900, v: "0.9.11".into(), mp: [0; 3] };
+        assert!(!serde_json::to_string(&r).unwrap().contains("mp"));
+        let r = RunTime { mp: [600, 0, 0], ..r };
+        assert_eq!(serde_json::from_value::<RunTime>(serde_json::to_value(&r).unwrap()).unwrap(), r);
+        let old: RunTime = serde_json::from_value(serde_json::json!({"run": "0123abcd", "t": 900, "v": "0.9.10"})).unwrap();
+        assert_eq!(old.mp, [0; 3]);
+    }
+
+    #[test]
+    fn the_multiplayer_mode_being_played() {
+        let mut a = crate::app::App::with_clock(std::path::PathBuf::new(), 4242);
+        assert_eq!(a.playcount_mp_mode(), None, "single player");
+        #[cfg(feature = "multiplayer")]
+        {
+            a.scen.goals.scenario = Some(format!("{}2026-W48", crate::mp::rival::ID_PREFIX));
+            assert_eq!(a.playcount_mp_mode(), Some(2), "the weekly challenge");
+            a.scen.goals.scenario = Some(crate::mp::league::game_id("abcd2345", 1));
+            assert_eq!(a.playcount_mp_mode(), Some(1), "a league's plot");
+            a.scen.goals.scenario = Some(format!("{}not a week", crate::mp::rival::ID_PREFIX));
+            assert_eq!(a.playcount_mp_mode(), None);
+        }
+        // the frame's play goes to the mode played, and with the play count
+        a.playcount.base = Mode::Log;
+        a.playcount.run = "0123abcd".into();
+        a.support.record.played = 100.0;
+        a.playcount_frame();
+        assert_eq!(a.playcount.mp, [0.0; 3], "no multiplayer mode: nothing");
+        #[cfg(feature = "multiplayer")]
+        {
+            a.scen.goals.scenario = Some(format!("{}2026-W48", crate::mp::rival::ID_PREFIX));
+            a.support.record.played = 160.0;
+            a.playcount_frame();
+            assert_eq!(a.playcount.mp, [0.0, 0.0, 60.0]);
+            a.playcount.send_play(160, false);
+            assert_eq!(a.playcount.record.last.as_ref().map(|l| l.mp), Some([0, 0, 60]));
+        }
     }
 }

@@ -63,3 +63,23 @@ CREATE TABLE IF NOT EXISTS seconds_hourly (
   seconds  INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (hour, platform, version, country, kept)
 );
+
+-- Multiplayer play time (builds after 0.9.10): play counts also carry `mc`, `ml` and `mw`, the whole seconds of the run so
+-- far played in a shared club, a Neighbours league and the weekly challenge. Each only grows within a run, kept as `t` is:
+-- the highest seen per run and mode, only the increase added to the hour it arrived in. Part of the play time above, not
+-- added to it.
+CREATE TABLE IF NOT EXISTS run_mp (
+  sid     TEXT NOT NULL,             -- the run (runs.sid)
+  mode    TEXT NOT NULL,             -- club, league, challenge
+  seconds INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (sid, mode)
+);
+
+CREATE TABLE IF NOT EXISTS mp_hourly (
+  hour     TEXT NOT NULL,            -- 'YYYY-MM-DDTHH' (UTC)
+  platform TEXT NOT NULL,
+  version  TEXT NOT NULL,
+  mode     TEXT NOT NULL,            -- club, league, challenge
+  seconds  INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (hour, platform, version, mode)
+);

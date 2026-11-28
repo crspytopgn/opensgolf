@@ -1502,6 +1502,9 @@ source; the port's own, crates/simgolf/src/playcount.rs). Exactly this is sent, 
 - `play/<platform>` (e.g. `play/linux`) with the **whole seconds played in this run so far**, every **5 minutes of play**,
   and again when you leave the game with time not yet sent: the window going to the background, the app paused on
   Android, the page hidden in the browser, and quitting.
+- with a play count, when some of that time was multiplayer: how many of those seconds were in a **shared club**
+  (`mc`), a **Neighbours league** (`ml`) and the **weekly challenge** (`mw`), kept and growing as the seconds are, so the
+  project can see how much of the play is multiplayer. Nothing about the club, league or challenge itself is sent.
 
 `<platform>` is `windows`, `macos`, `linux`, `android` or `web`, with `-arm64` on 64-bit ARM computers. The play time is
 the support reminder's clock (see *Supporting OpenSGolf*): time on the course with the game running, not paused, not in

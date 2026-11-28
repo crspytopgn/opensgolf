@@ -56,10 +56,25 @@ function daily(days) {
     <div class="legend"><span><i class="s1"></i>Older builds (GoatCounter)</span><span><i class="s2"></i>New builds (this counter)</span></div>`;
 }
 
-/** The Multiplayer section (src/mp.js): counts only. */
-function multiplayer(m) {
-  if (!m) return `<div class="card"><h2>Multiplayer</h2><p class="muted">The multiplayer server's database is not bound to this Worker.</p></div>`;
-  if (m.error) return `<div class="card"><h2>Multiplayer</h2><p class="muted">The multiplayer server's database did not answer: ${esc(m.error)}</p></div>`;
+/** The multiplayer play time card (index.js mpPlay): hours in each mode, from builds after 0.9.10. */
+function mpPlayCard(t) {
+  if (!t) return "";
+  if (t.error) return `<div class="card"><h2>Multiplayer play time</h2><p class="muted">Not read: ${esc(t.error)}</p></div>`;
+  const label = { club: "Shared clubs", league: "Neighbours leagues", challenge: "Weekly challenge" };
+  const h = (v) => `${Number(v || 0).toFixed(1)} h`;
+  const note = t.since ? `Counted from ${esc(t.since.replace("T", " "))}:00 UTC, by builds after 0.9.10 only (older builds don't say
+    what is being played), so it reads low until most players have updated.` : `None yet: builds after 0.9.10 count it.`;
+  return `<div class="card"><h2>Multiplayer play time</h2>
+<p class="muted">Time on the course in each multiplayer mode, part of the play time above. Last 7 days: <b>${h(t.hours_7d)}</b>,
+${(t.share_7d * 100).toFixed(1)}% of all play. ${note}</p>
+<table><tr><th>Mode</th><th>Last 7 days</th><th>Last 30 days</th><th>In all</th></tr>
+${t.modes.map((m) => `<tr><td>${esc(label[m.mode] || m.mode)}</td><td class="n">${h(m.hours_7d)}</td><td class="n">${h(m.hours_30d)}</td><td class="n">${h(m.hours)}</td></tr>`).join("")}</table></div>`;
+}
+
+/** The Multiplayer section (src/mp.js): counts only, and the play time in each mode (`play`, index.js mpPlay). */
+function multiplayer(m, play) {
+  if (!m) return `<div class="card"><h2>Multiplayer</h2><p class="muted">The multiplayer server's database is not bound to this Worker.</p></div>${mpPlayCard(play)}`;
+  if (m.error) return `<div class="card"><h2>Multiplayer</h2><p class="muted">The multiplayer server's database did not answer: ${esc(m.error)}</p></div>${mpPlayCard(play)}`;
   const n = (v) => Number(v || 0).toLocaleString("en-GB");
   const p = m.players, c = m.clubs, l = m.leagues;
   const tiles = [
@@ -83,6 +98,7 @@ function multiplayer(m) {
 <p class="muted">From the multiplayer server: a player counts on a day they join a shared club, make, join or report to a
 Neighbours league, or send a weekly challenge result. Counts only, from 0.9.0 on; the hidden pre-launch test clubs are left out.</p>
 <div class="tiles">${tiles.map(([k, v, sub]) => `<div class="tile"><b>${esc(v)}</b><span>${esc(k)}</span>${sub ? `<small style="display:block">${esc(sub)}</small>` : ""}</div>`).join("")}</div>
+${mpPlayCard(play)}
 <div class="card"><h2>Multiplayer players per day</h2><svg viewBox="0 0 ${W} ${H}" class="chart" role="img" aria-label="Multiplayer players per day">${axis}${cols}</svg>
 <details><summary class="muted">As a table</summary><table><tr><th>Day</th><th>Players</th><th>Clubs</th><th>Leagues</th><th>Challenge</th></tr>
 ${m.daily.slice().reverse().map((d) => `<tr><td>${d.day}</td><td class="n">${d.players}</td><td class="n">${d.club}</td><td class="n">${d.league}</td><td class="n">${d.challenge}</td></tr>`).join("")}</table></details></div>
@@ -153,7 +169,7 @@ ${s.daily.slice().reverse().map((d) => `<tr><td>${d.day}</td><td class="n">${h1(
     : `This week so far: ${hrs(ob.this_week_hours)}. The import can be switched off once this stays under 1 hour a week for 3 full weeks.`}</div></div>
 </div>
 
-${multiplayer(s.mp)}
+${multiplayer(s.mp, s.mp_play)}
 
 <details class="card"><summary><b>Launches in the last 7 days (new builds)</b></summary><table><tr><th>Started (UTC)</th><th>Platform</th><th>Version</th><th>Country</th><th>Played</th></tr>
 ${s.recent_runs.map((r) => `<tr><td>${esc(r.started_at.slice(0, 16).replace("T", " "))}</td><td>${esc(r.platform)}</td><td>${esc(r.version)}</td><td>${esc(r.country || "–")}</td><td class="n">${esc(runPlayed(r))}</td></tr>`).join("")}</table></details>
