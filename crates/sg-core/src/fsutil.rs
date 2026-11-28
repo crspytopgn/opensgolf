@@ -49,7 +49,7 @@ mod imp {
     extern "C" {
         fn sg_fs_size(path: *const u8, len: usize) -> i32;
         fn sg_fs_read(path: *const u8, len: usize, dst: *mut u8);
-        fn sg_fs_write(path: *const u8, len: usize, data: *const u8, data_len: usize);
+        fn sg_fs_write(path: *const u8, len: usize, data: *const u8, data_len: usize) -> i32;
         fn sg_fs_remove(path: *const u8, len: usize) -> i32;
         fn sg_fs_kind(path: *const u8, len: usize) -> i32;
         fn sg_fs_list(path: *const u8, len: usize) -> i32;
@@ -68,10 +68,11 @@ mod imp {
         unsafe { sg_fs_read(k.as_ptr(), k.len(), v.as_mut_ptr()) };
         Some(v)
     }
+    /// False when the browser could keep the file in none of its stores (web/opensgolf.js sgKeep: local storage full and
+    /// no IndexedDB): the save is not reported as made.
     pub fn write(p: &Path, data: &[u8]) -> bool {
         let k = s(p);
-        unsafe { sg_fs_write(k.as_ptr(), k.len(), data.as_ptr(), data.len()) };
-        true
+        unsafe { sg_fs_write(k.as_ptr(), k.len(), data.as_ptr(), data.len()) != 0 }
     }
     pub fn remove(p: &Path) -> bool {
         let k = s(p);

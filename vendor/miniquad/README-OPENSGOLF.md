@@ -34,4 +34,9 @@ the canvas from inside a call into the game, such as while the game is being mad
 `already borrowed`, which left a black screen at start in browsers at 125% scaling (issue #195). The new size is still
 put in the display, which the game reads every frame.
 
+In `js/gl.js` (OpenSGolf's own): the page going to the background (visibilitychange to hidden, or a pagehide) tells the
+game `focus(false)` again when it already thinks the window is out of focus (a blur with no focus event after it, as iOS
+can leave, or a page that started without the focus), so the Autosave extra's save on leaving the window is never
+skipped. The game takes a second one in a row as only that save (crates/simgolf/src/main.rs `window_minimized_event`).
+
 Drop this copy when an upstream release carries the fixes.

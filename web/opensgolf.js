@@ -41,18 +41,251 @@ function sgStr(ptr, len) {
     return dec.decode(new Uint8Array(wasm_memory.buffer, ptr, len));
 }
 
-// Files the game writes (saved courses) are kept in the browser's local storage.
+// Files the game writes (saved games, settings.json, the Top 10 table, championship courses...) are kept in this browser
+// twice: in local storage (written at once, so a save made as the page goes to the background is kept even when the
+// browser throws the page away straight after, as iOS does) and in IndexedDB (a store of its own, "saves", with far more
+// room: local storage holds about 5 MB a site, and a few long games with their autosaves and backups fill it, after which
+// a save there fails). Each copy carries the time it was written ("simgolf-at:" beside the local storage one), and at the
+// start the newer of the two is used: a save that did not fit in local storage is in IndexedDB only, and one whose
+// IndexedDB write the browser cut short is in local storage. A save neither store took is said over the game
+// (sgKeepFailed) and the game hears of it (sg_fs_write returns 0), so a save is never shown as made when it was not.
 const SAVE_PREFIX = "simgolf-file:";
-function sgRestoreSaves() {
-    for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.startsWith(SAVE_PREFIX)) {
-            const bin = atob(localStorage.getItem(k));
-            const bytes = new Uint8Array(bin.length);
-            for (let j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
-            sgAddFile(k.substring(SAVE_PREFIX.length), bytes);
+const SAVE_AT = "simgolf-at:";
+// every kept file, by sgKey of its path: { path, bytes, t }; read at the page's start (sgKeptLoad)
+const sgKept = new Map();
+let sgKeptLoaded = false;
+// the newest write time handed out: writes in one millisecond still come in order
+let sgKeptClock = 0;
+function sgKeptNow() {
+    sgKeptClock = Math.max(sgKeptClock + 1, Date.now());
+    return sgKeptClock;
+}
+// The local storage key of a file, whatever the case of its name (lookups are case-insensitive, like the game's), or null.
+function sgStoredKey(path) {
+    const k = sgKey(path);
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const lk = localStorage.key(i);
+            if (lk && lk.startsWith(SAVE_PREFIX) && sgKey(lk.substring(SAVE_PREFIX.length)) === k) return lk;
+        }
+    } catch (e) {}
+    return null;
+}
+// a marker of a start in progress (enhanced.rs), not a file to keep: in local storage only, as its removal as the page
+// goes (pagehide) must be done before the page is
+function sgTransient(low) {
+    return low === "enhanced_starting";
+}
+// Takes a file out of local storage (every copy of it, whatever its case).
+function sgLocalDrop(path) {
+    try {
+        for (let lk = sgStoredKey(path); lk !== null; lk = sgStoredKey(path)) {
+            localStorage.removeItem(lk);
+            localStorage.removeItem(SAVE_AT + lk.substring(SAVE_PREFIX.length));
+        }
+    } catch (e) {}
+}
+// Writes a file to local storage with its time. False when it does not fit: the copy there before stays as it was.
+function sgLocalPut(path, bytes, t) {
+    const key = SAVE_PREFIX + path;
+    let oldText = null;
+    try {
+        const b64 = sgB64(bytes);
+        oldText = localStorage.getItem(key);
+        // (a full storage throws here, and leaves the copy there before as it was)
+        localStorage.setItem(key, b64);
+    } catch (e) {
+        return false;
+    }
+    try {
+        localStorage.setItem(SAVE_AT + path, String(t));
+    } catch (e) {
+        // the time did not fit: the copy before goes back, as its time is still beside it
+        try {
+            if (oldText !== null) localStorage.setItem(key, oldText);
+            else localStorage.removeItem(key);
+        } catch (e2) {
+            try { localStorage.removeItem(key); localStorage.removeItem(SAVE_AT + path); } catch (e3) {}
+        }
+        return false;
+    }
+    // a copy under another case would be found instead of this one: it goes, and frees its room
+    try {
+        const k = sgKey(path);
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const lk = localStorage.key(i);
+            if (lk && lk !== key && lk.startsWith(SAVE_PREFIX) && sgKey(lk.substring(SAVE_PREFIX.length)) === k) {
+                localStorage.removeItem(lk);
+                localStorage.removeItem(SAVE_AT + lk.substring(SAVE_PREFIX.length));
+            }
+        }
+    } catch (e) {}
+    return true;
+}
+// The saves' IndexedDB store, opened once. iOS sometimes loses the connection after a while in the background ("Connection
+// to Indexed Database server lost"): a write that fails is tried once more on a new one (sgKeptTx).
+let sgKeptDbOpen = null;
+function sgKeptDb() {
+    if (!sgKeptDbOpen) {
+        sgKeptDbOpen = sgDb().then(db => {
+            db.onversionchange = () => { db.close(); sgKeptDbOpen = null; };
+            db.onclose = () => { sgKeptDbOpen = null; };
+            return db;
+        });
+        sgKeptDbOpen.catch(() => { sgKeptDbOpen = null; });
+    }
+    return sgKeptDbOpen;
+}
+function sgKeptTx(fill, again = true) {
+    return sgKeptDb().then(db => new Promise((ok, fail) => {
+        const tx = db.transaction("saves", "readwrite");
+        fill(tx.objectStore("saves"));
+        tx.oncomplete = () => ok();
+        tx.onerror = () => fail(tx.error);
+        // a full storage aborts the transaction
+        tx.onabort = () => fail(tx.error);
+    })).catch(e => {
+        if (!again || (e && e.name === "QuotaExceededError")) throw e;
+        sgKeptDbOpen = null;
+        return sgKeptTx(fill, false);
+    });
+}
+// Writes waiting for IndexedDB, by sgKey: only the newest of a file is written (an autosave made while the one before is
+// still being written replaces it), in one transaction a turn.
+const sgKeptQueue = new Map();
+let sgKeptBusy = false;
+function sgKeptFlush() {
+    if (sgKeptBusy || sgKeptQueue.size === 0) return;
+    sgKeptBusy = true;
+    const batch = Array.from(sgKeptQueue.entries());
+    sgKeptQueue.clear();
+    sgKeptTx(st => {
+        for (const [k, w] of batch) {
+            if (w.bytes === null) st.delete(k);
+            else st.put({ path: w.path, bytes: w.bytes, t: w.t }, k);
+        }
+    }).then(() => {
+        for (const [, w] of batch) {
+            // in IndexedDB now: a copy that did not fit in local storage leaves the older one there (kept until now, in
+            // case the page went first) to free its room
+            if (w.bytes !== null && !w.local) {
+                const cur = sgKept.get(sgKey(w.path));
+                if (cur && cur.t === w.t) sgLocalDrop(w.path);
+            }
+        }
+    }).catch(e => {
+        console.warn("could not keep files in this browser's IndexedDB", e);
+        for (const [, w] of batch) if (w.bytes !== null && !w.local) sgKeepFailed(w.path, e);
+    }).finally(() => {
+        sgKeptBusy = false;
+        sgKeptFlush();
+    });
+}
+let sgKeptWarned = 0;
+// A file neither store took: said over the game (once a minute at most), with what to do.
+function sgKeepFailed(path, e) {
+    console.warn("could not keep " + path + " in this browser", e);
+    if (!/\.(sgs|sgch|pro)$/i.test(path) || Date.now() - sgKeptWarned < 60000) return;
+    sgKeptWarned = Date.now();
+    sgNote("Your game could not be saved in this browser (" + (e && e.name === "QuotaExceededError" ? "its storage is full" :
+        (e && e.message) || "the browser refused it") + "). Delete old saved games in Load Previous Game and save again, or back " +
+        "up your saves from the start page.", true);
+}
+// Keeps a file the game wrote (sg_fs_write) or the page brought in. True when it is kept: in local storage at once, or
+// on its way to IndexedDB (sgKeepFailed says so if that fails too). False when neither can take it.
+function sgKeep(path, bytes) {
+    const k = sgKey(path);
+    const t = sgKeptNow();
+    sgKept.set(k, { path, bytes, t });
+    const local = sgLocalPut(path, bytes, t);
+    if (sgTransient(k)) return local;
+    if (typeof indexedDB === "undefined") {
+        if (!local) sgKeepFailed(path, null);
+        return local;
+    }
+    sgKeptQueue.set(k, { path, bytes, t, local });
+    sgKeptFlush();
+    return true;
+}
+// Takes a kept file away from both stores.
+function sgKeptDrop(path) {
+    const k = sgKey(path);
+    sgKept.delete(k);
+    sgLocalDrop(path);
+    if (typeof indexedDB !== "undefined" && !sgTransient(k)) {
+        sgKeptQueue.set(k, { path, bytes: null, t: sgKeptNow(), local: true });
+        sgKeptFlush();
+    }
+}
+// The bytes of a kept file, or null.
+function sgKeptBytes(path) {
+    const f = sgKept.get(sgKey(path));
+    return f ? f.bytes : null;
+}
+// Reads both stores into sgKept, the newer copy of each file winning (a local storage copy from before this version has
+// no time, and loses to any IndexedDB copy, which is always the newer then). Files only in local storage are copied to
+// IndexedDB, so both hold everything from then on.
+async function sgKeptLoad() {
+    const local = new Map();
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const lk = localStorage.key(i);
+            if (!lk || !lk.startsWith(SAVE_PREFIX)) continue;
+            const path = lk.substring(SAVE_PREFIX.length);
+            try {
+                const bytes = sgUnB64(localStorage.getItem(lk));
+                const t = Number(localStorage.getItem(SAVE_AT + path)) || 0;
+                local.set(sgKey(path), { path, bytes, t });
+            } catch (e) {}
+        }
+    } catch (e) {}
+    let stored = [];
+    if (typeof indexedDB !== "undefined") {
+        try {
+            const db = await sgKeptDb();
+            stored = await new Promise((ok, fail) => {
+                const out = [];
+                const req = db.transaction("saves", "readonly").objectStore("saves").openCursor();
+                req.onsuccess = () => {
+                    const c = req.result;
+                    if (c) { out.push([c.key, c.value]); c.continue(); } else ok(out);
+                };
+                req.onerror = () => fail(req.error);
+            });
+        } catch (e) {
+            console.warn("could not read the saves kept in IndexedDB", e);
         }
     }
+    for (const [k, f] of local) sgKept.set(k, f);
+    for (const [k, v] of stored) {
+        if (!v || !v.bytes || typeof v.path !== "string") continue;
+        const f = { path: v.path, bytes: v.bytes instanceof Uint8Array ? v.bytes : new Uint8Array(v.bytes), t: v.t || 0 };
+        const l = sgKept.get(k);
+        if (!l || f.t > l.t) sgKept.set(k, f);
+    }
+    for (const t of [...local.values()].map(f => f.t)) sgKeptClock = Math.max(sgKeptClock, t);
+    for (const [, v] of stored) if (v && v.t) sgKeptClock = Math.max(sgKeptClock, v.t);
+    // the copies IndexedDB does not have yet (from before this version, or a write cut short)
+    const have = new Map(stored.map(([k, v]) => [k, v && v.t]));
+    if (typeof indexedDB !== "undefined") {
+        for (const [k, f] of sgKept) {
+            if (sgTransient(k) || (have.has(k) && have.get(k) >= f.t)) continue;
+            sgKeptQueue.set(k, { path: f.path, bytes: f.bytes, t: f.t, local: true });
+        }
+        sgKeptFlush();
+    }
+    sgKeptLoaded = true;
+}
+const sgKeptReady = sgKeptLoad().catch(e => { console.warn("could not read the kept saves", e); sgKeptLoaded = true; });
+function sgRestoreSaves() {
+    for (const [, f] of sgKept) sgAddFile(f.path, f.bytes);
+}
+// Safari (and other browsers) may clear a site's storage when the device runs short, or (Safari, in a tab) after some days
+// without a visit, unless the site may keep it: asked at each start (a browser that says no asks the player nothing).
+function sgPersist() {
+    try {
+        if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+    } catch (e) {}
 }
 
 // The frame rate cap (framerate.rs). A browser draws on the display's refresh (v-sync is always on); with a cap the page
@@ -113,7 +346,7 @@ function sgDrawingStopped(why) {
     const canvas = document.getElementById("glcanvas");
     if (d.stopped || !canvas || canvas.style.display !== "block") return;
     d.stopped = true;
-    try { localStorage.setItem(SAVE_PREFIX + SG_TRIAL_KEY, btoa("1")); } catch (e) {}
+    try { sgKeep(SG_TRIAL_KEY, new Uint8Array([49])); } catch (e) {}
     console.error("OpenSGolf: the browser stopped drawing the game (" + why + "); the next start uses safe graphics " +
         "settings (Classic, no frame rate cap" + (sgFrameCap > 0 ? ", was " + sgFrameCap : "") + ")" +
         (d.enhanced ? ", Enhanced graphics were on" : ""));
@@ -171,10 +404,7 @@ document.addEventListener("visibilitychange", () => { if (sgDraw.last) sgDraw.la
 window.addEventListener("pagehide", () => {
     const d = sgDraw;
     if (d.stopped || !d.last || performance.now() - d.last > 2000) return;
-    try {
-        const k = sgStoredKey(SG_TRIAL_KEY);
-        if (k !== null) localStorage.removeItem(k);
-    } catch (e) {}
+    try { sgKeptDrop(SG_TRIAL_KEY); } catch (e) {}
 });
 
 miniquad_add_plugin({
@@ -226,30 +456,25 @@ miniquad_add_plugin({
             if (low.startsWith("hd/")) {
                 sgAddFile(path, bytes);
                 sgHdKeep(path, bytes);
-                return;
+                return 1;
             }
             // Load Previous Game's Export this save (files_ui.rs) writes under download/: a download, kept nowhere
             if (low.startsWith("download/")) {
                 sgDownload(path.split(/[\\/]/).pop(), bytes);
-                return;
+                return 1;
             }
             if (low.endsWith(".png") && !/(^|\/)accomp\d+\.png$/.test(low)) {
                 sgDownload(path.split(/[\\/]/).pop(), bytes);
-                return;
+                return 1;
             }
             sgAddFile(path, bytes);
             // a pack the game downloaded (Preferences > Content > Find more) or exported goes with the packs the player added
             if (sgKey(path).startsWith("packs/")) {
                 sgStoreAdd([[path, bytes]], "packs");
-                return;
+                return 1;
             }
-            try {
-                let bin = "";
-                for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-                localStorage.setItem(SAVE_PREFIX + path, btoa(bin));
-            } catch (e) {
-                console.warn("could not keep " + path + " in local storage", e);
-            }
+            // 1 kept, 0 not (the game says the save failed, and an autosave keeps the older ones where they are)
+            return sgKeep(path, bytes) ? 1 : 0;
         };
         env.sg_fs_remove = function (ptr, len) {
             const path = sgStr(ptr, len);
@@ -263,14 +488,7 @@ miniquad_add_plugin({
                 sgDb().then(db => db.transaction("packs", "readwrite").objectStore("packs").delete(path)).catch(() => {});
             }
             if (k.startsWith("hd/")) sgHdKeep(path, null);
-            try {
-                for (let i = localStorage.length - 1; i >= 0; i--) {
-                    const lk = localStorage.key(i);
-                    if (lk && lk.startsWith(SAVE_PREFIX) && sgKey(lk.substring(SAVE_PREFIX.length)) === k) localStorage.removeItem(lk);
-                }
-            } catch (e) {
-                console.warn("could not remove " + path + " from local storage", e);
-            }
+            sgKeptDrop(path);
             return 1;
         };
         env.sg_fs_kind = function (ptr, len) {
@@ -627,11 +845,11 @@ function sgProgressEnd() {
 // --- browser storage of the game files --------------------------------------------------------------------------------------
 function sgDb() {
     return new Promise((ok, fail) => {
-        const r = indexedDB.open("simgolf", 3);
+        const r = indexedDB.open("simgolf", 4);
         r.onupgradeneeded = () => {
             // "files": the game folder; "hd": the player's own HD art pack (optional, docs/HD.md); "packs": content packs
-            // the player added (docs/MODDING.md)
-            for (const s of ["files", "hd", "packs"]) if (!r.result.objectStoreNames.contains(s)) r.result.createObjectStore(s);
+            // the player added (docs/MODDING.md); "saves": the files the game writes, beside local storage (sgKeep)
+            for (const s of ["files", "hd", "packs", "saves"]) if (!r.result.objectStoreNames.contains(s)) r.result.createObjectStore(s);
         };
         r.onsuccess = () => ok(r.result);
         r.onerror = () => fail(r.error);
@@ -746,43 +964,17 @@ function sgUnB64(text) {
     for (let j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
     return bytes;
 }
-// a marker of a start in progress (enhanced.rs), not a file to keep
-function sgTransient(low) {
-    return low === "enhanced_starting";
-}
 // Every kept file: [path, bytes], sorted by path.
 function sgSavedFiles() {
     const out = [];
-    for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (!k || !k.startsWith(SAVE_PREFIX)) continue;
-        const path = k.substring(SAVE_PREFIX.length);
-        if (sgTransient(sgKey(path))) continue;
-        try { out.push([path, sgUnB64(localStorage.getItem(k))]); } catch (e) {}
-    }
+    for (const [k, f] of sgKept) if (!sgTransient(k)) out.push([f.path, f.bytes]);
     return out.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
 }
-// The key a file is kept under, whatever the case of its name (lookups are case-insensitive, like the game's), or null.
-function sgStoredKey(path) {
-    const k = sgKey(path);
-    for (let i = 0; i < localStorage.length; i++) {
-        const lk = localStorage.key(i);
-        if (lk && lk.startsWith(SAVE_PREFIX) && sgKey(lk.substring(SAVE_PREFIX.length)) === k) return lk;
-    }
-    return null;
-}
 // Keeps a file the way the game's own writes are kept (sg_fs_write), in place of any copy of it under another case. False
-// when local storage is full.
+// when neither of the browser's stores can take it.
 function sgKeepFile(path, bytes) {
     sgAddFile(path, bytes);
-    try {
-        for (let old = sgStoredKey(path); old !== null && old !== SAVE_PREFIX + path; old = sgStoredKey(path)) localStorage.removeItem(old);
-        localStorage.setItem(SAVE_PREFIX + path, sgB64(bytes));
-        return true;
-    } catch (e) {
-        console.warn("could not keep " + path + " in local storage", e);
-        return false;
-    }
+    return sgKeep(path, bytes);
 }
 
 // A .zip with its files stored (not compressed again: the saves are compressed already), names in UTF-8.
@@ -856,12 +1048,12 @@ function sgFreeName(dir, file, bytes) {
     const dot = file.lastIndexOf(".");
     const stem = (dot > 0 ? file.substring(0, dot) : file).replace(/^[&.]+/, "") || "Imported";
     const ext = dot > 0 ? file.substring(dot) : "";
-    const b64 = sgB64(bytes);
+    const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
     for (let n = 1; n < 100; n++) {
         const path = dir + stem + (n === 1 ? "" : " (" + n + ")") + ext;
-        const old = sgStoredKey(path);
+        const old = sgKeptBytes(path);
         if (old === null) return path;
-        if (localStorage.getItem(old) === b64) return "";
+        if (same(old, bytes)) return "";
     }
     return null;
 }
@@ -940,7 +1132,7 @@ async function sgRestoreFiles(fileList) {
         let path = null;
         if (low === "top10.sve" && bytes.length === 1560) {
             // the original SimGolf's Top 10 Designers (the same layout as the port's)
-            if (sgStoredKey("top10.sve") !== null && !confirm("Replace this browser's Top 10 Designers with the table in " + f.name +
+            if (sgKeptBytes("top10.sve") !== null && !confirm("Replace this browser's Top 10 Designers with the table in " + f.name +
                 "? (Import a save file... on the game's Load Previous Game adds it to yours instead.)")) continue;
             path = "top10.sve";
         } else if (low.endsWith(".sve")) {
@@ -982,8 +1174,19 @@ function sgSaveCount() {
     if (!el) return;
     const files = sgSavedFiles();
     const games = files.filter(([p]) => sgIsGame(p)).length;
-    el.textContent = files.length === 0 ? "No saved games in this browser yet."
+    let text = files.length === 0 ? "No saved games in this browser yet."
         : "Kept in this browser: " + sgPlural(games, "saved game") + " (" + sgPlural(files.length, "file") + " in all).";
+    // on an iPhone or iPad the Home Screen app and Safari keep their saves apart: a player who played in the other finds
+    // none here, and the backup moves them over
+    if (games === 0 && sgApple()) {
+        text += sgHomeScreenApp() ? " Games saved while playing in Safari are kept by Safari, not this app: back them up there and restore them here."
+            : " Games saved in the Home Screen app are kept by the app, not Safari: open the game from the Home Screen to play them.";
+    }
+    el.textContent = text;
+}
+// An iPhone, iPad or iPod (an iPad asking for the desktop site says it is a Mac, with touch).
+function sgApple() {
+    return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
 }
 
 // --- one game at a time ----------------------------------------------------------------------------------------------------
@@ -1034,7 +1237,9 @@ function sgTabGuard(start) {
 
 // --- starting --------------------------------------------------------------------------------------------------------------
 function sgStart() {
-    sgTabGuard(sgStartNow);
+    // the kept saves are read as the page opens (sgKeptLoad), long before a start button can be pressed; a start that
+    // comes sooner waits for them
+    sgTabGuard(() => { if (sgKeptLoaded) sgStartNow(); else sgKeptReady.then(sgStartNow); });
 }
 function sgStartNow() {
     sgRestoreSaves();
@@ -1691,11 +1896,11 @@ async function sgUseHd(entries) {
     }
     // start in HD from now on (the game's Preferences switch it back to Classic)
     try {
-        const k = SAVE_PREFIX + "settings.json";
+        const old = sgKeptBytes("settings.json");
         let s = {};
-        try { s = JSON.parse(atob(localStorage.getItem(k) || "")) || {}; } catch (e) { s = {}; }
+        try { s = JSON.parse(new TextDecoder().decode(old || new Uint8Array(0))) || {}; } catch (e) { s = {}; }
         s.graphics = "hd";
-        localStorage.setItem(k, btoa(JSON.stringify(s)));
+        sgKeepFile("settings.json", new TextEncoder().encode(JSON.stringify(s)));
     } catch (e) {}
     sgHdStatus("HD pack ready (" + keep.length + " files). The game starts in HD; Preferences switch between HD and Classic.");
     if (document.getElementById("remember").checked) sgStoreAll(keep, "hd");
@@ -1836,17 +2041,16 @@ async function sgForgetPacks() {
 // the marker of a failed start goes. Saved games, the extras, keys and every other setting are untouched.
 function sgResetGraphics() {
     try {
-        const k = sgStoredKey("settings.json");
-        if (k !== null) {
-            const v = JSON.parse(new TextDecoder().decode(sgUnB64(localStorage.getItem(k))));
+        const old = sgKeptBytes("settings.json");
+        if (old !== null) {
+            const v = JSON.parse(new TextDecoder().decode(old));
             const e = v && v.enhanced;
             if (e && typeof e === "object") {
                 v.enhanced = "fix_original_bugs" in e ? { fix_original_bugs: e.fix_original_bugs } : {};
                 sgKeepFile("settings.json", new TextEncoder().encode(JSON.stringify(v, null, 2)));
             }
         }
-        const t = sgStoredKey(SG_TRIAL_KEY);
-        if (t !== null) localStorage.removeItem(t);
+        sgKeptDrop(SG_TRIAL_KEY);
     } catch (e) {
         console.warn("could not reset the graphics settings", e);
     }
@@ -1914,7 +2118,7 @@ function sgInstallHint() {
     const box = document.getElementById("install"), text = document.getElementById("installtext"), btn = document.getElementById("installbtn");
     if (!box || !text || !btn) return;
     if (sgHomeScreenApp()) { box.hidden = true; return; }
-    const apple = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent));
+    const apple = sgApple();
     if (sgInstallAsk) {
         text.textContent = "Play it as an app: no browser bars, and it starts without a connection once played.";
         btn.hidden = false;
@@ -1926,7 +2130,11 @@ function sgInstallHint() {
         };
         box.hidden = false;
     } else if (apple && "serviceWorker" in navigator) {
-        text.textContent = "Play it as an app: tap Share, then Add to Home Screen. It opens without Safari's bars and starts without a connection once played.";
+        // Safari clears what a site keeps (the saved games with it) after some days of Safari use without a visit to it;
+        // a Home Screen app keeps its own, which that does not clear
+        text.textContent = "Play it as an app: tap Share, then Add to Home Screen. It opens without Safari's bars, starts without a connection once played, " +
+            "and keeps your saved games safe from Safari clearing sites you have not visited for a while (the app keeps its own saves: " +
+            "Back up my saves here and Restore saves... in the app brings them over).";
         btn.hidden = true;
         box.hidden = false;
     } else {
@@ -1937,8 +2145,10 @@ function sgInstallHint() {
 async function sgInit() {
     sgServiceWorker();
     sgInstallHint();
-    sgSaveCount();
     sgNews();
+    sgPersist();
+    await sgKeptReady;
+    sgSaveCount();
     const ver = document.getElementById("version");
     if (ver) ver.textContent = "OpenSGolf " + sgVersion();
     // what the last files picked held (said again until other files are picked)

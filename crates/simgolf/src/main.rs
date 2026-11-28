@@ -4605,6 +4605,12 @@ impl EventHandler for Stage {
     /// may never draw: miniquad's gl.js calls the wasm's `focus` from inside the page's visibilitychange, focus and blur
     /// events, so the pause, the sound's sleep and the save are done before the browser can freeze or discard the page.
     fn window_minimized_event(&mut self) {
+        // a second one in a row: the page is going to the background now, after a blur that already told the game (a
+        // browser's gl.js says it again then); only the save is left to make
+        if self.app.support.hidden {
+            self.app.autosave_on_hide();
+            return;
+        }
         self.app.window_hidden();
         self.app.autosave_on_hide();
         // no play time counted in the background (support.rs); the seconds played so far are counted now (playcount.rs)

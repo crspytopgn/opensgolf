@@ -1364,18 +1364,31 @@ var importObject = {
             };
 
             let lastFocus = document.hasFocus();
-            var checkFocus = function () {
+            // (OpenSGolf) the page told the game it went to the background since it was last shown
+            let hiddenTold = false;
+            var checkFocus = function (e) {
                 // The element doesn't loose focus when the user switches tabs.
                 // However, the document becomes invisible
                 let hasFocus = document.hasFocus() && document.visibilityState == "visible";
                 if (lastFocus != hasFocus) {
                     wasm_exports.focus(hasFocus);
                     lastFocus = hasFocus;
+                } else if (!hasFocus && !hiddenTold && e && (e.type == "pagehide" || document.visibilityState == "hidden")) {
+                    // (OpenSGolf) the page is going to the background, but the game already thinks it is out of focus:
+                    // a blur with no focus after it (iOS, back from a system sheet or the keyboard), or a page that
+                    // started without the focus. The game hears of it again, so it saves before the page is frozen or
+                    // thrown away (crates/simgolf/src/autosave.rs autosave_on_hide; main.rs takes a second one in a row
+                    // as just that)
+                    wasm_exports.focus(false);
                 }
+                if (document.visibilityState == "hidden" || (e && e.type == "pagehide")) hiddenTold = true;
+                else hiddenTold = false;
             }
             document.addEventListener("visibilitychange", checkFocus);
             window.addEventListener("focus", checkFocus);
             window.addEventListener("blur", checkFocus);
+            // (OpenSGolf) Safari can leave a page (closed, or reloaded) with a pagehide and no visibilitychange
+            window.addEventListener("pagehide", checkFocus);
 
             window.blocking_event_loop = blocking;
             window.requestAnimationFrame(animation);
