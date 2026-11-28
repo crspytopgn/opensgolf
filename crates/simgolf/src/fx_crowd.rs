@@ -29,6 +29,10 @@ const ROPE_OUT: f32 = 0.8;
 const ROPE_MIN: f32 = 1.8;
 /// The farthest a green reaches from its pin along a ray (tiles): beyond it a green is another hole's.
 const GREEN_REACH: f32 = 4.5;
+/// How far the gallery keeps from an object's footprint, in tiles.
+const KEEP_OFF: f32 = 0.8;
+/// How far the rope keeps from an object's footprint, in tiles.
+const ROPE_MARGIN: f32 = 0.2;
 /// The rows: the first this far behind the rope, the others this far apart, spectators this far apart along a row (tiles).
 const ROW_BACK: f32 = 0.3;
 const ROW_GAP: f32 = 0.32;
@@ -74,6 +78,20 @@ thread_local! {
     static CACHE: std::cell::RefCell<Option<(GalleryKey, std::rc::Rc<Gallery>)>> = const { std::cell::RefCell::new(None) };
 }
 
+/// An object's footprint in tiles, (x0, y0, x1, y1), and the margin the spectators keep round it.
+type Rect = (f32, f32, f32, f32, f32);
+
+/// Whether (x, y) is in any footprint or its spectators' margin.
+fn in_any(rects: &[Rect], x: f32, y: f32) -> bool {
+    rects.iter().any(|&(x0, y0, x1, y1, m)| x >= x0 - m && x < x1 + m && y >= y0 - m && y < y1 + m)
+}
+
+/// Whether (x, y) is in any footprint or the rope's smaller margin round it (the rope is low and thin).
+fn rope_in_any(rects: &[Rect], x: f32, y: f32) -> bool {
+    let m = ROPE_MARGIN;
+    rects.iter().any(|&(x0, y0, x1, y1, _)| x >= x0 - m && x < x1 + m && y >= y0 - m && y < y1 + m)
+}
+
 /// Ground a spectator may stand on: the rough and the grasses beside it (so not the land outside the club's, whose
 /// tiles are sg_core::land::T_OUT).
 fn standing(ty: u8) -> bool {
@@ -101,9 +119,30 @@ impl App {
 
     /// Whether a spectator can stand at (x, y) tiles: standing ground there and a little way round, so the rope keeps
     /// the gallery off the green and the fairway's edge.
-    fn fan_spot(&self, x: f32, y: f32) -> bool {
+    fn fan_spot(&self, x: f32, y: f32, keep_off: &[Rect]) -> bool {
         const R: f32 = 0.3;
         [(0.0, 0.0), (R, 0.0), (-R, 0.0), (0.0, R), (0.0, -R)].iter().all(|&(dx, dy)| self.crowd_type(x + dx, y + dy).is_some_and(standing))
+            && !in_any(keep_off, x, y)
+    }
+
+    /// The ground the gallery keeps off besides the terrain: each object's footprint (a TV tower or booth, a building, a
+    /// bench) and a margin round it, wider round the tall ones, whose sprites stand up over the tiles in front.
+    fn keep_off(&self) -> Vec<Rect> {
+        use sg_core::land;
+        let Some(l) = self.land.as_ref() else { return Vec::new() };
+        l.objects
+            .iter()
+            .filter(|o| o.kind > 0 && o.kind != land::K_FLOWERS && o.kind != land::K_BRIDGE)
+            .map(|o| {
+                let size = l.footprint_size(o) as f32;
+                let m = match o.kind {
+                    land::K_BENCH => 0.3,
+                    land::K_TV_TOWER => KEEP_OFF + 0.4,
+                    _ => KEEP_OFF,
+                };
+                (o.a as f32, o.b as f32, o.a as f32 + size, o.b as f32 + size, m)
+            })
+            .collect()
     }
 
     /// The holes with a gallery and how big (3 rows: the last hole, 2: the leading group's, 1: the others in play), or
@@ -210,6 +249,7 @@ impl App {
         let (px, py) = (hr.pin.0 as f32 + 0.5, hr.pin.1 as f32 + 0.5);
         let open = self.approach(h);
         let hs = seed ^ (h as u32).wrapping_mul(0x51ed);
+        let keep_off = self.keep_off();
         // the angles round the green the gallery takes: all but the opening, from one side of it round to the other
         let (a0, a1) = (open + OPEN, open + TAU - OPEN);
         // the rope: stakes round that arc, a run broken wherever a stake would stand on the green, in water or the like
@@ -222,7 +262,7 @@ impl App {
             let p = (px + r * a.cos(), py + r * a.sin());
             // a stake much farther from the last than the gap breaks the run too (the green's edge jumps there)
             let near = run.last().is_none_or(|q: &(f32, f32)| (p.0 - q.0).hypot(p.1 - q.1) < 2.0 * STAKE_GAP);
-            let ok = self.crowd_type(p.0, p.1).is_some_and(ropeable);
+            let ok = self.crowd_type(p.0, p.1).is_some_and(ropeable) && !rope_in_any(&keep_off, p.0, p.1);
             if !ok || !near {
                 // a run of fewer than four stakes is a stray bit of rope: left out
                 if run.len() >= 4 {
@@ -259,7 +299,7 @@ impl App {
                 }
                 let r = self.rope_reach(px, py, a) + back + 0.12 * (hash(k, 9) - 0.5);
                 let (x, y) = (px + r * a.cos(), py + r * a.sin());
-                if !self.fan_spot(x, y) {
+                if !self.fan_spot(x, y, &keep_off) {
                     continue;
                 }
                 out.fans.push(Fan { x, y, hole: h, row, id: k });
