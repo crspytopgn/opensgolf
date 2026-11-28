@@ -214,9 +214,17 @@ On the desktop, **back up** by copying the save folder (or just `Saved Games`); 
 `Saved Games` (while the game runs too: Load Previous Game reads the folder each time it opens). Dropping a `.sgs` on the
 game's window does the same when the Import and export saved games (or the Course sharing) extra is on.
 
-**In the browser** there is no folder: the page keeps the files in this browser's local storage for the site (the same
-names, under keys starting `simgolf-file:`). They stay until the site's data is cleared, but a private window, another
-browser or another device does not have them, so back them up. On the start page, **Your saved games: back up and restore**:
+**In the browser** there is no folder: the page keeps the files in this browser's storage for the site, twice: in local
+storage (the same names, under keys starting `simgolf-file:`, with the time each was written under `simgolf-at:`), which
+is written at once, so a save made as the page goes to the background is kept even when the browser throws the page away
+straight after (as iOS does); and in IndexedDB (the `simgolf` database's `saves` store), which has far more room. Local
+storage holds only about 5 MB a site, which a few long games with their autosaves and backups fill; a save that no longer
+fits there is kept in IndexedDB alone. At each start the newer copy of each file is used. A save neither can take is said
+over the game, and the game reports it as not saved (an autosave then leaves the older autosaves where they are). The page
+also asks the browser to keep the site's storage (`navigator.storage.persist()`). The files stay until the site's data is
+cleared, but a private window, another browser or another device does not have them, so back them up. On an iPhone or iPad
+the game added to the Home Screen keeps its own saves, apart from Safari's (the start page says so when it finds none),
+and Safari clears a site's storage after some days of use without a visit to it, which the Home Screen app is spared. On the start page, **Your saved games: back up and restore**:
 
 - **Back up my saves** downloads `opensgolf-saves-<date>.zip`: every saved game, championship course and pro, the settings,
   the Top 10 table and the accomplishment snapshots the page keeps (not your game files, the HD pack or content packs,
