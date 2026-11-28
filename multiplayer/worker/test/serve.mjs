@@ -2,9 +2,10 @@
 // then run the game with OPENSGOLF_BOARD_URL=http://127.0.0.1:<port>. Results live in memory only.
 import { createServer } from "node:http";
 import { memoryDb } from "./d1shim.mjs";
+import { memoryBucket } from "./r2shim.mjs";
 import worker from "../src/index.js";
 
-const env = { DB: memoryDb(), ADMIN_PASSWORD: "local" };
+const env = { DB: memoryDb(), SAVES: memoryBucket(), ADMIN_PASSWORD: "local" };
 const port = Number(process.argv[2] || 8787);
 createServer(async (req, res) => {
   const chunks = [];

@@ -193,9 +193,17 @@ function sgKeepFailed(path, e) {
 }
 // Keeps a file the game wrote (sg_fs_write) or the page brought in. True when it is kept: in local storage at once, or
 // on its way to IndexedDB (sgKeepFailed says so if that fails too). False when neither can take it.
-function sgKeep(path, bytes) {
+// `at`: the time it was written elsewhere (a file cloud saves brought), kept as its time; such a file is not sent back.
+function sgKeep(path, bytes, at) {
     const k = sgKey(path);
-    const t = sgKeptNow();
+    let t;
+    if (at) {
+        t = at;
+        sgKeptClock = Math.max(sgKeptClock, at);
+    } else {
+        t = sgKeptNow();
+        sgCloudMark(path);
+    }
     sgKept.set(k, { path, bytes, t });
     const local = sgLocalPut(path, bytes, t);
     if (sgTransient(k)) return local;
@@ -210,6 +218,7 @@ function sgKeep(path, bytes) {
 // Takes a kept file away from both stores.
 function sgKeptDrop(path) {
     const k = sgKey(path);
+    if (sgKept.has(k)) sgCloudMark(path);
     sgKept.delete(k);
     sgLocalDrop(path);
     if (typeof indexedDB !== "undefined" && !sgTransient(k)) {
@@ -280,6 +289,199 @@ const sgKeptReady = sgKeptLoad().catch(e => { console.warn("could not read the k
 function sgRestoreSaves() {
     for (const [, f] of sgKept) sgAddFile(f.path, f.bytes);
 }
+// --- cloud saves ------------------------------------------------------------------------------------------------------------
+// An option of the start page (Your saved games), off unless the player turns it on: a copy of the saved games, the
+// championship courses and pros, settings.json and the Top 10 table on OpenSGolf's server (multiplayer/worker/src/
+// cloud.js), under a sync code this browser makes. The code is the only key: typing it into another browser, the Home
+// Screen app or another device brings the saves there, and each file then goes both ways, the newer copy winning. What
+// the game writes is sent a minute later (several writes in that minute as one), and at once when the page goes to the
+// background; what could not be sent is remembered and sent at the next start. Files come from the server only on the
+// start page (turning the option on, a code typed in, the page opening), never under a game being played.
+const SG_CLOUD_CODE = "sg_cloud_code", SG_CLOUD_DIRTY = "sg_cloud_dirty";
+const sgCloud = { code: null, dirty: new Map(), timer: 0, busy: false, again: false, last: 0, error: "" };
+// the server: the multiplayer board's (web/weekly.js SG_BOARD), or ?board= for tests
+function sgCloudServer() {
+    const b = new URLSearchParams(location.search).get("board");
+    return (b || (typeof SG_BOARD === "string" ? SG_BOARD : "https://opensgolf-board.openmcm2-laps.workers.dev")).replace(/\/$/, "");
+}
+// The files cloud saves keep (as the server's cloudName): not the backups, the snapshots, the packs or the HD pack.
+function sgCloudName(path) {
+    const p = path.replace(/\\/g, "/");
+    return /^saved games\/[^/]{1,100}\.sgs$/i.test(p) || /^saved games\/saves\.json$/i.test(p)
+        || /^championship\/[^/]{1,100}\.(sgch|pro)$/i.test(p) || /^(settings\.json|top10\.sve)$/i.test(p);
+}
+// A new sync code: 4 groups of 5 of Crockford's base-32 digits, 100 random bits.
+function sgCloudNewCode() {
+    const digits = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+    const r = crypto.getRandomValues(new Uint8Array(20));
+    let s = "";
+    for (let i = 0; i < 20; i++) s += (i && i % 5 === 0 ? "-" : "") + digits[r[i] & 31];
+    return s;
+}
+// A code as typed: any case, spaces or dashes, O for 0, I and L for 1. Null when it is not one.
+function sgCloudReadCode(text) {
+    const c = String(text || "").toUpperCase().replace(/[\s-]/g, "").replace(/O/g, "0").replace(/[IL]/g, "1");
+    if (!/^[0-9A-HJKMNP-TV-Z]{20}$/.test(c)) return null;
+    return c.match(/.{5}/g).join("-");
+}
+function sgCloudSaveDirty() {
+    try { localStorage.setItem(SG_CLOUD_DIRTY, JSON.stringify(Array.from(sgCloud.dirty.values()))); } catch (e) {}
+}
+// A kept file changed or went (sgKeep, sgKeptDrop): sent within a minute.
+function sgCloudMark(path) {
+    if (!sgCloud.code || !sgCloudName(path)) return;
+    sgCloud.dirty.set(sgKey(path), path);
+    sgCloudSaveDirty();
+    // a save made as the page goes to the background (the Autosave extra's) goes now, with the other writes of the same
+    // event: the page may not run again
+    if (document.visibilityState === "hidden") {
+        if (!sgCloud.soon) { sgCloud.soon = true; queueMicrotask(() => { sgCloud.soon = false; sgCloudFlush(true); }); }
+        return;
+    }
+    if (!sgCloud.timer) sgCloud.timer = setTimeout(() => { sgCloud.timer = 0; sgCloudFlush(false); }, 60000);
+}
+function sgCloudUrl(path) {
+    return sgCloudServer() + "/cloud/" + sgCloud.code + (path === undefined ? "" : "/" + encodeURIComponent(path));
+}
+// Sends one changed file (or its removal); the answer, or null with no connection.
+function sgCloudSend(k, path, keepalive) {
+    const f = sgKept.get(k);
+    const req = f ? fetch(sgCloudUrl(f.path) + "?at=" + f.t, { method: "PUT", body: f.bytes, keepalive })
+        : fetch(sgCloudUrl(path), { method: "DELETE", keepalive });
+    return req.then(r => ({ k, f, r }), () => ({ k, f, r: null }));
+}
+// Sends the changed files. `leaving`: the page is going to the background, so every request is made at once (the page
+// may be frozen at the next turn), small ones with keepalive, which the browser finishes even when it freezes or closes
+// the page.
+async function sgCloudFlush(leaving) {
+    if (!sgCloud.code || sgCloud.dirty.size === 0) return true;
+    if (sgCloud.busy && !leaving) { sgCloud.again = true; return false; }
+    sgCloud.busy = true;
+    let ok = true, budget = 60000;
+    try {
+        const todo = Array.from(sgCloud.dirty.entries());
+        let results = [];
+        if (leaving) {
+            results = await Promise.all(todo.map(([k, path]) => {
+                const f = sgKept.get(k);
+                const small = !f || f.bytes.length <= budget;
+                if (f && small) budget -= f.bytes.length;
+                return sgCloudSend(k, path, small);
+            }));
+        } else {
+            for (const [k, path] of todo) {
+                const x = await sgCloudSend(k, path, false);
+                results.push(x);
+                if (!x.r) break;
+            }
+        }
+        for (const { k, f, r } of results) {
+            if (r && r.ok) {
+                // (written again while it was being sent: it stays to go again)
+                const now = sgKept.get(k);
+                if (!f ? !now : now && now.t === f.t) sgCloud.dirty.delete(k);
+                continue;
+            }
+            ok = false;
+            if (r) try { sgCloud.error = (await r.json()).error || "the server said " + r.status; } catch (e) { sgCloud.error = "the server said " + r.status; }
+            else sgCloud.error = "no connection";
+            // a file the server will never take (too big, too many) is not tried forever
+            if (r && r.status >= 400 && r.status < 500) sgCloud.dirty.delete(k);
+        }
+    } finally {
+        sgCloud.busy = false;
+        sgCloudSaveDirty();
+    }
+    if (ok) { sgCloud.last = Date.now(); sgCloud.error = ""; }
+    sgCloudShow();
+    if (sgCloud.again) { sgCloud.again = false; return sgCloudFlush(false); }
+    return ok;
+}
+// Both ways: the server's newer files come here, this browser's newer ones go there. Only on the start page.
+async function sgCloudSync() {
+    if (!sgCloud.code) return;
+    sgCloudShow("Syncing...");
+    try {
+        const r = await fetch(sgCloudUrl(), { cache: "no-store" });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error || "the server said " + r.status);
+        const remote = new Map(j.files.map(f => [sgKey(f.name), f]));
+        let got = 0;
+        for (const [k, f] of remote) {
+            const here = sgKept.get(k);
+            if (sgCloud.dirty.has(k) || (here && here.t >= f.at)) continue;
+            const g = await fetch(sgCloudUrl(f.name), { cache: "no-store" });
+            if (!g.ok) continue;
+            const bytes = new Uint8Array(await g.arrayBuffer());
+            sgKeep(here ? here.path : f.name, bytes, f.at || 1);
+            sgAddFile(here ? here.path : f.name, bytes);
+            got++;
+        }
+        for (const [k, f] of sgKept) {
+            if (!sgCloudName(f.path)) continue;
+            const there = remote.get(k);
+            if (!there || f.t > there.at) sgCloud.dirty.set(k, f.path);
+        }
+        sgCloudSaveDirty();
+        const sent = sgCloud.dirty.size;
+        const ok = await sgCloudFlush(false);
+        sgSaveCount();
+        sgCloudShow(ok ? "Synced: " + sgPlural(got, "file") + " brought here, " + sgPlural(sent, "file") + " sent." : null);
+    } catch (e) {
+        sgCloud.error = (e && e.message) || "no connection";
+        sgCloudShow();
+    }
+}
+// The start page's cloud saves box.
+function sgCloudShow(say) {
+    const el = id => document.getElementById(id);
+    if (!el("cloudbox")) return;
+    el("cloudoff").hidden = !!sgCloud.code;
+    el("cloudonbox").hidden = !sgCloud.code;
+    if (sgCloud.code) el("cloudcode").textContent = sgCloud.code;
+    let t = say || "";
+    if (!t && sgCloud.code) {
+        if (sgCloud.error) t = "Not synced (" + sgCloud.error + ")" + (sgCloud.dirty.size ? ": " + sgPlural(sgCloud.dirty.size, "file") + " still to send; they go next time." : ".");
+        else if (sgCloud.last) t = "Synced at " + new Date(sgCloud.last).toLocaleTimeString() + ".";
+    }
+    el("cloudstatus").textContent = t;
+}
+function sgCloudStart(code) {
+    sgCloud.code = code;
+    sgCloud.error = "";
+    try { localStorage.setItem(SG_CLOUD_CODE, code); } catch (e) {}
+    sgCloudSync();
+}
+// The page opens: the box wired up, and with cloud saves on, a sync (what was left unsent goes too).
+function sgCloudInit() {
+    try {
+        sgCloud.code = sgCloudReadCode(localStorage.getItem(SG_CLOUD_CODE));
+        for (const p of JSON.parse(localStorage.getItem(SG_CLOUD_DIRTY) || "[]")) if (typeof p === "string") sgCloud.dirty.set(sgKey(p), p);
+    } catch (e) {}
+    const el = id => document.getElementById(id);
+    if (el("cloudnew")) el("cloudnew").onclick = () => sgCloudStart(sgCloudNewCode());
+    if (el("cloudjoin")) el("cloudjoin").onclick = () => {
+        const typed = prompt("Your sync code (from Cloud saves on your other browser or device):");
+        if (typed === null) return;
+        const code = sgCloudReadCode(typed);
+        if (!code) { sgCloudShow("That is not a sync code: it has 20 letters and digits, like 7K3QZ-M4P2A-XB9RT-0WV5C."); return; }
+        sgCloudStart(code);
+    };
+    if (el("cloudsync")) el("cloudsync").onclick = () => sgCloudSync();
+    if (el("cloudstop")) el("cloudstop").onclick = () => {
+        if (!confirm("Turn off cloud saves in this browser? Your saves stay here, and the copy on the server stays under your code " +
+            sgCloud.code + " (type it in again to go on syncing).")) return;
+        sgCloud.code = null;
+        sgCloud.dirty.clear();
+        try { localStorage.removeItem(SG_CLOUD_CODE); localStorage.removeItem(SG_CLOUD_DIRTY); } catch (e) {}
+        sgCloudShow("Cloud saves are off in this browser.");
+    };
+    sgCloudShow();
+    if (sgCloud.code) sgCloudSync();
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") sgCloudFlush(true); });
+window.addEventListener("pagehide", () => sgCloudFlush(true));
+
 // Safari (and other browsers) may clear a site's storage when the device runs short, or (Safari, in a tab) after some days
 // without a visit, unless the site may keep it: asked at each start (a browser that says no asks the player nothing).
 function sgPersist() {
@@ -2149,6 +2351,7 @@ async function sgInit() {
     sgPersist();
     await sgKeptReady;
     sgSaveCount();
+    sgCloudInit();
     const ver = document.getElementById("version");
     if (ver) ver.textContent = "OpenSGolf " + sgVersion();
     // what the last files picked held (said again until other files are picked)

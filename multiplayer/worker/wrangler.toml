@@ -10,6 +10,11 @@ binding = "DB"
 database_name = "opensgolf-board"
 database_id = "f9841ce7-7018-47cf-9c3a-0bc85ef1cdcc"
 
+# Cloud saves (src/cloud.js): the browser version's optional copy of a player's saves, by sync code.
+[[r2_buckets]]
+binding = "SAVES"
+bucket_name = "opensgolf-saves"
+
 [observability]
 enabled = true
 

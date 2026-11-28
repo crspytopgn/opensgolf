@@ -9,6 +9,7 @@
 // * Neighbours leagues (league.js): GET /leagues/new?d= makes one; GET /leagues/<code>?p=<player> is its table;
 //   GET /leagues/<code>/join?d= takes a seat; GET /leagues/<code>/report?d= sends a player's numbers; POST
 //   /leagues/<code>/save?p=<player> (the save's bytes) and GET /leagues/<code>/save/<seat> keep and hand out saves.
+// * /cloud/<code>[/<file>]: cloud saves, the browser version's optional copy of a player's saved games in R2 (cloud.js).
 // * GET /admin (password): the latest results, hidden ones too; POST /admin/hide hides a result or a nickname.
 //
 // Nothing about the player is kept but the random id their game made, the nickname they typed, their group code, the
@@ -20,6 +21,7 @@ import { breaks, challenge, isWeekId, previousWeekId, score, weekId } from "./ch
 import { clean, cleanNick, generatedNick } from "./names.js";
 import { isCompat } from "./club.js";
 import { noteActivity } from "./activity.js";
+import { cloudRequest } from "./cloud.js";
 import {
   isLeagueCode, joinLeague, league, LEAGUE_SAVE_MAX, makeLeague, readFacts, readNewLeague, report, seatSave, storeSave,
 } from "./league.js";
@@ -277,7 +279,7 @@ export default {
     const now = new Date();
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: {
-        "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST", "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE", "Access-Control-Allow-Headers": "Content-Type",
       } });
     }
     if (url.pathname === "/result" && (request.method === "POST" || request.method === "GET")) {
@@ -387,6 +389,10 @@ export default {
         if (!bytes) return json({ ok: false, error: "no save yet" }, 404, noStore);
         return new Response(bytes, { headers: { "Content-Type": "application/octet-stream", "Access-Control-Allow-Origin": "*", ...noStore } });
       }
+    }
+    if (url.pathname.startsWith("/cloud/")) {
+      const r = await cloudRequest(request, url, env.SAVES, json);
+      if (r) return r;
     }
     if (url.pathname.startsWith("/admin")) {
       if (!authorised(request, env)) {

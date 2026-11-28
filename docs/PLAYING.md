@@ -237,6 +237,19 @@ and Safari clears a site's storage after some days of use without a visit to it,
   Game opens; see below). A single file never replaces a save of the same name: it is added as "Name (2)". The games are
   then in Load Previous Game.
 
+- **Cloud saves** (optional, off until turned on there): **Turn on cloud saves** makes a sync code (20 letters and
+  digits) and sends a copy of the saved games, championship courses and pros, `settings.json`, the Top 10 table and the
+  saves' dates (not the backups, snapshots, packs or HD pack) to OpenSGolf's server (`multiplayer/worker/src/cloud.js`,
+  an R2 bucket). **I have a sync code...** in another browser, the Home Screen app or on another device brings them
+  there; from then on each file goes both ways, the newer copy winning. A file the game writes is sent a minute later,
+  and at once when the page goes to the background; one that could not be sent goes at the next start. Files come from
+  the server only on the start page (the option turned on, a code typed in, the page opening, *Sync now*), never under a
+  game being played. A save deleted in one place is deleted on the server, but a browser that still has it sends it back
+  at its next sync. Only the code and the files are kept: no account, name or address; whoever has the code can read and
+  replace those saves. Limits: 60 files of up to 2 MB each a code. *Turn off* stops syncing in that browser (the
+  server's copy stays under the code). Test hook: `?board=<url>` in the page's address uses another server (for example
+  `node multiplayer/worker/test/serve.mjs 8799`).
+
 **In the game**, with the Import and export saved games extra on (System Functions > Preferences > Game options,
 Saves; not in the original; up to 0.4.9 it was part of Course sharing, so settings from then with Course sharing on
 have it on),

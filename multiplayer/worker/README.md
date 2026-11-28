@@ -29,6 +29,16 @@ player id, count). The stats page reads it and shows only totals.
 Kept per result: the player's random id, nickname, group code, the numbers above, the platform and the version. No
 address, no country, no cookies.
 
+## Cloud saves
+
+`src/cloud.js`: the browser version's optional copy of a player's saves (the start page's *Turn on cloud saves*, off
+until the player turns it on; docs/PLAYING.md), in the R2 bucket `opensgolf-saves` (binding `SAVES`) under a sync code
+the player's browser made (4 groups of 5 Crockford base-32 digits). `GET /cloud/<code>` lists the files (`name`,
+`size`, `at`: when the browser wrote it); `GET`, `PUT ?at=<ms>` and `DELETE /cloud/<code>/<path>` read, keep and remove
+one. Only saved games, championship courses and pros, `settings.json`, `top10.sve` and `Saved Games/saves.json` are
+taken, at most 60 files of up to 2 MB a code. A file replaced costs one R2 write and one read; a new one adds a listing.
+Nothing else is kept. Before the first deploy with it: `npx wrangler@4.152.0 r2 bucket create opensgolf-saves`.
+
 ## Free-plan use
 
 One result is at most one row written (two with the index); a board view reads about 50 rows. The Worker's requests
