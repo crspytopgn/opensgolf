@@ -3618,6 +3618,9 @@ STR_EXTRAS_DESC_DESERT_ART              :The original desert shows the Ravine as
 STR_MENU_PREFS_REPORT                   : Report a problem...
 STR_PREFS_DESC_REPORT                   :Opens a filled-in bug report form and keeps a copy of this game to attach. Nothing is sent until you submit.
 STR_CTL_REPORT_PROBLEM                  :Report a problem (opens the bug report form, asks first)
+STR_CTL_TILT_DOWN                       :Tilt the camera to look down (More zoom and tilt)
+STR_CTL_TILT_UP                         :Tilt the camera towards the horizon (More zoom and tilt)
+STR_CTL_CAMERA_RESET                    :Camera back to the original view (More zoom and tilt)
 STR_BUGREPORT_TITLE                     :Report a problem
 STR_BUGREPORT_EXPLAIN                   :This opens the project's bug report form on GitHub in your browser, filled in with the game's version and your system.\nA copy of this game, its recent warnings (and a screenshot, if ticked) go in the Reports folder in your save folder, which opens too: drag the files into the form.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
 STR_BUGREPORT_EXPLAIN_WEB               :This opens the project's bug report form on GitHub in a new tab, filled in with the game's version and your browser.\nA copy of this game, its recent warnings (and a screenshot, if ticked) are downloaded: drag the files into the form.\nNothing is sent automatically: you read the form, say what happened and submit it yourself.
@@ -3955,6 +3958,8 @@ STR_EXTRAS_FINE_HEIGHT                  : Fine elevation on touch screens
 STR_EXTRAS_DESC_FINE_HEIGHT             :Lets you tap a corner with an elevation tool and step it up or down with Raise and Lower buttons, instead of a tap raising the ground at once.
 STR_EXTRAS_DARK_MENUS                   : Dark launcher
 STR_EXTRAS_DESC_DARK_MENUS              :Shows the launcher in dark colours. The game's own screens are unchanged.
+STR_EXTRAS_CAMERA_MORE                  : More zoom and tilt
+STR_EXTRAS_DESC_CAMERA_MORE             :Zoom further in and out than the original, and tilt the camera with End and PageDown (or Ctrl and the wheel). Shift+Z puts the original view back.
 STR_TOAST_HEIGHT_PICKED                 :Corner picked: Raise and Lower step it.
 STR_GPROFILE_LINES                      :Lines
 STR_GPROFILE_LINES_HEAD                 :What {GOLFER} says: click a line to write the golfer's own

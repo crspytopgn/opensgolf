@@ -51,7 +51,7 @@ impl App {
         // inside it when zoomed out (the original's +-5000 on 50 x 50 and smaller)
         let depth = DEPTH_RANGE * (self.terrain.w.max(self.terrain.h) as f32 / sg_core::mapsize::ORIGINAL as f32).max(1.0);
         let proj = Mat4::ortho(-hw, hw, -hh, hh, -depth, depth);
-        let mv = Mat4::rotate(pitch_for(self.draw_w, self.draw_h), 1.0, 0.0, 0.0)
+        let mv = Mat4::rotate(self.pitch(), 1.0, 0.0, 0.0)
             .mul(&Mat4::rotate((45.0 + self.view_rot()) as f64, 0.0, 1.0, 0.0))
             .mul(&Mat4::translate(-self.cam_x, 0.0, -self.cam_z));
         // Terrain.dll's light 0: the theme's Lighting.txt colours, a direction fixed in eye space, OpenGL's default material
@@ -62,7 +62,7 @@ impl App {
         lit.light_amb = self.light.ambient.map(|v| v * BRIGHTNESS);
         lit.light_dif = self.light.diffuse.map(|v| v * BRIGHTNESS);
         lit.light_spec = self.light.specular;
-        lit.light_dir = sg_core::terrain::light_direction();
+        lit.light_dir = self.light_eye();
         let mut overlay = lit;
         overlay.alpha_ref = 0.04;
         if crate::fx::active() {

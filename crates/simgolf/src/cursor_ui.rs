@@ -137,8 +137,9 @@ impl App {
             // Enhanced's continuous zoom: the rules and the sizes keyed to the zoom take the nearest of the three levels
             return (self.zoom / ZOOM_UNIT).log2().round().clamp(far_level() as f32, 2.0).exp2();
         }
-        // below 1 only on a course larger than the original's, which zooms further out (far_level)
-        (self.zoom / ZOOM_UNIT).max(far_zoom() / ZOOM_UNIT)
+        // below 1 only on a course larger than the original's, which zooms further out (far_level); past the original's
+        // closest and farthest (More zoom and tilt, views.rs) the nearest of its levels
+        (self.zoom / ZOOM_UNIT).clamp(far_zoom() / ZOOM_UNIT, 4.0)
     }
 
     /// Screen point (800 x 600) of a map point in 1/1024 tile units, on the ground.

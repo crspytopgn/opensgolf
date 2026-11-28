@@ -592,6 +592,8 @@ pub struct App {
     pub cam_z: f32,
     pub zoom: f32,
     pub rot: f32,
+    /// The camera's tilt in degrees added to the original's angle (More zoom and tilt, views.rs); 0 is the original's.
+    pub tilt: f32,
     pub draw_w: f32,
     pub draw_h: f32,
     /// Drawable pixels per window point (2 on Retina).
@@ -1052,6 +1054,7 @@ impl App {
             cam_z: 0.0,
             zoom: 0.36,
             rot: 0.0,
+            tilt: 0.0,
             draw_w: 1024.0,
             draw_h: 768.0,
             dpi: 1.0,
@@ -4718,22 +4721,24 @@ impl App {
         Some((x as f32, z as f32))
     }
 
-    /// z / x and the dock's zoom buttons: the next of the exe's three levels (1, 2, 4) in or out.
+    /// z / x and the dock's zoom buttons: the next of the exe's three levels (1, 2, 4) in or out; with More zoom and tilt
+    /// (views.rs) on past them, by doublings, to the ends of `zoom_range`.
     pub fn zoom_step(&mut self, inward: bool) {
+        let (lo, hi) = self.zoom_range();
+        let (far, near) = ((lo / ZOOM_UNIT).log2().round() as i32, (hi / ZOOM_UNIT).log2().round() as i32);
         if crate::enhanced::smooth_camera() {
-            // Enhanced: from a zoom between levels, the next of the three levels that way
-            let levels: Vec<f32> = (far_level()..=2).map(|l| ZOOM_UNIT * (l as f32).exp2()).collect();
+            // Enhanced: from a zoom between levels, the next of the levels that way
+            let levels: Vec<f32> = (far..=near).map(|l| ZOOM_UNIT * (l as f32).exp2()).collect();
             let z = self.zoom;
             self.zoom = if inward {
-                levels.iter().copied().find(|&l| l > z * 1.001).unwrap_or(ZOOM_UNIT * 4.0)
+                levels.iter().copied().find(|&l| l > z * 1.001).unwrap_or(hi)
             } else {
                 levels.iter().rev().copied().find(|&l| l < z / 1.001).unwrap_or(levels[0])
             };
             return;
         }
-        let far = far_level();
-        let level = (self.zoom / ZOOM_UNIT).log2().round().clamp(far as f32, 2.0) as i32;
-        let level = if inward { (level + 1).min(2) } else { (level - 1).max(far) };
+        let level = (self.zoom / ZOOM_UNIT).log2().round().clamp(far as f32, near as f32) as i32;
+        let level = if inward { (level + 1).min(near) } else { (level - 1).max(far) };
         self.zoom = ZOOM_UNIT * (level as f32).exp2();
     }
 

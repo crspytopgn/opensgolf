@@ -201,8 +201,8 @@ const PAGE_LINES: [&[ExtrasLine]; 8] = {
         // design names, editing what golfers say
         &[Group(0), Group(1), Group(2), U(39), U(19), U(4), U(32), U(37), U(43)],
         // the faster top speed, the hole flyover, showing a whole hole, practising a hole, challenges and the design lab,
-        // pausing while the pro aims
-        &[U(38), U(29), U(40), U(42), U(33), U(30)],
+        // pausing while the pro aims, more zoom and tilt
+        &[U(38), U(29), U(40), U(42), U(33), U(30), U(46)],
         // autosave, the Load list newest first (with backups), import and export saved games, sharing, save pictures
         &[U(5), U(31), U(22), U(7), U(6)],
         // zoom towards the pointer, right click puts the tool away, drag to place, right-drag panning, edge scrolling, mouse
@@ -350,6 +350,7 @@ const UI_DESC: [&str; crate::extras::UI_KEYS.len()] = [
     "STR_EXTRAS_DESC_GOLFER_LINES",
     "STR_EXTRAS_DESC_FINE_HEIGHT",
     "STR_EXTRAS_DESC_DARK_MENUS",
+    "STR_EXTRAS_DESC_CAMERA_MORE",
 ];
 
 /// A line's description (what ticking it changes; for the preset line, what the preset in use is).
@@ -1152,8 +1153,8 @@ mod tests {
         assert_eq!(page_lines(7), [14, 25, 15, 20, 27, 24, 41, 44, 8, 9].map(ExtrasLine::Ui));
         // the Saves page holds the saving and sharing ticks only, autosave first
         assert_eq!(page_lines(6), [5, 31, 22, 7, 6].map(ExtrasLine::Ui));
-        // the Play page: the speed, the hole tools, the pro
-        assert_eq!(page_lines(5), [38, 29, 40, 42, 33, 30].map(ExtrasLine::Ui));
+        // the Play page: the speed, the hole tools, the pro, the camera
+        assert_eq!(page_lines(5), [38, 29, 40, 42, 33, 30, 46].map(ExtrasLine::Ui));
         // walk-ins and hole boundaries are gameplay; walk-ins a light touch
         assert_eq!((page_of(ExtrasLine::Game(x::WALK_INS)), tag(ExtrasLine::Game(x::WALK_INS))), (Some(0), Some(Tag::Light)));
         assert_eq!((page_of(ExtrasLine::Game(x::BOUNDS)), tag(ExtrasLine::Game(x::BOUNDS))), (Some(0), Some(Tag::Noticeable)));

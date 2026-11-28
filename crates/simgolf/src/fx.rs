@@ -915,7 +915,7 @@ pub fn water_on() -> bool {
 
 /// The rotation of the view (eye from world), as render_world builds it.
 pub(crate) fn view_rotation(app: &App) -> [f32; 16] {
-    Mat4::rotate(crate::app::pitch_for(app.draw_w, app.draw_h), 1.0, 0.0, 0.0).mul(&Mat4::rotate((45.0 + app.rot) as f64, 0.0, 1.0, 0.0)).0
+    Mat4::rotate(app.pitch(), 1.0, 0.0, 0.0).mul(&Mat4::rotate((45.0 + app.rot) as f64, 0.0, 1.0, 0.0)).0
 }
 
 /// An eye-space direction in world space (the view's rotation transposed).
@@ -988,7 +988,7 @@ impl App {
         let s = settings();
         let need = s.shadows || s.occlusion || s.water || s.mist;
         let n = per_tile([2usize, 4, 8][s.quality.min(2) as usize], &self.terrain);
-        let mut light_w = to_world(&view_rotation(self), sg_core::terrain::light_direction());
+        let mut light_w = to_world(&view_rotation(self), self.light_eye());
         let mut sun_q = (0, 0);
         if s.time_of_day {
             light_w = self.fx.atmos.sun_w;
@@ -1128,7 +1128,7 @@ impl App {
                 0.0,
             ],
             eye_w: [rot[2], rot[6], rot[10]],
-            light_w: if atm.tinted { atm.sun_w } else { to_world(&rot, sg_core::terrain::light_direction()) },
+            light_w: if atm.tinted { atm.sun_w } else { to_world(&rot, self.light_eye()) },
             sky_top: atm.sky_top,
             sky_low: atm.sky_low,
             cloud: [atm.cloud, crate::fx_light::CLOUD_REPEAT, atm.cloud_off[0], atm.cloud_off[1]],

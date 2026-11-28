@@ -676,7 +676,7 @@ impl Stage {
     /// (main.rs mouse_motion_event), with the smooth camera's inertia.
     fn finger_pan(&mut self, dx: f32, dy: f32) {
         let k = self.app.upp;
-        let sin_p = (pitch_for(self.app.draw_w, self.app.draw_h).to_radians()).sin() as f32;
+        let sin_p = (self.app.pitch().to_radians()).sin() as f32;
         self.app.xs.follow = None;
         self.app.drag_pan(-dx * k, dy * k / sin_p, self.app.clock);
     }
@@ -700,7 +700,7 @@ impl Stage {
             return;
         }
         let step = EDGE_SPEED * a.draw_h * dt;
-        let sin_p = (pitch_for(a.draw_w, a.draw_h).to_radians()).sin() as f32;
+        let sin_p = (a.pitch().to_radians()).sin() as f32;
         let k = a.upp;
         self.app.pan(px * step * k, -py * step * k / sin_p);
         self.target_drag(finger.0, finger.1);
@@ -713,7 +713,7 @@ impl Stage {
         if self.app.screen == Screen::Play {
             let (dx, dy) = (mid.0 - self.touch.mid.0, mid.1 - self.touch.mid.1);
             let k = self.app.upp;
-            let sin_p = (pitch_for(self.app.draw_w, self.app.draw_h).to_radians()).sin() as f32;
+            let sin_p = (self.app.pitch().to_radians()).sin() as f32;
             self.app.pan(-dx * k, dy * k / sin_p);
             let ratio = spread / self.touch.spread;
             if crate::enhanced::smooth_camera() || self.app.photo.is_some() {
