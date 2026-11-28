@@ -136,8 +136,8 @@ pub struct Prop {
     /// A building's footprint across, in tiles (0 for anything standing on a point): how much of its picture is ground,
     /// which the tilt of More zoom and tilt stretches as it does the course (views.rs `Warp`).
     pub foot: f32,
-    /// The building picture whose shape an overlay (a waving flag, a lit sign) is reshaped by, so that it stays where it is
-    /// on the building instead of being read as standing on the ground by itself.
+    /// The building picture whose shape an overlay (a waving flag, a lit sign) or the lot under it is reshaped by, so that
+    /// it stays where it is on the building instead of being read as standing on (or being) the ground by itself.
     pub shape_of: Option<usize>,
 }
 
@@ -5569,7 +5569,7 @@ impl App {
                     tv,
                     grow_tile,
                     foot,
-                    shape_of: if animated { main } else { None },
+                    shape_of: if animated || flat { main } else { None },
                     ..Default::default()
                 });
             }

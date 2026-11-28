@@ -353,12 +353,16 @@ impl App {
             // More zoom and tilt (views.rs Warp): the picture's ground stretched like the course, what stands on it like a
             // height; a flat base or a shadow is all ground
             let warp = app.sprite_warp();
-            let ground_only = shadow || p.flat;
+            // a shadow, and a building's lot under it, are reshaped with what casts it (a building by its picture's shape),
+            // so the part the original hides behind the walls or a tree's crown stays hidden: stretched as ground it
+            // showed as smears behind roofs and trees
+            let ground_only = p.flat && p.shape_of.is_none();
             // a building's shape across its picture (views.rs shape), in world units from the anchor
             let edges: Vec<crate::views::Column> = if !warp.is_none() && !ground_only && p.foot > 0.0 {
-                match p.shape_of {
-                    Some(m) => app.base_edges(m, view, 0),
-                    None => app.base_edges(si, view, p.frame),
+                match (p.shape_of, shadow, p.body) {
+                    (Some(m), _, _) => app.base_edges(m, view, 0),
+                    (None, true, Some(b)) => app.base_edges(b, view, p.frame),
+                    _ => app.base_edges(si, view, p.frame),
                 }
                 .iter()
                 .map(|c| crate::views::Column { x: c.x * s, base: c.base * s, back: c.back * s, top: c.top * s })
@@ -413,10 +417,17 @@ impl App {
                     let mut xs: Vec<f32> = edges.iter().map(|e| e.x).filter(|&x| x > l && x < r).collect();
                     xs.insert(0, l);
                     xs.push(r);
+                    // and in rows: the stretch changes across the columns, and one tall quad per column bends the picture
+                    // along its diagonal (saw-toothed rails, awnings and flower beds)
+                    const ROWS: usize = 16;
                     for w in xs.windows(2) {
                         let (x0, x1) = (w[0], w[1]);
                         let (u0, u1) = ((x0 - l) / (r - l), (x1 - l) / (r - l));
-                        g.quad(Mode::Flat, Some(tex), u, [c(x0, t, u0, 0.0), c(x1, t, u1, 0.0), c(x1, b, u1, 1.0), c(x0, b, u0, 1.0)]);
+                        for k in 0..ROWS {
+                            let (v0, v1) = (k as f32 / ROWS as f32, (k + 1) as f32 / ROWS as f32);
+                            let (y0, y1) = (t + (b - t) * v0, t + (b - t) * v1);
+                            g.quad(Mode::Flat, Some(tex), u, [c(x0, y0, u0, v0), c(x1, y0, u1, v0), c(x1, y1, u1, v1), c(x0, y1, u0, v1)]);
+                        }
                     }
                 }
                 None => g.quad(Mode::Flat, Some(tex), u, [c(l, t, 0.0, 0.0), c(r, t, 1.0, 0.0), c(r, b, 1.0, 1.0), c(l, b, 0.0, 1.0)]),
