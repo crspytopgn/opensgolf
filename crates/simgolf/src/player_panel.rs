@@ -113,9 +113,10 @@ const TOTAL_ROOM: f32 = 35.0;
 /// Where the scorecard's first cell starts (x 436, hole 1's numbers centred on 444): the row labels and the two lines on
 /// the round keep left of it (issue #164).
 const CARD_CELLS: f32 = 436.0;
-/// Where the lines on the round end at most (issue #164): about where "Hole" starts (x 410), as far as the English
-/// "Professional" and "Tournament" from x 325 reach in the free set's face (413 and 411).
-const LINE_END: f32 = 414.0;
+/// Where the lines on the round end at most (issue #164): at the dark header's edge (x 403) and a pixel, as far as the
+/// English "Professional" from x 325 reaches in the original's face. In the free set's wider face "Professional" and
+/// "Tournament" would reach 413 and 411, over the header and its "Hole" and "Par", so they are drawn a little smaller.
+const LINE_END: f32 = 404.0;
 /// The labels' room right of the lines on the round when they move left (a gap, and two pixels before the first cell).
 const LABEL_GAP: f32 = 3.0;
 /// The left edge of the dark header the labels are drawn on (its outline at x 403 on the cover cut): a label that moves

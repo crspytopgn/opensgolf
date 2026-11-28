@@ -107,8 +107,10 @@ pub struct Settings {
     pub fx_sharpen: bool,
     /// Snow cover, falling snow and icy ponds early and late in the year (fx_winter.rs).
     pub fx_winter: bool,
-    /// Spectators, a grandstand and fireworks at tournaments (fx_crowd.rs).
-    pub fx_crowds: bool,
+    /// A gallery of spectators behind ropes round the last green (and the greens in play) at tournaments (fx_crowd.rs).
+    /// Off by default; named apart from the earlier `fx_crowds` (on by default, spectators on the fairways) so settings
+    /// saved with that one start with the gallery off.
+    pub fx_gallery: bool,
     /// Birds overhead, butterflies over flower beds, autumn leaves falling (fx_life.rs).
     pub fx_life: bool,
     /// How long a day of light lasts: 0 short (a game month), 1 normal (three months), 2 long (six) (fx_light.rs).
@@ -189,7 +191,8 @@ impl Settings {
         fx_grass: true,
         fx_sharpen: true,
         fx_winter: true,
-        fx_crowds: true,
+        // offered, not on by default (Michael, 2026-11-28)
+        fx_gallery: false,
         fx_life: true,
         fx_day_length: 1,
         fx_water_colour: true,
@@ -472,7 +475,7 @@ pub const OPTIONS: &[OptionEntry] = &[
     tick!("fx_grass", "STR_ENHANCED_FX_GRASS", EFFECTS, fx_grass),
     tick!("fx_sharpen", "STR_ENHANCED_FX_SHARPEN", EFFECTS, fx_sharpen),
     tick!("fx_winter", "STR_ENHANCED_FX_WINTER", WEATHER, fx_winter),
-    tick!("fx_crowds", "STR_ENHANCED_FX_CROWDS", EFFECTS, fx_crowds),
+    tick!("fx_gallery", "STR_ENHANCED_FX_CROWDS", EFFECTS, fx_gallery),
     tick!("fx_life", "STR_ENHANCED_FX_LIFE", EFFECTS, fx_life),
     tick!("fx_mist", "STR_ENHANCED_FX_MIST", WEATHER, fx_mist),
     tick!("fx_wind", "STR_ENHANCED_FX_WIND", WEATHER, fx_wind),
@@ -662,13 +665,13 @@ fn slower(mut s: Settings, msaa_counts: bool) -> Option<(Settings, &'static str)
         s.msaa = false;
         return Some((s, "STR_ENHANCED_SLOW_MSAA"));
     }
-    let heavy = s.fx_cast_shadows || s.fx_reflections || s.fx_bloom || s.fx_grass || s.fx_crowds || s.fx_quality > 0;
+    let heavy = s.fx_cast_shadows || s.fx_reflections || s.fx_bloom || s.fx_grass || s.fx_gallery || s.fx_quality > 0;
     if heavy {
         s.fx_cast_shadows = false;
         s.fx_reflections = false;
         s.fx_bloom = false;
         s.fx_grass = false;
-        s.fx_crowds = false;
+        s.fx_gallery = false;
         s.fx_quality = 0;
         return Some((s, "STR_ENHANCED_SLOW_EFFECTS"));
     }
@@ -775,7 +778,7 @@ pub fn desc_key(key: &str) -> Option<&'static str> {
         "fx_quality" => "STR_ENHANCED_DESC_FX_QUALITY",
         "fx_grass" => "STR_ENHANCED_DESC_FX_GRASS",
         "fx_sharpen" => "STR_ENHANCED_DESC_FX_SHARPEN",
-        "fx_crowds" => "STR_ENHANCED_DESC_FX_CROWDS",
+        "fx_gallery" => "STR_ENHANCED_DESC_FX_CROWDS",
         "fx_life" => "STR_ENHANCED_DESC_FX_LIFE",
         "fx_sky" => "STR_ENHANCED_DESC_FX_SKY",
         "fx_time_of_day" => "STR_ENHANCED_DESC_FX_TIME_OF_DAY",
