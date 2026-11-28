@@ -51,7 +51,7 @@ impl App {
         // inside it when zoomed out (the original's +-5000 on 50 x 50 and smaller)
         let depth = DEPTH_RANGE * (self.terrain.w.max(self.terrain.h) as f32 / sg_core::mapsize::ORIGINAL as f32).max(1.0);
         let proj = Mat4::ortho(-hw, hw, -hh, hh, -depth, depth);
-        let mv = Mat4::rotate(pitch_for(self.draw_w, self.draw_h), 1.0, 0.0, 0.0)
+        let mv = Mat4::rotate(self.pitch(), 1.0, 0.0, 0.0)
             .mul(&Mat4::rotate((45.0 + self.view_rot()) as f64, 0.0, 1.0, 0.0))
             .mul(&Mat4::translate(-self.cam_x, 0.0, -self.cam_z));
         // Terrain.dll's light 0: the theme's Lighting.txt colours, a direction fixed in eye space, OpenGL's default material
@@ -62,7 +62,7 @@ impl App {
         lit.light_amb = self.light.ambient.map(|v| v * BRIGHTNESS);
         lit.light_dif = self.light.diffuse.map(|v| v * BRIGHTNESS);
         lit.light_spec = self.light.specular;
-        lit.light_dir = sg_core::terrain::light_direction();
+        lit.light_dir = self.light_eye();
         let mut overlay = lit;
         overlay.alpha_ref = 0.04;
         if crate::fx::active() {
@@ -350,7 +350,54 @@ impl App {
             let flip = if p.mirror { -1.0 } else { 1.0 };
             // the frame's place on its texture (all of it, or its part of an atlas page)
             let uv = if tex == st.id { st } else { STex::whole(tex) };
+            // More zoom and tilt (views.rs Warp): the picture's ground stretched like the course, what stands on it like a
+            // height; a flat base or a shadow is all ground
+            let warp = app.sprite_warp();
+            // a shadow, and a building's lot under it, are reshaped with what casts it (a building by its picture's shape),
+            // so the part the original hides behind the walls or a tree's crown stays hidden: stretched as ground it
+            // showed as smears behind roofs and trees
+            let ground_only = p.flat && p.shape_of.is_none();
+            // a building's shape across its picture (views.rs shape), in world units from the anchor
+            let edges: Vec<crate::views::Column> = if !warp.is_none() && !ground_only && p.foot > 0.0 {
+                match (p.shape_of, shadow, p.body) {
+                    (Some(m), _, _) => app.base_edges(m, view, 0),
+                    (None, true, Some(b)) => app.base_edges(b, view, p.frame),
+                    _ => app.base_edges(si, view, p.frame),
+                }
+                .iter()
+                .map(|c| crate::views::Column { x: c.x * s, base: c.base * s, back: c.back * s, top: c.top * s })
+                .collect()
+            } else {
+                Vec::new()
+            };
+            let edge_at = |x: f32| -> crate::views::Column {
+                match edges.iter().position(|e| e.x >= x) {
+                    None => edges.last().copied().unwrap_or_default(),
+                    Some(0) => edges[0],
+                    Some(k) => {
+                        let (a, b) = (edges[k - 1], edges[k]);
+                        let f = (x - a.x) / (b.x - a.x).max(1e-6);
+                        let m = |u: f32, v: f32| u + (v - u) * f;
+                        crate::views::Column { x, base: m(a.base, b.base), back: m(a.back, b.back), top: m(a.top, b.top) }
+                    }
+                }
+            };
+            // a tree keeps its round crown, a person shrinks less (views.rs Warp::y_tree, y_figure)
+            let tree = !ground_only && (p.tree || p.scenic);
+            let figure = !ground_only && (p.golfer.is_some() || p.employee.is_some());
+            let reshape = |cx: f32, cy: f32| {
+                if warp.is_none() {
+                    cy
+                } else if tree {
+                    warp.y_tree(cy, t)
+                } else if figure {
+                    warp.y_figure(cy)
+                } else {
+                    warp.y(cy, edge_at(cx), ground_only)
+                }
+            };
             let c = |cx: f32, cy: f32, tu: f32, tv: f32| {
+                let cy = reshape(cx, cy);
                 let cx = cx * flip;
                 let (tu, tv) = uv.at(tu, tv);
                 let v = Vert::new(p.x + rx * cx + ux * cy, y + ry * cx + uy * cy, p.z + rz * cx + uz * cy, tu, tv);
@@ -365,11 +412,30 @@ impl App {
                         g.quad(Mode::Flat, Some(tex), u, q.map(|(x, y, tu, tv)| c(x, y, tu, tv)));
                     }
                 }
+                // tilted, a building is drawn in the columns of its shape (views.rs Warp), each reshaped evenly
+                None if edges.len() > 1 => {
+                    let mut xs: Vec<f32> = edges.iter().map(|e| e.x).filter(|&x| x > l && x < r).collect();
+                    xs.insert(0, l);
+                    xs.push(r);
+                    // and in rows: the stretch changes across the columns, and one tall quad per column bends the picture
+                    // along its diagonal (saw-toothed rails, awnings and flower beds)
+                    const ROWS: usize = 16;
+                    for w in xs.windows(2) {
+                        let (x0, x1) = (w[0], w[1]);
+                        let (u0, u1) = ((x0 - l) / (r - l), (x1 - l) / (r - l));
+                        for k in 0..ROWS {
+                            let (v0, v1) = (k as f32 / ROWS as f32, (k + 1) as f32 / ROWS as f32);
+                            let (y0, y1) = (t + (b - t) * v0, t + (b - t) * v1);
+                            g.quad(Mode::Flat, Some(tex), u, [c(x0, y0, u0, v0), c(x1, y0, u1, v0), c(x1, y1, u1, v1), c(x0, y1, u0, v1)]);
+                        }
+                    }
+                }
                 None => g.quad(Mode::Flat, Some(tex), u, [c(l, t, 0.0, 0.0), c(r, t, 1.0, 0.0), c(r, b, 1.0, 1.0), c(l, b, 0.0, 1.0)]),
             }
             if let Some((gt, alpha)) = glow {
                 let e = crate::fx_night::GLOW_PAD as f32 * s;
                 let w = |x: f32, y: f32, tu: f32, tv: f32| {
+                    let y = reshape(x, y);
                     Vert::new(p.x + rx * x + ux * y, y0 + ry * x + uy * y, p.z + rz * x + uz * y, tu, tv).col([1.0, 1.0, 1.0, alpha])
                 };
                 g.quad(

@@ -659,6 +659,7 @@ lets it run on while the photo is framed. The mouse pointer hides after 2.5 seco
 | drag, arrows | move the camera (with the smooth camera's glide, whatever the *Smooth camera* tick) |
 | wheel, pinch, Z / X, + / - | zoom smoothly from half the original's farthest level to four times its closest |
 | PageUp / Home, a two-finger twist | turn the view a quarter |
+| End / PageDown, Ctrl with the wheel | tilt the camera towards the horizon / straight down |
 | click or tap | put the focus there (the focus blur is sharp round it) |
 | F | the focus blur on (strength 3) or off; [ and ] weaken and strengthen it (1 to 5) |
 | L (Shift+L back) | the look: Natural (the theme's own grade), Warm, Vivid, B&W, Vintage |

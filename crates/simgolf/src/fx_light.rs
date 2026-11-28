@@ -505,7 +505,7 @@ impl App {
         let look = self.look();
         let mut a = Atmos { sky_top: look.sky_top, sky_low: look.sky_low, below: look.below, ..Atmos::default() };
         let rot = crate::fx::view_rotation(self);
-        let base = crate::fx::to_world(&rot, sg_core::terrain::light_direction());
+        let base = crate::fx::to_world(&rot, self.light_eye());
         a.sun_w = base;
         a.haze_col = look.sky_low;
         // the art's shadow direction along the ground: the screen's right turned a little up it

@@ -318,6 +318,11 @@ pub const ACTIONS: &[Action] = {
         // the port's own Report a problem (bugreport.rs): Shift+F8, which the original leaves unused (it has F8 alone);
         // its box asks before anything opens
         act!("report_problem", "STR_CTL_REPORT_PROBLEM", shifted(F8)),
+        // More zoom and tilt (views.rs; nothing while the extra is off): the tilt on PageDown and End, beside the turns on
+        // PageUp and Home, and the camera back to the original's on Shift+Z, keys the original leaves unused
+        act!("tilt_down", "STR_CTL_TILT_DOWN", plain(PageDown)),
+        act!("tilt_up", "STR_CTL_TILT_UP", plain(End)),
+        act!("camera_reset", "STR_CTL_CAMERA_RESET", shifted(Z)),
     ]
 };
 

@@ -133,6 +133,12 @@ pub struct Prop {
     /// Drawn mirrored left to right about its anchor (a left-handed golfer's swing, the Left-handed golfers extra): an 8 view
     /// sprite then takes the view whose mirror image faces the prop's heading (`prop_view`).
     pub mirror: bool,
+    /// A building's footprint across, in tiles (0 for anything standing on a point): how much of its picture is ground,
+    /// which the tilt of More zoom and tilt stretches as it does the course (views.rs `Warp`).
+    pub foot: f32,
+    /// The building picture whose shape an overlay (a waving flag, a lit sign) or the lot under it is reshaped by, so that
+    /// it stays where it is on the building instead of being read as standing on (or being) the ground by itself.
+    pub shape_of: Option<usize>,
 }
 
 impl Default for Prop {
@@ -170,6 +176,8 @@ impl Default for Prop {
             track: 0,
             phase: 0,
             mirror: false,
+            foot: 0.0,
+            shape_of: None,
         }
     }
 }
@@ -592,6 +600,8 @@ pub struct App {
     pub cam_z: f32,
     pub zoom: f32,
     pub rot: f32,
+    /// The camera's tilt in degrees added to the original's angle (More zoom and tilt, views.rs); 0 is the original's.
+    pub tilt: f32,
     pub draw_w: f32,
     pub draw_h: f32,
     /// Drawable pixels per window point (2 on Retina).
@@ -1052,6 +1062,7 @@ impl App {
             cam_z: 0.0,
             zoom: 0.36,
             rot: 0.0,
+            tilt: 0.0,
             draw_w: 1024.0,
             draw_h: 768.0,
             dpi: 1.0,
@@ -4718,22 +4729,24 @@ impl App {
         Some((x as f32, z as f32))
     }
 
-    /// z / x and the dock's zoom buttons: the next of the exe's three levels (1, 2, 4) in or out.
+    /// z / x and the dock's zoom buttons: the next of the exe's three levels (1, 2, 4) in or out; with More zoom and tilt
+    /// (views.rs) on past them, by doublings, to the ends of `zoom_range`.
     pub fn zoom_step(&mut self, inward: bool) {
+        let (lo, hi) = self.zoom_range();
+        let (far, near) = ((lo / ZOOM_UNIT).log2().round() as i32, (hi / ZOOM_UNIT).log2().round() as i32);
         if crate::enhanced::smooth_camera() {
-            // Enhanced: from a zoom between levels, the next of the three levels that way
-            let levels: Vec<f32> = (far_level()..=2).map(|l| ZOOM_UNIT * (l as f32).exp2()).collect();
+            // Enhanced: from a zoom between levels, the next of the levels that way
+            let levels: Vec<f32> = (far..=near).map(|l| ZOOM_UNIT * (l as f32).exp2()).collect();
             let z = self.zoom;
             self.zoom = if inward {
-                levels.iter().copied().find(|&l| l > z * 1.001).unwrap_or(ZOOM_UNIT * 4.0)
+                levels.iter().copied().find(|&l| l > z * 1.001).unwrap_or(hi)
             } else {
                 levels.iter().rev().copied().find(|&l| l < z / 1.001).unwrap_or(levels[0])
             };
             return;
         }
-        let far = far_level();
-        let level = (self.zoom / ZOOM_UNIT).log2().round().clamp(far as f32, 2.0) as i32;
-        let level = if inward { (level + 1).min(2) } else { (level - 1).max(far) };
+        let level = (self.zoom / ZOOM_UNIT).log2().round().clamp(far as f32, near as f32) as i32;
+        let level = if inward { (level + 1).min(near) } else { (level - 1).max(far) };
         self.zoom = ZOOM_UNIT * (level as f32).exp2();
     }
 
@@ -5533,6 +5546,8 @@ impl App {
             } else {
                 sg_core::objects::building_layers(o.kind, level, theme).iter().map(|l| (l.file.to_string(), l.flat, l.animated)).collect()
             };
+            // the building's own picture: its overlays are reshaped by its shape when tilted (views.rs Warp)
+            let main = layers.iter().find(|l| !l.1 && !l.2).and_then(|l| self.sprite_for(&format!("{}.flc", l.0), false, pal));
             for (file, flat, animated) in layers {
                 let body = self.sprite_for(&format!("{file}.flc"), false, pal);
                 if body.is_none() {
@@ -5541,7 +5556,22 @@ impl App {
                 let shadow = if flat { None } else { self.sprite_for(&format!("{file}Shadow.flc"), true, None) };
                 let tv = (animated && matches!(o.kind, land::K_TV_TOWER | land::K_TV_BOOTH)).then_some((o.a, o.b));
                 let grow_tile = (o.kind == land::K_WASHER).then_some((o.a, o.b));
-                self.props.push(Prop { x, z, body, shadow, flat, facing, animated, object: true, tv, grow_tile, ..Default::default() });
+                let foot = size as f32;
+                self.props.push(Prop {
+                    x,
+                    z,
+                    body,
+                    shadow,
+                    flat,
+                    facing,
+                    animated,
+                    object: true,
+                    tv,
+                    grow_tile,
+                    foot,
+                    shape_of: if animated || flat { main } else { None },
+                    ..Default::default()
+                });
             }
         }
         // the content packs' objects (mods_ui.rs)

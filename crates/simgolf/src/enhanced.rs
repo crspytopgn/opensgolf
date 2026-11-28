@@ -1091,6 +1091,10 @@ struct Track {
 pub struct EnhState {
     /// The zoom as shown (eases towards `App::zoom`); 0 until the first frame.
     pub view_zoom: f32,
+    /// The tilt as shown (eases towards `App::tilt`, views.rs).
+    pub view_tilt: f32,
+    /// Each building frame's base across its picture, for the tilt (views.rs `base_edges`), by sprite and frame.
+    pub base_edges: HashMap<(usize, usize), Vec<crate::views::Column>>,
     /// Degrees still to turn to reach `App::rot` (an animated quarter turn).
     pub rot_left: f32,
     /// The pan still to make (right, up in world units) from an arrow key.
@@ -1143,7 +1147,10 @@ impl App {
     pub fn camera_frame(&mut self, now: f64) {
         let dt = if self.enh.last_frame > 0.0 { (now - self.enh.last_frame).clamp(0.0, 0.1) as f32 } else { 0.0 };
         self.enh.last_frame = now;
+        // a camera past the original's comes back once it may no longer be (More zoom and tilt off, views.rs)
+        self.keep_camera_in_range();
         if !self.smooth_cam() {
+            self.enh.view_tilt = self.tilt;
             self.enh.view_zoom = self.zoom;
             self.enh.rot_left = 0.0;
             self.enh.pan_left = (0.0, 0.0);
@@ -1160,6 +1167,9 @@ impl App {
         let from = self.enh.view_zoom;
         self.enh.view_zoom = if (a - b).abs() < 1e-3 { self.zoom } else { (a + (b - a) * k).exp() };
         self.zoom_anchor_frame(from, self.enh.view_zoom);
+        // the tilt (views.rs)
+        let t = self.enh.view_tilt;
+        self.enh.view_tilt = if (self.tilt - t).abs() < 0.02 { self.tilt } else { t + (self.tilt - t) * k };
         // the turn
         self.enh.rot_left -= self.enh.rot_left * k;
         if self.enh.rot_left.abs() < 0.05 {
@@ -1234,11 +1244,10 @@ impl App {
     }
 
     /// The mouse wheel or a pinch with the smooth camera: the zoom moves continuously between the original's closest and
-    /// farthest levels (a wheel notch is a quarter of a doubling); in photo mode further both ways (photo.rs).
+    /// farthest levels (a wheel notch is a quarter of a doubling); with More zoom and tilt and in photo mode further both
+    /// ways (views.rs zoom_range).
     pub fn zoom_by(&mut self, doublings: f32) {
-        use crate::app::ZOOM_UNIT;
-        // a larger course size zooms further out (app::far_level)
-        let (lo, hi) = if self.photo.is_some() { crate::photo::ZOOM_RANGE } else { (crate::app::far_zoom(), ZOOM_UNIT * 4.0) };
+        let (lo, hi) = self.zoom_range();
         self.zoom = (self.zoom * doublings.exp2()).clamp(lo, hi);
     }
 

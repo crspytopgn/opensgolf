@@ -1,8 +1,8 @@
 //! Photo mode (Enhanced graphics, docs/ENHANCED.md "Photo mode"): the port's own, not in the original. The interface goes
 //! away and the course is shown alone, by default paused so the golfers hold their swing; a free camera (drag or the arrows
-//! to move, the wheel, a pinch or z / x to zoom well past the original's three levels, PageUp / Home to turn), a focus blur
-//! round the point clicked, a few looks (colour grades) and a vignette, all drawn through the effects' post-processing
-//! (fx.rs). A photo is drawn offscreen at the window's size, twice it or 3840 x 2160 and saved as a PNG: on the desktop in
+//! to move, the wheel, a pinch or z / x to zoom well past the original's three levels, PageUp / Home to turn, End /
+//! PageDown or Ctrl with the wheel to tilt), a focus blur round the point clicked, a few looks (colour grades) and a
+//! vignette, all drawn through the effects' post-processing (fx.rs). A photo is drawn offscreen at the window's size, twice it or 3840 x 2160 and saved as a PNG: on the desktop in
 //! the save folder's `Photos`, in the browser as a download, on Android in the app's external files folder's `Photos`.
 //!
 //! Nothing here runs in Classic: photo mode opens only with Enhanced graphics and its effects on (and the Display page's
@@ -43,7 +43,9 @@ struct Saved {
     cam: (f32, f32),
     zoom: f32,
     rot: f32,
+    tilt: f32,
     view_zoom: f32,
+    view_tilt: f32,
     rot_left: f32,
     pan_left: (f32, f32),
     pan_vel: (f32, f32),
@@ -353,7 +355,9 @@ impl App {
             cam: (self.cam_x, self.cam_z),
             zoom: self.zoom,
             rot: self.rot,
+            tilt: self.tilt,
             view_zoom: self.enh.view_zoom,
+            view_tilt: self.enh.view_tilt,
             rot_left: self.enh.rot_left,
             pan_left: self.enh.pan_left,
             pan_vel: self.enh.pan_vel,
@@ -402,7 +406,9 @@ impl App {
         self.rot = s.rot;
         (self.cam_x, self.cam_z) = s.cam;
         self.zoom = s.zoom;
+        self.tilt = s.tilt;
         self.enh.view_zoom = s.view_zoom;
+        self.enh.view_tilt = s.view_tilt;
         self.enh.rot_left = s.rot_left;
         self.enh.pan_left = s.pan_left;
         self.enh.pan_vel = s.pan_vel;
@@ -551,6 +557,9 @@ impl Stage {
             KeyCode::X | KeyCode::Minus | KeyCode::KpSubtract => self.app.zoom_by(-0.5),
             KeyCode::PageUp => self.app.rotate_view(1),
             KeyCode::Home => self.app.rotate_view(-1),
+            // the tilt (views.rs), on the keys More zoom and tilt gives it on the course
+            KeyCode::PageDown => _ = self.app.tilt_by(crate::views::TILT_STEP),
+            KeyCode::End => _ = self.app.tilt_by(-crate::views::TILT_STEP),
             _ => {}
         }
     }
@@ -588,7 +597,7 @@ impl Stage {
         }
         if self.dragging && p.moved {
             let k = self.app.upp;
-            let sin_p = (crate::app::pitch_for(self.app.draw_w, self.app.draw_h).to_radians()).sin() as f32;
+            let sin_p = (self.app.pitch().to_radians()).sin() as f32;
             self.app.drag_pan(-dx * k, dy * k / sin_p, now());
         }
     }
@@ -596,7 +605,10 @@ impl Stage {
     /// The wheel in photo mode: a smooth zoom, a notch a quarter of a doubling.
     pub(crate) fn photo_wheel(&mut self, y: f32) {
         self.photo_poke();
-        if y != 0.0 {
+        if y != 0.0 && self.ctrl {
+            // Ctrl with the wheel tilts (views.rs)
+            self.app.tilt_by(y.clamp(-2.0, 2.0) * crate::views::TILT_STEP * 0.5);
+        } else if y != 0.0 {
             self.app.zoom_by((y * 0.25).clamp(-0.5, 0.5));
         }
     }

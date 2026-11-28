@@ -177,6 +177,8 @@ struct Options {
     size_given: bool,
     zoom: f32,
     rot: f32,
+    /// --tilt: the camera's tilt in degrees (More zoom and tilt, views.rs; a test hook, kept only with the extra on).
+    tilt: f32,
     png_out: Option<PathBuf>,
     /// A replay file to play (replay.rs; a developer's option, not in the usage).
     replay: Option<PathBuf>,
@@ -281,6 +283,7 @@ fn parse_args() -> Options {
         // the exe starts at its closest zoom level, 4
         zoom: app::ZOOM_UNIT * 4.0,
         rot: 0.0,
+        tilt: 0.0,
         png_out: None,
         replay: None,
         time: 0.0,
@@ -357,6 +360,7 @@ fn parse_args() -> Options {
             }
             "--zoom" => o.zoom = next().parse().unwrap_or(app::ZOOM_UNIT * 4.0),
             "--rot" => o.rot = next().parse().unwrap_or(0.0),
+            "--tilt" => o.tilt = next().parse().unwrap_or(0.0),
             "--png" => o.png_out = Some(PathBuf::from(next())),
             // a report's replay file played again (replay.rs; CONTRIBUTING.md "Replays")
             "--replay" => o.replay = Some(PathBuf::from(next())),
@@ -1476,6 +1480,8 @@ impl Stage {
         app.seed = o.seed;
         app.zoom = o.zoom;
         app.rot = o.rot;
+        app.tilt = o.tilt.clamp(views::TILT_RANGE.0, views::TILT_RANGE.1);
+        app.enh.view_tilt = app.tilt;
         app.time = o.time;
         app.follow = o.follow;
         app.mute = o.mute;
@@ -2881,6 +2887,21 @@ impl Stage {
             self.app.open_cheats();
             return;
         }
+        // More zoom and tilt (views.rs): the tilt and the camera back to the original's; nothing while the extra is off
+        if crate::extras::camera_more() {
+            if act == Some(controls::action("tilt_down")) {
+                self.app.tilt_by(views::TILT_STEP);
+                return;
+            }
+            if act == Some(controls::action("tilt_up")) {
+                self.app.tilt_by(-views::TILT_STEP);
+                return;
+            }
+            if act == Some(controls::action("camera_reset")) {
+                self.app.reset_camera();
+                return;
+            }
+        }
         // the port's own measuring tape (build_tools.rs)
         if act == Some(controls::action("tape")) {
             let at = self.pointer_ground();
@@ -4046,7 +4067,7 @@ impl EventHandler for Stage {
                 }
             }
             let k = self.app.upp; // drawable pixels -> world units
-            let sin_p = (pitch_for(self.app.draw_w, self.app.draw_h).to_radians()).sin() as f32;
+            let sin_p = (self.app.pitch().to_radians()).sin() as f32;
             self.app.drag_pan(-dx * k, dy * k / sin_p, now());
         }
     }
@@ -4083,7 +4104,9 @@ impl EventHandler for Stage {
             // small turns
             // Zoom towards the pointer (views.rs; an OpenSGolf extra, off by default) keeps the ground under it in place
             let at = self.mouse;
-            if enhanced::smooth_camera() {
+            if self.ctrl && self.app.tilt_by(y.clamp(-2.0, 2.0) * views::TILT_STEP * 0.5) {
+                // More zoom and tilt (views.rs): Ctrl with the wheel tilts, up towards straight down
+            } else if enhanced::smooth_camera() {
                 // Enhanced: a notch is a quarter of a doubling, between the original's closest and farthest levels
                 self.app.zoom_about(at, |a| a.zoom_by((y * 0.25).clamp(-0.5, 0.5)));
             } else {

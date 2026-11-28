@@ -86,6 +86,11 @@
 //!   pointer, and the pointer on one of them on the course names it ("Japanese maple", "Purple irises, walled bed"),
 //!   where the original names none of them. On the Info page.
 //!
+//! * more zoom and tilt (views.rs `zoom_range`, `tilt_by`): the overhead camera zooms out to half the original's farthest
+//!   level and in to eight times its closest, and tilts from low over the ground to nearly straight down (End and
+//!   PageDown, or Ctrl with the wheel). The camera starts at the original's view, and Shift+Z puts the zoom and the angle
+//!   back. A look: the rules keyed to the zoom read the nearest of the original's three levels. On the Play page.
+//!
 //! With every extra off the game draws and plays exactly as before they existed (each hook asks its switch first).
 use serde::{Deserialize, Serialize};
 use std::cell::Cell;
@@ -201,6 +206,11 @@ pub struct Settings {
     /// The port's own boxes and the launcher in dark colours (glass_ui.rs, launcher.rs). Off by default.
     #[serde(default)]
     pub dark_menus: bool,
+    /// The overhead camera zooms further in and out than the original's three levels and tilts (views.rs `zoom_range`,
+    /// `tilt_by`). Off by default: the original's camera has three zooms and one angle. It always starts at the original's
+    /// view; the reset key puts it back.
+    #[serde(default)]
+    pub camera_more: bool,
 }
 
 impl Settings {
@@ -256,6 +266,7 @@ impl Settings {
         golfer_lines: true,
         fine_height: false,
         dark_menus: false,
+        camera_more: true,
     };
     pub const ALL_OFF: Settings = Settings {
         people: false,
@@ -304,6 +315,7 @@ impl Settings {
         golfer_lines: false,
         fine_height: false,
         dark_menus: false,
+        camera_more: false,
     };
 
     /// The ticks as the Extras box's checkbox bits (in `UI_KEYS` order).
@@ -355,6 +367,7 @@ impl Settings {
             self.golfer_lines,
             self.fine_height,
             self.dark_menus,
+            self.camera_more,
         ]
         .iter()
         .enumerate()
@@ -410,6 +423,7 @@ impl Settings {
             golfer_lines: on(43),
             fine_height: on(44),
             dark_menus: on(45),
+            camera_more: on(46),
         }
     }
 
@@ -453,7 +467,7 @@ impl Default for Settings {
 
 /// The interface extras' lines on the Extras box's Interface page (extras_ui.rs), one tick per extra in `Settings::bits`
 /// order (text keys in lang/en.txt).
-pub const UI_KEYS: [&str; 46] = [
+pub const UI_KEYS: [&str; 47] = [
     "STR_EXTRAS_PEOPLE",
     "STR_EXTRAS_HISTORY",
     "STR_EXTRAS_NAME_TAGS",
@@ -500,6 +514,7 @@ pub const UI_KEYS: [&str; 46] = [
     "STR_EXTRAS_GOLFER_LINES",
     "STR_EXTRAS_FINE_HEIGHT",
     "STR_EXTRAS_DARK_MENUS",
+    "STR_EXTRAS_CAMERA_MORE",
 ];
 
 /// The update check's value when settings.json has none (`Settings::update_check`).
@@ -681,6 +696,10 @@ pub fn fine_height() -> bool {
 /// Whether the dark menus extra is ticked.
 pub fn dark_menus() -> bool {
     settings().dark_menus
+}
+/// Whether the more zoom and tilt extra is ticked.
+pub fn camera_more() -> bool {
+    settings().camera_more
 }
 pub fn random_trees() -> bool {
     settings().random_trees
@@ -1514,7 +1533,7 @@ mod tests {
         let f = Settings { save_files: true, ..Settings::ALL_OFF };
         assert_eq!(f.bits(), 1 << 22);
         assert_eq!(Settings::from_bits(f.bits()), f);
-        assert_eq!(UI_KEYS.len(), 46);
+        assert_eq!(UI_KEYS.len(), 47);
     }
 
     #[test]

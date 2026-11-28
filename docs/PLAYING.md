@@ -1259,6 +1259,20 @@ The port's own camera helpers (crates/simgolf/src/views.rs); nothing changes unt
   Shift+Alt+1 to 4 go back to a bookmark and Ctrl+Shift+1 to 4 keep one (for keyboards whose F keys need Fn).
 - **Middle button drag**: dragging with the middle mouse button moves the course whatever tool is held (with the smooth
   camera it coasts on when let go).
+- **More zoom and tilt**: an OpenSGolf extra (Preferences, *Game options...*, Play page, *More zoom and tilt*), off by
+  default and on with the *Original + helpers* and *OpenSGolf* presets. With it the zoom (z / x, the wheel, a pinch, the
+  dock's buttons) goes on past the original's three levels: three doublings closer than its closest and one further out
+  than its farthest, the range photo mode has. **End** and **PageDown** (beside the turns on PageUp and Home) tilt the
+  camera five degrees at a time, from about 15 degrees down (low over the ground) to about 70, and **Ctrl** with the wheel tilts it too.
+  **Shift+Z** puts the camera back to the original's view: no tilt and the nearest of the original's zoom levels. The
+  camera starts at the original's view each time the game starts, so nothing changes until you use it; turning the extra
+  off puts the original's range and angle back at once. Only the camera moves: the light stays where it is over the
+  course, the art is the original's, drawn for the original's angle, so each picture is reshaped for the tilt: the part that is
+  ground (a building's footprint, its base, the shadows) stretches as the course does, and what stands on it (walls and
+  roofs) as a height does, shorter from above and taller from low down, so buildings keep to their tiles; a tree's
+  round crown keeps its size, and people shrink only a little from above; and the rules keyed to the zoom (thought bubbles, golfer names, home names) read the nearest of the
+  original's levels. Camera bookmarks keep the tilt too. The keys can be moved in Change keys. Kept as `camera_more`
+  under `ui_extras` in `settings.json`.
 - **Zoom towards the pointer**: an OpenSGolf extra (Preferences, *Game options...*, Controls page, *Controls: zoom
   towards the pointer*), off by default and part of the *Modern controls* preset: see *OpenSGolf extras* above.
 - **The right button** is the original's: on the course a right click with a building, path or amenity tool in hand,
