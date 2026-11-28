@@ -133,6 +133,9 @@ pub struct Prop {
     /// Drawn mirrored left to right about its anchor (a left-handed golfer's swing, the Left-handed golfers extra): an 8 view
     /// sprite then takes the view whose mirror image faces the prop's heading (`prop_view`).
     pub mirror: bool,
+    /// A building's footprint across, in tiles (0 for anything standing on a point): how much of its picture is ground,
+    /// which the tilt of More zoom and tilt stretches as it does the course (views.rs `Warp`).
+    pub foot: f32,
 }
 
 impl Default for Prop {
@@ -170,6 +173,7 @@ impl Default for Prop {
             track: 0,
             phase: 0,
             mirror: false,
+            foot: 0.0,
         }
     }
 }
@@ -5546,7 +5550,21 @@ impl App {
                 let shadow = if flat { None } else { self.sprite_for(&format!("{file}Shadow.flc"), true, None) };
                 let tv = (animated && matches!(o.kind, land::K_TV_TOWER | land::K_TV_BOOTH)).then_some((o.a, o.b));
                 let grow_tile = (o.kind == land::K_WASHER).then_some((o.a, o.b));
-                self.props.push(Prop { x, z, body, shadow, flat, facing, animated, object: true, tv, grow_tile, ..Default::default() });
+                let foot = size as f32;
+                self.props.push(Prop {
+                    x,
+                    z,
+                    body,
+                    shadow,
+                    flat,
+                    facing,
+                    animated,
+                    object: true,
+                    tv,
+                    grow_tile,
+                    foot,
+                    ..Default::default()
+                });
             }
         }
         // the content packs' objects (mods_ui.rs)

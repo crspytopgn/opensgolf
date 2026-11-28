@@ -1093,6 +1093,8 @@ pub struct EnhState {
     pub view_zoom: f32,
     /// The tilt as shown (eases towards `App::tilt`, views.rs).
     pub view_tilt: f32,
+    /// Each building frame's base across its picture, for the tilt (views.rs `base_edges`), by sprite and frame.
+    pub base_edges: HashMap<(usize, usize), Vec<(f32, f32)>>,
     /// Degrees still to turn to reach `App::rot` (an animated quarter turn).
     pub rot_left: f32,
     /// The pan still to make (right, up in world units) from an arrow key.

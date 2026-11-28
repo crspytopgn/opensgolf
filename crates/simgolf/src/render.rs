@@ -350,7 +350,28 @@ impl App {
             let flip = if p.mirror { -1.0 } else { 1.0 };
             // the frame's place on its texture (all of it, or its part of an atlas page)
             let uv = if tex == st.id { st } else { STex::whole(tex) };
+            // More zoom and tilt (views.rs Warp): the picture's ground stretched like the course, what stands on it like a
+            // height; a flat base or a shadow is all ground
+            let warp = app.sprite_warp();
+            let ground_only = shadow || p.flat;
+            // a building's base across its picture (world units from the anchor), which the tilt keeps on the ground
+            let edges: Vec<(f32, f32)> = if !warp.is_none() && !ground_only && p.foot > 0.0 {
+                app.base_edges(si, view, p.frame).iter().map(|&(x, y)| (x * s, y * s)).collect()
+            } else {
+                Vec::new()
+            };
+            let edge_at = |x: f32| -> f32 {
+                match edges.iter().position(|e| e.0 >= x) {
+                    None => edges.last().map_or(0.0, |e| e.1),
+                    Some(0) => edges[0].1,
+                    Some(k) => {
+                        let (a, b) = (edges[k - 1], edges[k]);
+                        a.1 + (b.1 - a.1) * (x - a.0) / (b.0 - a.0).max(1e-6)
+                    }
+                }
+            };
             let c = |cx: f32, cy: f32, tu: f32, tv: f32| {
+                let cy = warp.y(cy, edge_at(cx), ground_only);
                 let cx = cx * flip;
                 let (tu, tv) = uv.at(tu, tv);
                 let v = Vert::new(p.x + rx * cx + ux * cy, y + ry * cx + uy * cy, p.z + rz * cx + uz * cy, tu, tv);
@@ -365,11 +386,23 @@ impl App {
                         g.quad(Mode::Flat, Some(tex), u, q.map(|(x, y, tu, tv)| c(x, y, tu, tv)));
                     }
                 }
+                // tilted, a building is drawn in the columns of its base (views.rs Warp), each reshaped evenly
+                None if edges.len() > 1 => {
+                    let mut xs: Vec<f32> = edges.iter().map(|e| e.0).filter(|&x| x > l && x < r).collect();
+                    xs.insert(0, l);
+                    xs.push(r);
+                    for w in xs.windows(2) {
+                        let (x0, x1) = (w[0], w[1]);
+                        let (u0, u1) = ((x0 - l) / (r - l), (x1 - l) / (r - l));
+                        g.quad(Mode::Flat, Some(tex), u, [c(x0, t, u0, 0.0), c(x1, t, u1, 0.0), c(x1, b, u1, 1.0), c(x0, b, u0, 1.0)]);
+                    }
+                }
                 None => g.quad(Mode::Flat, Some(tex), u, [c(l, t, 0.0, 0.0), c(r, t, 1.0, 0.0), c(r, b, 1.0, 1.0), c(l, b, 0.0, 1.0)]),
             }
             if let Some((gt, alpha)) = glow {
                 let e = crate::fx_night::GLOW_PAD as f32 * s;
                 let w = |x: f32, y: f32, tu: f32, tv: f32| {
+                    let y = warp.y(y, edge_at(x), ground_only);
                     Vert::new(p.x + rx * x + ux * y, y0 + ry * x + uy * y, p.z + rz * x + uz * y, tu, tv).col([1.0, 1.0, 1.0, alpha])
                 };
                 g.quad(

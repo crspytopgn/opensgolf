@@ -9,7 +9,7 @@
 //!   the ground under the pointer (or between the fingers) where it is on the screen, at the original's three levels and
 //!   with Enhanced graphics' smooth zoom alike (the original zooms about the middle of the screen).
 //! * More zoom and tilt (Preferences > OpenSGolf extras, off by default; on with Original + helpers): the zoom goes on past
-//!   the original's three levels, out to half its farthest and in to four times its closest (photo mode's range), and the
+//!   the original's three levels, out to half its farthest and in to eight times its closest, and the
 //!   camera tilts from [`TILT_RANGE`]'s low angle to nearly straight down (End and PageDown, Ctrl with the wheel). The
 //!   camera starts at the original's view each run and Shift+Z (`reset_camera`) puts it back; with the extra off the
 //!   original's range and angle come back at once. Only the camera moves: the rules keyed to the zoom read the nearest of
@@ -41,9 +41,84 @@ fn is_zero(v: &f32) -> bool {
 
 /// The tilt More zoom and tilt allows, in degrees added to the original's angle of about 40 degrees down (app::pitch_for):
 /// from a lower, flatter look across the course to nearly straight down.
-pub const TILT_RANGE: (f32, f32) = (-15.0, 30.0);
+pub const TILT_RANGE: (f32, f32) = (-25.0, 15.0);
 /// Degrees one press of a tilt key turns the camera; a wheel notch with Ctrl turns half of it.
 pub const TILT_STEP: f32 = 5.0;
+
+/// How a sprite drawn for the original's angle is reshaped for the tilt (More zoom and tilt). The art shows the ground at
+/// the original's angle `p0`, foreshortened by sin p0, and what stands on it by cos p0; tilted to `p`, the course's ground
+/// grows by sin p / sin p0 and heights by cos p / cos p0. A building stands on its base: in each column of its picture
+/// the lowest opaque pixel is where its wall meets the ground ([`App::base_edges`]). That edge sits on the ground and moves
+/// with the course, and everything above it in the column (walls, roof) is stretched as a height from it. So buildings keep
+/// to their tiles, short seen from straight down and tall from low down. A tree or a person stands on its anchor, and a
+/// flat base or a shadow is all ground. At no tilt both stretches are 1 and the picture is the original's.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Warp {
+    /// The ground's and the heights' stretch up the screen.
+    pub ground: f32,
+    pub height: f32,
+}
+
+/// Columns a building's picture is cut into to follow its base (`App::base_edges`).
+pub const BASE_COLUMNS: usize = 16;
+
+impl Warp {
+    pub const NONE: Warp = Warp { ground: 1.0, height: 1.0 };
+
+    /// A point drawn `cy` above the anchor (world units on the screen, up positive) at the original's angle, in a column
+    /// whose base is drawn at `edge`: its new height when tilted (`ground_only`: a flat base or a shadow).
+    pub fn y(&self, cy: f32, edge: f32, ground_only: bool) -> f32 {
+        if ground_only {
+            return cy * self.ground;
+        }
+        edge * self.ground + (cy - edge) * self.height
+    }
+
+    pub fn is_none(&self) -> bool {
+        self.ground == 1.0 && self.height == 1.0
+    }
+}
+
+/// The lower convex hull of points sorted by x, then read back at every point's x: the straight-sided base under them.
+pub fn lower_hull(pts: &[(f32, f32)]) -> Vec<(f32, f32)> {
+    let mut hull: Vec<(f32, f32)> = Vec::new();
+    for &p in pts {
+        while hull.len() >= 2 {
+            let (a, b) = (hull[hull.len() - 2], hull[hull.len() - 1]);
+            // b is above the line from a to p: not on the lower hull
+            if (b.0 - a.0) * (p.1 - a.1) - (b.1 - a.1) * (p.0 - a.0) <= 0.0 {
+                hull.pop();
+            } else {
+                break;
+            }
+        }
+        hull.push(p);
+    }
+    pts.iter()
+        .map(|&(x, _)| {
+            let k = hull.iter().position(|h| h.0 >= x).unwrap_or(hull.len() - 1);
+            if k == 0 {
+                return (x, hull[0].1);
+            }
+            let (a, b) = (hull[k - 1], hull[k]);
+            (x, a.1 + (b.1 - a.1) * (x - a.0) / (b.0 - a.0).max(1e-6))
+        })
+        .collect()
+}
+
+/// Where a picture's base runs: at each of `BASE_COLUMNS + 1` points across it, the lowest opaque row (pixels from the
+/// top, `None` for an empty column), from its RGBA pixels. Each point looks a little either side, so a thin gap between
+/// columns does not count as no base.
+pub fn base_rows(w: usize, h: usize, px: &[u8]) -> Vec<Option<f32>> {
+    let reach = (w / BASE_COLUMNS / 2).max(1);
+    (0..=BASE_COLUMNS)
+        .map(|k| {
+            let cx = (k * w.saturating_sub(1)) / BASE_COLUMNS;
+            let (x0, x1) = (cx.saturating_sub(reach), (cx + reach).min(w.saturating_sub(1)));
+            (0..h).rev().find(|&y| (x0..=x1).any(|x| px.get((y * w + x) * 4 + 3).is_some_and(|&a| a > 32))).map(|y| (y + 1) as f32)
+        })
+        .collect()
+}
 
 /// Whether the camera may go past the original's: the More zoom and tilt extra, or photo mode (its own free camera).
 fn free(app: &App) -> bool {
@@ -62,11 +137,11 @@ pub fn anchored(cam: (f32, f32), g: (f32, f32), from: f32, to: f32) -> (f32, f32
 
 impl App {
     /// The zoom the camera may take (lowest, highest): the original's farthest and closest levels (a larger course size
-    /// zooms further out, app::far_level), or with More zoom and tilt and in photo mode half the farthest to four times
+    /// zooms further out, app::far_level), or with More zoom and tilt and in photo mode half the farthest to eight times
     /// the closest.
     pub fn zoom_range(&self) -> (f32, f32) {
         if free(self) {
-            (far_zoom() * 0.5, ZOOM_UNIT * 16.0)
+            (far_zoom() * 0.5, ZOOM_UNIT * 32.0)
         } else {
             (far_zoom(), ZOOM_UNIT * 4.0)
         }
@@ -88,6 +163,60 @@ impl App {
     /// The camera's angle down from level (degrees): the original's for the window's size, tilted by More zoom and tilt.
     pub fn pitch(&self) -> f64 {
         pitch_for(self.draw_w, self.draw_h) + self.view_tilt() as f64
+    }
+
+    /// How sprites are reshaped for the tilt as drawn ([`Warp`]); none at the original's angle.
+    pub fn sprite_warp(&self) -> Warp {
+        let t = self.view_tilt();
+        if t == 0.0 {
+            return Warp::NONE;
+        }
+        let p0 = (pitch_for(self.draw_w, self.draw_h) as f32).to_radians();
+        let p = p0 + t.to_radians();
+        Warp { ground: p.sin() / p0.sin(), height: p.cos() / p0.cos() }
+    }
+
+    /// A building's base across its picture, for the tilt ([`Warp`]): (x, height on the screen) in the picture's own
+    /// sprite pixels from its anchor, up positive, at `BASE_COLUMNS + 1` points. An empty column takes its neighbours'
+    /// base, a picture with none its anchor. Kept per frame.
+    pub fn base_edges(&mut self, si: usize, view: i32, frame: i32) -> Vec<(f32, f32)> {
+        let sp = &self.sprites[si].s;
+        let i = sp.frame_index(view, frame);
+        let (ax, ay) = (sp.anchor_x as f32, sp.anchor_y as f32);
+        if let Some(e) = self.enh.base_edges.get(&(si, i)) {
+            return e.clone();
+        }
+        let img = sp.frame(i);
+        let (w, h) = (img.w as usize, img.h as usize);
+        let rows = base_rows(w, h, &img.px);
+        // an empty column takes the nearest base either side (the nearer, or the anchor when there is none)
+        let filled: Vec<f32> = (0..rows.len())
+            .map(|k| {
+                rows[k].unwrap_or_else(|| {
+                    let left = (0..k).rev().find_map(|j| rows[j].map(|r| (k - j, r)));
+                    let right = (k + 1..rows.len()).find_map(|j| rows[j].map(|r| (j - k, r)));
+                    match (left, right) {
+                        (Some(l), Some(r)) => {
+                            if l.0 <= r.0 {
+                                l.1
+                            } else {
+                                r.1
+                            }
+                        }
+                        (Some(l), None) => l.1,
+                        (None, Some(r)) => r.1,
+                        (None, None) => ay,
+                    }
+                })
+            })
+            .collect();
+        let pts: Vec<(f32, f32)> =
+            filled.iter().enumerate().map(|(k, &row)| ((k * w.saturating_sub(1) / BASE_COLUMNS) as f32 - ax, ay - row)).collect();
+        // the base as straight walls meeting at corners: the lower hull of the lowest pixels, so a porch, a step or a
+        // bush in front does not bend the building drawn over it
+        let e = if pts.is_empty() { pts } else { lower_hull(&pts) };
+        self.enh.base_edges.insert((si, i), e.clone());
+        e
     }
 
     /// The course's light in eye space (Terrain.dll's light 0, fixed in eye space at the original's angle), turned with the
@@ -251,12 +380,12 @@ mod tests {
         a.zoom = ZOOM_UNIT * 4.0;
         a.zoom_step(true);
         assert_eq!(a.zoom, ZOOM_UNIT * 4.0, "no closer than the original's closest");
-        // on: two more levels in, one more out, and the tilt within its range
+        // on: three more levels in, one more out, and the tilt within its range
         with_camera_more(true);
-        a.zoom_step(true);
-        a.zoom_step(true);
-        a.zoom_step(true);
-        assert_eq!(a.zoom, ZOOM_UNIT * 16.0);
+        for _ in 0..4 {
+            a.zoom_step(true);
+        }
+        assert_eq!(a.zoom, ZOOM_UNIT * 32.0);
         for _ in 0..20 {
             a.tilt_by(TILT_STEP);
         }
@@ -292,6 +421,29 @@ mod tests {
             assert!((w0[k] - w1[k]).abs() < 1e-4, "{w0:?} {w1:?}");
         }
         crate::extras::set(was);
+    }
+
+    #[test]
+    fn a_base_is_straight_walls_under_the_lowest_pixels() {
+        // a V-shaped base with a bump up in it (a porch drawn higher) and one down (the corner): the hull keeps the V
+        let pts = [(0.0, -10.0), (10.0, -20.0), (20.0, -5.0), (30.0, -40.0), (40.0, -20.0), (50.0, -10.0)];
+        let h = lower_hull(&pts);
+        assert_eq!(h[3], (30.0, -40.0));
+        assert!(h[2].1 < -5.0 && h[1].1 <= -20.0, "{h:?}");
+        // the tilt keeps the base on the ground and stretches what stands on it as a height
+        let w = Warp { ground: 1.5, height: 0.5 };
+        assert_eq!(w.y(-10.0, -10.0, false), -15.0);
+        assert_eq!(w.y(10.0, -10.0, false), -15.0 + 10.0);
+        assert_eq!(w.y(10.0, -10.0, true), 15.0);
+        // an opaque block from row 2 to row 5: its base is under row 5
+        let (wd, ht) = (34, 8);
+        let mut px = vec![0u8; wd * ht * 4];
+        for y in 2..6 {
+            for x in 0..wd {
+                px[(y * wd + x) * 4 + 3] = 255;
+            }
+        }
+        assert!(base_rows(wd, ht, &px).iter().all(|r| *r == Some(6.0)));
     }
 
     #[test]

@@ -87,7 +87,7 @@
 //!   where the original names none of them. On the Info page.
 //!
 //! * more zoom and tilt (views.rs `zoom_range`, `tilt_by`): the overhead camera zooms out to half the original's farthest
-//!   level and in to four times its closest, and tilts from a low, flatter angle to nearly straight down (End and
+//!   level and in to eight times its closest, and tilts from low over the ground to nearly straight down (End and
 //!   PageDown, or Ctrl with the wheel). The camera starts at the original's view, and Shift+Z puts the zoom and the angle
 //!   back. A look: the rules keyed to the zoom read the nearest of the original's three levels. On the Play page.
 //!
