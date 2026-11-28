@@ -136,6 +136,9 @@ pub struct Prop {
     /// A building's footprint across, in tiles (0 for anything standing on a point): how much of its picture is ground,
     /// which the tilt of More zoom and tilt stretches as it does the course (views.rs `Warp`).
     pub foot: f32,
+    /// The building picture whose shape an overlay (a waving flag, a lit sign) is reshaped by, so that it stays where it is
+    /// on the building instead of being read as standing on the ground by itself.
+    pub shape_of: Option<usize>,
 }
 
 impl Default for Prop {
@@ -174,6 +177,7 @@ impl Default for Prop {
             phase: 0,
             mirror: false,
             foot: 0.0,
+            shape_of: None,
         }
     }
 }
@@ -5542,6 +5546,8 @@ impl App {
             } else {
                 sg_core::objects::building_layers(o.kind, level, theme).iter().map(|l| (l.file.to_string(), l.flat, l.animated)).collect()
             };
+            // the building's own picture: its overlays are reshaped by its shape when tilted (views.rs Warp)
+            let main = layers.iter().find(|l| !l.1 && !l.2).and_then(|l| self.sprite_for(&format!("{}.flc", l.0), false, pal));
             for (file, flat, animated) in layers {
                 let body = self.sprite_for(&format!("{file}.flc"), false, pal);
                 if body.is_none() {
@@ -5563,6 +5569,7 @@ impl App {
                     tv,
                     grow_tile,
                     foot,
+                    shape_of: if animated { main } else { None },
                     ..Default::default()
                 });
             }

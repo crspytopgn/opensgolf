@@ -354,24 +354,46 @@ impl App {
             // height; a flat base or a shadow is all ground
             let warp = app.sprite_warp();
             let ground_only = shadow || p.flat;
-            // a building's base across its picture (world units from the anchor), which the tilt keeps on the ground
-            let edges: Vec<(f32, f32)> = if !warp.is_none() && !ground_only && p.foot > 0.0 {
-                app.base_edges(si, view, p.frame).iter().map(|&(x, y)| (x * s, y * s)).collect()
+            // a building's shape across its picture (views.rs shape), in world units from the anchor
+            let edges: Vec<crate::views::Column> = if !warp.is_none() && !ground_only && p.foot > 0.0 {
+                match p.shape_of {
+                    Some(m) => app.base_edges(m, view, 0),
+                    None => app.base_edges(si, view, p.frame),
+                }
+                .iter()
+                .map(|c| crate::views::Column { x: c.x * s, base: c.base * s, back: c.back * s, top: c.top * s })
+                .collect()
             } else {
                 Vec::new()
             };
-            let edge_at = |x: f32| -> f32 {
-                match edges.iter().position(|e| e.0 >= x) {
-                    None => edges.last().map_or(0.0, |e| e.1),
-                    Some(0) => edges[0].1,
+            let edge_at = |x: f32| -> crate::views::Column {
+                match edges.iter().position(|e| e.x >= x) {
+                    None => edges.last().copied().unwrap_or_default(),
+                    Some(0) => edges[0],
                     Some(k) => {
                         let (a, b) = (edges[k - 1], edges[k]);
-                        a.1 + (b.1 - a.1) * (x - a.0) / (b.0 - a.0).max(1e-6)
+                        let f = (x - a.x) / (b.x - a.x).max(1e-6);
+                        let m = |u: f32, v: f32| u + (v - u) * f;
+                        crate::views::Column { x, base: m(a.base, b.base), back: m(a.back, b.back), top: m(a.top, b.top) }
                     }
                 }
             };
+            // a tree keeps its round crown, a person shrinks less (views.rs Warp::y_tree, y_figure)
+            let tree = !ground_only && (p.tree || p.scenic);
+            let figure = !ground_only && (p.golfer.is_some() || p.employee.is_some());
+            let reshape = |cx: f32, cy: f32| {
+                if warp.is_none() {
+                    cy
+                } else if tree {
+                    warp.y_tree(cy, t)
+                } else if figure {
+                    warp.y_figure(cy)
+                } else {
+                    warp.y(cy, edge_at(cx), ground_only)
+                }
+            };
             let c = |cx: f32, cy: f32, tu: f32, tv: f32| {
-                let cy = warp.y(cy, edge_at(cx), ground_only);
+                let cy = reshape(cx, cy);
                 let cx = cx * flip;
                 let (tu, tv) = uv.at(tu, tv);
                 let v = Vert::new(p.x + rx * cx + ux * cy, y + ry * cx + uy * cy, p.z + rz * cx + uz * cy, tu, tv);
@@ -386,9 +408,9 @@ impl App {
                         g.quad(Mode::Flat, Some(tex), u, q.map(|(x, y, tu, tv)| c(x, y, tu, tv)));
                     }
                 }
-                // tilted, a building is drawn in the columns of its base (views.rs Warp), each reshaped evenly
+                // tilted, a building is drawn in the columns of its shape (views.rs Warp), each reshaped evenly
                 None if edges.len() > 1 => {
-                    let mut xs: Vec<f32> = edges.iter().map(|e| e.0).filter(|&x| x > l && x < r).collect();
+                    let mut xs: Vec<f32> = edges.iter().map(|e| e.x).filter(|&x| x > l && x < r).collect();
                     xs.insert(0, l);
                     xs.push(r);
                     for w in xs.windows(2) {
@@ -402,7 +424,7 @@ impl App {
             if let Some((gt, alpha)) = glow {
                 let e = crate::fx_night::GLOW_PAD as f32 * s;
                 let w = |x: f32, y: f32, tu: f32, tv: f32| {
-                    let y = warp.y(y, edge_at(x), ground_only);
+                    let y = reshape(x, y);
                     Vert::new(p.x + rx * x + ux * y, y0 + ry * x + uy * y, p.z + rz * x + uz * y, tu, tv).col([1.0, 1.0, 1.0, alpha])
                 };
                 g.quad(

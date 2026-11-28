@@ -41,17 +41,20 @@ fn is_zero(v: &f32) -> bool {
 
 /// The tilt More zoom and tilt allows, in degrees added to the original's angle of about 40 degrees down (app::pitch_for):
 /// from a lower, flatter look across the course to nearly straight down.
-pub const TILT_RANGE: (f32, f32) = (-25.0, 15.0);
+pub const TILT_RANGE: (f32, f32) = (-25.0, 30.0);
 /// Degrees one press of a tilt key turns the camera; a wheel notch with Ctrl turns half of it.
 pub const TILT_STEP: f32 = 5.0;
 
-/// How a sprite drawn for the original's angle is reshaped for the tilt (More zoom and tilt). The art shows the ground at
-/// the original's angle `p0`, foreshortened by sin p0, and what stands on it by cos p0; tilted to `p`, the course's ground
-/// grows by sin p / sin p0 and heights by cos p / cos p0. A building stands on its base: in each column of its picture
-/// the lowest opaque pixel is where its wall meets the ground ([`App::base_edges`]). That edge sits on the ground and moves
-/// with the course, and everything above it in the column (walls, roof) is stretched as a height from it. So buildings keep
-/// to their tiles, short seen from straight down and tall from low down. A tree or a person stands on its anchor, and a
-/// flat base or a shadow is all ground. At no tilt both stretches are 1 and the picture is the original's.
+/// How a sprite drawn for the original's angle is reshaped for the tilt (More zoom and tilt). Tilting from the original's
+/// angle `p0` to `p` stretches the course's ground up the screen by sin p / sin p0 ([`Warp::ground`]) and heights by
+/// cos p / cos p0 ([`Warp::height`]). A picture is flat, so how much of each of its parts is ground and how much height is
+/// read back from its outline ([`shape`]): in each column, its lowest pixel is the front of its footprint on the ground,
+/// the footprint's back edge follows from its corners (a footprint is a parallelogram on the screen, so its back corner is
+/// its left and right corners less its front one), and its highest pixel is the top of what stands over that back edge.
+/// A column is then redrawn from its front base, which moves with the course, through its footprint's depth (stretched as
+/// ground) to its top, whose height above the back edge is stretched as a height. So a building keeps to its tiles, its
+/// roof spreads out seen from above and its walls stand tall seen from low down. A tree or a person stands on its anchor,
+/// and a flat base or a shadow is all ground. At no tilt both stretches are 1 and the picture is the original's.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Warp {
     /// The ground's and the heights' stretch up the screen.
@@ -59,19 +62,57 @@ pub struct Warp {
     pub height: f32,
 }
 
-/// Columns a building's picture is cut into to follow its base (`App::base_edges`).
-pub const BASE_COLUMNS: usize = 16;
+/// One column of a picture's shape ([`shape`]), up the screen from the anchor at the original's angle: where its front
+/// base, its footprint's back edge and its top are drawn.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Column {
+    pub x: f32,
+    pub base: f32,
+    pub back: f32,
+    pub top: f32,
+}
+
+/// Where a tree's crown starts, up its picture from its foot.
+pub const CROWN_LOW: f32 = 0.35;
+
+/// Columns a building's picture is read and drawn in.
+pub const BASE_COLUMNS: usize = 32;
 
 impl Warp {
     pub const NONE: Warp = Warp { ground: 1.0, height: 1.0 };
 
-    /// A point drawn `cy` above the anchor (world units on the screen, up positive) at the original's angle, in a column
-    /// whose base is drawn at `edge`: its new height when tilted (`ground_only`: a flat base or a shadow).
-    pub fn y(&self, cy: f32, edge: f32, ground_only: bool) -> f32 {
+    /// A point drawn `cy` above the anchor (world units on the screen, up positive) at the original's angle, in a column of
+    /// shape `c` (all zero: standing on the anchor), tilted (`ground_only`: a flat base or a shadow).
+    pub fn y(&self, cy: f32, c: Column, ground_only: bool) -> f32 {
         if ground_only {
             return cy * self.ground;
         }
-        edge * self.ground + (cy - edge) * self.height
+        let span = c.top - c.base;
+        let k = if span > 1e-3 { ((c.back - c.base) * self.ground + (c.top - c.back) * self.height) / span } else { self.height };
+        c.base * self.ground + (cy - c.base) * k
+    }
+
+    /// A tree's point `cy` above its foot, its picture `top` high: the trunk is a height, but the crown is round and
+    /// looks the same size from any angle, so it keeps its size and rides up or down on the trunk.
+    pub fn y_tree(&self, cy: f32, top: f32) -> f32 {
+        if cy <= 0.0 || top <= 1e-3 {
+            return cy * self.height;
+        }
+        let low = top * CROWN_LOW;
+        let mid = (low + top) * 0.5;
+        // the crown's new foot: its middle moved like a height, its size kept (never under the tree's foot)
+        let low2 = (mid * self.height - (top - low) * 0.5).max(0.0);
+        if cy >= low {
+            low2 + (cy - low)
+        } else {
+            cy * low2 / low
+        }
+    }
+
+    /// A person's point `cy` above their feet: people are drawn upright from the original's angle, so they shrink
+    /// with the tilt only half as much as a wall would (fully, they read as flat cut-outs from above).
+    pub fn y_figure(&self, cy: f32) -> f32 {
+        cy * self.height.sqrt()
     }
 
     pub fn is_none(&self) -> bool {
@@ -81,6 +122,9 @@ impl Warp {
 
 /// The lower convex hull of points sorted by x, then read back at every point's x: the straight-sided base under them.
 pub fn lower_hull(pts: &[(f32, f32)]) -> Vec<(f32, f32)> {
+    if pts.is_empty() {
+        return Vec::new();
+    }
     let mut hull: Vec<(f32, f32)> = Vec::new();
     for &p in pts {
         while hull.len() >= 2 {
@@ -94,28 +138,60 @@ pub fn lower_hull(pts: &[(f32, f32)]) -> Vec<(f32, f32)> {
         }
         hull.push(p);
     }
-    pts.iter()
-        .map(|&(x, _)| {
-            let k = hull.iter().position(|h| h.0 >= x).unwrap_or(hull.len() - 1);
-            if k == 0 {
-                return (x, hull[0].1);
-            }
-            let (a, b) = (hull[k - 1], hull[k]);
-            (x, a.1 + (b.1 - a.1) * (x - a.0) / (b.0 - a.0).max(1e-6))
-        })
-        .collect()
+    pts.iter().map(|&(x, _)| (x, along(&hull, x))).collect()
 }
 
-/// Where a picture's base runs: at each of `BASE_COLUMNS + 1` points across it, the lowest opaque row (pixels from the
-/// top, `None` for an empty column), from its RGBA pixels. Each point looks a little either side, so a thin gap between
-/// columns does not count as no base.
-pub fn base_rows(w: usize, h: usize, px: &[u8]) -> Vec<Option<f32>> {
+/// A polyline sorted by x read at `x` (its ends held beyond them).
+fn along(line: &[(f32, f32)], x: f32) -> f32 {
+    let k = line.iter().position(|h| h.0 >= x).unwrap_or(line.len() - 1);
+    if k == 0 {
+        return line[0].1;
+    }
+    let (a, b) = (line[k - 1], line[k]);
+    a.1 + (b.1 - a.1) * (x - a.0) / (b.0 - a.0).max(1e-6)
+}
+
+/// The lowest and highest opaque rows (pixels from the top: the row under the lowest, the highest's own) at each of
+/// `BASE_COLUMNS + 1` points across a picture, from its RGBA pixels; `None` for an empty column. Each point looks a little
+/// either side, so a thin gap between columns does not count as empty.
+pub fn outline_rows(w: usize, h: usize, px: &[u8]) -> Vec<Option<(f32, f32)>> {
     let reach = (w / BASE_COLUMNS / 2).max(1);
+    let opaque = |x0: usize, x1: usize, y: usize| (x0..=x1).any(|x| px.get((y * w + x) * 4 + 3).is_some_and(|&a| a > 32));
     (0..=BASE_COLUMNS)
         .map(|k| {
             let cx = (k * w.saturating_sub(1)) / BASE_COLUMNS;
             let (x0, x1) = (cx.saturating_sub(reach), (cx + reach).min(w.saturating_sub(1)));
-            (0..h).rev().find(|&y| (x0..=x1).any(|x| px.get((y * w + x) * 4 + 3).is_some_and(|&a| a > 32))).map(|y| (y + 1) as f32)
+            let low = (0..h).rev().find(|&y| opaque(x0, x1, y))?;
+            let high = (0..h).find(|&y| opaque(x0, x1, y))?;
+            Some(((low + 1) as f32, high as f32))
+        })
+        .collect()
+}
+
+/// A picture's shape from its outline (`outline_rows`, with the anchor at `ax`, `ay` pixels): per column, its base (the
+/// lower hull of the lowest pixels: straight walls meeting at corners, so a porch or a bush does not bend it), its
+/// footprint's back edge (from the base's left, front and right corners) and its top (the upper hull of the highest
+/// pixels), in pixels up from the anchor. Empty columns past the picture's sides take its last ones.
+pub fn shape(rows: &[Option<(f32, f32)>], w: usize, ax: f32, ay: f32) -> Vec<Column> {
+    let xs: Vec<f32> = (0..rows.len()).map(|k| (k * w.saturating_sub(1) / BASE_COLUMNS) as f32 - ax).collect();
+    let full: Vec<usize> = (0..rows.len()).filter(|&k| rows[k].is_some()).collect();
+    if full.is_empty() {
+        return Vec::new();
+    }
+    let lows: Vec<(f32, f32)> = full.iter().map(|&k| (xs[k], ay - rows[k].unwrap().0)).collect();
+    let highs: Vec<(f32, f32)> = full.iter().map(|&k| (xs[k], -(ay - rows[k].unwrap().1))).collect();
+    let base = lower_hull(&lows);
+    let top: Vec<(f32, f32)> = lower_hull(&highs).into_iter().map(|(x, y)| (x, -y)).collect();
+    // the footprint's corners: left and right where the base ends, front where it is lowest; the back corner opposite
+    let (l, r) = (base[0], base[base.len() - 1]);
+    let f = base.iter().copied().fold(l, |m, p| if p.1 < m.1 { p } else { m });
+    let bk = (l.0 + r.0 - f.0, l.1 + r.1 - f.1);
+    let back_line = [l, bk, r];
+    xs.iter()
+        .map(|&x| {
+            let (b, t) = (along(&base, x), along(&top, x));
+            let k = along(&back_line, x).clamp(b, t.max(b));
+            Column { x, base: b, back: k, top: t.max(b) }
         })
         .collect()
 }
@@ -176,45 +252,18 @@ impl App {
         Warp { ground: p.sin() / p0.sin(), height: p.cos() / p0.cos() }
     }
 
-    /// A building's base across its picture, for the tilt ([`Warp`]): (x, height on the screen) in the picture's own
-    /// sprite pixels from its anchor, up positive, at `BASE_COLUMNS + 1` points. An empty column takes its neighbours'
-    /// base, a picture with none its anchor. Kept per frame.
-    pub fn base_edges(&mut self, si: usize, view: i32, frame: i32) -> Vec<(f32, f32)> {
+    /// A building's shape across its picture, for the tilt ([`Warp`], [`shape`]), in sprite pixels from its anchor. Kept
+    /// per frame.
+    pub fn base_edges(&mut self, si: usize, view: i32, frame: i32) -> Vec<Column> {
         let sp = &self.sprites[si].s;
         let i = sp.frame_index(view, frame);
-        let (ax, ay) = (sp.anchor_x as f32, sp.anchor_y as f32);
         if let Some(e) = self.enh.base_edges.get(&(si, i)) {
             return e.clone();
         }
+        let (ax, ay) = (sp.anchor_x as f32, sp.anchor_y as f32);
         let img = sp.frame(i);
         let (w, h) = (img.w as usize, img.h as usize);
-        let rows = base_rows(w, h, &img.px);
-        // an empty column takes the nearest base either side (the nearer, or the anchor when there is none)
-        let filled: Vec<f32> = (0..rows.len())
-            .map(|k| {
-                rows[k].unwrap_or_else(|| {
-                    let left = (0..k).rev().find_map(|j| rows[j].map(|r| (k - j, r)));
-                    let right = (k + 1..rows.len()).find_map(|j| rows[j].map(|r| (j - k, r)));
-                    match (left, right) {
-                        (Some(l), Some(r)) => {
-                            if l.0 <= r.0 {
-                                l.1
-                            } else {
-                                r.1
-                            }
-                        }
-                        (Some(l), None) => l.1,
-                        (None, Some(r)) => r.1,
-                        (None, None) => ay,
-                    }
-                })
-            })
-            .collect();
-        let pts: Vec<(f32, f32)> =
-            filled.iter().enumerate().map(|(k, &row)| ((k * w.saturating_sub(1) / BASE_COLUMNS) as f32 - ax, ay - row)).collect();
-        // the base as straight walls meeting at corners: the lower hull of the lowest pixels, so a porch, a step or a
-        // bush in front does not bend the building drawn over it
-        let e = if pts.is_empty() { pts } else { lower_hull(&pts) };
+        let e = shape(&outline_rows(w, h, &img.px), w, ax, ay);
         self.enh.base_edges.insert((si, i), e.clone());
         e
     }
@@ -424,26 +473,50 @@ mod tests {
     }
 
     #[test]
-    fn a_base_is_straight_walls_under_the_lowest_pixels() {
-        // a V-shaped base with a bump up in it (a porch drawn higher) and one down (the corner): the hull keeps the V
+    fn a_tree_keeps_its_round_crown_when_tilted() {
+        let w = Warp { ground: 1.4, height: 0.5 };
+        let (low, top) = (CROWN_LOW * 100.0, 100.0);
+        // the crown keeps its size, lower down; the trunk takes the squash; the foot stays put
+        assert!(((w.y_tree(top, top) - w.y_tree(low, top)) - (top - low)).abs() < 1e-3);
+        assert!(w.y_tree(top, top) < top);
+        assert_eq!(w.y_tree(0.0, top), 0.0);
+        // from low down the crown rides up on a longer trunk
+        let up = Warp { ground: 0.6, height: 1.2 };
+        assert!(up.y_tree(low, top) > low);
+        assert!(((up.y_tree(top, top) - up.y_tree(low, top)) - (top - low)).abs() < 1e-3);
+        assert_eq!(Warp::NONE.y_tree(50.0, top), 50.0);
+    }
+
+    #[test]
+    fn a_picture_is_read_as_a_box_on_its_footprint() {
+        // a V-shaped base with a bump up in it (a porch drawn higher): the hull keeps the V
         let pts = [(0.0, -10.0), (10.0, -20.0), (20.0, -5.0), (30.0, -40.0), (40.0, -20.0), (50.0, -10.0)];
         let h = lower_hull(&pts);
         assert_eq!(h[3], (30.0, -40.0));
         assert!(h[2].1 < -5.0 && h[1].1 <= -20.0, "{h:?}");
-        // the tilt keeps the base on the ground and stretches what stands on it as a height
-        let w = Warp { ground: 1.5, height: 0.5 };
-        assert_eq!(w.y(-10.0, -10.0, false), -15.0);
-        assert_eq!(w.y(10.0, -10.0, false), -15.0 + 10.0);
-        assert_eq!(w.y(10.0, -10.0, true), 15.0);
-        // an opaque block from row 2 to row 5: its base is under row 5
-        let (wd, ht) = (34, 8);
-        let mut px = vec![0u8; wd * ht * 4];
-        for y in 2..6 {
-            for x in 0..wd {
-                px[(y * wd + x) * 4 + 3] = 255;
+        // a box drawn as a diamond footprint 64 wide and 32 deep with walls 20 high: its outline read back gives the
+        // footprint's back corner over its front one
+        let (w, ht, ax, ay) = (65usize, 60usize, 32.0f32, 40.0f32);
+        let mut px = vec![0u8; w * ht * 4];
+        for x in 0..w {
+            let d = 16.0 * (1.0 - (x as f32 - ax).abs() / 32.0); // half the footprint's depth at this column
+            let (lo, hi) = (ay + d, ay - d - 20.0);
+            for y in hi.max(0.0) as usize..(lo as usize).min(ht) {
+                px[(y * w + x) * 4 + 3] = 255;
             }
         }
-        assert!(base_rows(wd, ht, &px).iter().all(|r| *r == Some(6.0)));
+        let c = shape(&outline_rows(w, ht, &px), w, ax, ay);
+        let mid = c[BASE_COLUMNS / 2];
+        assert!(mid.x.abs() < 1.0 && (mid.base + 16.0).abs() < 1.5 && (mid.back - 16.0).abs() < 2.0, "{mid:?}");
+        assert!((mid.top - 36.0).abs() < 1.5, "{mid:?}");
+        // tilted, the base stays on the ground, the footprint stretches as ground and the walls as heights
+        let warp = Warp { ground: 1.5, height: 0.5 };
+        assert!((warp.y(mid.base, mid, false) - mid.base * 1.5).abs() < 1e-3);
+        let top = warp.y(mid.top, mid, false);
+        let want = mid.base * 1.5 + (mid.back - mid.base) * 1.5 + (mid.top - mid.back) * 0.5;
+        assert!((top - want).abs() < 1e-3);
+        assert_eq!(warp.y(10.0, Column::default(), false), 5.0);
+        assert_eq!(warp.y(10.0, mid, true), 15.0);
     }
 
     #[test]
