@@ -370,13 +370,17 @@ impl App {
             let id = (k >> 4) % 997;
             let female = body >= 5;
             let skin = (id % 4) as u8;
+            // head-wear that reads as a cap or visor at this size, not as the face: men in white, red, black or khaki caps;
+            // women in a visor the colour of their hair (blonde, auburn, brown, dark or grey), the swap files' near matches
+            let hair = ((id / 5) % 5) as u8;
+            let hat = if female { [1, 2, 4, 9, 0][hair as usize] } else { [0, 0, 1, 9, 6][(id % 5) as usize] };
             let outfit = sg_core::bodies::Outfit {
                 female,
                 shirt: ((id * 3) % 10) as u8,
                 pants: ((id * 7) % 10) as u8,
                 skin,
-                hat: if female { 9 } else { (id % 3) as u8 },
-                hair: ((id * 5) % 6) as u8,
+                hat,
+                hair,
                 alt_skin: skin,
             };
             let (x, z) = self.units_to_world((f.x * 1024.0) as i32, (f.y * 1024.0) as i32);
