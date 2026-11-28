@@ -107,6 +107,11 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.9.11" date="2026-11-28">
+      <description>
+        <p>Browser saves are kept in the bigger browser store too and failures are shown; optional cloud saves for the browser version (off by default); the putting green is drawn with its flags and bridge as in the original; smaller saves.</p>
+      </description>
+    </release>
     <release version="0.9.10" date="2026-11-27">
       <description>
         <p>Nothing on the title menu overlaps any more; the chosen theme pack is remembered at the next start; forward and middle tee golfers respect water near their tee shot, and their rounds no longer change a hole's type.</p>

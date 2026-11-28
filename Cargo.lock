@@ -1009,7 +1009,7 @@ dependencies = [
 
 [[package]]
 name = "opensgolf"
-version = "0.9.10"
+version = "0.9.11"
 dependencies = [
  "cpal",
  "ed25519-compact",
@@ -1402,7 +1402,7 @@ dependencies = [
 
 [[package]]
 name = "sg-core"
-version = "0.9.10"
+version = "0.9.11"
 dependencies = [
  "fontdue",
  "image-webp",
@@ -1418,7 +1418,7 @@ dependencies = [
 
 [[package]]
 name = "sgplay"
-version = "0.9.10"
+version = "0.9.11"
 dependencies = [
  "cpal",
  "miniquad",
@@ -1427,7 +1427,7 @@ dependencies = [
 
 [[package]]
 name = "sgtool"
-version = "0.9.10"
+version = "0.9.11"
 dependencies = [
  "ed25519-compact",
  "image-webp",
