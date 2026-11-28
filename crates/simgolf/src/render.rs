@@ -435,6 +435,8 @@ impl App {
         // Enhanced graphics only: the dawn's sprinklers, in the same order (fx_dawn.rs)
         if crate::fx::active() {
             lamps.extend(self.fx_sprinkler_quads(g.white));
+            // and the tournament gallery's ropes (fx_crowd.rs)
+            lamps.extend(self.fx_rope_quads(g.white));
         }
         lamps.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
         let mut next_lamp = 0;

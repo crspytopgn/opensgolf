@@ -1575,7 +1575,7 @@ STR_ENHANCED_DESC_FX_BALL_IMPACTS       :Shows a puff of sand in a bunker, rings
 STR_ENHANCED_DESC_FX_QUALITY            :Sets the detail of the lighting, blurs and shadows: low, medium or high. Lower runs faster on slow machines.
 STR_ENHANCED_DESC_FX_GRASS              :Adds small tufts of grass to the rough that sway in the wind, at the closest zoom.
 STR_ENHANCED_DESC_FX_SHARPEN            :Sharpens the art's own detail on big screens, without halos (contrast-adaptive sharpening). Desktop only.
-STR_ENHANCED_DESC_FX_CROWDS             :Adds cheering spectators round the greens and fairways of the holes in play during tournaments and championships.
+STR_ENHANCED_DESC_FX_CROWDS             :Adds a gallery of spectators behind ropes round the last green, and smaller ones round the greens in play, during tournaments and championships.
 STR_ENHANCED_DESC_FX_LIFE               :Adds flocks of birds in the sky, butterflies over flower beds in summer and falling leaves in autumn.
 STR_ENHANCED_DESC_FX_SKY                :Fills the black beyond the property and below its cliff with a sky.
 STR_ENHANCED_DESC_FX_TIME_OF_DAY        :The light changes through the day: morning, midday, golden hour, sunset and a short blue dusk.
@@ -1639,7 +1639,7 @@ STR_ENHANCED_FX_HEAT                    : Heat waves in the desert: bleached lig
 STR_ENHANCED_FX_GRASS                   : Grass tufts in the rough
 STR_ENHANCED_FX_SHARPEN                 : Sharpen the art on big screens
 STR_ENHANCED_FX_WINTER                  : Late-winter frost and snow in early March
-STR_ENHANCED_FX_CROWDS                  : Crowds at tournaments and championships
+STR_ENHANCED_FX_CROWDS                  : Tournament gallery
 STR_ENHANCED_FX_LIFE                    : Birds, butterflies and falling leaves
 STR_ENHANCED_FX_DAY_LENGTH              : Day length: {VALUE}
 # Enhanced graphics > Display: the frame rate settings (the port's own, framerate.rs). They count with Enhanced graphics off
@@ -1693,7 +1693,7 @@ STR_FX_HEAT                             :Heat waves
 STR_FX_GRASS                            :Grass tufts
 STR_FX_SHARPEN                          :Sharpen
 STR_FX_WINTER                           :Winter
-STR_FX_CROWDS                           :Tournament crowds
+STR_FX_CROWDS                           :Tournament gallery
 STR_FX_LIFE                             :Life on the course
 STR_FX_WATER_COLOUR                     :Truer water colour
 STR_FX_WAVES                            :Painterly waves

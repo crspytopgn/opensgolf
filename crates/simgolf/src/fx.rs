@@ -76,7 +76,7 @@ pub struct FxSettings {
     pub sharpen: bool,
     /// Snow cover, falling snow and icy ponds early and late in the year (fx_winter.rs).
     pub winter: bool,
-    /// Spectators, a grandstand and fireworks at tournaments (fx_crowd.rs).
+    /// A gallery of spectators behind ropes at tournaments (fx_crowd.rs).
     pub crowds: bool,
     /// Birds overhead, butterflies over flower beds, autumn leaves falling (fx_life.rs).
     pub life: bool,
@@ -147,7 +147,7 @@ impl Default for FxSettings {
             grass: true,
             sharpen: true,
             winter: true,
-            crowds: true,
+            crowds: false,
             life: true,
             day_length: 1,
             water_colour: true,
@@ -396,7 +396,7 @@ pub fn from_enhanced(e: &crate::enhanced::Settings) -> FxSettings {
     s.grass = e.fx_grass;
     s.sharpen = e.fx_sharpen;
     s.winter = e.fx_winter;
-    s.crowds = e.fx_crowds;
+    s.crowds = e.fx_gallery;
     s.life = e.fx_life;
     s.day_length = e.fx_day_length.min(2);
     s.water_colour = e.fx_water_colour;

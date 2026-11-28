@@ -1731,7 +1731,7 @@ the default. With the smooth camera the mouse wheel and a pinch zoom continuousl
 zoom buttons still step to the next level), turns are animated, arrow-key scrolls glide and a dragged course coasts to a
 stop. The screen has five pages, chosen with the tabs along its top (a click or a tap; Left, Right or Tab on the
 keyboard): *Display* (the master switch, the options above, the frame rate cap and v-sync), *Effects* (the shader
-effects, cast shadows, the balls' trail and impacts, grass tufts, sharpening, crowds, wildlife, and the effects' quality,
+effects, cast shadows, the balls' trail and impacts, grass tufts, sharpening, the tournament gallery, wildlife, and the effects' quality,
 which a click steps through low, medium and high), *Atmosphere* (sky, time of day and its length, evening lights, cloud
 shadows, haze, reflections and the post-processing), *Weather* (rain, wet ground, lightning, heat, winter, mist, wind,
 seasons) and *Water* (the water's own options). The master switch heads every page. *Fix the original game's bugs* is
@@ -1775,7 +1775,9 @@ screen's right towards its top), `SG_FX_WET=W` makes the ground that wet with it
 `SG_FX_RAINBOW=K` shows a rainbow, `SG_FX_LIGHTNING=K` a lightning flash of that brightness, `SG_FX_HEAT=K` makes
 every day a heat wave that hot (0 to 1), and `SG_FX_FACETED=1` lights the ground with the tiles' flat faces as before the
 smooth normals (for comparisons). `SG_FX_RAIN` and `SG_FX_HEAT` also set the game's weather while *Weather that matters*
-is on (an always-wet course is a storm day on about four days in ten).
+is on (an always-wet course is a storm day on about four days in ten). `SG_GALLERY_DUMP=1` prints the tournament gallery
+(each hole with one, its rows and how many spectators, and the ropes' stakes) whenever the holes with one change; the
+`g:2` edit starts a tournament for its stills.
 
 ### Time of day and weather
 

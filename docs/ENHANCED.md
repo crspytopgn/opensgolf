@@ -106,7 +106,7 @@ decoded terrain light (`sg_core::terrain::Lighting`, `light_direction`) and the 
 | Heat waves (`heat`) | off | On a desert course's hot summer days: a warm, bleached light through the midday hours, a warm heat haze over the distance, and on the hottest days parched, straw-tinted grass that greens again once the heat breaks (see *Heat waves*). |
 | Sharpen (`sharpen`) | on | Contrast-adaptive sharpening of the finished picture: the art's own detail (the grass, the trees' leaves, the roofs) comes out crisper on large screens, strongest where the picture is soft and never past its own colours, so no halos. Desktop only, with the other post-processing. |
 | Winter (`winter`) | on | The first days of March on parkland and links courses: full morning frost, snow showers instead of rain, and some mornings a light dusting that melts by mid-morning (see *Winter*). |
-| Tournament crowds (`crowds`) | on | During a tournament or a championship, spectators (the game's own golfer sprites) round the greens and along the fairways of the holes in play, cheering now and then (see *Tournament atmosphere*). |
+| Tournament gallery (`crowds`) | off | During a tournament or a championship, a gallery of spectators (the game's own golfer sprites) behind a rope round the last green, and smaller ones round the greens in play, leaving the front of each green open to the fairway (see *Tournament atmosphere*). |
 | Life on the course (`life`) | on | Flocks of birds crossing the sky with their shadows, butterflies over flower beds in summer, leaves falling from the trees in autumn (see *Life on the course*). |
 | Truer water colour (`water-colour`) | on | The theme's own water colour kept as the base and tinted by the distance from the shore: lighter (and, where the art is a deep blue, more turquoise) in the shallows, a deeper blue out in the middle, a little brighter and richer. The sky is mirrored as a brighter wash of the water's own colour, weaker, so the water no longer goes grey, and part of the distance haze is made up for so a lake keeps its blue at the top of the screen (see *Water*). |
 | Painterly waves (`waves`) | on | Soft crescents of light lying across the wind, a little darker behind, swelling, drifting downwind and fading, about 28 art pixels across at any zoom: their strength follows the day's wind and the weather (glassy at dawn and dusk with the time of day, choppy in a storm). |
@@ -458,12 +458,19 @@ Test hooks: `SG_FX_BIRDS=1` keeps two birds of prey circling round the middle of
 
 ### Tournament atmosphere
 
-During an SGA tournament or Play a Championship, spectators gather round the green and along both sides of the fairway
-of each hole being played, about twenty a hole, watching the ball while one is in the air there and the green the rest of the time. They are the game's own golfer sprites in the usual
-random colours, standing, and every so often a hole's crowd cheers (the golfers' *Happy* clip) for a
-moment. They stand only on grass and rough on the club's land, never on greens, tees, sand, water, woods or buildings.
-They are drawn only: the golfers and the simulation do not see them. The original has no grandstand or fireworks art, so
-there are none, to keep to the original's look.
+With *Tournament gallery* ticked (it is off by default), during an SGA tournament or Play a Championship a gallery of
+spectators gathers behind a rope round the greens: three rows deep round the last hole's green from the start, two round
+the green the leading group is playing to and one round the other greens in play. The rope (white stakes with a line
+sagging between them) runs about a tile outside the green, on the rough only, and the front of each green is left open
+towards the fairway, so nobody stands on the line of play, on a fairway, a green, a tee, sand, water, woods or a building.
+The spectators are the game's own golfer sprites in the usual random colours. They watch a ball in the air on their hole
+(looking up), otherwise a ball on the green or the pin; some at the front of the last green's gallery sit on the grass,
+and every so often a hole's gallery cheers (the golfers' *Happy* clip) for a moment. They are drawn only: the golfers and
+the simulation do not see them. The original has no crowd, grandstand or fireworks art, so the rope is drawn by the game
+and there are no grandstands or fireworks, to keep to the original's look.
+
+Up to 0.9.11 this option was called *Crowds at tournaments and championships*, was on by default and put spectators along
+the fairways too; settings saved then do not carry over, so the gallery starts off.
 
 ### Climate
 
