@@ -27,31 +27,97 @@ fn chunk(out: &mut Vec<u8>, table: &[u32; 256], ty: &[u8; 4], body: &[u8]) {
 
 /// Encodes an image as PNG bytes.
 pub fn encode_png(img: &Rgba) -> Option<Vec<u8>> {
-    encode_png_level(img, 6)
+    encode_png_level(img, 6, false)
+}
+
+/// `encode_png` packed as small as it goes (about a fifth smaller for a picture of the course), for files kept or handed
+/// to the player (`write_png`: the accomplishment snapshots the browser keeps with the saves, screenshots and photos): an
+/// opaque picture as RGB, and each row under the filter that leaves the smallest differences, as PNG encoders usually
+/// choose. Slower than `encode_png`, so not for the many pictures made and read back at once (HD packs). The same pixels.
+pub fn encode_png_small(img: &Rgba) -> Option<Vec<u8>> {
+    encode_png_level(img, 9, true)
 }
 
 /// `encode_png` packed less tightly but several times faster: for pictures made only to be read straight back (the free
 /// set's art, drawn at run time), where the bytes' size does not matter. The same pixels.
 pub fn encode_png_quick(img: &Rgba) -> Option<Vec<u8>> {
-    encode_png_level(img, 1)
+    encode_png_level(img, 1, false)
 }
 
-fn encode_png_level(img: &Rgba, level: u8) -> Option<Vec<u8>> {
+fn encode_png_level(img: &Rgba, level: u8, tight: bool) -> Option<Vec<u8>> {
     if img.w == 0 || img.h == 0 || img.px.len() < img.w as usize * img.h as usize * 4 {
         return None;
     }
     let table = crc_table();
     let mut out = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+    let (w, h) = (img.w as usize, img.h as usize);
+    // (`tight`: see encode_png_small)
+    let rgb = tight && img.px[..w * h * 4].chunks_exact(4).all(|p| p[3] == 255);
+    let ch = if rgb { 3 } else { 4 };
     let mut ihdr = Vec::new();
     ihdr.extend_from_slice(&img.w.to_be_bytes());
     ihdr.extend_from_slice(&img.h.to_be_bytes());
-    ihdr.extend_from_slice(&[8, 6, 0, 0, 0]);
+    ihdr.extend_from_slice(&[8, if rgb { 2 } else { 6 }, 0, 0, 0]);
     chunk(&mut out, &table, b"IHDR", &ihdr);
-    let stride = img.w as usize * 4;
-    let mut raw = Vec::with_capacity((stride + 1) * img.h as usize);
-    for y in 0..img.h as usize {
-        raw.push(0);
-        raw.extend_from_slice(&img.px[y * stride..(y + 1) * stride]);
+    let stride = w * ch;
+    let rows: Vec<Vec<u8>> = (0..h)
+        .map(|y| {
+            let src = &img.px[y * w * 4..(y + 1) * w * 4];
+            if rgb {
+                src.chunks_exact(4).flat_map(|p| [p[0], p[1], p[2]]).collect()
+            } else {
+                src.to_vec()
+            }
+        })
+        .collect();
+    let mut raw = Vec::with_capacity((stride + 1) * h);
+    let zero = vec![0u8; stride];
+    let mut cand = vec![0u8; stride];
+    let mut best = vec![0u8; stride];
+    for y in 0..h {
+        let row = &rows[y];
+        if !tight {
+            raw.push(0);
+            raw.extend_from_slice(row);
+            continue;
+        }
+        let up = if y > 0 { &rows[y - 1] } else { &zero };
+        let mut best_f = 0u8;
+        let mut best_sum = u64::MAX;
+        for f in 0..5u8 {
+            let mut sum = 0u64;
+            for i in 0..stride {
+                let a = if i >= ch { row[i - ch] as i16 } else { 0 };
+                let b = up[i] as i16;
+                let c = if i >= ch { up[i - ch] as i16 } else { 0 };
+                let pred = match f {
+                    0 => 0,
+                    1 => a,
+                    2 => b,
+                    3 => (a + b) / 2,
+                    _ => {
+                        let (pa, pb, pc) = ((b - c).abs(), (a - c).abs(), (a + b - 2 * c).abs());
+                        if pa <= pb && pa <= pc {
+                            a
+                        } else if pb <= pc {
+                            b
+                        } else {
+                            c
+                        }
+                    }
+                };
+                let v = row[i].wrapping_sub(pred as u8);
+                cand[i] = v;
+                sum += (v as i8).unsigned_abs() as u64;
+            }
+            if sum < best_sum {
+                best_sum = sum;
+                best_f = f;
+                best.copy_from_slice(&cand);
+            }
+        }
+        raw.push(best_f);
+        raw.extend_from_slice(&best);
     }
     let z = miniz_oxide::deflate::compress_to_vec_zlib(&raw, level);
     chunk(&mut out, &table, b"IDAT", &z);
@@ -60,7 +126,7 @@ fn encode_png_level(img: &Rgba, level: u8) -> Option<Vec<u8>> {
 }
 
 pub fn write_png(path: impl AsRef<std::path::Path>, img: &Rgba) -> bool {
-    let Some(bytes) = encode_png(img) else { return false };
+    let Some(bytes) = encode_png_small(img) else { return false };
     crate::fsutil::write_file(path, &bytes)
 }
 
@@ -277,6 +343,34 @@ mod tests {
         assert_eq!((back.w, back.h), (3, 2));
         assert_eq!(back.px, img.px);
         assert!(super::decode_png(b"not a png").is_none());
+    }
+
+    #[test]
+    fn a_picture_is_packed_tightly_and_reads_back_the_same() {
+        // a course-like picture: smooth shades with some noise, opaque (written as RGB) and with transparency (RGBA)
+        let (w, h) = (200u32, 160u32);
+        let mut img = crate::assets::Rgba::new(w, h);
+        let mut seed = 12345u32;
+        for y in 0..h as usize {
+            for x in 0..w as usize {
+                seed = seed.wrapping_mul(1_103_515_245).wrapping_add(12345);
+                let n = (seed >> 28) as usize;
+                let i = (y * w as usize + x) * 4;
+                img.px[i] = (40 + x / 3 + n) as u8;
+                img.px[i + 1] = (120 + y / 4 + n) as u8;
+                img.px[i + 2] = (60 + (x + y) / 8) as u8;
+                img.px[i + 3] = 255;
+            }
+        }
+        let tight = super::encode_png_small(&img).unwrap();
+        let quick = super::encode_png(&img).unwrap();
+        assert_eq!(tight[25], 2, "an opaque picture is written as RGB");
+        assert!(tight.len() * 10 < quick.len() * 8, "{} bytes against {}", tight.len(), quick.len());
+        assert_eq!(super::decode_png(&tight).unwrap().px, img.px);
+        img.px[7] = 128;
+        let with_alpha = super::encode_png_small(&img).unwrap();
+        assert_eq!(with_alpha[25], 6);
+        assert_eq!(super::decode_png(&with_alpha).unwrap().px, img.px);
     }
 
     #[test]

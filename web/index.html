@@ -739,6 +739,25 @@
               </div>
               <div id="savecount"></div>
               <div id="savestatus" role="status" aria-live="polite"></div>
+              <div id="cloudbox">
+                <p><b>Cloud saves</b> (optional, off until you turn them on): a copy of your saved games, championship
+                  courses, settings and records on OpenSGolf's server, under a sync code made here. Type the code into
+                  another browser, the Home Screen app or another device and your saves are there too; from then on each
+                  game goes both ways, the newer copy winning. Nothing else is kept: no account, no name, no address. Keep
+                  the code to yourself, as anyone with it can read and replace these saves.</p>
+                <div class="actions" id="cloudoff">
+                  <button class="btn ghost" id="cloudnew">Turn on cloud saves</button>
+                  <button class="btn ghost" id="cloudjoin">I have a sync code...</button>
+                </div>
+                <div id="cloudonbox" hidden>
+                  <p>Cloud saves are on. Your sync code: <code id="cloudcode"></code></p>
+                  <div class="actions">
+                    <button class="btn ghost" id="cloudsync">Sync now</button>
+                    <button class="linkish" id="cloudstop">Turn off</button>
+                  </div>
+                </div>
+                <div id="cloudstatus" role="status" aria-live="polite"></div>
+              </div>
             </div>
           </details>
 

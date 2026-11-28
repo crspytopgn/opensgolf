@@ -3464,7 +3464,8 @@ impl App {
 
     /// Saves the whole game.
     pub fn save_game(&self, path: &Path) -> Result<(), String> {
-        let out = self.save_bytes(6)?;
+        // packed as tightly as zlib goes: a few per cent smaller, still a few milliseconds
+        let out = self.save_bytes(9)?;
         // the Saves newest first extra (backups.rs): the game saved over is kept as a backup, and the time is recorded
         let dated = crate::extras::save_newest() && path.parent() == Some(crate::files_ui::saved_games_dir().as_path());
         if dated {
