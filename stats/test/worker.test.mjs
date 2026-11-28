@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { memoryDb } from "./d1shim.mjs";
-import worker, { readCount, storeCount, gcRows, importGoatCounter, gcFetch, importStart, stats, allStats, retirement, FIRST_DAY } from "../src/index.js";
+import worker, { readCount, storeCount, mpPlay, gcRows, importGoatCounter, gcFetch, importStart, stats, allStats, retirement, FIRST_DAY } from "../src/index.js";
 import { mpStats } from "../src/mp.js";
 import { page } from "../src/page.js";
 
@@ -9,7 +9,7 @@ const u = (q) => new URL(`https://x.test/count?${q}`);
 
 test("only the game's own counts are read", () => {
   assert.deepEqual(readCount(u("e=start/windows/0.8.2&s=0123abcd&n=0"), "GB"),
-    { kind: "start", platform: "windows", version: "0.8.2", sid: "0123abcd", n: 0, t: 0, country: "GB" });
+    { kind: "start", platform: "windows", version: "0.8.2", sid: "0123abcd", n: 0, t: 0, country: "GB", mp: {} });
   assert.equal(readCount(u("e=play/linux&v=0.8.8&s=0123abcd&n=2&t=601"), "GB").t, 601);
   assert.equal(readCount(u("e=play/web&v=0.8.8&s=kept&t=1800"), null).sid, null);
   for (const q of ["e=play/linux&v=0.8.8&s=0123abcd", "e=play/linux&v=0.8.8&s=0123abcd&t=-5", "e=play/linux&v=0.8.8&s=0123abcd&t=1.5",
@@ -227,4 +227,52 @@ test("multiplayer: counts from the server's database, without hidden clubs, ids 
   assert.match(page({ ...(await stats(db, now)), mp: null }), /not bound/);
   const env = { DB: db, BOARD: { prepare() { throw new Error("down"); } } };
   assert.match((await allStats(env, now)).mp.error, /down/, "a board that fails leaves the rest of the page");
+});
+
+test("multiplayer seconds: read with the play count, each mode kept as t is, shown on the page", async () => {
+  // read: part of t, so never more; a bad one is left out and the count still taken
+  assert.deepEqual(readCount(u("e=play/web&v=0.9.11&s=0123abcd&n=1&t=600&mc=300&ml=0&mw=100"), "GB").mp, { club: 300, challenge: 100 });
+  assert.deepEqual(readCount(u("e=play/web&v=0.9.11&s=0123abcd&n=1&t=600&mc=601&mw=x&ml=-5"), "GB").mp, {});
+  assert.deepEqual(readCount(u("e=play/web&v=0.9.11&s=kept&t=600&mc=300"), "GB").mp, {}, "kept seconds have no run");
+  assert.equal(readCount(u("e=play/web&v=0.9.11&s=0123abcd&n=1&t=600&mc=601"), "GB").t, 600);
+
+  const db = memoryDb();
+  const c = (q) => readCount(u(q), "GB");
+  const at = (h) => new Date(`2026-11-28T${h}:10:00Z`);
+  await storeCount(db, c("e=start/windows/0.9.11&s=aaaaaaaa"), at("10"));
+  await storeCount(db, c("e=play/windows&v=0.9.11&s=aaaaaaaa&n=1&t=300&mc=200"), at("10"));
+  await storeCount(db, c("e=play/windows&v=0.9.11&s=aaaaaaaa&n=1&t=300&mc=200"), at("10")); // a repeat
+  await storeCount(db, c("e=play/windows&v=0.9.11&s=aaaaaaaa&n=3&t=900&mc=500&mw=250"), at("11"));
+  await storeCount(db, c("e=play/windows&v=0.9.11&s=aaaaaaaa&n=2&t=600&mc=400"), at("11")); // late: nothing added
+  await storeCount(db, c("e=play/windows&v=0.9.11&s=aaaaaaaa&n=0&t=900&mc=500&mw=250"), at("12")); // re-sent at the next start
+  await storeCount(db, c("e=play/web&v=0.9.11&s=bbbbbbbb&n=1&t=120"), at("12")); // single player: no multiplayer seconds
+  const rows = db.raw.prepare("SELECT hour, mode, seconds AS s FROM mp_hourly ORDER BY hour, mode").all();
+  assert.deepEqual(rows.map((r) => [r.hour.slice(11), r.mode, r.s]), [["10", "club", 200], ["11", "challenge", 250], ["11", "club", 300]]);
+  const all = db.raw.prepare("SELECT SUM(seconds) AS s FROM seconds_hourly").get();
+  assert.equal(all.s, 900 + 120, "the multiplayer seconds are part of the play time, not added to it");
+
+  const t = await mpPlay(db, new Date("2026-11-28T13:00:00Z"), (900 + 120) / 3600);
+  assert.equal(t.since, "2026-11-28T10");
+  assert.equal(t.hours_7d, 750 / 3600);
+  assert.ok(Math.abs(t.share_7d - 750 / 1020) < 1e-9);
+  assert.deepEqual(t.modes.map((m) => [m.mode, m.hours * 3600]), [["club", 500], ["league", 0], ["challenge", 250]]);
+  const later = await mpPlay(db, new Date("2026-12-10T13:00:00Z"), 0);
+  assert.equal(later.hours_7d, 0);
+  assert.equal(later.hours, 750 / 3600);
+
+  // the page shows it in the Multiplayer section
+  const s = await allStats({ DB: db, BOARD: null }, new Date("2026-11-28T13:00:00Z"));
+  const html = page(s);
+  assert.ok(html.includes("Multiplayer play time"));
+  assert.ok(html.includes("Shared clubs") && html.includes("0.1 h"));
+});
+
+test("a count still goes in without the multiplayer tables", async () => {
+  const db = memoryDb();
+  db.raw.exec("DROP TABLE run_mp; DROP TABLE mp_hourly;");
+  await storeCount(db, readCount(u("e=play/linux&v=0.9.11&s=aaaaaaaa&n=1&t=300&mc=200"), "GB"), new Date("2026-11-28T10:00:00Z"));
+  assert.equal(db.raw.prepare("SELECT SUM(seconds) AS s FROM seconds_hourly").get().s, 300);
+  const s = await allStats({ DB: db, BOARD: null }, new Date("2026-11-28T13:00:00Z"));
+  assert.ok(s.mp_play.error);
+  assert.ok(page(s).includes("Multiplayer play time"));
 });
