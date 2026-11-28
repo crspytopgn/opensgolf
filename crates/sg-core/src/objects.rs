@@ -347,6 +347,22 @@ const SPRITES: &[(u16, [Option<&str>; 4])] = &[
         [Some("bldgs/park/ParkSnackL2"), Some("bldgs/Desert/DESSnackL2"), Some("bldgs/Tropical/TropSnackL2"), Some("bldgs/links/PubL2")],
     ),
     (0x1ef, [Some("bldgs/park/ParkSnackL2_base"), None, Some("bldgs/Tropical/TropSnackL2_ANIM"), Some("bldgs/links/PubL2_dirt")]),
+    // the putting green's flags (0x441b7c), drawn round its middle by 0x463180 case 6
+    (
+        0x191,
+        [
+            Some("bldgs/park/putt_whiteflag"),
+            Some("bldgs/desert/dputt_whiteflag"),
+            Some("bldgs/tropical/TROPPuttingG_whiteflag"),
+            Some("bldgs/links/pg_whiteflag"),
+        ],
+    ),
+    // the placement previews of the putting green (0x17c, upgraded 0x17d) and driving range (0x17e, 0x17f), one picture
+    // a theme (frame = exe theme) in the palette DrivPuttPal (0x4430f3, preview 0x41a36a)
+    (0x17c, [Some("Bldgs/1Putt"), Some("Bldgs/1Putt"), Some("Bldgs/1Putt"), Some("Bldgs/1Putt")]),
+    (0x17d, [Some("Bldgs/2Putt"), Some("Bldgs/2Putt"), Some("Bldgs/2Putt"), Some("Bldgs/2Putt")]),
+    (0x17e, [Some("Bldgs/1Drive"), Some("Bldgs/1Drive"), Some("Bldgs/1Drive"), Some("Bldgs/1Drive")]),
+    (0x17f, [Some("Bldgs/2Drive"), Some("Bldgs/2Drive"), Some("Bldgs/2Drive"), Some("Bldgs/2Drive")]),
     (0x1f0, [Some("bldgs/park/puttL1"), Some("bldgs/desert/dputtL1"), Some("bldgs/tropical/TropPuttingGL1"), Some("bldgs/links/PG_hutL1")]),
     (
         0x1f1,
@@ -433,13 +449,11 @@ pub fn building_layers(kind: i32, level: u16, theme: u8) -> Vec<Layer> {
     let mut v = Vec::new();
     let l = level.min(1);
     match kind {
+        // the putting green is drawn piece by piece (`putting_green`); these are its hut's layers alone
         6 => {
             let k = if l == 1 { 3 } else { 0 };
             add(&mut v, 0x1f1 + k, theme, theme == 1 || theme == 3, true);
             add(&mut v, 0x1f0 + k, theme, false, false);
-            if l == 1 {
-                add(&mut v, 0x1f5, theme, false, true);
-            }
         }
         7 => {
             if l == 0 {
@@ -528,6 +542,8 @@ pub struct RangePiece {
     pub phase: u32,
     /// Drawn in this view whatever the camera (the flags).
     pub view: Option<i32>,
+    /// Turned by the object's facing as well as the camera (the putting green's hut and bridge).
+    pub turns: bool,
 }
 
 /// The sprites the exe draws for a driving range of `level` (0 or 1; the range is 5 + level tiles square) in exe theme
@@ -544,7 +560,7 @@ pub fn driving_range(level: u16, theme: u8, green: &dyn Fn(i32, i32) -> bool) ->
     let mut v = Vec::new();
     let put = |v: &mut Vec<RangePiece>, id: u16, at: (i32, i32), flat: bool, animated: bool, phase: u32, view: Option<i32>| {
         if let Some(file) = sprite(id, theme) {
-            v.push(RangePiece { file, at, flat, animated, phase, view });
+            v.push(RangePiece { file, at, flat, animated, phase, view, turns: false });
         }
     };
     for i in 0..n {
@@ -583,6 +599,54 @@ pub fn driving_range(level: u16, theme: u8, green: &dyn Fn(i32, i32) -> bool) ->
     v
 }
 
+/// The preview sprite the exe shows under the pointer while placing a putting green or driving range (0x41a36a, 0x41a3b5):
+/// 0x17c (0x17e) plus the number already built, frame = exe theme, palette `PREVIEW_PALETTE`. One picture of the whole lot,
+/// flags, hut and (upgraded) bridge included.
+pub fn placement_preview(kind: i32, built: i32) -> Option<&'static str> {
+    let base = match kind {
+        6 => 0x17c,
+        10 => 0x17e,
+        _ => return None,
+    };
+    sprite(base + built.clamp(0, 1) as u16, 0)
+}
+
+/// The palette the placement previews are drawn in (`placement_preview`; the exe loads it at 0x442e4f).
+pub const PREVIEW_PALETTE: &str = "Bldgs/DrivPuttPal.pcx";
+
+/// The sprites the exe draws for a putting green of `level` (0 or 1; the green is 3 + level tiles square) in exe theme
+/// `theme` (0x463180 case 6), in map units from the anchor tile's corner. The hut stands on the anchor tile (the lot's one
+/// building tile, `Land::place_sized`): its base 0x1f1 (upgraded 0x1f4; flat in the Desert and Links, else queued behind
+/// the hut), animated, and the hut 0x1f0 (0x1f3), both facing the object's way. Upgraded, the scenic bridge 0x1f5 stands on
+/// tile (1, 1). Then 2 * tier + 3 waving flags 0x191 (tier 1, or 2 upgraded: 5 or 7) in view 0 round the middle of the
+/// lot: flag n at screen offset (2r sin t, r cos t) with r = (n + 3) * 4 pixels and t = n * 0x4aaaaaa6 of a 2^32 turn,
+/// taken back to the map through view 0's projection (0x42fb90: x = (a + b) / 32, y = 0.625 (b - a) / 32).
+pub fn putting_green(level: u16, theme: u8) -> Vec<RangePiece> {
+    let l = level.min(1) as i32;
+    let k = if l != 0 { 3 } else { 0 };
+    let mut v = Vec::new();
+    let put = |v: &mut Vec<RangePiece>, id: u16, at: (i32, i32), flat: bool, animated: bool, view: Option<i32>, turns: bool| {
+        if let Some(file) = sprite(id, theme) {
+            v.push(RangePiece { file, at, flat, animated, phase: 0, view, turns });
+        }
+    };
+    let anchor = (512, 512);
+    put(&mut v, 0x1f1 + k, anchor, theme == 1 || theme == 3, true, None, true);
+    put(&mut v, 0x1f0 + k, anchor, false, false, None, true);
+    if l != 0 {
+        put(&mut v, 0x1f5, (1024 + 512, 1024 + 512), false, true, None, true);
+    }
+    let mid = (3 + l) * 1024 / 2;
+    for n in 0..(2 * (l + 1) + 3) {
+        let t = (n as u32).wrapping_mul(0x4aaa_aaa6) as f64 / 4_294_967_296.0 * std::f64::consts::TAU;
+        let r = ((n + 3) * 4) as f64;
+        let (sx, sy) = (2.0 * r * t.sin(), r * t.cos());
+        let (da, db) = (16.0 * sx - 25.6 * sy, 16.0 * sx + 25.6 * sy);
+        put(&mut v, 0x191, (mid + da.round() as i32, mid + db.round() as i32), false, true, Some(0), false);
+    }
+    v
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -617,6 +681,24 @@ mod tests {
         // the level 2 shop's animation is not loaded in the Desert
         assert!(driving_range(1, 0, &|_, _| false).iter().any(|p| p.animated));
         assert!(!driving_range(1, 1, &|_, _| false).iter().any(|p| p.animated));
+    }
+
+    #[test]
+    fn putting_green_pieces() {
+        // the hut on the anchor tile, five flags round the middle of the 3 tile lot, all on the lot
+        let v = putting_green(0, 0);
+        assert_eq!((v[1].file, v[1].at), ("bldgs/park/puttL1", (512, 512)));
+        let flags: Vec<_> = v.iter().filter(|p| p.file == "bldgs/park/putt_whiteflag").collect();
+        assert_eq!(flags.len(), 5);
+        assert!(flags.iter().all(|p| p.view == Some(0) && (0..3 * 1024).contains(&p.at.0) && (0..3 * 1024).contains(&p.at.1)));
+        // the first flag stands straight below the middle on the screen: up b, down a
+        assert_eq!(flags[0].at, (1536 - 307, 1536 + 307));
+        // upgraded: the level 2 hut, the bridge on tile (1, 1), seven flags on the 4 tile lot
+        let v = putting_green(1, 0);
+        assert!(v.iter().any(|p| p.file == "bldgs/park/puttL2"));
+        assert!(v.iter().any(|p| p.file == "bldgs/park/puttscenic" && p.at == (1536, 1536)));
+        assert_eq!(v.iter().filter(|p| p.view == Some(0)).count(), 7);
+        assert_eq!(placement_preview(6, 1), Some("Bldgs/2Putt"));
     }
 
     #[test]
