@@ -661,30 +661,33 @@ def hotel(style, rng, level=1):
 
 
 def putting(style, rng, level=1):
-    """A putting green: the green with holes and flags on the base, a small starter's hut."""
+    """A putting green's starter hut, which stands on the lot's corner tile: the game draws the green itself as terrain,
+    and the flags and the upgraded green's bridge as sprites of their own (sg_core::objects::putting_green)."""
     body, base = Scene(), Scene()
     k = Kit(body, style, rng)
     st = k.st
-    R = 70 if level >= 2 else 54
-    ang = np.linspace(0, 2 * np.pi, 25)
-    ring = [np.array([np.cos(a) * R * (1 + 0.08 * np.sin(3 * a)), 0.6, np.sin(a) * R * 0.85 * (1 + 0.06 * np.cos(2 * a))])
-            for a in ang]
-    base.add_tris(np.array([[np.array([0, 0.6, 0]), ring[i], ring[i + 1]] for i in range(24)]), c(116, 190, 84))
-    ring2 = [p * 1.08 + [0, -0.1, 0] for p in ring]
-    base.add_tris(np.array([[np.array([0, 0.5, 0]), ring2[i], ring2[i + 1]] for i in range(24)]), c(90, 160, 68))
-    holes = [(-R * 0.4, -R * 0.2), (R * 0.3, R * 0.25), (R * 0.45, -R * 0.35)]
-    for hx, hz in holes:
-        a2 = np.linspace(0, 2 * np.pi, 9)
-        base.add_tris(np.array([[[hx, 0.8, hz], [hx + np.cos(a2[i]) * 2.2, 0.8, hz + np.sin(a2[i]) * 2.2],
-                                  [hx + np.cos(a2[i + 1]) * 2.2, 0.8, hz + np.sin(a2[i + 1]) * 2.2]] for i in range(8)]),
-                      c(40, 50, 40))
-        k.add(tube([hx, 0, hz], [hx, 22, hz], 0.5, 0.5, 4), c(240, 240, 240))
-        k.add(quad([hx, 22, hz], [hx + 7, 20.5, hz], [hx + 7, 17, hz], [hx, 16.5, hz]), c(220, 50, 50))
-    # the hut at the back corner
-    hx, hz = R * 0.75, R * 0.6
-    k.block(hx - 12, hz - 10, hx + 12, hz + 10, 0, 22)
-    roof_for(k, style, hx - 12, hz - 10, hx + 12, hz + 10, 22, 12)
-    k.door([hx - 12, 0, hz], (-1, 0, 0), 9, 18)
+    big = level >= 2
+    W, D = (20, 16) if big else (16, 13)
+    H = 24 if big else 20
+    ground_patch(base, st, -W - 10, -D - 14, W + 8, D + 8, st["pave"], y=0.6, tiles=6, rng=rng)
+    k.block(-W, -D, W, D, 0, H, st["wall"], bands=4 if style == "park" else 0)
+    roof_for(k, style, -W, -D, W, D, H, 14 if big else 12, along_x=True)
+    front = (0, 0, -1)
+    k.door([-W * 0.3, 0, -D], front, 9, 17)
+    k.awning([-W * 0.3, 0, -D], front, 12, y=19)
+    k.windows_along((W * 0.1, -D), (W, -D), 10, front, 1, w=10, h=9)
+    k.windows_along((-W, -D), (-W, D), 10, (-1, 0, 0), 1)
+    # a rack of putters by the door
+    k.add(box([W * 0.45, 6, -D - 4], [8, 12, 3]), st["trim"])
+    if big:
+        k.flagpole(W + 7, -D - 6, 40)
+    if style == "trop":
+        k.tree(W + 8, D + 4, 50, "palm")
+    elif style == "desert":
+        k.tree(W + 6, -D - 8, 30, "cactus")
+    else:
+        k.shrub(W + 6, D + 4, 5)
+        k.shrub(-W - 6, -D - 6, 5)
     return body, base
 
 
@@ -1456,7 +1459,7 @@ FAMILIES = [
     (r"/park/hotell1|/desert/deshotell1|/tropical/trophotell1|/links/hotell1", B(hotel, 1), 1.4),
     (r"/park/hotell2|/desert/deshol2|/tropical/trophotell2|/links/hotell2", B(hotel, 2), 1.4),
     (r"/park/puttl1|/desert/dputtl1|/tropical/tropputtinggl1|/links/pg_hutl1", B(putting, 1)),
-    (r"/park/puttl2|/desert/desputtl2\.|/tropical/tropputtinggl2|/links/pg_hutl2", B(putting, 2)),
+    (r"/park/puttl2|/desert/desputtl2\.|/tropical/tropputtinggl2(?!_scenic)|/links/pg_hutl2", B(putting, 2)),
     (r"/park/tenl1|/desert/tenl1", B(tennis, 1)),
     (r"/park/tenl2|/desert/tenl2", B(tennis, 2)),
     (r"/park/houseconst|/desert/deshouseconst|/tropical/trophouseconst|/links/houseconst_links", lambda st, rng: construction(st, rng)),

@@ -473,6 +473,9 @@ def prop(path, t):
         return bridge(m.group(2), style), {"WOOD": (150, 108, 70), "WHITE": (240, 236, 226), "EARTH": (186, 136, 92),
                                            "YELLOW": (220, 190, 120), "STONE": (160, 154, 142)}, "world"
     m = re.match(r"scenicgen(\d\d)$", name)
+    # the upgraded putting green's footbridge (sg_core::objects::putting_green)
+    if name in ("puttscenic", "desputtl2scenic", "tropputtinggl2_scenic", "pg_scenicl2"):
+        return scenic_bridge("wood"), {"WOOD": (150, 108, 70), "STONE": (168, 160, 146), "RED": (178, 64, 50)}, "fit"
     if m or name in ("bridgebrick", "bridgestone", "scenicbridge"):
         kind = "gen" + m.group(1) if m else name.replace("bridge", "").replace("scenic", "") or "wood"
         return scenic_bridge(kind), {"WOOD": (150, 108, 70), "STONE": (168, 160, 146), "RED": (178, 64, 50)}, "fit"

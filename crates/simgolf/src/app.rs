@@ -5452,15 +5452,22 @@ impl App {
             if self.terrain.type_at(o.a, o.b) == 20 {
                 continue;
             }
-            if o.kind == land::K_DRIVING_RANGE {
-                // the range is drawn tile by tile (0x463180 case 10): shop, platforms, fences, flags on its target greens
+            if o.kind == land::K_DRIVING_RANGE || o.kind == land::K_PUTTING_GREEN {
+                // the range is drawn tile by tile (0x463180 case 10): shop, platforms, fences, flags on its target greens;
+                // the putting green (case 6) as its hut on the anchor tile, flags round the lot's middle and, upgraded,
+                // the bridge
                 let green = |i: i32, j: i32| {
                     let (ta, tb) = (o.a + i, o.b + j);
                     (0..land::mn()).contains(&ta)
                         && (0..land::mn()).contains(&tb)
                         && land.ty[(ta * land::mn() + tb) as usize] == land::T_GREEN
                 };
-                for pc in sg_core::objects::driving_range(level, theme, &green) {
+                let pieces = if o.kind == land::K_DRIVING_RANGE {
+                    sg_core::objects::driving_range(level, theme, &green)
+                } else {
+                    sg_core::objects::putting_green(level, theme)
+                };
+                for pc in pieces {
                     let Some(body) = self.sprite_for(&format!("{}.flc", pc.file), false, None) else { continue };
                     let shadow = if pc.flat { None } else { self.sprite_for(&format!("{}Shadow.flc", pc.file), true, None) };
                     let (x, z) = self.units_to_world(o.a * 1024 + pc.at.0, o.b * 1024 + pc.at.1);
@@ -5473,6 +5480,7 @@ impl App {
                         animated: pc.animated,
                         phase: pc.phase,
                         view: pc.view,
+                        facing: if pc.turns { o.dir as i32 } else { 0 },
                         object: true,
                         ..Default::default()
                     });

@@ -255,7 +255,18 @@ impl App {
                 let look = if clear.is_some() { Look::Ghost } else { Look::Red };
                 // a landmark in its palette, 100 + type (0x41a07a)
                 let mut pal = None;
-                let files: Vec<(String, bool)> = if kind == land::K_LANDMARK {
+                // the putting green and driving range: one picture of the whole lot (0x41a36a, 0x41a3b5), the theme's
+                // frame of 0x17c / 0x17e plus the number built, in its own palette
+                let mut frame = 0;
+                // (the free set has no such picture and shows the building alone, as does a copy missing it)
+                let free = self.on_free_set();
+                let whole = sg_core::objects::placement_preview(kind, self.lot_level(kind).min(1))
+                    .filter(|f| !free && self.sprite_for(&format!("{f}.flc"), false, Some(sg_core::objects::PREVIEW_PALETTE)).is_some());
+                let files: Vec<(String, bool)> = if let Some(file) = whole {
+                    pal = Some(sg_core::objects::PREVIEW_PALETTE);
+                    frame = self.exe_theme() as i32;
+                    vec![(file.to_string(), false)]
+                } else if kind == land::K_LANDMARK {
                     let Some(t) = self.chosen_landmark() else { return };
                     // (the extras' cut landmarks and animals too: sg_core::objects::landmark_art)
                     let Some((file, p)) = sg_core::objects::landmark_art(t, self.exe_theme()) else { return };
@@ -292,7 +303,7 @@ impl App {
                 }
                 for &(body, _, flat) in &layers {
                     if !flat {
-                        self.preview_quad(g, u, body, quarter, facing, 0, x, z, look);
+                        self.preview_quad(g, u, body, quarter, facing, frame, x, z, look);
                     }
                 }
             }
